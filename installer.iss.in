@@ -1,0 +1,101 @@
+; Inno Setup installer script for Kennel
+;
+; This file is generated from installer.iss.in by CMake.
+; Run from the build directory:
+;   cd .build-release
+;   iscc installer.iss
+;
+; Or set the source path explicitly in Inno Setup IDE
+
+#define MyAppName "Kennel"
+#define MyAppVersion "@PROJECT_VERSION@"
+#define MyAppPublisher "Eran Ifrah"
+#define MyAppURL "https://github.com/eranif/kennel"
+#define MyAppExeName "kennel.exe"
+#define SourceDir "@INSTALLER_SOURCE_DIR@"
+
+[Setup]
+; Metadata
+AppId={{E8A7C8B1-8C3E-4E3C-9B5A-7D4C6E5A4B3C}
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}/issues
+AppUpdatesURL={#MyAppURL}/releases
+DefaultDirName={autopf}\{#MyAppName}
+DefaultGroupName={#MyAppName}
+AllowNoIcons=yes
+
+; UI and behavior
+DisableProgramGroupPage=no
+PrivilegesRequired=lowest
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
+
+; Output
+OutputDir=.
+OutputBaseFilename=kennel-{#MyAppVersion}-installer
+SetupIconFile={#SourceDir}\assets\kennel.ico
+UninstallIconFile={#SourceDir}\assets\kennel.ico
+Compression=lzma2
+SolidCompression=yes
+ShowLanguageDialog=no
+WizardStyle=modern
+LicenseFile={#SourceDir}\LICENSE
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+
+[Files]
+; Copy all binaries from installer/bin/
+Source: "{#SourceDir}\bin\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; Copy all assets from installer/assets/
+Source: "{#SourceDir}\assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; Copy LICENSE to app directory
+Source: "{#SourceDir}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+
+[Icons]
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\assets\kennel.ico"
+Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
+Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\assets\kennel.ico"; Tasks: desktopicon
+Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\assets\kennel.ico"; Tasks: quicklaunchicon
+
+[Run]
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+; Clean up application data on uninstall (optional - comment out to preserve user data)
+; Type: dirifempty; Name: "{app}"
+
+[Code]
+procedure InitializeWizard;
+begin
+  { Optional: Add custom code here if needed }
+end;
+
+procedure RegisterPreviousData(PreviousDataKey: Integer);
+begin
+  { Optional: Register settings for upgrade detection }
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+end;
+
+function BackButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  { Optional: Add custom actions at different setup steps }
+end;

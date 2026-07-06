@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg viewBox="0 0 120 400" width="120" height="400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gear icon (top) -->
+  <circle cx="60" cy="65" r="24" fill="none" stroke="#3B82F6" stroke-width="3"/>
+  <circle cx="60" cy="65" r="11" fill="#3B82F6" opacity="0.3"/>
+  <!-- Gear teeth -->
+  <rect x="55" y="37" width="10" height="10" rx="2" fill="#3B82F6"/>
+  <rect x="55" y="83" width="10" height="10" rx="2" fill="#3B82F6"/>
+  <rect x="32" y="60" width="10" height="10" rx="2" fill="#3B82F6"/>
+  <rect x="78" y="60" width="10" height="10" rx="2" fill="#3B82F6"/>
+  <rect x="37" y="42" width="9" height="9" rx="2" fill="#3B82F6" transform="rotate(45 41.5 46.5)"/>
+  <rect x="74" y="42" width="9" height="9" rx="2" fill="#3B82F6" transform="rotate(45 78.5 46.5)"/>
+  <rect x="37" y="78" width="9" height="9" rx="2" fill="#3B82F6" transform="rotate(45 41.5 82.5)"/>
+  <rect x="74" y="78" width="9" height="9" rx="2" fill="#3B82F6" transform="rotate(45 78.5 82.5)"/>
+
+  <!-- Shell prompt (centre) -->
+  <rect x="15" y="150" width="90" height="60" rx="4" fill="#0F172A" stroke="#3B82F6" stroke-width="1.5"/>
+  <text x="25" y="175" font-family="monospace" font-size="13" fill="#4CAF50">$ export</text>
+  <text x="25" y="195" font-family="monospace" font-size="13" fill="#4CAF50">$ PATH=...</text>
+
+  <!-- Key / variables icon (bottom) -->
+  <circle cx="60" cy="280" r="14" fill="none" stroke="#EAB308" stroke-width="2.5"/>
+  <line x1="60" y1="294" x2="60" y2="340" stroke="#EAB308" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="60" y1="315" x2="70" y2="315" stroke="#EAB308" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="60" y1="328" x2="68" y2="328" stroke="#EAB308" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

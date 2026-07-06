@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 24 24"
+   version="1.1"
+   id="svg3"
+   sodipodi:docname="claude-code-wsl.svg"
+   inkscape:version="1.4 (86a8ad7, 2024-10-11)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs3">
+    <linearGradient
+       id="Unbenannter_Verlauf_13"
+       data-name="Unbenannter Verlauf 13"
+       x1="20.89856"
+       y1="28.70122"
+       x2="160.51788"
+       y2="270.52899"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#0078d3"
+         id="stop1" />
+      <stop
+         offset="1"
+         stop-color="#0c5aa5"
+         id="stop2" />
+    </linearGradient>
+    <radialGradient
+       id="Unbenannter_Verlauf_25"
+       data-name="Unbenannter Verlauf 25"
+       cx="96.613213"
+       cy="162.92136"
+       fx="96.613213"
+       fy="162.92136"
+       r="40.583229"
+       gradientTransform="matrix(0,-1,0.76688,0,-28.32862,259.53456)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#c86508"
+         id="stop3" />
+      <stop
+         offset="1"
+         stop-color="#bf6009"
+         id="stop4" />
+    </radialGradient>
+    <filter
+       id="drop-shadow-1"
+       x="40.5"
+       y="102"
+       width="112"
+       height="113"
+       filterUnits="userSpaceOnUse">
+      <feOffset
+         dx="0"
+         dy="7"
+         id="feOffset4" />
+      <feGaussianBlur
+         result="blur"
+         stdDeviation="8"
+         id="feGaussianBlur4" />
+      <feFlood
+         flood-color="#000"
+         flood-opacity=".4"
+         id="feFlood4" />
+      <feComposite
+         in2="blur"
+         operator="in"
+         id="feComposite4" />
+      <feComposite
+         in="SourceGraphic"
+         id="feComposite5" />
+    </filter>
+    <radialGradient
+       id="Unbenannter_Verlauf_20"
+       data-name="Unbenannter Verlauf 20"
+       cx="96.5"
+       cy="154.76035"
+       fx="96.5"
+       fy="154.76035"
+       r="40.36821"
+       gradientTransform="matrix(0,-1,0.64075,0,-2.6625,251.26035)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#ef8506"
+         id="stop5" />
+      <stop
+         offset="1"
+         stop-color="#ed7e03"
+         id="stop6" />
+    </radialGradient>
+    <radialGradient
+       id="Unbenannter_Verlauf_37"
+       data-name="Unbenannter Verlauf 37"
+       cx="96.951118"
+       cy="129.93069"
+       fx="96.951118"
+       fy="129.93069"
+       r="103.07409"
+       gradientTransform="matrix(0,-1,0.83279,0,-11.25307,226.88182)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset=".0784"
+         stop-color="#ffc700"
+         id="stop7" />
+      <stop
+         offset="1"
+         stop-color="#ffc700"
+         id="stop8" />
+    </radialGradient>
+  </defs>
+  <sodipodi:namedview
+     id="namedview3"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="36.666667"
+     inkscape:cx="12.027273"
+     inkscape:cy="12"
+     inkscape:window-width="1526"
+     inkscape:window-height="1186"
+     inkscape:window-x="251"
+     inkscape:window-y="30"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg3" />
+  <!-- Claude Code icon scaled to ~70% in top-left -->
+  <g
+     transform="matrix(1,0,0,1.3333333,0,-4.6666662)"
+     id="g1">
+    <path
+       clip-rule="evenodd"
+       d="M 20.998,10.949 H 24 v 3.102 h -3 v 3.028 H 19.513 V 20 H 18 V 17.079 H 16.513 V 20 H 15 V 17.079 H 9 V 20 H 7.488 V 17.079 H 6 V 20 H 4.487 V 17.079 H 3 V 14.05 H 0 v -3.1 H 3 V 5 H 20.998 Z M 6,10.949 H 7.488 V 8.102 H 6 Z m 10.51,0 H 18 V 8.102 h -1.49 z"
+       fill="#d97757"
+       fill-rule="evenodd"
+       id="path1" />
+  </g>
+  <!-- Terminal badge bottom-right (8x8 in 24 viewBox) -->
+  <g
+     id="Ebene_1-2"
+     data-name="Ebene 1"
+     transform="matrix(0.05181347,0,0,0.05181347,14,10.735752)">
+    <path
+       class="cls-4"
+       d="M 96.49981,0 H 96.5 C 149.7598,0 193,43.2402 193,96.5 V 246 c 0,5.51915 -4.48085,10 -10,10 H 10 C 4.48085,256 0,251.51915 0,246 V 96.49981 C 0,43.24011 43.24011,0 96.49981,0 Z"
+       id="path8"
+       style="fill:url(#Unbenannter_Verlauf_13)" />
+    <circle
+       class="cls-2"
+       cx="56.5"
+       cy="87.110001"
+       r="32"
+       id="circle8"
+       style="fill:#ffffff" />
+    <circle
+       class="cls-2"
+       cx="136.5"
+       cy="87.110001"
+       r="32"
+       id="circle9"
+       style="fill:#ffffff" />
+    <path
+       class="cls-2"
+       d="m 88.5,87.11 h -64 v 80.77687 c 0,35.23677 28.56505,63.80182 63.80182,63.80182 H 88.5 Z"
+       id="path9"
+       style="fill:#ffffff" />
+    <path
+       class="cls-2"
+       d="m 104.5,87.11 h 64 v 80.77687 c 0,35.23677 -28.56505,63.80182 -63.80182,63.80182 H 104.5 Z"
+       id="path10"
+       style="fill:#ffffff" />
+    <rect
+       class="cls-2"
+       x="75.962257"
+       y="178.00943"
+       width="40.754719"
+       height="48.452831"
+       id="rect10"
+       style="fill:#ffffff" />
+    <circle
+       cx="56.5"
+       cy="96.109993"
+       r="16.301901"
+       transform="rotate(-80.78253,56.500002,96.109993)"
+       id="circle10" />
+    <circle
+       cx="136.5"
+       cy="96.110001"
+       r="16.301889"
+       id="circle11" />
+    <circle
+       class="cls-3"
+       cx="96.5"
+       cy="151.91"
+       r="32"
+       id="circle12"
+       style="fill:url(#Unbenannter_Verlauf_25);filter:url(#drop-shadow-1)" />
+    <path
+       class="cls-1"
+       d="m 64.5,149.48114 c 0,-14.94339 13.16492,-29.21021 32,-29.37115 19.08282,-0.16306 32,16.88058 32,29.37115 0,0 -11.54718,7.62885 -32,7.62885 -20.45282,0 -32,-7.62885 -32,-7.62885 z"
+       id="path12"
+       style="fill:url(#Unbenannter_Verlauf_20)" />
+    <path
+       class="cls-5"
+       d="m 24.5,160.25473 c 0,19.28659 -2.59474,71.85527 71.95556,71.85527 74.5503,0 72.04444,-50.83755 72.04444,-72.35057 0,0 -14.9004,53.93208 -72.04444,53.93208 C 39.31152,213.69151 24.5,160.25473 24.5,160.25473 Z"
+       id="path13"
+       style="fill:url(#Unbenannter_Verlauf_37)" />
+  </g>
+</svg>

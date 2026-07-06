@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- App tile -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bg)"/>
+
+  <!-- Doghouse -->
+  <g>
+    <!-- Roof -->
+    <path d="M256 120 L408 248 L104 248 Z" fill="#F8FAFC"/>
+    <!-- Roof eaves -->
+    <path d="M256 120 L408 248 L376 248 L256 147 L136 248 L104 248 Z" fill="#CBD5E1"/>
+    <!-- Body -->
+    <rect x="140" y="248" width="232" height="160" rx="14" fill="#F8FAFC"/>
+    <!-- Door (arched) -->
+    <path d="M214 408 L214 322 a42 42 0 0 1 84 0 L298 408 Z" fill="#0F172A"/>
+  </g>
+
+  <!-- Terminal prompt in the doorway -->
+  <g stroke="#4ADE80" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <polyline points="232,338 248,352 232,366"/>
+    <line x1="258" y1="368" x2="282" y2="368"/>
+  </g>
+</svg>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg viewBox="0 0 120 400" width="120" height="400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Local machine icon (top) -->
+  <rect x="35" y="40" width="50" height="40" rx="4" fill="#3B82F6" opacity="0.9"/>
+  <rect x="40" y="45" width="40" height="28" rx="2" fill="#0F172A"/>
+  <rect x="50" y="82" width="20" height="3" rx="1" fill="#3B82F6"/>
+  <rect x="45" y="87" width="30" height="3" rx="1" fill="#3B82F6"/>
+
+  <!-- Connection lines / signal waves (vertical) -->
+  <path d="M60 115 Q60 140 50 155" fill="none" stroke="#3B82F6" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+  <path d="M60 115 Q60 140 60 155" fill="none" stroke="#3B82F6" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M60 115 Q60 140 70 155" fill="none" stroke="#3B82F6" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Globe / remote icon (centre) -->
+  <circle cx="60" cy="200" r="28" fill="none" stroke="#3B82F6" stroke-width="2.5"/>
+  <ellipse cx="60" cy="200" rx="13" ry="28" fill="none" stroke="#3B82F6" stroke-width="1.5"/>
+  <line x1="32" y1="200" x2="88" y2="200" stroke="#3B82F6" stroke-width="1.5"/>
+  <path d="M35 185 Q60 181 85 185" fill="none" stroke="#3B82F6" stroke-width="1.2"/>
+  <path d="M35 215 Q60 219 85 215" fill="none" stroke="#3B82F6" stroke-width="1.2"/>
+
+  <!-- Question mark (bottom) -->
+  <text x="38" y="320" font-family="sans-serif" font-size="56" font-weight="bold" fill="#3B82F6" opacity="0.6">?</text>
+</svg>

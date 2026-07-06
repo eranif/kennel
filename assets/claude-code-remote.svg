@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 24 24"
+   version="1.1"
+   id="svg3"
+   sodipodi:docname="claude-code-remote.svg"
+   inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs3" />
+  <sodipodi:namedview
+     id="namedview3"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="36.666667"
+     inkscape:cx="12.013636"
+     inkscape:cy="12.013636"
+     inkscape:window-width="1526"
+     inkscape:window-height="1186"
+     inkscape:window-x="251"
+     inkscape:window-y="37"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg3" />
+  <!-- Claude Code icon scaled to ~70% in top-left -->
+  <g
+     transform="matrix(1,0,0,1.3333333,0,-4.6666662)"
+     id="g1">
+    <path
+       clip-rule="evenodd"
+       d="M 20.998,10.949 H 24 v 3.102 h -3 v 3.028 H 19.513 V 20 H 18 V 17.079 H 16.513 V 20 H 15 V 17.079 H 9 V 20 H 7.488 V 17.079 H 6 V 20 H 4.487 V 17.079 H 3 V 14.05 H 0 v -3.1 H 3 V 5 H 20.998 Z M 6,10.949 H 7.488 V 8.102 H 6 Z m 10.51,0 H 18 V 8.102 h -1.49 z"
+       fill="#d97757"
+       fill-rule="evenodd"
+       id="path1" />
+  </g>
+  <!-- Terminal badge bottom-right (8x8 in 24 viewBox) -->
+  <g
+     id="g3"
+     transform="matrix(1.3333333,0,0,1.5528256,-7.3333326,-8.6093376)">
+    <rect
+       x="14.5"
+       y="14.5"
+       width="9"
+       height="6.5"
+       rx="1"
+       fill="#3b82f6"
+       id="rect1" />
+    <rect
+       x="15.2"
+       y="15.2"
+       width="7.5999999"
+       height="5"
+       rx="0.40000001"
+       fill="#0f172a"
+       id="rect2" />
+    <path
+       fill="#3b82f6"
+       d="m 16,16.8 1.4,1.1 -1.4,1.1 0.5,0.5 1.8,-1.6 -1.8,-1.6 z"
+       id="path2" />
+    <rect
+       x="18.5"
+       y="18.200001"
+       width="2.5"
+       height="0.89999998"
+       rx="0.2"
+       fill="#3b82f6"
+       id="rect3" />
+  </g>
+</svg>

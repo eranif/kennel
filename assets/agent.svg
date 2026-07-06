@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="16px"
+   height="16px"
+   viewBox="0 0 16 16"
+   version="1.1"
+   id="svg5"
+   sodipodi:docname="agent.svg"
+   inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs5" />
+  <sodipodi:namedview
+     id="namedview5"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="47.88"
+     inkscape:cx="8.1975773"
+     inkscape:cy="10.098162"
+     inkscape:window-width="1908"
+     inkscape:window-height="1186"
+     inkscape:window-x="0"
+     inkscape:window-y="30"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg5" />
+  <!-- Antenna -->
+  <!-- Head / face plate -->
+  <!-- Dark screen -->
+  <!-- Eyes -->
+  <!-- Mouth -->
+  <!-- Ears / side nubs -->
+  <rect
+     x="1.7142856"
+     y="0.99504149"
+     width="12.571429"
+     height="14.009917"
+     rx="2.8571429"
+     ry="3.8916435"
+     fill="#3b82f6"
+     id="rect1"
+     style="stroke-width:1.33381" />
+  <rect
+     x="3.0857143"
+     y="3.1743619"
+     width="9.8285723"
+     height="9.6512747"
+     rx="1.6"
+     ry="2.1793203"
+     fill="#0f172a"
+     id="rect2"
+     style="stroke-width:1.33381" />
+  <ellipse
+     cx="5.7142859"
+     cy="7.377336"
+     fill="#3b82f6"
+     id="circle2"
+     style="stroke-width:1.33381"
+     rx="1.3142858"
+     ry="1.790156" />
+  <ellipse
+     cx="10.285714"
+     cy="7.377336"
+     fill="#3b82f6"
+     id="circle3"
+     style="stroke-width:1.33381"
+     rx="1.3142858"
+     ry="1.790156" />
+  <rect
+     x="5.1428571"
+     y="10.490651"
+     width="5.7142859"
+     height="1.5566574"
+     rx="0.5714286"
+     fill="#3b82f6"
+     id="rect3"
+     style="stroke-width:1.33381" />
+  <rect
+     x="-2.1920928e-07"
+     y="4.8866854"
+     width="1.8285716"
+     height="5.4483008"
+     rx="0.91428578"
+     fill="#3b82f6"
+     id="rect4"
+     style="stroke-width:1.33381" />
+  <rect
+     x="14.171429"
+     y="4.8866854"
+     width="1.8285716"
+     height="5.4483008"
+     rx="0.91428578"
+     fill="#3b82f6"
+     id="rect5"
+     style="stroke-width:1.33381" />
+</svg>

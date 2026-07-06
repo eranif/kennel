@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
+  <!-- Upward arrow -->
+  <line x1="8" y1="15" x2="8" y2="2"
+        stroke="#3B82F6" stroke-width="1.6" stroke-linecap="round"/>
+  <!-- Arrowhead -->
+  <polyline points="2,8 8,1.5 14,8"
+            fill="none" stroke="#3B82F6" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
