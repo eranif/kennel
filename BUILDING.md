@@ -12,12 +12,7 @@ contributing. For what Kennel is and how to use it, see [`README.md`](README.md)
 3. Download the latest Xcode from the App Store
 4. In Xcode, open **Preferences → Downloads** and install the Command Line Tools (adds `clang`/`clang++` to `/usr/bin`)
 
-### Quick Build (recommended)
-
-The `build.sh` script at the repo root automates the whole process: it verifies the
-prerequisites (`clang++`, `cmake`, `git`), builds a **local** copy of wxWidgets into
-`.build-release/wxWidgets-install/`, and then builds Kennel against that local copy — no
-system-wide wxWidgets install required.
+### Build
 
 ```bash
 mkdir -p $HOME/devl
@@ -27,19 +22,47 @@ cd kennel
 ./build.sh
 ```
 
-The script is incremental and safe to re-run:
-
-- **wxWidgets** is cloned and built only once; subsequent runs detect the existing
-  `.build-release/wxWidgets-install/bin/wx-config` and skip it.
-- **Kennel** is re-configured with CMake only on the first run or when `CMakeLists.txt` is
-  newer than the generated `CMakeCache.txt`; otherwise it goes straight to `make`.
-
-When it finishes it prints the command to launch the app.
-
 ### Run It
 
 ```bash
 open $HOME/devl/kennel/.build-release/kennel.app
+```
+
+## Windows
+
+### Prerequisites
+
+1. Install **MSYS2** from <https://www.msys2.org/>
+2. Open the MSYS2 terminal and run the following command to install build dependencies:
+
+```bash
+pacman -Sy git                                  \
+           mingw-w64-clang-x86_64-toolchain     \
+           mingw-w64-clang-x86_64-python3       \
+           mingw-w64-clang-x86_64-cmake         \
+           mingw-w64-clang-x86_64-libffi        \
+           mingw-w64-clang-x86_64-jq            \
+           mingw-w64-clang-x86_64-libxml2       \
+           mingw-w64-clang-x86_64-llvm-openmp   \
+           mingw-w64-clang-x86_64-ntldd         \
+           mingw-w64-clang-x86_64-zlib          \
+           unzip
+```
+
+### Build
+
+```bash
+mkdir -p $HOME/devl
+cd $HOME/devl
+git clone https://github.com/eranif/kennel.git
+cd kennel
+./build.sh
+```
+
+### Run It
+
+```bash
+$HOME/devl/kennel/.build-release/installer/bin/kennel.exe
 ```
 
 ## Project Structure
@@ -89,12 +112,11 @@ Kennel is layered:
 - **Methods:** PascalCase (`LogsDir()`, `Load()`, `OnSessionExited()`).
 - **Formatting:** all sources MUST be `clang-format`-clean before committing. The root
   `.clang-format` uses `IndentWidth: 2`.
-  Format only Kennel's own files under `src/` — never `third_party/`, and skip the
-  vendored `src/core/json.hpp`:
+  Format only Kennel's own files under `src/` and skip the vendored `src/core/json.hpp`:
 
 ```bash
-  find src -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) ! -name 'json.hpp' \
-    | xargs clang-format -i
+find src -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) ! -name 'json.hpp' \
+  | xargs clang-format -i
 ```
 
 ### Data Types
