@@ -170,7 +170,31 @@ function usage() {
   echo "  (none)      Build Kennel (default)"
   echo "  clean       Remove build artifacts (make clean)"
   echo "  distclean   Remove the entire build directory"
+  echo "  package     Create an installer suitable for the current platform"
   echo "  -h, --help  Show this help message"
+}
+
+function build() {
+  if [[ "${OS_NAME}" == *MINGW* ]]; then
+    INFO "On Windows"
+    build_wx_widgets_MSW
+    build_kennel_MSW
+  fi
+
+  if [[ "${OS_NAME}" == "Darwin" ]]; then
+    INFO "On macOS"
+    build_wx_widgets_macOS
+    build_kennel_macOS
+  fi
+}
+
+function package() {
+  build
+  if [[ "${OS_NAME}" == *MINGW* ]]; then
+    cd ${BUILD_DIR}
+    make -j$(nproc) setup/fast
+  fi
+  # macOS bundle is always created.
 }
 
 case "${1}" in
@@ -180,6 +204,10 @@ clean)
   ;;
 distclean)
   distclean
+  exit 0
+  ;;
+package)
+  package
   exit 0
   ;;
 -h | --help)
@@ -195,14 +223,4 @@ distclean)
 esac
 
 check_prerequistes
-if [[ "${OS_NAME}" == *MINGW* ]]; then
-  INFO "On Windows"
-  build_wx_widgets_MSW
-  build_kennel_MSW
-fi
-
-if [[ "${OS_NAME}" == "Darwin" ]]; then
-  INFO "On macOS"
-  build_wx_widgets_macOS
-  build_kennel_macOS
-fi
+build
