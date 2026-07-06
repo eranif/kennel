@@ -56,13 +56,17 @@ struct LocalFilesProvider : public FileProvider {
 
   std::vector<File> ListFiles(const wxString &dir) override;
   void ChangeDir(const wxString &path) override;
-  wxString GetCurrentWorkingDir() const override { return m_dir; }
+  wxString GetCurrentWorkingDir() const override {
+    wxString dir{m_dir};
+    dir.Replace("\\", "/");
+    dir.Replace("//", "/"); // remove any double '/'
+    return dir;
+  }
+
   bool HasHome() const override { return true; }
   wxString GetHome() const override { return ::wxGetHomeDir(); }
   void Up() override;
-  wxChar GetPathSeparator() const override {
-    return wxFileName::GetPathSeparator();
-  }
+  wxChar GetPathSeparator() const override { return '/'; }
 };
 
 struct WSLFilesProvider : public LocalFilesProvider {

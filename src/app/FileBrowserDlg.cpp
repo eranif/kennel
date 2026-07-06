@@ -9,11 +9,12 @@
 #include <wx/filename.h>
 #include <wx/tokenzr.h>
 
-#ifdef __WXMSW__
-#define wxPATH_SEPARATOR '\\'
-#else
-#define wxPATH_SEPARATOR '/'
-#endif
+namespace {
+void NormalizePath(wxString &path) {
+  path.Replace("\\", "/");
+  path.Replace("//", "/");
+}
+} // namespace
 
 //===------------------------
 // Local Files Provider
@@ -35,7 +36,8 @@ LocalFilesProvider::ListFiles(const wxString &dir) {
 
   if (d.GetFirst(&entry, wxEmptyString, flags)) {
     do {
-      const wxString fullPath = dir + wxFileName::GetPathSeparator() + entry;
+      wxString fullPath = dir + GetPathSeparator() + entry;
+      NormalizePath(fullPath);
       const bool isDir = wxDirExists(fullPath);
 
       File f;
@@ -102,6 +104,8 @@ RemoteFilesProvider::ListFiles(const wxString &dir) {
 
     File f;
     f.path = m_dir + "/" + e.name;
+    NormalizePath(f.path);
+
     f.type = e.isDir ? FileType::kDir : FileType::kFile;
     f.size = e.size;
 
