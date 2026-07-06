@@ -41,6 +41,7 @@ struct AgentDef {
   wxString loginShell;
   inline bool IsRemote() const { return !remoteHost.empty(); }
   inline bool IsWSL() const { return loginShell.Contains(R"(wsl.exe)"); }
+  inline bool IsBash() const { return loginShell.Contains("bash"); }
 };
 
 // ---------------------------------------------------------------------------

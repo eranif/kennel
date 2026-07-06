@@ -30,12 +30,15 @@ std::vector<wxString> BuildCommandLine(const AgentDef &agent,
     }
     commands.push_back(loginCommand);
     if (!workingDir.empty()) {
-      commands.push_back(
-          wxString::Format("mkdir -p %s && cd %s", workingDir, workingDir));
+      commands.push_back(wxString::Format(R"(mkdir -p "%s" && cd "%s")",
+                                          workingDir, workingDir));
     }
     for (const auto &[name, value] : agent.env) {
       commands.push_back(wxString::Format("export %s=%s", name, value));
     }
+  } else if (agent.IsBash()) {
+    commands.push_back(wxString::Format(R"(mkdir -p "%s" && cd "%s")",
+                                        workingDir, workingDir));
   }
 
   commands.push_back(cmd);
