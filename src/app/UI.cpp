@@ -161,9 +161,11 @@ StartAgentDialogBase::StartAgentDialogBase(wxWindow *parent, wxWindowID id,
 
   flexGridSizer31->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
 
+  wxString existMessage;
+  existMessage << wxT("⚠") << _(" Session name already exists");
   m_staticTextErrorMessage =
-      new wxStaticText(this, wxID_ANY, _("⚠ Session name already exists"),
-                       wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+      new wxStaticText(this, wxID_ANY, existMessage, wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), 0);
   m_staticTextErrorMessage->SetForegroundColour(wxColour(wxT("rgb(255,0,0)")));
   m_staticTextErrorMessage->Hide();
 

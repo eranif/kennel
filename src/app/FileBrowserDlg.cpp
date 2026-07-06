@@ -1,9 +1,8 @@
 #include "FileBrowserDlg.hpp"
 #include "core/AppManager.h"
-#include "core/Helpers.h"
+#include "core/Logger.h"
 #include <wx/msgdlg.h>
 
-#include "app/AppUIGlobals.hpp"
 #include <algorithm>
 #include <wx/artprov.h>
 #include <wx/dir.h>
@@ -64,7 +63,7 @@ void LocalFilesProvider::ChangeDir(const wxString &path) {
 
 void LocalFilesProvider::Up() {
   wxFileName fn{m_dir, wxEmptyString};
-  if (fn.GetDirCount() == 1) {
+  if (fn.GetDirCount() == 0) {
     return;
   }
   fn.RemoveLastDir();
