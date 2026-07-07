@@ -19,4 +19,7 @@ public:
   wxString GetDefaultHomeDir() const {
     return m_dirPickerShellHomeDir->GetPath();
   }
+  bool OptimizeTerminalDrawing() const {
+    return m_checkBoxOptimizeDrawings->IsChecked();
+  }
 };

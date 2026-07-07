@@ -74,9 +74,6 @@ private:
   // Shows the About dialog
   void OnAbout(wxCommandEvent &evt);
 
-  // Enable optimized drawing for all terminals.
-  void OnEnableOptimizedDrawing(wxCommandEvent &evt);
-
   // Builds the toolbar, one tool per adapter. Tool ids are assigned
   // sequentially from kFirstClientToolId and map to m_clientToolIds.
   void BuildToolBar();

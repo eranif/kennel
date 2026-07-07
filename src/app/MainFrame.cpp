@@ -315,24 +315,7 @@ void MainFrame::BuildSettingsMenu(wxMenuBar *menuBar) {
       wxID_PREFERENCES); // on macOS, this one will be moved to the app menu
   Bind(wxEVT_MENU, &MainFrame::OnSettings, this, wxID_PREFERENCES);
 
-  settingsMenu->Append(XRCID("terminal-optimized-drawing"),
-                       _("Enable Optimized Rendering"),
-                       _("Enable Terminal Optimized Drawing"), wxITEM_CHECK);
-
   Bind(wxEVT_MENU, &MainFrame::OnEditHosts, this, XRCID("edit-hosts"));
-  Bind(wxEVT_MENU, &MainFrame::OnEnableOptimizedDrawing, this,
-       XRCID("terminal-optimized-drawing"));
-  Bind(
-      wxEVT_UPDATE_UI,
-      [](wxUpdateUIEvent &e) {
-        if (wxTerminalViewCtrl::IsOpenGLEnabled()) {
-          AppManager::Get().GetPrefs().terminalOptimizedDrawing = false;
-          e.Enable(false);
-          return;
-        }
-        e.Check(AppManager::Get().GetPrefs().terminalOptimizedDrawing);
-      },
-      XRCID("terminal-optimized-drawing"));
   menuBar->Append(settingsMenu, "&Settings");
 }
 
@@ -350,6 +333,7 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
 
     m_mainView->ApplyFont(settingsDlg.GetSelectedFont());
     m_mainView->ApplyTheme(settingsDlg.GetTheme());
+    m_mainView->ApplyOptimizedDrawing();
 
     // Save preferences
     auto &prefs = AppManager::Get().GetPrefs();
@@ -359,17 +343,9 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.blockCursor = settingsDlg.GetUseBlockCursor();
     prefs.terminalLoginShell = settingsDlg.GetDefaultLoginShell();
     prefs.terminalHomeDir = settingsDlg.GetDefaultHomeDir();
+    prefs.terminalOptimizedDrawing = settingsDlg.OptimizeTerminalDrawing();
     AppManager::Get().SavePrefs();
   }
-}
-
-void MainFrame::OnEnableOptimizedDrawing(wxCommandEvent &evt) {
-  AppManager::Get().GetPrefs().terminalOptimizedDrawing = evt.IsChecked();
-  if (wxTerminalViewCtrl::IsOpenGLEnabled()) {
-    AppManager::Get().GetPrefs().terminalOptimizedDrawing = false;
-  }
-  AppManager::Get().SavePrefs();
-  m_mainView->ApplyOptimizedDrawing();
 }
 
 void MainFrame::OnNewTerminal(wxCommandEvent &evt) {
