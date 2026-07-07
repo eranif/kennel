@@ -65,9 +65,16 @@ APP_DIR=$(dirname "$APP_PATH")
 APP_NAME=$(basename "$APP_PATH")
 APP_BASENAME=${APP_NAME%.app}
 NOTARY_ZIP_FILE="$APP_BASENAME-notary.zip"
-DIST_ZIP_FILE="$APP_BASENAME.zip"
+
+# Get macOS version and architecture for the final zip filename
+OS_VERSION=$(sw_vers -productVersion)
+ARCH=$(uname -m)
+DIST_ZIP_FILE="$APP_BASENAME-macOS_${OS_VERSION}_${ARCH}.zip"
 
 cd "$APP_DIR"
+
+# Clean up any leftover notary zip files from previous runs
+rm -f "$NOTARY_ZIP_FILE"
 
 # Construct the full signing identity
 SIGNING_ID="$APPLE_DEV_ID ($APPLE_TEAM)"

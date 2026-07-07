@@ -194,6 +194,24 @@ function package() {
     cd ${BUILD_DIR}
     make -j$(nproc) setup/fast
   fi
+ 
+  if [[ "${OS_NAME}" == "Darwin" ]]; then
+    cd ${BUILD_DIR}
+
+    if [ ! -d "kennel.app" ]; then
+      ERROR "kennel.app not found in ${BUILD_DIR}"
+      exit 1
+    fi
+
+    if [ -z "$KENNEL_PASSWORD" ]; then
+      ERROR "KENNEL_PASSWORD environment variable is not set"
+      exit 1
+    fi
+
+    rm -f *.zip
+    ../macos-sign-app.sh --notarize --password $KENNEL_PASSWORD kennel.app
+  fi
+
   # macOS bundle is always created.
 }
 
