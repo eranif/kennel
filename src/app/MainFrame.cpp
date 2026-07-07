@@ -155,7 +155,7 @@ void MainFrame::BuildToolBar() {
                                wxAUI_TB_VERTICAL | wxAUI_TB_PLAIN_BACKGROUND);
   GetSizer()->Insert(0, m_toolBar, wxSizerFlags(0).Expand());
 #elif defined(__WXGTK__)
-  m_toolBar = CreateToolBar(wxTB_HORIZONTAL | wxTB_NODIVIDER);
+  m_toolBar = CreateToolBar(wxTB_VERTICAL | wxTB_NODIVIDER);
 #else
   m_toolBar = CreateToolBar(wxTB_HORIZONTAL);
 #endif

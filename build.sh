@@ -149,7 +149,7 @@ function build_kennel_Linux() {
   INFO ""
   INFO "To run Kennel:"
   INFO "=============="
-  INFO "${BUILD_DIR}/kennel"
+  INFO "${BUILD_DIR}/install/bin/kennel"
   INFO ""
 }
 

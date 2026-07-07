@@ -6,6 +6,8 @@
 
 #ifdef __WXMSW__
 constexpr int kToolIconSize = 24;
+#elif defined(__WXGTK__)
+constexpr int kToolIconSize = 32;
 #else
 constexpr int kToolIconSize = 24;
 #endif

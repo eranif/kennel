@@ -151,9 +151,9 @@ void SessionPage::CreateTerminal() {
   KLOG_INFO() << "Running shell: " << shellCommand;
   m_terminal = new wxTerminalViewCtrl(this, shellCommand, env, cwd);
 
-#ifdef __WXMSW__
-  // On Windows, we need to place another hook for wxEVT_CHAR_HOOK
-  // so we can handle navigation event.
+#if defined(__WXMSW__) || defined(__WXGTK__)
+  // On Windows / GTK, we need to place another hook for wxEVT_CHAR_HOOK
+  // so we can handle keyboard shortcuts.
   m_terminal->Bind(wxEVT_CHAR_HOOK, [isPlainTerminal = m_session.plainTerminal](
                                         wxKeyEvent &keyEvent) {
     if ((keyEvent.GetKeyCode() == WXK_LEFT ||
@@ -178,6 +178,23 @@ void SessionPage::CreateTerminal() {
       wxCommandEvent evtRefreshSession{wxEVT_MENU, wxID_REFRESH};
       wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(
           evtRefreshSession);
+      return;
+    } else if (keyEvent.GetUnicodeKey() == 'N' &&
+               keyEvent.GetModifiers() == wxMOD_CONTROL) {
+      wxCommandEvent evtConfigureAgent{wxEVT_MENU, wxID_NEW};
+      wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(
+          evtConfigureAgent);
+      return;
+    } else if (keyEvent.GetUnicodeKey() == 'E' &&
+               keyEvent.GetModifiers() == wxMOD_CONTROL) {
+      wxCommandEvent evtStartTerminal{wxEVT_MENU, XRCID("start-terminal")};
+      wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(
+          evtStartTerminal);
+      return;
+    } else if (keyEvent.GetUnicodeKey() == 'T' &&
+               keyEvent.GetModifiers() == wxMOD_CONTROL) {
+      wxCommandEvent evtStartAgent{wxEVT_MENU, XRCID("start-agent")};
+      wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(evtStartAgent);
       return;
     }
     keyEvent.Skip();

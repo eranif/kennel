@@ -83,8 +83,7 @@ MainView::MainView(wxWindow *parent)
 
 void MainView::BuildTree() {
   if (m_dvListCtrlSessions == nullptr) {
-    long treeStyle =
-        wxDV_ROW_LINES | wxDV_SINGLE | wxDV_NO_HEADER | wxBORDER_THEME;
+    long treeStyle = wxDV_ROW_LINES | wxDV_SINGLE | wxDV_NO_HEADER;
 #ifdef __WXMSW__
     treeStyle &= ~wxDV_ROW_LINES;
 #endif
