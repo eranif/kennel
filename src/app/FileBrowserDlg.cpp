@@ -1,6 +1,5 @@
 #include "FileBrowserDlg.hpp"
 #include "core/AppManager.h"
-#include "core/Logger.h"
 #include <wx/msgdlg.h>
 
 #include <algorithm>
@@ -8,13 +7,6 @@
 #include <wx/dir.h>
 #include <wx/filename.h>
 #include <wx/tokenzr.h>
-
-namespace {
-void NormalizePath(wxString &path) {
-  path.Replace("\\", "/");
-  path.Replace("//", "/");
-}
-} // namespace
 
 //===------------------------
 // Local Files Provider
@@ -73,6 +65,37 @@ void LocalFilesProvider::Up() {
   if (!parent.empty() && wxDirExists(parent)) {
     m_dir = parent;
   }
+}
+
+//===------------------------
+// WSL Files Provider
+//===------------------------
+
+std::vector<FileProvider::File>
+WSLFilesProvider::ListFiles(const wxString &dir) {
+  wxString modDir = dir;
+  if (modDir.StartsWith("/")) {
+    modDir.Remove(0, 1);
+  } else if (modDir.StartsWith(m_uncPrefix)) {
+    modDir.Remove(0, m_uncPrefix.size());
+  }
+
+  modDir.Replace("/", "\\");
+  wxString fixedDir = wxString::Format("%s\\%s\\", m_uncPrefix, modDir);
+  auto files = LocalFilesProvider::ListFiles(fixedDir);
+  for (auto &f : files) {
+    if (wxDirExists(f.path)) {
+      f.type = FileType::kDir;
+    } else {
+      f.type = FileType::kFile;
+    }
+    f.path.Replace(m_uncPrefix, wxEmptyString);
+    while (f.path.Replace("\\", "/")) {
+    }
+    while (f.path.Replace("//", "/")) {
+    }
+  }
+  return files;
 }
 
 //===------------------------

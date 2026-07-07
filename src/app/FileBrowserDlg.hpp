@@ -38,6 +38,11 @@ struct FileProvider {
   inline bool IsDirsOnly() const { return m_dirsOnly; }
   virtual wxChar GetPathSeparator() const = 0;
   const wxString &GetName() const { return m_name; }
+
+  virtual void NormalizePath(wxString &path) {
+    path.Replace("\\", "/");
+    path.Replace("//", "/");
+  }
 };
 
 struct LocalFilesProvider : public FileProvider {
@@ -85,27 +90,7 @@ struct WSLFilesProvider : public LocalFilesProvider {
     }
   }
 
-  std::vector<File> ListFiles(const wxString &dir) override {
-    wxString modDir = dir;
-    if (modDir.StartsWith("/")) {
-      modDir.Remove(0, 1);
-    } else if (modDir.StartsWith(m_uncPrefix)) {
-      modDir.Remove(0, m_uncPrefix.size());
-    }
-
-    modDir.Replace("/", "\\");
-    wxString fixedDir = wxString::Format("%s\\%s\\", m_uncPrefix, modDir);
-    auto files = LocalFilesProvider::ListFiles(fixedDir);
-    for (auto &f : files) {
-      f.path.Replace(m_uncPrefix, wxEmptyString);
-      while (f.path.Replace("\\", "/")) {
-      }
-      while (f.path.Replace("//", "/")) {
-      }
-    }
-    return files;
-  }
-
+  std::vector<File> ListFiles(const wxString &dir) override;
   wxString GetCurrentWorkingDir() const override { return m_dir; }
   bool HasHome() const override { return true; }
   wxString GetHome() const override { return "/home"; }
@@ -122,6 +107,8 @@ struct WSLFilesProvider : public LocalFilesProvider {
     }
     m_dir = newDir;
   }
+
+  void NormalizePath(wxString &) override {}
 };
 
 struct RemoteFilesProvider : public FileProvider {
