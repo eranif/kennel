@@ -44,6 +44,6 @@ void wxCrafterFiTVkcInitBitmapResources()
         else wxFileSystem::AddHandler(new wxMemoryFSHandlerBase);
     }
 
-    XRC_ADD_FILE(wxT("XRC_resource/UI_app_bitmaps.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"), xml_res_file_0, xml_res_size_0, wxT("text/xml"));
-    wxXmlResource::Get()->Load(wxT("memory:XRC_resource/UI_app_bitmaps.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"));
+    XRC_ADD_FILE(wxT("XRC_resource/UI_app_bitmaps.cpp$_home_eran_devl_kennel_src_app_UI_app_bitmaps.xrc"), xml_res_file_0, xml_res_size_0, wxT("text/xml"));
+    wxXmlResource::Get()->Load(wxT("memory:XRC_resource/UI_app_bitmaps.cpp$_home_eran_devl_kennel_src_app_UI_app_bitmaps.xrc"));
 }

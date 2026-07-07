@@ -380,6 +380,7 @@ void MainView::RestoreSessions() {
     m_dvListCtrlSessions->Select(item);
     DoSetSession(m_dvListCtrlSessions->GetItemText(item));
   }
+  m_dvListCtrlSessions->CallAfter(&wxDataViewTreeCtrl::SetFocus);
 }
 
 void MainView::DoSetSession(const wxString &name) {
@@ -392,7 +393,6 @@ void MainView::DoSetSession(const wxString &name) {
     return;
   }
   m_sessionsBook->SetSelection(m_sessionsBook->FindPage(session));
-  session->GetTerminal()->CallAfter(&wxTerminalViewCtrl::SetFocus);
 
   m_history.Push(Tab{
       .title = name,
@@ -400,6 +400,7 @@ void MainView::DoSetSession(const wxString &name) {
   });
 
   SetAgentIcon(item);
+  session->GetTerminal()->CallAfter(&wxTerminalViewCtrl::SetFocus);
 }
 
 void MainView::OnSelectionChanged(wxDataViewEvent &event) {

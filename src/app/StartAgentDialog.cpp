@@ -28,6 +28,9 @@ wxString NormaliseFilename(const wxString &str) {
 
 StartAgentDialog::StartAgentDialog(wxWindow *parent)
     : StartAgentDialogBase(parent) {
+  wxString existMessage;
+  existMessage << wxT("⚠") << _(" Session name already exists");
+  m_staticTextErrorMessage->SetLabel(existMessage);
   PopulateClients();
   GetSizer()->Fit(this);
   Layout();
