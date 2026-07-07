@@ -331,10 +331,6 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     // Apply changes
     ThemeManager::Get().SetBlockCursor(settingsDlg.GetUseBlockCursor());
 
-    m_mainView->ApplyFont(settingsDlg.GetSelectedFont());
-    m_mainView->ApplyTheme(settingsDlg.GetTheme());
-    m_mainView->ApplyOptimizedDrawing();
-
     // Save preferences
     auto &prefs = AppManager::Get().GetPrefs();
     prefs.terminalFontDesc =
@@ -345,6 +341,10 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.terminalHomeDir = settingsDlg.GetDefaultHomeDir();
     prefs.terminalOptimizedDrawing = settingsDlg.OptimizeTerminalDrawing();
     AppManager::Get().SavePrefs();
+
+    m_mainView->ApplyFont(settingsDlg.GetSelectedFont());
+    m_mainView->ApplyTheme(settingsDlg.GetTheme());
+    m_mainView->ApplyOptimizedDrawing();
   }
 }
 
