@@ -150,56 +150,8 @@ void SessionPage::CreateTerminal() {
 
   KLOG_INFO() << "Running shell: " << shellCommand;
   m_terminal = new wxTerminalViewCtrl(this, shellCommand, env, cwd);
-
-#if defined(__WXMSW__) || defined(__WXGTK__)
-  // On Windows / GTK, we need to place another hook for wxEVT_CHAR_HOOK
-  // so we can handle keyboard shortcuts.
-  m_terminal->Bind(wxEVT_CHAR_HOOK, [isPlainTerminal = m_session.plainTerminal](
-                                        wxKeyEvent &keyEvent) {
-    if ((keyEvent.GetKeyCode() == WXK_LEFT ||
-         keyEvent.GetKeyCode() == WXK_RIGHT) &&
-        (keyEvent.GetModifiers() == wxMOD_ALT)) {
-      wxCommandEvent dummyEvt{};
-      if (keyEvent.GetKeyCode() == WXK_LEFT) {
-        wxCommandEvent evtLeft{wxEVT_MENU, wxID_BACKWARD};
-        wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(evtLeft);
-      } else {
-        wxCommandEvent evtRight{wxEVT_MENU, wxID_FORWARD};
-        wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(evtRight);
-      }
-      return;
-    } else if (isPlainTerminal && (keyEvent.GetKeyCode() == WXK_F2)) {
-      // Rename
-      wxCommandEvent evtRename{wxEVT_MENU, XRCID("rename-selection")};
-      wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(evtRename);
-      return;
-    } else if (!isPlainTerminal && (keyEvent.GetKeyCode() == WXK_F5)) {
-      // Rename
-      wxCommandEvent evtRefreshSession{wxEVT_MENU, wxID_REFRESH};
-      wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(
-          evtRefreshSession);
-      return;
-    } else if (keyEvent.GetUnicodeKey() == 'N' &&
-               keyEvent.GetModifiers() == wxMOD_CONTROL) {
-      wxCommandEvent evtConfigureAgent{wxEVT_MENU, wxID_NEW};
-      wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(
-          evtConfigureAgent);
-      return;
-    } else if (keyEvent.GetUnicodeKey() == 'E' &&
-               keyEvent.GetModifiers() == wxMOD_CONTROL) {
-      wxCommandEvent evtStartTerminal{wxEVT_MENU, XRCID("start-terminal")};
-      wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(
-          evtStartTerminal);
-      return;
-    } else if (keyEvent.GetUnicodeKey() == 'T' &&
-               keyEvent.GetModifiers() == wxMOD_CONTROL) {
-      wxCommandEvent evtStartAgent{wxEVT_MENU, XRCID("start-agent")};
-      wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(evtStartAgent);
-      return;
-    }
-    keyEvent.Skip();
-  });
-#endif
+  m_acceleratorInterceptor = std::make_unique<AcceleratorInterceptor>(
+      m_terminal, m_session.plainTerminal);
 
   GetSizer()->Add(m_terminal, wxSizerFlags(1).Border(wxALL, 5).Expand());
   GetSizer()->Layout();
@@ -230,6 +182,7 @@ void SessionPage::Restart() {
     GetSizer()->Detach(m_terminal);
     m_terminal->Destroy();
     m_terminal = nullptr;
+    m_acceleratorInterceptor.reset();
   }
   m_status = SessionStatus::Starting;
   m_resume = true;

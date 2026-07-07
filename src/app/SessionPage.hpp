@@ -1,6 +1,7 @@
 #ifndef SESSIONPAGE_HPP
 #define SESSIONPAGE_HPP
 #include "UI.hpp"
+#include "app/AcceleratorInterceptor.h"
 #include "core/ActivityMonitor.h"
 #include "core/AppPaths.h"
 #include "core/Config.h"
@@ -56,6 +57,7 @@ private:
   SessionStatus m_status = SessionStatus::Starting;
   wxString m_defaultTitle;
   wxString m_terminalTitle;
+  std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor{nullptr};
 };
 
 wxDECLARE_EVENT(wxEVT_SESSION_IDLE, wxCommandEvent);

@@ -1,10 +1,10 @@
 #pragma once
 
 #include "UI.hpp"
+#include "app/AcceleratorInterceptor.h"
 #include "app/TabHistory.h"
 #include "app/ThemeManager.h"
 #include "core/AppPaths.h"
-#include "core/UiPrefs.h"
 #include "core/WorkspaceManager.h"
 
 #include <wx/bmpbndl.h>
@@ -12,7 +12,6 @@
 #include <wx/dataview.h>
 #include <wx/timer.h>
 
-#include <unordered_map>
 #include <vector>
 
 class SessionPage;
@@ -188,4 +187,5 @@ private:
   std::array<wxBitmapBundle, kSpinnerFrameCount> m_spinnerFrames;
   TabHistory m_history;
   int m_pendingIdle{0};
+  std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor{nullptr};
 };

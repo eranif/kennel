@@ -90,6 +90,8 @@ void MainView::BuildTree() {
     m_dvListCtrlSessions =
         new wxDataViewTreeCtrl(GetSplitterPageLeft(), wxID_ANY,
                                wxDefaultPosition, wxDefaultSize, treeStyle);
+    m_acceleratorInterceptor =
+        std::make_unique<AcceleratorInterceptor>(m_dvListCtrlSessions, false);
     wxSize textSize = GetTextExtent("Tp");
     m_dvListCtrlSessions->SetRowHeight(textSize.GetHeight() +
                                        (2 * kLineHeightSpacer));

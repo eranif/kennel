@@ -175,6 +175,7 @@ target_link_libraries(kennel_core PUBLIC ${wxWidgets_LIBRARIES})
 # ---------------------------------------------------------------------------
 set(KENNEL_APP_SOURCES
     src/app/KennelApp.cpp
+    src/app/AcceleratorInterceptor.cpp
     src/app/MainFrame.cpp
     src/app/MainView.cpp
     src/app/SessionPage.cpp

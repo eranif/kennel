@@ -384,7 +384,8 @@ void MainFrame::OnRefreshSessionUI(wxUpdateUIEvent &evt) {
 
 void MainFrame::OnRefreshSession(wxCommandEvent &evt) {
   wxUnusedVar(evt);
-  m_mainView->RefreshCurrentSelection();
+  if (m_mainView->CanRefreshCurrent())
+    m_mainView->RefreshCurrentSelection();
 }
 
 void MainFrame::OnCloseAllSessions(wxCommandEvent &evt) {
