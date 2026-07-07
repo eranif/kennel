@@ -12,7 +12,15 @@ INFO "Building Kennel"
 function check_prerequistes() {
   INFO "Checking build prerequisites"
   local missing=0
-  for tool in clang++ cmake git; do
+  local compiler
+
+  if [[ "${OS_NAME}" == "Linux" ]]; then
+    compiler="g++"
+  else
+    compiler="clang++"
+  fi
+
+  for tool in ${compiler} cmake git; do
     if command -v "${tool}" >/dev/null 2>&1; then
       INFO "Found ${tool}: $(command -v ${tool})"
     else
@@ -25,6 +33,34 @@ function check_prerequistes() {
     ERROR "Please install the missing prerequisites and try again"
     exit 1
   fi
+}
+
+function build_wx_widgets_Linux() {
+  local wx_install_dir=${BUILD_DIR}/wxWidgets-install
+  if [ -x "${wx_install_dir}/bin/wx-config" ]; then
+    INFO "wxWidgets already built at ${wx_install_dir}; skipping"
+    export PATH="${wx_install_dir}/bin":$PATH
+    return 0
+  fi
+
+  INFO "Building wxWidgets"
+  mkdir -p ${BUILD_DIR}
+  cd $_
+  git clone --depth 1 https://github.com/wxWidgets/wxWidgets.git
+  cd wxWidgets
+  git submodule update --init --depth 1
+  mkdir .build-release
+  cd .build-release
+  cmake .. -DCMAKE_BUILD_TYPE=Release \
+    -DwxBUILD_DEBUG_LEVEL=0 \
+    -DwxBUILD_MONOLITHIC=1 \
+    -DwxBUILD_SAMPLES=OFF \
+    -DwxUSE_SYS_LIBS=OFF \
+    -DwxUSE_LUNASVG=OFF \
+    -DCMAKE_INSTALL_PREFIX=${BUILD_DIR}/wxWidgets-install
+  make -j$(nproc) install
+  export PATH="${wx_install_dir}/bin":$PATH
+  cd ${ROOT_DIR}
 }
 
 function build_wx_widgets_macOS() {
@@ -83,6 +119,38 @@ function build_wx_widgets_MSW() {
   export WXWIN="${BUILD_DIR}/wxWidgets-install"
   INFO "WXWIN is set to '${WXWIN}'"
   cd ${ROOT_DIR}
+}
+
+function build_kennel_Linux() {
+  INFO "Building Kennel"
+  local wx_install_dir=${BUILD_DIR}/wxWidgets-install
+  local wx_config=${wx_install_dir}/bin/wx-config
+  if [ ! -x "${wx_config}" ]; then
+    ERROR "Local wx-config not found at ${wx_config}"
+    exit 1
+  fi
+  INFO "Using local wx-config: ${wx_config}"
+
+  local kennel_build_dir=${ROOT_DIR}/.build-release
+  mkdir -p ${kennel_build_dir}
+  cd ${kennel_build_dir}
+  if [ ! -f "${kennel_build_dir}/CMakeCache.txt" ] ||
+    [ "${ROOT_DIR}/CMakeLists.txt" -nt "${kennel_build_dir}/Makefile" ]; then
+    INFO "Configuring Kennel"
+    cmake ${ROOT_DIR} -DCMAKE_BUILD_TYPE=Release \
+      -DwxWidgets_CONFIG_EXECUTABLE=${wx_config}
+  else
+    INFO "Kennel already configured; skipping cmake"
+  fi
+  make -j$(nproc)
+  INFO "Kennel built successfully"
+  cd ${ROOT_DIR}
+
+  INFO ""
+  INFO "To run Kennel:"
+  INFO "=============="
+  INFO "${BUILD_DIR}/kennel"
+  INFO ""
 }
 
 function build_kennel_macOS() {
@@ -179,12 +247,17 @@ function build() {
     INFO "On Windows"
     build_wx_widgets_MSW
     build_kennel_MSW
-  fi
-
-  if [[ "${OS_NAME}" == "Darwin" ]]; then
+  elif [[ "${OS_NAME}" == "Darwin" ]]; then
     INFO "On macOS"
     build_wx_widgets_macOS
     build_kennel_macOS
+  elif [[ "${OS_NAME}" == "Linux" ]]; then
+    INFO "On Linux"
+    build_wx_widgets_Linux
+    build_kennel_Linux
+  else
+    ERROR "Unsupported operating system: ${OS_NAME}"
+    exit 1
   fi
 }
 
@@ -193,9 +266,7 @@ function package() {
   if [[ "${OS_NAME}" == *MINGW* ]]; then
     cd ${BUILD_DIR}
     make -j$(nproc) setup/fast
-  fi
- 
-  if [[ "${OS_NAME}" == "Darwin" ]]; then
+  elif [[ "${OS_NAME}" == "Darwin" ]]; then
     cd ${BUILD_DIR}
 
     if [ ! -d "kennel.app" ]; then
@@ -210,9 +281,15 @@ function package() {
 
     rm -f *.zip
     ../macos-sign-app.sh --notarize --password $KENNEL_PASSWORD kennel.app
+  elif [[ "${OS_NAME}" == "Linux" ]]; then
+    INFO "Creating Linux package"
+    cd ${BUILD_DIR}
+    if [ ! -f "kennel" ]; then
+      ERROR "kennel executable not found in ${BUILD_DIR}"
+      exit 1
+    fi
+    INFO "Linux package ready at ${BUILD_DIR}/kennel"
   fi
-
-  # macOS bundle is always created.
 }
 
 case "${1}" in
