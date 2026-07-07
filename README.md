@@ -4,6 +4,8 @@
 
 **Where AI Agents Live Between Tasks**
 
+</div>
+
 Kennel is a fast, native desktop app that lets you run and manage many interactive
 AI CLI agents — like **Claude Code**, **Kiro CLI**, **OpenAI Codex**, or any tool of
 your own — side by side in a single window. Organize them into groups, keep them
@@ -12,7 +14,7 @@ running between tasks, and jump between conversations without juggling terminal 
 back exactly where it left off, using the agent's native resume flag** (e.g., Claude's
 `--continue` or Kiro's `--resume`).
 
-![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![License](https://img.shields.io/badge/license-BSD--3--Clause-green)
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-informational)
 
@@ -26,8 +28,6 @@ back exactly where it left off, using the agent's native resume flag** (e.g., Cl
 | **macOS ARM** | [kennel-macOS_26.5.1_arm64.zip](https://github.com/eranif/kennel/releases/download/1.0.0/kennel-macOS_26.5.1_arm64.zip) | Signed + notarized app bundle for Apple Silicon |
 
 See [Releases](https://github.com/eranif/kennel/releases) for other platforms and versions.
-
-</div>
 
 ---
 
