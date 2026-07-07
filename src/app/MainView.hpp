@@ -136,11 +136,11 @@ public:
 protected:
   void OnContextMenu(wxDataViewEvent &event);
   void OnSelectionChanged(wxDataViewEvent &event);
-  void OnRenameEnded(wxDataViewEvent &event);
   void DoSetSession(const wxString &name);
   void OnSessionExited(wxCommandEvent &e);
   void OnSessionIdle(wxCommandEvent &e);
   void OnSessionActive(wxCommandEvent &e);
+  void OnIdleEvent(wxIdleEvent &e);
   void DeleteByName(const wxString &name);
   void DeleteAll();
   void DoGroupMenu(const wxDataViewItem &item);
@@ -188,4 +188,5 @@ private:
   TabHistory m_history;
   int m_pendingIdle{0};
   std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor{nullptr};
+  bool m_idleHandled{false};
 };

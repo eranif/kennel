@@ -79,6 +79,7 @@ MainView::MainView(wxWindow *parent)
   Bind(wxEVT_SESSION_IDLE, &MainView::OnSessionIdle, this);
   Bind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
   Bind(wxEVT_SESSION_EXITED, &MainView::OnSessionExited, this);
+  Bind(wxEVT_IDLE, &MainView::OnIdleEvent, this);
 }
 
 void MainView::BuildTree() {
@@ -242,6 +243,7 @@ MainView::~MainView() {
   Unbind(wxEVT_SESSION_IDLE, &MainView::OnSessionIdle, this);
   Unbind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
   Unbind(wxEVT_SESSION_EXITED, &MainView::OnSessionExited, this);
+  Unbind(wxEVT_IDLE, &MainView::OnIdleEvent, this);
 }
 
 void MainView::StartTerminal() {
@@ -382,7 +384,6 @@ void MainView::RestoreSessions() {
     m_dvListCtrlSessions->Select(item);
     DoSetSession(m_dvListCtrlSessions->GetItemText(item));
   }
-  m_dvListCtrlSessions->CallAfter(&wxDataViewTreeCtrl::SetFocus);
 }
 
 void MainView::DoSetSession(const wxString &name) {
@@ -1012,5 +1013,13 @@ void MainView::LoadBitmaps() {
       // agent's icon (see SetAgentIcon).
       bmps.AddAlias(agent.iconPath, agent.name);
     }
+  }
+}
+
+void MainView::OnIdleEvent(wxIdleEvent &e) {
+  e.Skip();
+  if (!m_idleHandled && GetActiveTerminal()) {
+    m_idleHandled = true;
+    GetActiveTerminal()->SetFocus();
   }
 }
