@@ -1,5 +1,6 @@
 #include "MainView.hpp"
 
+#include "MainFrame.h"
 #include "SessionPage.hpp"
 #include "StartAgentDialog.hpp"
 #include "ThemeLoader.h"
@@ -422,7 +423,20 @@ void MainView::OnSessionExited(wxCommandEvent &e) {
   DeleteByName(name);
 }
 
-void MainView::OnSessionIdle(wxCommandEvent &e) { e.Skip(); }
+void MainView::OnSessionIdle(wxCommandEvent &e) {
+  e.Skip();
+  if (m_pendingIdle > 0) {
+    m_pendingIdle--;
+  }
+
+  if (m_pendingIdle == 0) {
+    GetMainFrame()->StopActivityIndicator();
+    GetMainFrame()->ClearActivityText();
+  } else if (m_pendingIdle > 0) {
+    GetMainFrame()->SetActivityText(
+        wxString::Format(_("Waiting for %d sessions..."), m_pendingIdle));
+  }
+}
 
 void MainView::OnSessionActive(wxCommandEvent &e) { e.Skip(); }
 
@@ -524,6 +538,7 @@ void MainView::RefreshCurrentSelection() {
     SessionPage *page = PageFromItem(item);
     if (page) {
       page->CallAfter(&SessionPage::Restart);
+      m_pendingIdle++;
     }
   };
 
@@ -538,6 +553,12 @@ void MainView::RefreshCurrentSelection() {
     }
   } else if (IsSelectionSession()) {
     RefreshItem(m_dvListCtrlSessions->GetSelection());
+  }
+
+  if (m_pendingIdle) {
+    GetMainFrame()->SetActivityText(
+        wxString::Format(_("Waiting for %d sessions..."), m_pendingIdle));
+    GetMainFrame()->StartActivityIndicator();
   }
 }
 
@@ -892,6 +913,13 @@ void MainView::OnContextMenu(wxDataViewEvent &event) {
       newGroupItem->GetId());
   menu.AppendSeparator();
   menu.AppendSubMenu(moveMenu, _("Move to Group"));
+
+  menu.AppendSeparator();
+  menu.Append(wxID_REFRESH, _("Refresh"));
+  menu.Bind(
+      wxEVT_MENU, [this](wxCommandEvent &) { RefreshCurrentSelection(); },
+      wxID_REFRESH);
+
   m_dvListCtrlSessions->PopupMenu(&menu);
 }
 

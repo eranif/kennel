@@ -3,7 +3,6 @@
 #include "SettingsDlg.hpp"
 #include "app/AboutDialog.hpp"
 #include "app/AssetBootstrap.h"
-#include "app/EditAgentDlg.hpp"
 #include "app/EditAgentsDlg.hpp"
 #include "app/EditHosts.hpp"
 #include "app/NewAgentWizard.hpp"
@@ -22,6 +21,7 @@
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
+#include <wx/stattext.h>
 #include <wx/toolbar.h>
 
 namespace {
@@ -39,8 +39,19 @@ static MainFrame *mainFrame{nullptr};
 MainFrame::MainFrame()
     : wxFrame(nullptr, wxID_ANY, kAppName, wxDefaultPosition,
               wxSize(1280, 800)) {
-  CreateStatusBar();
-  SetStatusText(wxString::Format("%s %s", kAppName, kAppVersion));
+  CreateStatusBar(2);
+  int widths[] = {-1, 50};
+  SetStatusWidths(2, widths);
+  SetStatusText(wxString::Format("%s %s", kAppName, kAppVersion), 0);
+
+  m_statusIndicator = new wxActivityIndicator(GetStatusBar());
+  wxRect fieldRect;
+  GetStatusBar()->GetFieldRect(1, fieldRect);
+  m_statusIndicator->SetSize(fieldRect.GetWidth() - 4,
+                             fieldRect.GetHeight() - 4);
+  m_statusIndicator->Move(fieldRect.x + 2, fieldRect.y + 2);
+  m_statusIndicator->Hide();
+
   KLOG_INFO() << "Creating main frame";
   // Window/taskbar icon: render the app SVG at a few common sizes so the
   // platform can pick the crispest for each context (title bar, alt-tab, etc.).

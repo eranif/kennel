@@ -1,8 +1,8 @@
 #pragma once
 
-#include "EditAgentsDlg.hpp"
 #include "MainView.hpp"
 
+#include <wx/activityindicator.h>
 #include <wx/aui/auibar.h>
 #include <wx/frame.h>
 
@@ -21,6 +21,24 @@ public:
   // Captures Ctrl-Tab / Ctrl-Shift-Tab before child controls consume them.
   void HandleCtrlTabNavigation(wxKeyEvent &evt);
   MainView *GetMainView() { return m_mainView; }
+
+  void SetActivityText(const wxString &text) { SetStatusText(text, 0); }
+
+  void ClearActivityText() { SetStatusText(wxEmptyString, 0); }
+
+  void StartActivityIndicator() {
+    if (m_statusIndicator) {
+      m_statusIndicator->Show();
+      m_statusIndicator->Start();
+    }
+  }
+
+  void StopActivityIndicator() {
+    if (m_statusIndicator) {
+      m_statusIndicator->Stop();
+      m_statusIndicator->Hide();
+    }
+  }
 
 private:
   // Builds the menu bar: File -> Exit, Launch -> one item per adapter, and
@@ -81,6 +99,7 @@ private:
   void BuildLaunchTools();
 
   MainView *m_mainView{nullptr};
+  wxActivityIndicator *m_statusIndicator{nullptr};
 
   // Parallel to the toolbar tools: m_clientToolIds[i] is the adapter id for the
   // tool whose wx id is kFirstClientToolId + i.

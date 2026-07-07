@@ -187,4 +187,5 @@ private:
 
   std::array<wxBitmapBundle, kSpinnerFrameCount> m_spinnerFrames;
   TabHistory m_history;
+  int m_pendingIdle{0};
 };
