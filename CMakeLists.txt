@@ -420,6 +420,16 @@ if(WIN32)
   endforeach()
 
   set(INSTALLER_SOURCE_DIR "${CMAKE_BINARY_DIR}/installer")
+
+  # Detect processor architecture for installer filename
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    set(PROCESSOR_ARCHITECTURE "amd64")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
+    set(PROCESSOR_ARCHITECTURE "arm64")
+  else()
+    set(PROCESSOR_ARCHITECTURE "unknown")
+  endif()
+
   configure_file(${CMAKE_SOURCE_DIR}/installer.iss.in
                  ${CMAKE_BINARY_DIR}/installer.iss)
 

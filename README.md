@@ -18,6 +18,15 @@ back exactly where it left off, using the agent's native resume flag** (e.g., Cl
 
 ![Kennel main window](screenshots/General-Look.png)
 
+## Download
+
+**Latest Release (v1.0.0)**
+
+- **[Windows 11 (amd64)](https://github.com/eranif/kennel/releases/download/1.0.0/kennel-1.0.0-amd64-installer.exe)** — Installer for Windows 11 and later
+- **[macOS ARM (signed + notarized)](https://github.com/eranif/kennel/releases/download/1.0.0/kennel-macOS_26.5.1_arm64.zip)** — Native app bundle for Apple Silicon
+
+For all releases and other platforms, see [Releases](https://github.com/eranif/kennel/releases).
+
 </div>
 
 ---

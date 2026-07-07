@@ -35,7 +35,7 @@ ArchitecturesInstallIn64BitMode=x64
 
 ; Output
 OutputDir=.
-OutputBaseFilename=kennel-{#MyAppVersion}-installer
+OutputBaseFilename=kennel-{#MyAppVersion}-@PROCESSOR_ARCHITECTURE@-installer
 SetupIconFile={#SourceDir}\assets\kennel.ico
 UninstallIconFile={#SourceDir}\assets\kennel.ico
 Compression=lzma2
