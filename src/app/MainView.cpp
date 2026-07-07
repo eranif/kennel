@@ -758,6 +758,11 @@ void MainView::RenameGroup(const wxDataViewItem &item) {
   }
 
   const wxString oldName = m_dvListCtrlSessions->GetItemText(item);
+  if (oldName == _("Default")) {
+    wxMessageBox(_("The Default session group can not be renamed"), "Kennel",
+                 wxICON_WARNING | wxOK | wxCENTER, wxTheApp->GetTopWindow());
+    return;
+  }
   const wxString newName =
       ::wxGetTextFromUser(_("New Group Name:"), "Kennel", oldName);
   if (newName.empty() || newName == oldName) {
