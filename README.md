@@ -44,8 +44,9 @@ you close a window. Kennel fixes that.
   when you're back.
 - 🔄 **Never lose your place** — sessions persist between app restarts and resume with
   their native `--resume`/`--continue` flags, so your agent picks up where it left off.
-- ⚡ **Runs everything, natively** — each session is a real terminal (full PTY), so any
-  interactive CLI works exactly as it does in your shell — colors, prompts, and all.
+- ⚡ **Runs everything, natively** — each session is a real terminal (full PTY) backed by
+  OpenGL on macOS & Windows, so any interactive CLI works exactly as it does in your shell
+  — colors, prompts, and all.
 - 🧩 **Add any agent, no code required** — define new agents through a simple dialog or
   JSON. Local or over SSH.
 - 🌈 **Make it yours** — built-in color themes, custom fonts, and per-agent icons.
