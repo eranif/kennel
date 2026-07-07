@@ -2,9 +2,7 @@
 #include "wx/app.h"
 #include "wx/xrc/xmlres.h"
 
-AcceleratorInterceptor::AcceleratorInterceptor(wxWindow *win,
-                                               bool isPlainTerminal)
-    : m_ctrl{win}, m_plainTerminal{isPlainTerminal} {
+AcceleratorInterceptor::AcceleratorInterceptor(wxWindow *win) : m_ctrl{win} {
 #if defined(__WXMSW__) || defined(__WXGTK__)
   // On Windows / GTK, we need to place another hook for wxEVT_CHAR_HOOK
   // so we can handle keyboard shortcuts.

@@ -150,8 +150,8 @@ void SessionPage::CreateTerminal() {
 
   KLOG_INFO() << "Running shell: " << shellCommand;
   m_terminal = new wxTerminalViewCtrl(this, shellCommand, env, cwd);
-  m_acceleratorInterceptor = std::make_unique<AcceleratorInterceptor>(
-      m_terminal, m_session.plainTerminal);
+  m_acceleratorInterceptor =
+      std::make_unique<AcceleratorInterceptor>(m_terminal);
 
   GetSizer()->Add(m_terminal, wxSizerFlags(1).Border(wxALL, 5).Expand());
   GetSizer()->Layout();

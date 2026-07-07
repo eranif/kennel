@@ -5,7 +5,7 @@
 
 class AcceleratorInterceptor {
 public:
-  AcceleratorInterceptor(wxWindow *ctrl, bool isPlainTerminal);
+  AcceleratorInterceptor(wxWindow *ctrl);
   ~AcceleratorInterceptor();
 
 protected:
@@ -13,5 +13,4 @@ protected:
 
 private:
   wxWindow *m_ctrl{nullptr};
-  bool m_plainTerminal{false};
 };
