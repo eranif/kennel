@@ -1,11 +1,11 @@
 #ifndef SESSIONPAGE_HPP
 #define SESSIONPAGE_HPP
 #include "UI.hpp"
-
 #include "core/ActivityMonitor.h"
 #include "core/AppPaths.h"
 #include "core/Config.h"
 #include "core/Workspace.h"
+#include <optional>
 
 #include "terminal_theme.h"
 

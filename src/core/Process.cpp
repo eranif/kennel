@@ -3,6 +3,7 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <thread>
 
 #ifdef _WIN32
