@@ -164,7 +164,7 @@ void MainFrame::BuildToolBar() {
   m_toolBar->AddTool(XRCID("start-terminal"), _("Start a New Terminal"),
                      bmps.Get("terminal", true), _("Start a New Terminal"));
   m_toolBar->AddTool(wxID_REFRESH, _("Restart"), bmps.Get("restart", true),
-                     _("Restart the Current Agent"));
+                     _("Refresh the Current Agent"));
   m_toolBar->AddSeparator();
   BuildLaunchTools();
   m_toolBar->Realize();
@@ -218,8 +218,8 @@ void MainFrame::BuildMenuBar() {
   fileMenu->Append(XRCID("start-terminal"), _("New Terminal\tCtrl+E"),
                    _("Start GlyphT Terminal"));
   Bind(wxEVT_MENU, &MainFrame::OnNewTerminal, this, XRCID("start-terminal"));
-  fileMenu->Append(wxID_REFRESH, _("&Restart Current Session\tF5"),
-                   _("Restart the Current Agent"));
+  fileMenu->Append(wxID_REFRESH, _("&Refresh Current Selection\tF5"),
+                   _("Refresh the Current Selection"));
   Bind(wxEVT_MENU, &MainFrame::OnRestartSession, this, wxID_REFRESH);
   fileMenu->AppendSeparator();
   fileMenu->Append(wxID_NEW, _("Configure &New Agent...\tCtrl+N"),
@@ -391,11 +391,13 @@ void MainFrame::OnNewAgent(wxCommandEvent &evt) {
 }
 
 void MainFrame::OnRestartSessionUI(wxUpdateUIEvent &evt) {
+  wxUnusedVar(evt);
   evt.Enable(m_mainView->CanRefreshCurrent());
 }
 
 void MainFrame::OnRestartSession(wxCommandEvent &evt) {
-  m_mainView->RestartCurrentSession();
+  wxUnusedVar(evt);
+  m_mainView->RefreshCurrentSelection();
 }
 
 void MainFrame::OnCloseAllSessions(wxCommandEvent &evt) {

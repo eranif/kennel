@@ -483,41 +483,59 @@ void MainView::SavePrefs() {
 }
 
 bool MainView::CanRefreshCurrent() const {
-  SessionPage *page = PageFromItem(m_dvListCtrlSessions->GetSelection());
-  return page && !page->IsPlainTerminal();
+  return IsSelectionSessionGroup() || IsSelectionSession();
 }
 
 bool MainView::IsSelectionSessionGroup() const {
   auto item = m_dvListCtrlSessions->GetSelection();
-  if (!item.IsOk()) {
-    return false;
-  }
+  CHECK_ITEM_RETURN_FALSE(item);
+
   auto groupData = GetGroupItemData(item);
   return groupData && groupData->IsSessionGroup();
 }
 
+bool MainView::IsSelectionSession() const {
+  auto item = m_dvListCtrlSessions->GetSelection();
+  CHECK_ITEM_RETURN_FALSE(item);
+
+  auto page = PageFromItem(item);
+  return page && !page->IsPlainTerminal();
+}
+
 bool MainView::IsSelectionTerminal() const {
   auto item = m_dvListCtrlSessions->GetSelection();
-  if (!item.IsOk()) {
-    return false;
-  }
+  CHECK_ITEM_RETURN_FALSE(item);
+
   auto page = PageFromItem(item);
   return page && page->IsPlainTerminal();
 }
 
 bool MainView::IsSelectionTerminalGroup() const {
   auto item = m_dvListCtrlSessions->GetSelection();
-  if (!item.IsOk()) {
-    return false;
-  }
+  CHECK_ITEM_RETURN_FALSE(item);
   auto groupData = GetGroupItemData(item);
   return groupData && groupData->IsTerminalsGroup();
 }
 
-void MainView::RestartCurrentSession() {
-  SessionPage *page = PageFromItem(m_dvListCtrlSessions->GetSelection());
-  if (page) {
-    page->Restart();
+void MainView::RefreshCurrentSelection() {
+  auto RefreshItem = [this](const wxDataViewItem &item) {
+    SessionPage *page = PageFromItem(item);
+    if (page) {
+      page->CallAfter(&SessionPage::Restart);
+    }
+  };
+
+  if (IsSelectionSessionGroup()) {
+    auto item = m_dvListCtrlSessions->GetSelection();
+    CHECK_ITEM_RETURN(item);
+
+    auto count = m_dvListCtrlSessions->GetChildCount(item);
+    for (int i = 0; i < count; ++i) {
+      wxDataViewItem child = m_dvListCtrlSessions->GetNthChild(item, i);
+      RefreshItem(child);
+    }
+  } else if (IsSelectionSession()) {
+    RefreshItem(m_dvListCtrlSessions->GetSelection());
   }
 }
 
@@ -637,17 +655,7 @@ void MainView::DoGroupMenu(const wxDataViewItem &item) {
         wxID_CLOSE_ALL);
 
     menu.Bind(
-        wxEVT_MENU,
-        [item, this](wxCommandEvent &) {
-          auto count = m_dvListCtrlSessions->GetChildCount(item);
-          for (int i = 0; i < count; ++i) {
-            wxDataViewItem child = m_dvListCtrlSessions->GetNthChild(item, i);
-            SessionPage *page = PageFromItem(child);
-            if (page) {
-              page->CallAfter(&SessionPage::Restart);
-            }
-          }
-        },
+        wxEVT_MENU, [this](wxCommandEvent &) { RefreshCurrentSelection(); },
         XRCID("refresh-sessions"));
     m_dvListCtrlSessions->PopupMenu(&menu);
   }

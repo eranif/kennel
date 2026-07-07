@@ -111,7 +111,7 @@ public:
   void ApplyTheme(const wxString &themeName);
   void ApplyOptimizedDrawing();
   void ApplyFont(const wxFont &f);
-  void RestartCurrentSession();
+  void RefreshCurrentSelection();
   bool CanRefreshCurrent() const;
   const TabHistory &GetHistory() const { return m_history; }
 
@@ -128,6 +128,7 @@ public:
   bool IsSelectionSessionGroup() const;
   bool IsSelectionTerminalGroup() const;
   bool IsSelectionTerminal() const;
+  bool IsSelectionSession() const;
   void RenameGroup(const wxDataViewItem &item);
   void RenameTerminal(const wxDataViewItem &item);
   wxString GetSelectedItemText() const;
