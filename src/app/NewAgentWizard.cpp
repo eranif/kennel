@@ -23,7 +23,7 @@ wxBitmapBundle LoadWizardBitmap(const wxString &name) {
 
 NewAgentWizard::NewAgentWizard(wxWindow *parent) : NewAgentWizardBase(parent) {
   SetLabel(_("Configure New Agent"));
-#ifndef __WXGTK__
+#if defined(__WXMAC__) || defined(__WXMSW__)
   m_bannerLocalOrRemoteBitmap->SetBitmap(
       LoadWizardBitmap("wizard-connection.svg"));
   m_bannerWhatToLaunchBitmap->SetBitmap(LoadWizardBitmap("wizard-details.svg"));
@@ -37,7 +37,10 @@ NewAgentWizard::NewAgentWizard(wxWindow *parent) : NewAgentWizardBase(parent) {
   Bind(wxEVT_UPDATE_UI, &NewAgentWizard::OnNextUI, this, wxID_FORWARD);
   Bind(wxEVT_WIZARD_PAGE_SHOWN, &NewAgentWizard::OnPageShown, this);
   PositionDialog(this);
+
+#ifndef __WXMSW__
   GetSizer()->Fit(this);
+#endif
 }
 
 void NewAgentWizard::OnPageShown(wxWizardEvent &event) {
