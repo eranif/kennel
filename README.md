@@ -20,12 +20,12 @@ back exactly where it left off, using the agent's native resume flag** (e.g., Cl
 
 ## Download
 
-**Latest Release (v1.0.0)**
+| Platform | Download | Notes |
+|---|---|---|
+| **Windows 11** | [kennel-1.0.0-amd64-installer.exe](https://github.com/eranif/kennel/releases/download/1.0.0/kennel-1.0.0-amd64-installer.exe) | Installer for Windows 11 and later |
+| **macOS ARM** | [kennel-macOS_26.5.1_arm64.zip](https://github.com/eranif/kennel/releases/download/1.0.0/kennel-macOS_26.5.1_arm64.zip) | Signed + notarized app bundle for Apple Silicon |
 
-- **[Windows 11 (amd64)](https://github.com/eranif/kennel/releases/download/1.0.0/kennel-1.0.0-amd64-installer.exe)** — Installer for Windows 11 and later
-- **[macOS ARM (signed + notarized)](https://github.com/eranif/kennel/releases/download/1.0.0/kennel-macOS_26.5.1_arm64.zip)** — Native app bundle for Apple Silicon
-
-For all releases and other platforms, see [Releases](https://github.com/eranif/kennel/releases).
+See [Releases](https://github.com/eranif/kennel/releases) for other platforms and versions.
 
 </div>
 
