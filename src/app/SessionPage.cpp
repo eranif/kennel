@@ -191,6 +191,7 @@ void SessionPage::CreateTerminal() {
   if (auto theme = ThemeManager::Get().ActiveTheme()) {
     m_terminal->SetTheme(*theme);
   }
+  m_terminal->EnsureStarted();
   SetStatus(SessionStatus::Running);
 }
 

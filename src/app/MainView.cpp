@@ -437,10 +437,12 @@ void MainView::ApplyFont(const wxFont &f) {
     if (!sp || !sp->GetTerminal())
       continue;
     sp->ApplyTheme(*active);
+    sp->GetTerminal()->SendSizeEvent();
   }
   KLOG_INFO() << "Applied terminal font '" << f.GetFaceName() << "' to "
               << static_cast<int>(SessionCount()) << " terminal(s)";
   SavePrefs();
+  SendSizeEvent(); // Force the terminals to recalculate their size
 }
 
 void MainView::ApplyOptimizedDrawing() {
