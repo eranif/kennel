@@ -154,7 +154,8 @@ void SessionPage::CreateTerminal() {
 #ifdef __WXMSW__
   // On Windows, we need to place another hook for wxEVT_CHAR_HOOK
   // so we can handle navigation event.
-  m_terminal->Bind(wxEVT_CHAR_HOOK, [](wxKeyEvent &keyEvent) {
+  m_terminal->Bind(wxEVT_CHAR_HOOK, [isPlainTerminal = m_session.plainTerminal](
+                                        wxKeyEvent &keyEvent) {
     if ((keyEvent.GetKeyCode() == WXK_LEFT ||
          keyEvent.GetKeyCode() == WXK_RIGHT) &&
         (keyEvent.GetModifiers() == wxMOD_ALT)) {
@@ -166,6 +167,17 @@ void SessionPage::CreateTerminal() {
         wxCommandEvent evtRight{wxEVT_MENU, wxID_FORWARD};
         wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(evtRight);
       }
+      return;
+    } else if (isPlainTerminal && (keyEvent.GetKeyCode() == WXK_F2)) {
+      // Rename
+      wxCommandEvent evtRename{wxEVT_MENU, XRCID("rename-selection")};
+      wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(evtRename);
+      return;
+    } else if (!isPlainTerminal && (keyEvent.GetKeyCode() == WXK_F5)) {
+      // Rename
+      wxCommandEvent evtRefreshSession{wxEVT_MENU, wxID_REFRESH};
+      wxTheApp->GetTopWindow()->GetEventHandler()->ProcessEvent(
+          evtRefreshSession);
       return;
     }
     keyEvent.Skip();

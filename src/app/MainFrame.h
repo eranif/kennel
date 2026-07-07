@@ -88,8 +88,8 @@ private:
   // Shared by the Launch menu items and the toolbar tools.
   void OnStartAgentFromToolBar(wxCommandEvent &evt);
   void OnEditAgents(wxCommandEvent &evt);
-  void OnRestartSession(wxCommandEvent &evt);
-  void OnRestartSessionUI(wxUpdateUIEvent &evt);
+  void OnRefreshSession(wxCommandEvent &evt);
+  void OnRefreshSessionUI(wxUpdateUIEvent &evt);
   void OnNewAgent(wxCommandEvent &evt);
   void OnNewTerminal(wxCommandEvent &evt);
   void OnCloseAllSessions(wxCommandEvent &evt);

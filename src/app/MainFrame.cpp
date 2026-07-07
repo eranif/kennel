@@ -164,8 +164,8 @@ void MainFrame::BuildToolBar() {
 
   auto &bmps = AppManager::Get().GetBitmaps();
 
-  Bind(wxEVT_TOOL, &MainFrame::OnRestartSession, this, wxID_REFRESH);
-  Bind(wxEVT_UPDATE_UI, &MainFrame::OnRestartSessionUI, this, wxID_REFRESH);
+  Bind(wxEVT_TOOL, &MainFrame::OnRefreshSession, this, wxID_REFRESH);
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnRefreshSessionUI, this, wxID_REFRESH);
   Bind(wxEVT_TOOL, &MainFrame::OnStartAgent, this, XRCID("start-agent"));
   Bind(wxEVT_TOOL, &MainFrame::OnNewTerminal, this, XRCID("start-terminal"));
 
@@ -231,7 +231,7 @@ void MainFrame::BuildMenuBar() {
   Bind(wxEVT_MENU, &MainFrame::OnNewTerminal, this, XRCID("start-terminal"));
   fileMenu->Append(wxID_REFRESH, _("&Refresh Current Selection\tF5"),
                    _("Refresh the Current Selection"));
-  Bind(wxEVT_MENU, &MainFrame::OnRestartSession, this, wxID_REFRESH);
+  Bind(wxEVT_MENU, &MainFrame::OnRefreshSession, this, wxID_REFRESH);
   fileMenu->AppendSeparator();
   fileMenu->Append(wxID_NEW, _("Configure &New Agent...\tCtrl+N"),
                    _("Define a New Agent"));
@@ -401,12 +401,12 @@ void MainFrame::OnNewAgent(wxCommandEvent &evt) {
   }
 }
 
-void MainFrame::OnRestartSessionUI(wxUpdateUIEvent &evt) {
+void MainFrame::OnRefreshSessionUI(wxUpdateUIEvent &evt) {
   wxUnusedVar(evt);
   evt.Enable(m_mainView->CanRefreshCurrent());
 }
 
-void MainFrame::OnRestartSession(wxCommandEvent &evt) {
+void MainFrame::OnRefreshSession(wxCommandEvent &evt) {
   wxUnusedVar(evt);
   m_mainView->RefreshCurrentSelection();
 }
