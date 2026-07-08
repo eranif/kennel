@@ -153,6 +153,17 @@ if [ "$NOTARIZE" = true ]; then
   echo "✓ Cleaned up temporary notarization zip file"
 fi
 
+# Verify app is ready for distribution
+echo ""
+echo "Verifying app is ready for distribution..."
+if syspolicy_check distribution "$APP_NAME" 2>&1 | grep -q "passed all pre-distribution checks"; then
+  echo "✓ App passed all pre-distribution checks and is ready for distribution"
+else
+  echo "Error: App failed pre-distribution checks"
+  syspolicy_check distribution "$APP_NAME"
+  exit 1
+fi
+
 # All operations completed successfully
 echo ""
 echo "=========================================="
