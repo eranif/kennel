@@ -24,7 +24,7 @@ back exactly where it left off, using the agent's native resume flag** (e.g., Cl
 
 | Platform | Download | Notes |
 |---|---|---|
-| **Windows 11** | [kennel-1.0.0-amd64-installer.exe](https://github.com/eranif/kennel/releases/download/1.1.0/kennel-1.1.0-amd64-installer.exe) | Installer for Windows 11 and later |
+| **Windows 11** | [kennel-1.1.0-amd64-installer.exe](https://github.com/eranif/kennel/releases/download/1.1.0/kennel-1.1.0-amd64-installer.exe) | Installer for Windows 11 and later |
 | **macOS ARM** | [kennel-macOS_26.5.1_arm64.zip](https://github.com/eranif/kennel/releases/download/1.1.0/kennel-macOS_26.5.1_arm64.zip) | Signed + notarized app bundle for Apple Silicon |
 
 See [Releases](https://github.com/eranif/kennel/releases) for other platforms and versions.
