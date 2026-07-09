@@ -93,6 +93,7 @@ public:
       std::abort();
     return value_ref();
   }
+
   T &value() {
     if (!m_ok)
       std::abort();

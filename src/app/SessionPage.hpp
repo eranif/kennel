@@ -22,7 +22,7 @@ class SessionPage : public SessionBasePage {
 public:
   using StatusChangedFn = std::function<void(SessionStatus)>;
 
-  SessionPage(wxSimplebook *parent, std::optional<AgentDef> agent,
+  SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
               Session session, bool resume = false);
   ~SessionPage() override;
 
@@ -46,7 +46,7 @@ private:
   void OnParentPageChanged(wxBookCtrlEvent &event);
   void ApplyTitle();
 
-  wxSimplebook *m_parentBook{nullptr};
+  wxBookCtrlBase *m_parentBook{nullptr};
   AppPaths m_paths;
   std::optional<AgentDef> m_agent{std::nullopt};
   Session m_session;

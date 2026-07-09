@@ -17,8 +17,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 # ---------------------------------------------------------------------------
-# wxTerminalEmulator (provides the wxterminal_lib static library).
-# Fetched via FetchContent; pinned to a release tag.
+# wxTerminalEmulator (provides the wxterminal_lib static library). Fetched via
+# FetchContent; pinned to a release tag.
 # ---------------------------------------------------------------------------
 include(FetchContent)
 FetchContent_Declare(
@@ -195,6 +195,7 @@ set(KENNEL_APP_SOURCES
     src/app/NewEnvVarDlg.cpp
     src/app/AppUIGlobals.cpp
     src/app/NewAgentWizard.cpp
+    src/app/SessionGroup.cpp
     src/app/FileBrowserDlg.cpp)
 
 # Built-in assets shipped with the app: client icons (SVG) and terminal colour
@@ -298,9 +299,8 @@ endif()
 
 target_link_libraries(kennel PRIVATE kennel_core wxterminal_lib
                                      ${wxWidgets_LIBRARIES})
-target_include_directories(
-  kennel PRIVATE src src/app
-                 ${wxterminalemulator_SOURCE_DIR})
+target_include_directories(kennel PRIVATE src src/app
+                                          ${wxterminalemulator_SOURCE_DIR})
 
 # ---------------------------------------------------------------------------
 # macOS: bundle the wxWidgets dylib inside the .app so the app is
@@ -366,7 +366,8 @@ endif()
 
 # ---------------------------------------------------------------------------
 # Linux: Set rpath and stage wxWidgets libraries for a self-contained app
-# Creates install structure: install/bin, install/lib, install/share/kennel/assets
+# Creates install structure: install/bin, install/lib,
+# install/share/kennel/assets
 # ---------------------------------------------------------------------------
 if(UNIX AND NOT APPLE)
   # Get the wxWidgets library path and copy shared libraries
@@ -403,9 +404,11 @@ if(UNIX AND NOT APPLE)
       COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/assets"
               "${_INSTALL_SHARE_DIR}/"
       # Copy LICENSE
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/LICENSE"
-              "${CMAKE_BINARY_DIR}/install/share/kennel/"
-      # Set rpath on the executable in install/bin to find libraries relative to installation
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/LICENSE"
+        "${CMAKE_BINARY_DIR}/install/share/kennel/"
+      # Set rpath on the executable in install/bin to find libraries relative to
+      # installation
       COMMAND patchelf --set-rpath "\$ORIGIN/../lib"
               "${_INSTALL_BIN_DIR}/kennel"
       # Also set rpath on the executable in the build directory
