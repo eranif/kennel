@@ -205,3 +205,74 @@ void SessionGroup::SelectSession(bool forward) {
   }
   m_book->SetSelection(where);
 }
+
+void SessionGroup::ApplyTheme(const wxString &themeName) {
+  auto &themeMgr = ThemeManager::Get();
+  auto active = themeMgr.SetTheme(themeName);
+  if (!active) {
+    return;
+  }
+
+  auto callback = [active](SessionPage *sp) {
+    sp->ApplyTheme(*active);
+    sp->GetTerminal()->SendSizeEvent();
+  };
+
+  Apply(callback);
+  SendSizeEvent(); // Force the terminals to recalculate their size
+}
+
+void SessionGroup::ApplyOptimizedDrawing() {
+  bool optimized = AppManager::Get().GetPrefs().terminalOptimizedDrawing;
+  auto callback = [optimized](SessionPage *sp) {
+    sp->GetTerminal()->EnableSafeDrawing(!optimized);
+    sp->GetTerminal()->Refresh();
+  };
+  Apply(callback);
+}
+
+void SessionGroup::ApplyFont(const wxFont &f) {
+  auto &themeMgr = ThemeManager::Get();
+  auto active = themeMgr.SetFont(f);
+  if (!active) {
+    return;
+  }
+
+  auto callback = [active](SessionPage *sp) {
+    sp->ApplyTheme(*active);
+    sp->GetTerminal()->SendSizeEvent();
+  };
+
+  Apply(callback);
+  SendSizeEvent(); // Force the terminals to recalculate their size
+}
+
+void SessionGroup::RefreshSelection() {
+  if (IsTerminalsGroup() || GetActiveTerminal() == nullptr)
+    return;
+
+  GetActiveTerminal()->CallAfter(&SessionPage::Restart);
+  m_pendingIdle++;
+  if (m_pendingIdle) {
+    GetMainFrame()->SetActivityText(
+        wxString::Format(_("Refreshing %d sessions"), m_pendingIdle));
+    GetMainFrame()->StartActivityIndicator();
+  }
+}
+
+void SessionGroup::RefreshAll() {
+  if (IsTerminalsGroup())
+    return;
+
+  auto RefreshSession = [this](SessionPage *page) {
+    page->CallAfter(&SessionPage::Restart);
+    m_pendingIdle++;
+  };
+
+  Apply(RefreshSession);
+  if (m_pendingIdle) {
+    GetMainFrame()->SetActivityText(
+        wxString::Format(_("Refreshing %d sessions"), m_pendingIdle));
+    GetMainFrame()->StartActivityIndicator();
+  }
+}

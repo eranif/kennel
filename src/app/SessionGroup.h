@@ -83,6 +83,12 @@ public:
   inline bool IsTerminalsGroup() const { return m_terminalsGroup; }
   inline bool IsSessionGroup() const { return !IsTerminalsGroup(); }
 
+  void ApplyTheme(const wxString &themeName);
+  void ApplyOptimizedDrawing();
+  void ApplyFont(const wxFont &f);
+  void RefreshAll();
+  void RefreshSelection();
+
 protected:
   void OnSessionExited(wxCommandEvent &e);
   void OnSessionIdle(wxCommandEvent &e);
