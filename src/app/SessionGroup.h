@@ -44,7 +44,7 @@ public:
   inline const wxString &GetGroupName() const { return m_groupName; }
   void SetGroupName(const wxString &groupName);
 
-  void Rename();
+  wxString Rename();
 
   /**
    * Creates a new session page based on the provided session definition.

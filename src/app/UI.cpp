@@ -79,8 +79,7 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
                              wxDLG_UNIT(m_splitterPageLeft, wxSize(200, -1)),
                              wxDV_NO_HEADER | wxDV_SINGLE);
 
-  m_leftPaneMainSizer->Add(m_dvListCtrlGroups, 1, wxALL | wxEXPAND,
-                           WXC_FROM_DIP(5));
+  m_leftPaneMainSizer->Add(m_dvListCtrlGroups, 1, wxEXPAND, WXC_FROM_DIP(5));
 
   m_dvListCtrlGroups->AppendIconTextColumn(_("Groups"), wxDATAVIEW_CELL_INERT,
                                            WXC_FROM_DIP(-2), wxALIGN_LEFT, 0);

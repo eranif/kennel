@@ -286,8 +286,8 @@ void MainFrame::BuildEditMenu(wxMenuBar *menuBar) {
   Bind(
       wxEVT_UPDATE_UI,
       [this](wxUpdateUIEvent &e) {
-        e.Enable(m_mainView->IsSelectionSessionGroup() &&
-                 !m_mainView->GetSelectedGroup()->IsDefaultGroup());
+        auto *group = m_mainView->GetSelectedGroup();
+        e.Enable(group && group->IsSessionGroup() && !group->IsDefaultGroup());
       },
       XRCID("rename-selection"));
 }

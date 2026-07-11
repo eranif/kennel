@@ -140,9 +140,9 @@ wxDataViewItem MainView::GetSessionGroupItem(const wxString &name) {
 }
 
 GroupItemData *MainView::GetGroupItemData(const wxDataViewItem &item) const {
-  if (!item.IsOk()) {
+  if (!item.IsOk())
     return nullptr;
-  }
+
   auto *groupItemData =
       reinterpret_cast<GroupItemData *>(m_dvListCtrlGroups->GetItemData(item));
   return groupItemData;
@@ -343,11 +343,16 @@ void MainView::SavePrefs() {
 
 SessionGroup *MainView::GetSelectedGroup() const {
   auto item = m_dvListCtrlGroups->GetSelection();
-  if (!item.IsOk())
+  if (!item.IsOk()) {
+    KLOG_INFO() << "Invalid group item";
     return nullptr;
+  }
+
   auto *cd = GetGroupItemData(item);
-  if (cd == nullptr)
+  if (cd == nullptr) {
+    KLOG_INFO() << "No group item data";
     return nullptr;
+  }
   return cd->groupPage;
 }
 
@@ -555,7 +560,30 @@ bool MainView::IsNameExist(const wxString &name) const {
 void MainView::RenameSelectedGroup() {
   auto *group = GetSelectedGroup();
   CHECK_NOT_NULL_RETURN(group);
-  group->Rename();
+  if (group->IsDefaultGroup())
+    return;
+  auto item = GetSessionGroupItem(group->GetGroupName());
+  CHECK_ITEM_RETURN(item);
+
+  auto *groupData = GetGroupItemData(item);
+  CHECK_NOT_NULL_RETURN(groupData);
+
+  wxString oldName = group->GetGroupName();
+  wxString newName = group->Rename();
+  if (newName.empty() || (oldName == newName))
+    return;
+
+  wxVariant v;
+  m_dvListCtrlGroups->GetValue(v, m_dvListCtrlGroups->ItemToRow(item), 0);
+  wxDataViewIconText iconText;
+  iconText << v;
+  iconText.SetText(newName);
+
+  v = wxVariant{};
+  v << iconText;
+  m_dvListCtrlGroups->SetValue(v, m_dvListCtrlGroups->ItemToRow(item), 0);
+  groupData->groupName = newName; // TODO: do we need this "groupName"? we can
+                                  // take it directly from the page.
 }
 
 void MainView::RemoveGroupIfEmpty(const wxDataViewItem &item) {

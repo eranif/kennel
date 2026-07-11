@@ -191,13 +191,14 @@ SessionPage *SessionGroup::GetActivePage() {
   return dynamic_cast<SessionPage *>(m_book->GetPage(m_book->GetSelection()));
 }
 
-void SessionGroup::Rename() {
+wxString SessionGroup::Rename() {
   wxString newName = ::wxGetTextFromUser(_("Choose new group name:"), "Kennel",
                                          GetGroupName(), this);
   if (newName.empty() || newName == GetGroupName()) {
-    return;
+    return {};
   }
   SetGroupName(newName);
+  return newName;
 }
 
 void SessionGroup::SetGroupName(const wxString &groupName) {
