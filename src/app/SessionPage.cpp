@@ -148,7 +148,7 @@ void SessionPage::CreateTerminal() {
   m_acceleratorInterceptor =
       std::make_unique<AcceleratorInterceptor>(m_terminal);
 
-  GetSizer()->Add(m_terminal, wxSizerFlags(1).Border(wxALL, 5).Expand());
+  GetSizer()->Add(m_terminal, wxSizerFlags(1).Expand());
   GetSizer()->Layout();
   m_terminal->Bind(wxEVT_TERMINAL_TEXT_LINK, &SessionPage::OnTerminalLink,
                    this);

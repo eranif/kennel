@@ -101,9 +101,11 @@ public:
 
   void SelectSession(const wxString &sessionName);
   void SelectSession(bool forward);
+  void SelectGroup(bool forward);
 
   size_t SessionCount() const;
-
+  size_t GroupCount() const;
+  
   // Prompts for confirmation, then closes every session in every group.
   void CloseAllSessions();
   bool IsSelectionSessionGroup() const;

@@ -40,7 +40,8 @@ struct AuiFlatTabArt::Data {
   void InitColours() {
 #ifdef __WXMSW__
     bool dark = IsDarkColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
-    m_bgActive = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW).ChangeLightness(90);
+    m_bgActive =
+        wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW).ChangeLightness(90);
     m_fgActive = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
     m_fgNormal = dark ? wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT)
                       : wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT)
@@ -228,6 +229,15 @@ int AuiFlatTabArt::DrawPageTab(wxDC &dc, wxWindow *wnd, wxAuiNotebookPage &page,
 
   // --- Close / action buttons ---
   int xStart = rect.x + wnd->FromDIP(Data::PADDING_X);
+  if (page.bitmap.IsOk()) {
+    const wxBitmap bmp = page.bitmap.GetBitmapFor(wnd);
+    const wxSize bitmapSize = bmp.GetLogicalSize();
+
+    dc.DrawBitmap(bmp, xStart, rect.y + (size.y - bitmapSize.y) / 2,
+                  true /* use mask */);
+
+    xStart += bitmapSize.x + wnd->FromDIP(Data::PADDING_X);
+  }
 
   int buttonsWidth = 0;
   for (const auto &button : page.buttons) {

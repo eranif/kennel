@@ -44,6 +44,10 @@ MainView::MainView(wxWindow *parent)
       m_workspace(&AppManager::Get().Workspace()),
       m_paths(AppManager::Get().Paths()) {
 
+  // Does nothing on native impl (macOS & Linux).
+  m_dvListCtrlGroups->SetAlternateRowColour(
+      wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW).ChangeLightness(105));
+
   const auto &prefs = AppManager::Get().GetPrefs();
   auto &themeMgr = ThemeManager::Get();
   {
@@ -632,6 +636,10 @@ void MainView::SelectSession(const wxString &sessionName) {
   group->SelectSession(sessionName);
 }
 
+size_t MainView::GroupCount() const {
+  return m_dvListCtrlGroups->GetItemCount();
+}
+
 size_t MainView::SessionCount() const {
   size_t count{0};
   for (size_t i = 0; i < m_dvListCtrlGroups->GetItemCount(); ++i) {
@@ -641,6 +649,30 @@ size_t MainView::SessionCount() const {
     }
   }
   return count;
+}
+
+void MainView::SelectGroup(bool forward) {
+  if (GroupCount() <= 1) {
+    return;
+  }
+
+  int row = m_dvListCtrlGroups->GetSelectedRow();
+  if (row == wxNOT_FOUND)
+    return;
+
+  int rowsCount = static_cast<int>(GroupCount());
+  if (forward) {
+    row += 1;
+    if (row >= rowsCount) {
+      row = 0;
+    }
+  } else {
+    row -= 1;
+    if (row < 0) {
+      row = rowsCount - 1;
+    }
+  }
+  DoSelectGroup(m_dvListCtrlGroups->RowToItem(row));
 }
 
 void MainView::SelectSession(bool forward) {

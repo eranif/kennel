@@ -613,6 +613,7 @@
                           "gbPosition": "0,0",
                           "m_styles": [
                             "wxDV_NO_HEADER",
+                            "wxDV_ROW_LINES",
                             "wxDV_SINGLE"
                           ],
                           "m_sizerFlags": [

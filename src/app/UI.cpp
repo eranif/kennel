@@ -77,7 +77,7 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
   m_dvListCtrlGroups =
       new wxDataViewListCtrl(m_splitterPageLeft, wxID_ANY, wxDefaultPosition,
                              wxDLG_UNIT(m_splitterPageLeft, wxSize(200, -1)),
-                             wxDV_NO_HEADER | wxDV_SINGLE);
+                             wxDV_NO_HEADER | wxDV_ROW_LINES | wxDV_SINGLE);
 
   m_leftPaneMainSizer->Add(m_dvListCtrlGroups, 1, wxEXPAND, WXC_FROM_DIP(5));
 

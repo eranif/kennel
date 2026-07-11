@@ -62,6 +62,11 @@ private:
   void OnPrevSessionUI(wxUpdateUIEvent &e);
   void OnNextSessionUI(wxUpdateUIEvent &e);
 
+  void OnNextGroup(wxCommandEvent &e);
+  void OnPrevGroup(wxCommandEvent &e);
+  void OnPrevGroupUI(wxUpdateUIEvent &e);
+  void OnNextGroupUI(wxUpdateUIEvent &e);
+
   // Build the search menu
   void BuildSearchMenu(wxMenuBar *menuBar);
 
