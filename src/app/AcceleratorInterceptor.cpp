@@ -1,4 +1,5 @@
 #include "app/AcceleratorInterceptor.h"
+#include "app/MainFrame.h"
 #include "wx/app.h"
 #include "wx/xrc/xmlres.h"
 
@@ -14,15 +15,29 @@ AcceleratorInterceptor::~AcceleratorInterceptor() {}
 
 void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
   if ((keyEvent.GetKeyCode() == WXK_LEFT ||
-       keyEvent.GetKeyCode() == WXK_RIGHT) &&
+       keyEvent.GetKeyCode() == WXK_RIGHT || keyEvent.GetKeyCode() == WXK_UP ||
+       keyEvent.GetKeyCode() == WXK_DOWN) &&
       (keyEvent.GetModifiers() == wxMOD_ALT)) {
     wxCommandEvent dummyEvt{};
-    if (keyEvent.GetKeyCode() == WXK_LEFT) {
+    switch (keyEvent.GetKeyCode()) {
+    case WXK_LEFT: {
       wxCommandEvent evtLeft{wxEVT_MENU, wxID_BACKWARD};
-      wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(evtLeft);
-    } else {
+      GetMainFrame()->GetEventHandler()->AddPendingEvent(evtLeft);
+    } break;
+    case WXK_RIGHT: {
       wxCommandEvent evtRight{wxEVT_MENU, wxID_FORWARD};
-      wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(evtRight);
+      GetMainFrame()->GetEventHandler()->AddPendingEvent(evtRight);
+    } break;
+    case WXK_UP: {
+      wxCommandEvent evtRight{wxEVT_MENU, wxID_UP};
+      GetMainFrame()->GetEventHandler()->AddPendingEvent(evtRight);
+    } break;
+    case WXK_DOWN: {
+      wxCommandEvent evtRight{wxEVT_MENU, wxID_DOWN};
+      GetMainFrame()->GetEventHandler()->AddPendingEvent(evtRight);
+    } break;
+    default:
+      break;
     }
     return;
   } else if (keyEvent.GetKeyCode() == WXK_F2) {
