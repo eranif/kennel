@@ -63,7 +63,7 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
       this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)),
       wxSP_LIVE_UPDATE | wxSP_3DSASH | wxBORDER_THEME);
   m_splitterMain->SetSashGravity(0);
-  m_splitterMain->SetMinimumPaneSize(250);
+  m_splitterMain->SetMinimumPaneSize(200);
 
   boxSizer4->Add(m_splitterMain, 1, wxEXPAND, WXC_FROM_DIP(5));
 
@@ -74,6 +74,15 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
   m_leftPaneMainSizer = new wxBoxSizer(wxVERTICAL);
   m_splitterPageLeft->SetSizer(m_leftPaneMainSizer);
 
+  m_dvListCtrlGroups = new wxDataViewListCtrl(
+      m_splitterPageLeft, wxID_ANY, wxDefaultPosition,
+      wxDLG_UNIT(m_splitterPageLeft, wxSize(-1, -1)), wxDV_SINGLE);
+
+  m_leftPaneMainSizer->Add(m_dvListCtrlGroups, 1, wxALL | wxEXPAND,
+                           WXC_FROM_DIP(5));
+
+  m_dvListCtrlGroups->AppendIconTextColumn(_("Groups"), wxDATAVIEW_CELL_INERT,
+                                           WXC_FROM_DIP(-2), wxALIGN_LEFT, 0);
   m_splitterPageRight =
       new wxPanel(m_splitterMain, wxID_ANY, wxDefaultPosition,
                   wxDLG_UNIT(m_splitterMain, wxSize(-1, -1)), wxTAB_TRAVERSAL);
@@ -91,13 +100,19 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
   boxSizer12->Add(m_sessionsBook, 1, wxEXPAND, WXC_FROM_DIP(5));
 
   SetName(wxT("MainViewBase"));
-  SetSize(wxDLG_UNIT(this, wxSize(500, 300)));
+  SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
   if (GetSizer()) {
     GetSizer()->Fit(this);
   }
+  // Connect events
+  m_dvListCtrlGroups->Bind(wxEVT_COMMAND_DATAVIEW_SELECTION_CHANGED,
+                           &MainViewBase::OnSelectionChanged, this);
 }
 
-MainViewBase::~MainViewBase() {}
+MainViewBase::~MainViewBase() {
+  m_dvListCtrlGroups->Unbind(wxEVT_COMMAND_DATAVIEW_SELECTION_CHANGED,
+                             &MainViewBase::OnSelectionChanged, this);
+}
 
 StartAgentDialogBase::StartAgentDialogBase(wxWindow *parent, wxWindowID id,
                                            const wxString &title,

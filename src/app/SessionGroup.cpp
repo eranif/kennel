@@ -4,7 +4,13 @@
 #include "core/Logger.h"
 #include "terminal_view.h"
 
+#include <wx/msgdlg.h>
 #include <wx/sizer.h>
+#include <wx/textdlg.h>
+
+wxDEFINE_EVENT(wxEVT_GROUP_PAGE_CHANGED, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_GROUP_LAST_PAGE_CLOSED, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_SESSION_PAGE_CLOSED, wxCommandEvent);
 
 SessionGroup::SessionGroup(wxWindow *parent, const wxString &groupName,
                            bool terminalsGroup)
@@ -20,6 +26,10 @@ SessionGroup::SessionGroup(wxWindow *parent, const wxString &groupName,
   Bind(wxEVT_SESSION_ACTIVE, &SessionGroup::OnSessionActive, this);
   Bind(wxEVT_SESSION_EXITED, &SessionGroup::OnSessionExited, this);
   Bind(wxEVT_IDLE, &SessionGroup::OnIdleEvent, this);
+  m_book->Bind(wxEVT_AUINOTEBOOK_PAGE_CHANGED, &SessionGroup::OnPageChanged,
+               this);
+  m_book->Bind(wxEVT_AUINOTEBOOK_PAGE_CLOSED, &SessionGroup::OnPageClosed,
+               this);
 }
 
 SessionGroup::~SessionGroup() {
@@ -29,13 +39,16 @@ SessionGroup::~SessionGroup() {
   Unbind(wxEVT_IDLE, &SessionGroup::OnIdleEvent, this);
 }
 
-Status SessionGroup::AddSessionPage(SessionPage *page) {
-  if (page == nullptr)
-    return Status::Error("Invalid nullptr page");
+bool SessionGroup::AddSessionPage(SessionPage *page) {
+  if (page == nullptr) {
+    KLOG_ERROR() << "Can not add null session page.";
+    return false;
+  }
 
-  if (FindByName(page->GetSession().name) != wxNOT_FOUND)
-    return Status::Error("A session with this name already exist");
-
+  if (FindByName(page->GetSession().name) != wxNOT_FOUND) {
+    KLOG_WARN() << "A session with this name already exist";
+    return false;
+  }
   const auto &session = page->GetSession();
   page->Reparent(m_book);
   m_book->AddPage(page, session.name, true);
@@ -43,25 +56,38 @@ Status SessionGroup::AddSessionPage(SessionPage *page) {
       .title = session.name,
       .agentName = session.agentName,
   });
-  return Status::Ok();
+  return true;
 }
 
-StatusOr<SessionPage *> SessionGroup::NewSessionPage(const Session &session,
-                                                     bool resume) {
-  auto &registry = AppManager::Get().Adapters();
-  const AgentDef *agent = registry.FindAgent(session.agentName);
-  if (agent == nullptr) {
-    return Status::Error(
-        wxString::Format("No such agent: %s", session.agentName));
+SessionPage *SessionGroup::NewSessionPage(const Session &session, bool resume) {
+  std::optional<AgentDef> agent{std::nullopt};
+  if (IsSessionGroup()) {
+    auto &registry = AppManager::Get().Adapters();
+    const AgentDef *pagent = registry.FindAgent(session.agentName);
+    if (pagent == nullptr) {
+      KLOG_ERROR() << wxString::Format("No such agent: %s", session.agentName);
+      return nullptr;
+    }
+    agent = *pagent;
   }
 
-  auto *page = new SessionPage(m_book, *agent, session, resume);
-  auto result = AddSessionPage(page);
-  if (!result.ok()) {
+  auto *page = new SessionPage(m_book, agent, session, resume);
+  if (!AddSessionPage(page)) {
     wxDELETE(page);
-    return result;
+    return nullptr;
   }
   return page;
+}
+
+std::vector<SessionPage *> SessionGroup::GetAllSessions() const {
+  std::vector<SessionPage *> result;
+  for (size_t i = 0; i < m_book->GetPageCount(); ++i) {
+    auto *page = GetSessionByIndex(i);
+    if (page != nullptr) {
+      result.push_back(page);
+    }
+  }
+  return result;
 }
 
 StatusOr<SessionPage *> SessionGroup::RemoveSessionPage(const wxString &name) {
@@ -72,6 +98,7 @@ StatusOr<SessionPage *> SessionGroup::RemoveSessionPage(const wxString &name) {
 
   auto *session = GetSessionByIndex(where);
   m_book->RemovePage(where);
+  NotifyLastPageClosed();
   return session;
 }
 
@@ -88,7 +115,7 @@ void SessionGroup::RestoreSessions() {
   for (const Session &s : sessions) {
     auto result = NewSessionPage(s, true);
     if (result) {
-      result.value()->GetTerminal()->EnsureStarted();
+      result->GetTerminal()->EnsureStarted();
       ++restored;
     }
   }
@@ -97,7 +124,7 @@ void SessionGroup::RestoreSessions() {
 
 void SessionGroup::OnSessionExited(wxCommandEvent &e) {
   wxString name = e.GetString();
-  DeleteByName(name);
+  DeleteSessionByName(name);
 }
 
 void SessionGroup::OnSessionIdle(wxCommandEvent &e) {
@@ -117,10 +144,13 @@ void SessionGroup::OnSessionIdle(wxCommandEvent &e) {
 
 void SessionGroup::OnSessionActive(wxCommandEvent &e) { e.Skip(); }
 
-bool SessionGroup::DeleteByName(const wxString &name) {
+bool SessionGroup::DeleteSessionByName(const wxString &name) {
   for (size_t i = 0; i < m_book->GetPageCount(); ++i) {
     if (m_book->GetPageText(i) == name) {
       m_book->DeletePage(i);
+      NotifyLastPageClosed();
+      AppManager::Get().Workspace().CloseSession(name);
+      AppManager::Get().Workspace().Persist();
       return true;
     }
   }
@@ -128,30 +158,46 @@ bool SessionGroup::DeleteByName(const wxString &name) {
 }
 
 void SessionGroup::OnIdleEvent(wxIdleEvent &e) {
-  if (!m_idleHandled && GetActiveTerminal()) {
+  if (!m_idleHandled && GetActivePage()) {
     m_idleHandled = true;
-    GetActiveTerminal()->SetFocus();
+    GetActivePage()->SetFocus();
   }
 }
 
-SessionPage *SessionGroup::GetActiveTerminal() {
+SessionPage *SessionGroup::GetActivePage() {
   if (IsEmpty())
     return nullptr;
   return dynamic_cast<SessionPage *>(m_book->GetPage(m_book->GetSelection()));
 }
 
+void SessionGroup::Rename() {
+  wxString newName = ::wxGetTextFromUser(_("Choose new group name:"), "Kennel",
+                                         GetGroupName(), this);
+  if (newName.empty() || newName == GetGroupName()) {
+    return;
+  }
+  SetGroupName(newName);
+}
+
 void SessionGroup::SetGroupName(const wxString &groupName) {
+  wxString oldName = GetGroupName();
   m_groupName = groupName;
   for (size_t i = 0; i < m_book->GetPageCount(); ++i) {
     auto *session = static_cast<SessionPage *>(m_book->GetPage(i));
     session->GetSession().groupName = groupName;
   }
+
+  auto &workspace = AppManager::Get().Workspace();
+  if (Status st = workspace.RenameGroup(oldName, groupName); !st.ok()) {
+    wxMessageBox(st.message(), "Kennel", wxOK | wxICON_ERROR, this);
+    return;
+  }
+  workspace.Persist();
 }
 
 int SessionGroup::FindByName(const wxString &name) const {
   for (size_t i = 0; i < m_book->GetPageCount(); ++i) {
     if (m_book->GetPageText(i) == name) {
-      m_book->DeletePage(i);
       return i;
     }
   }
@@ -248,10 +294,10 @@ void SessionGroup::ApplyFont(const wxFont &f) {
 }
 
 void SessionGroup::RefreshSelection() {
-  if (IsTerminalsGroup() || GetActiveTerminal() == nullptr)
+  if (IsTerminalsGroup() || GetActivePage() == nullptr)
     return;
 
-  GetActiveTerminal()->CallAfter(&SessionPage::Restart);
+  GetActivePage()->CallAfter(&SessionPage::Restart);
   m_pendingIdle++;
   if (m_pendingIdle) {
     GetMainFrame()->SetActivityText(
@@ -274,5 +320,33 @@ void SessionGroup::RefreshAll() {
     GetMainFrame()->SetActivityText(
         wxString::Format(_("Refreshing %d sessions"), m_pendingIdle));
     GetMainFrame()->StartActivityIndicator();
+  }
+}
+
+void SessionGroup::CloseAll() {
+  m_book->DeleteAllPages();
+  m_history.Clear();
+  m_pendingIdle = 0;
+
+  NotifyLastPageClosed();
+}
+
+void SessionGroup::OnPageChanged(wxAuiNotebookEvent &event) {
+  event.Skip();
+  wxCommandEvent e{wxEVT_GROUP_PAGE_CHANGED};
+  e.SetString(GetGroupName());
+  GetMainFrame()->GetMainView()->GetEventHandler()->AddPendingEvent(e);
+}
+
+void SessionGroup::OnPageClosed(wxAuiNotebookEvent &event) {
+  event.Skip();
+  NotifyLastPageClosed();
+}
+
+void SessionGroup::NotifyLastPageClosed() {
+  if (m_book->GetPageCount() == 0) {
+    wxCommandEvent e{wxEVT_GROUP_LAST_PAGE_CLOSED};
+    e.SetString(GetGroupName());
+    GetMainFrame()->GetMainView()->GetEventHandler()->AddPendingEvent(e);
   }
 }

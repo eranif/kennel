@@ -50,7 +50,10 @@ public:
   Status MoveSession(const wxString &name, const wxString &toGroup);
 
   // Removes a session from the registry. Does not persist.
-  Status Close(const wxString &name);
+  Status CloseSession(const wxString &name);
+
+  // Removes a session from the registry. Does not persist.
+  Status CloseGroup(const wxString &name);
 
   // Writes the current registry to workspace.json.
   Status Persist();

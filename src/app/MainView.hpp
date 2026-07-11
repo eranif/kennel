@@ -2,7 +2,7 @@
 
 #include "UI.hpp"
 #include "app/AcceleratorInterceptor.h"
-#include "app/TabHistory.h"
+#include "app/SessionGroup.h"
 #include "app/ThemeManager.h"
 #include "core/AppPaths.h"
 #include "core/WorkspaceManager.h"
@@ -22,30 +22,13 @@ class UiPrefsStore;
 
 static constexpr int kSpinnerFrameCount = 8;
 
-// Blank placeholder shown when an agent group node is selected.
-class GroupPage : public wxPanel {
-public:
-  explicit GroupPage(wxWindow *parent) : wxPanel(parent) {}
-};
-
-// Client data on each session leaf: points at the terminal page in simplebook.
-class SessionItemData : public wxClientData {
-public:
-  explicit SessionItemData(SessionPage *page) : page{page} {}
-  SessionPage *page{nullptr};
-};
-
 // Client data on each agent group container.
-class GroupItemData : public wxClientData {
+class GroupItemData {
 public:
-  explicit GroupItemData(GroupPage *page, bool terminalsGroup = false)
-      : page{page}, m_terminalsGroup{terminalsGroup} {}
-  GroupPage *page{nullptr};
-  inline bool IsTerminalsGroup() const { return m_terminalsGroup; }
-  inline bool IsSessionGroup() const { return !IsTerminalsGroup(); }
-
-private:
-  bool m_terminalsGroup{false};
+  explicit GroupItemData(const wxString &n, SessionGroup *p)
+      : groupName{n}, groupPage{p} {}
+  wxString groupName;
+  SessionGroup *groupPage{nullptr};
 };
 
 class SpinnerRenderer : public wxEvtHandler {
@@ -110,12 +93,11 @@ public:
   void ApplyTheme(const wxString &themeName);
   void ApplyOptimizedDrawing();
   void ApplyFont(const wxFont &f);
-  void RefreshCurrentSelection();
+  void RefreshSelectedGroup();
   bool CanRefreshCurrent() const;
-  const TabHistory &GetHistory() const { return m_history; }
+  void RefreshCurrentSelection();
 
   SessionPage *GetActiveTerminal();
-  wxDataViewTreeCtrl *GetTree() { return m_dvListCtrlSessions; }
 
   void SelectSession(const wxString &sessionName);
   void SelectSession(bool forward);
@@ -126,53 +108,37 @@ public:
   void CloseAllSessions();
   bool IsSelectionSessionGroup() const;
   bool IsSelectionTerminalGroup() const;
-  bool IsSelectionTerminal() const;
-  bool IsSelectionSession() const;
-  void RenameGroup(const wxDataViewItem &item);
-  void RenameTerminal(const wxDataViewItem &item);
-  wxString GetSelectedItemText() const;
+  void RenameSelectedGroup();
   bool IsNameExist(const wxString &name) const;
+  SessionGroup *GetSelectedGroup() const;
 
 protected:
+  void DoSelectGroup(const wxDataViewItem &item);
+  void DoSelectGroup(const wxString &name);
   void OnContextMenu(wxDataViewEvent &event);
-  void OnSelectionChanged(wxDataViewEvent &event);
-  void DoSetSession(const wxString &name);
-  void OnSessionExited(wxCommandEvent &e);
-  void OnSessionIdle(wxCommandEvent &e);
-  void OnSessionActive(wxCommandEvent &e);
-  void OnIdleEvent(wxIdleEvent &e);
-  void DeleteByName(const wxString &name);
+  void OnSelectionChanged(wxDataViewEvent &event) override;
+  void OnGroupPageChanged(wxCommandEvent &event);
+  void OnGroupLastPageClosed(wxCommandEvent &event);
+  void DeleteGroupByName(const wxString &name);
   void DeleteAll();
   void DoGroupMenu(const wxDataViewItem &item);
-  void Traverse(std::function<bool(const wxDataViewItem &)> visit) const;
+  void Traverse(std::function<bool(SessionPage *)> visit) const;
+  std::vector<SessionPage *> GetAllSessions() const;
+  std::vector<SessionGroup *> GetAllGroups() const;
 
-  // Moves the session leaf `item` into `targetGroup` (created if needed),
-  // reparenting it in the tree and retagging the workspace + live page.
-  void MoveSessionToGroup(const wxDataViewItem &item,
-                          const wxString &targetGroup);
   // Removes `group` (and its backing page) if it has no children, unless it is
   // the "Default" group, which must always exist.
   void RemoveGroupIfEmpty(const wxDataViewItem &group);
-  SessionPage *GetSessionPage(const wxString &name);
 
 private:
-  void BuildTree();
-  void BuildGroups();
   void LoadBitmaps();
 
-  wxDataViewItem GroupNode(const wxString &groupName) const;
-  wxDataViewItem EnsureGroup(const wxString &groupName);
-  wxDataViewItem ItemFromName(const wxString &name) const;
-  SessionPage *PageFromItem(const wxDataViewItem &item) const;
+  SessionGroup *EnsureGroup(const wxString &groupName);
   GroupItemData *GetGroupItemData(const wxDataViewItem &item) const;
-  bool IsTerminalNode(const wxDataViewItem &item) const;
-
-  wxDataViewItem AddSessionLeaf(const wxString &groupName, const wxString &name,
-                                SessionPage *page);
-  std::vector<wxDataViewItem> SessionItemsInOrder() const;
-  // Restores a session leaf to its agent's icon (used when the session is
-  // not busy). No-op if the item has no resolvable agent.
-  void SetAgentIcon(const wxDataViewItem &item);
+  SessionGroup *GetSessionGroup(const wxString &name) const;
+  SessionGroup *GetSessionGroup(int row) const;
+  SessionPage *AddSession(SessionPage *page);
+  wxDataViewItem GetSessionGroupItem(const wxString &name);
   void SavePrefs();
 
   // Creates and adds a terminal page for an existing Session.
@@ -182,10 +148,7 @@ private:
   WorkspaceManager *m_workspace{nullptr};
   AppPaths m_paths;
 
-  wxDataViewTreeCtrl *m_dvListCtrlSessions{nullptr};
-
   std::array<wxBitmapBundle, kSpinnerFrameCount> m_spinnerFrames;
-  TabHistory m_history;
   int m_pendingIdle{0};
   std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor{nullptr};
   bool m_idleHandled{false};

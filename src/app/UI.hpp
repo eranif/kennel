@@ -15,6 +15,7 @@
 #include <wx/artprov.h>
 #include <wx/sizer.h>
 #include <wx/splitter.h>
+#include <wx/dataview.h>
 #include <wx/simplebook.h>
 #include <wx/dialog.h>
 #include <wx/iconbndl.h>
@@ -28,7 +29,6 @@
 #include <wx/checkbox.h>
 #include <wx/toolbar.h>
 #include <wx/stc/stc.h>
-#include <wx/dataview.h>
 #include <wx/notebook.h>
 #include <wx/imaglist.h>
 #include <wx/statbmp.h>
@@ -75,18 +75,22 @@ protected:
   wxSplitterWindow *m_splitterMain;
   wxPanel *m_splitterPageLeft;
   wxBoxSizer *m_leftPaneMainSizer;
+  wxDataViewListCtrl *m_dvListCtrlGroups;
   wxPanel *m_splitterPageRight;
   wxSimplebook *m_sessionsBook;
 
 protected:
+  virtual void OnSelectionChanged(wxDataViewEvent &event) { event.Skip(); }
+
 public:
+  wxDataViewListCtrl *GetDvListCtrlGroups() { return m_dvListCtrlGroups; }
   wxPanel *GetSplitterPageLeft() { return m_splitterPageLeft; }
   wxSimplebook *GetSessionsBook() { return m_sessionsBook; }
   wxPanel *GetSplitterPageRight() { return m_splitterPageRight; }
   wxSplitterWindow *GetSplitterMain() { return m_splitterMain; }
   MainViewBase(wxWindow *parent, wxWindowID id = wxID_ANY,
                const wxPoint &pos = wxDefaultPosition,
-               const wxSize &size = wxSize(500, 300),
+               const wxSize &size = wxSize(-1, -1),
                long style = wxTAB_TRAVERSAL);
   virtual ~MainViewBase();
 };

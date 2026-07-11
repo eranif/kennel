@@ -99,10 +99,10 @@ MainFrame::MainFrame()
 
   Bind(wxEVT_CLOSE_WINDOW, &MainFrame::OnClose, this);
   Bind(wxEVT_ACTIVATE, &MainFrame::OnActivate, this);
+  mainFrame = this;
 
   // Rebuild any sessions persisted in workspace.json (resuming where possible).
   m_mainView->RestoreSessions();
-  mainFrame = this;
 }
 
 MainFrame::~MainFrame() {
@@ -174,7 +174,7 @@ void MainFrame::BuildToolBar() {
                      bmps.Get("agent", true), _("Start a New Agent"));
   m_toolBar->AddTool(XRCID("start-terminal"), _("Start a New Terminal"),
                      bmps.Get("terminal", true), _("Start a New Terminal"));
-  m_toolBar->AddTool(wxID_REFRESH, _("Restart"), bmps.Get("restart", true),
+  m_toolBar->AddTool(wxID_REFRESH, _("Refresh"), bmps.Get("restart", true),
                      _("Refresh the Current Agent"));
   m_toolBar->AddSeparator();
   BuildLaunchTools();
@@ -286,9 +286,8 @@ void MainFrame::BuildEditMenu(wxMenuBar *menuBar) {
   Bind(
       wxEVT_UPDATE_UI,
       [this](wxUpdateUIEvent &e) {
-        e.Enable((m_mainView->IsSelectionSessionGroup() &&
-                  m_mainView->GetSelectedItemText() != _("Default")) ||
-                 m_mainView->IsSelectionTerminal());
+        e.Enable(m_mainView->IsSelectionSessionGroup() &&
+                 !m_mainView->GetSelectedGroup()->IsDefaultGroup());
       },
       XRCID("rename-selection"));
 }
@@ -474,12 +473,7 @@ void MainFrame::OnAbout(wxCommandEvent &evt) {
 
 void MainFrame::OnRenameItem(wxCommandEvent &event) {
   wxUnusedVar(event);
-  auto item = m_mainView->GetTree()->GetSelection();
-  if (m_mainView->IsSelectionSessionGroup()) {
-    m_mainView->RenameGroup(item);
-  } else if (m_mainView->IsSelectionTerminal()) {
-    m_mainView->RenameTerminal(item);
-  }
+  m_mainView->RenameSelectedGroup();
 }
 
 MainFrame *GetMainFrame() { return mainFrame; }

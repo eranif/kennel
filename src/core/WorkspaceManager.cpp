@@ -121,13 +121,24 @@ Status WorkspaceManager::MoveSession(const wxString &name,
   return Status::Ok();
 }
 
-Status WorkspaceManager::Close(const wxString &name) {
+Status WorkspaceManager::CloseSession(const wxString &name) {
   auto it = FindIt(name);
   if (it == m_sessions.end()) {
     return Status::Error(wxString::Format("No session named '%s'", name));
   }
   m_sessions.erase(it);
   KLOG_INFO() << "Closed session '" << name << "'";
+  return Status::Ok();
+}
+
+Status WorkspaceManager::CloseGroup(const wxString &name) {
+  std::vector<Session> sessions;
+  for (const auto &s : m_sessions) {
+    if (s.groupName != name) {
+      sessions.push_back(s);
+    }
+  }
+  m_sessions.swap(sessions);
   return Status::Ok();
 }
 

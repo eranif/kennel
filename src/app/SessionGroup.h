@@ -6,8 +6,13 @@
 #include "core/Workspace.h"
 
 #include <functional>
+#include <vector>
 #include <wx/aui/auibook.h>
 #include <wx/panel.h>
+
+wxDECLARE_EVENT(wxEVT_GROUP_PAGE_CHANGED, wxCommandEvent);
+wxDECLARE_EVENT(wxEVT_GROUP_LAST_PAGE_CLOSED, wxCommandEvent);
+wxDECLARE_EVENT(wxEVT_SESSION_PAGE_CLOSED, wxCommandEvent);
 
 class SessionGroup : public wxPanel {
 public:
@@ -18,6 +23,8 @@ public:
   inline const wxString &GetGroupName() const { return m_groupName; }
   void SetGroupName(const wxString &groupName);
 
+  void Rename();
+
   /**
    * Creates a new session page based on the provided session definition.
    *
@@ -27,7 +34,7 @@ public:
    *         or an error if the agent is not found or the page could not be
    * added.
    */
-  StatusOr<SessionPage *> NewSessionPage(const Session &session, bool resume);
+  SessionPage *NewSessionPage(const Session &session, bool resume);
 
   /**
    * Adds an existing session page to the group's notebook.
@@ -36,7 +43,7 @@ public:
    * @return Status::Ok() on success, or an error if the page is null or
    *         a session with the same name already exists.
    */
-  Status AddSessionPage(SessionPage *page);
+  bool AddSessionPage(SessionPage *page);
 
   /**
    * Removes a session page by its name from the group.
@@ -59,12 +66,14 @@ public:
    */
   void RestoreSessions();
 
+  std::vector<SessionPage *> GetAllSessions() const;
+
   /**
    * Gets the currently active session page in the group.
    *
    * @return Pointer to the active SessionPage, or nullptr if no page is active.
    */
-  SessionPage *GetActiveTerminal();
+  SessionPage *GetActivePage();
   inline size_t GetCount() const { return m_book->GetPageCount(); }
   inline bool IsEmpty() const { return GetCount() == 0; }
 
@@ -82,19 +91,26 @@ public:
 
   inline bool IsTerminalsGroup() const { return m_terminalsGroup; }
   inline bool IsSessionGroup() const { return !IsTerminalsGroup(); }
+  inline bool IsDefaultGroup() const { return GetGroupName() == _("Default"); }
 
   void ApplyTheme(const wxString &themeName);
   void ApplyOptimizedDrawing();
   void ApplyFont(const wxFont &f);
   void RefreshAll();
   void RefreshSelection();
+  void CloseAll();
 
 protected:
   void OnSessionExited(wxCommandEvent &e);
   void OnSessionIdle(wxCommandEvent &e);
   void OnSessionActive(wxCommandEvent &e);
   void OnIdleEvent(wxIdleEvent &e);
-  bool DeleteByName(const wxString &name);
+  void NotifyLastPageClosed();
+
+  void OnPageChanged(wxAuiNotebookEvent &event);
+  void OnPageClosed(wxAuiNotebookEvent &event);
+
+  bool DeleteSessionByName(const wxString &name);
   int FindByName(const wxString &name) const;
   SessionPage *GetSessionByIndex(int index) const;
 
