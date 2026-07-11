@@ -188,27 +188,6 @@ public:
   virtual ~EditHostsBase();
 };
 
-class NotebookNavigationDlgBase : public wxDialog {
-protected:
-  wxPanel *m_panel71;
-  wxDataViewListCtrl *m_dvListCtrlTabs;
-
-protected:
-  virtual void OnKeyDown(wxKeyEvent &event) { event.Skip(); }
-  virtual void OnKeyUp(wxKeyEvent &event) { event.Skip(); }
-  virtual void OnItemActivated(wxDataViewEvent &event) { event.Skip(); }
-
-public:
-  wxDataViewListCtrl *GetDvListCtrlTabs() { return m_dvListCtrlTabs; }
-  wxPanel *GetPanel71() { return m_panel71; }
-  NotebookNavigationDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-                            const wxString &title = wxT(""),
-                            const wxPoint &pos = wxDefaultPosition,
-                            const wxSize &size = wxSize(500, 300),
-                            long style = wxRESIZE_BORDER);
-  virtual ~NotebookNavigationDlgBase();
-};
-
 class EditAgentDlgBase : public wxDialog {
 protected:
   wxPanel *m_panel87;
