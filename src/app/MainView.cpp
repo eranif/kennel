@@ -547,6 +547,8 @@ void MainView::Traverse(std::function<bool(SessionPage *)> visit) const {
 bool MainView::IsNameExist(const wxString &name) const {
   bool matchFound{false};
   auto checkIfNameExists = [&name, &matchFound, this](SessionPage *page) {
+    if (page->IsPlainTerminal())
+      return true; // continue
     if (page->GetSession().name == name) {
       matchFound = true;
       return false;
@@ -557,11 +559,18 @@ bool MainView::IsNameExist(const wxString &name) const {
   return matchFound;
 }
 
-void MainView::RenameSelectedGroup() {
+void MainView::RenameItem() {
   auto *group = GetSelectedGroup();
   CHECK_NOT_NULL_RETURN(group);
-  if (group->IsDefaultGroup())
+  if (group->IsDefaultGroup() || group->IsEmpty())
     return;
+
+  if (group->IsTerminalsGroup()) {
+    // Rename the active active terminal
+    group->RenameActiveTerminal();
+    return;
+  }
+
   auto item = GetSessionGroupItem(group->GetGroupName());
   CHECK_ITEM_RETURN(item);
 

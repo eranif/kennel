@@ -191,6 +191,34 @@ SessionPage *SessionGroup::GetActivePage() {
   return dynamic_cast<SessionPage *>(m_book->GetPage(m_book->GetSelection()));
 }
 
+void SessionGroup::RenameActiveTerminal() {
+  RenameTerminal(m_book->GetSelection());
+}
+
+void SessionGroup::RenameTerminal(int tabIdx) {
+  auto *page = GetSessionByIndex(tabIdx);
+  CHECK_NOT_NULL_RETURN(page);
+
+  if (!page->IsPlainTerminal())
+    return;
+
+  const wxString oldName = m_book->GetPageText(tabIdx);
+  wxString newName =
+      ::wxGetTextFromUser(_("New Terminal Name:"), "Kennel", oldName);
+  if (newName.empty() || newName == oldName)
+    return;
+
+  if (FindByName(newName) != wxNOT_FOUND) {
+    wxMessageBox(_("A terminal session with this name already exist"), "Kennel",
+                 wxICON_WARNING | wxOK | wxCENTER, wxTheApp->GetTopWindow());
+    return;
+  }
+
+  m_book->SetPageText(tabIdx, newName);
+  page->GetSession().name = newName;
+  page->SetDefaultSessionName(newName);
+}
+
 wxString SessionGroup::Rename() {
   wxString newName = ::wxGetTextFromUser(_("Choose new group name:"), "Kennel",
                                          GetGroupName(), this);
@@ -224,6 +252,10 @@ int SessionGroup::FindByName(const wxString &name) const {
     }
   }
   return wxNOT_FOUND;
+}
+
+SessionPage *SessionGroup::GetSessionByName(const wxString &name) const {
+  return GetSessionByIndex(FindByName(name));
 }
 
 SessionPage *SessionGroup::GetSessionByIndex(int index) const {
@@ -396,13 +428,22 @@ void SessionGroup::OnContextMenu(wxAuiNotebookEvent &event) {
   KLOG_DEBUG() << "Will close session=" << sessionName << ", index=" << index;
   wxMenu menu;
   menu.Append(XRCID("session-group-close-session"), _("Close"),
-              _("Close the active session"));
+              _("Close Session"));
   menu.Bind(
       wxEVT_MENU,
       [index, sessionName, this](wxCommandEvent &) {
         CloseSession(sessionName, index);
       },
       XRCID("session-group-close-session"));
+
+  if (page->IsPlainTerminal()) {
+    menu.AppendSeparator();
+    menu.Append(XRCID("rename-terminal"), _("Rename Terminal"),
+                _("Rename Terminal"));
+    menu.Bind(
+        wxEVT_MENU, [index, this](wxCommandEvent &) { RenameTerminal(index); },
+        XRCID("rename-terminal"));
+  }
   m_book->PopupMenu(&menu);
 }
 

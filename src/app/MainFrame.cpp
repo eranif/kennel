@@ -473,7 +473,7 @@ void MainFrame::OnAbout(wxCommandEvent &evt) {
 
 void MainFrame::OnRenameItem(wxCommandEvent &event) {
   wxUnusedVar(event);
-  m_mainView->RenameSelectedGroup();
+  m_mainView->RenameItem();
 }
 
 MainFrame *GetMainFrame() { return mainFrame; }

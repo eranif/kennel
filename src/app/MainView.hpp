@@ -108,7 +108,7 @@ public:
   void CloseAllSessions();
   bool IsSelectionSessionGroup() const;
   bool IsSelectionTerminalGroup() const;
-  void RenameSelectedGroup();
+  void RenameItem();
   bool IsNameExist(const wxString &name) const;
   SessionGroup *GetSelectedGroup() const;
 

@@ -121,6 +121,7 @@ public:
   void RefreshSelection();
   void CloseAll();
   void CloseActiveSession();
+  void RenameActiveTerminal();
 
 protected:
   void OnSessionExited(wxCommandEvent &e);
@@ -137,6 +138,8 @@ protected:
   bool DeleteSessionByName(const wxString &name);
   int FindByName(const wxString &name) const;
   SessionPage *GetSessionByIndex(int index) const;
+  SessionPage *GetSessionByName(const wxString& name) const;
+  void RenameTerminal(int tabIdx);
 
 private:
   wxString m_groupName;
