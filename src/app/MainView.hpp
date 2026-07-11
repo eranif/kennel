@@ -118,6 +118,7 @@ protected:
   void OnContextMenu(wxDataViewEvent &event) override;
   void OnSelectionChanged(wxDataViewEvent &event) override;
   void OnGroupPageChanged(SessionGroupEvent &event);
+  void OnMoveSessionToGroup(SessionGroupEvent &event);
   void OnGroupLastPageClosed(SessionGroupEvent &event);
   void DeleteGroupByName(const wxString &name);
   void DeleteAll();

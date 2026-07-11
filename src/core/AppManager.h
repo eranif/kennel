@@ -63,9 +63,9 @@ public:
   HostsStore &Hosts();
 
   // Distinct logical group names currently in use, collected O(n) from the
-  // workspace sessions. Always includes the implicit "Default" group. Order:
-  // "Default" first, then remaining groups in first-seen order.
-  wxArrayString Groups() const;
+  // workspace sessions. Optionally, apply "filter" method.
+  wxArrayString
+  Groups(std::function<bool(const Session &)> filter = nullptr) const;
 
   // UI preferences: the live snapshot and the store backing .persist.json.
   UiPrefs &GetPrefs();

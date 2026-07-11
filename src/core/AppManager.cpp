@@ -141,11 +141,13 @@ HostsStore &AppManager::Hosts() {
   return *m_hostsStore;
 }
 
-wxArrayString AppManager::Groups() const {
+wxArrayString
+AppManager::Groups(std::function<bool(const Session &)> filter) const {
   wxArrayString groups;
-  groups.Add(_("Default"));
   if (m_workspace) {
     for (const Session &session : m_workspace->Sessions()) {
+      if (filter && !filter(session))
+        continue;
       if (!session.groupName.empty() &&
           groups.Index(session.groupName) == wxNOT_FOUND) {
         groups.Add(session.groupName);

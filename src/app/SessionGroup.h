@@ -26,9 +26,15 @@ public:
   const wxString &GetGroupName() const { return m_groupName; }
   const wxString &GetNewGroupName() const { return m_newGroupName; }
 
+  void SetSessionName(const wxString &sessionName) {
+    this->m_sessionName = sessionName;
+  }
+  const wxString &GetSessionName() const { return m_sessionName; }
+
 private:
   wxString m_groupName;
   wxString m_newGroupName;
+  wxString m_sessionName;
 };
 
 wxDECLARE_EVENT(wxEVT_GROUP_PAGE_CHANGED, SessionGroupEvent);
@@ -70,10 +76,9 @@ public:
    * Removes a session page by its name from the group.
    *
    * @param name The name of the session to remove.
-   * @return A StatusOr containing the pointer to the removed SessionPage,
-   *         or an error if the session was not found.
+   * @return The removed session or nullptr.
    */
-  StatusOr<SessionPage *> RemoveSessionPage(const wxString &name);
+  SessionPage *RemoveSessionPage(const wxString &name);
 
   /**
    * Applies a function to every session page in the group.
@@ -138,7 +143,7 @@ protected:
   bool DeleteSessionByName(const wxString &name);
   int FindByName(const wxString &name) const;
   SessionPage *GetSessionByIndex(int index) const;
-  SessionPage *GetSessionByName(const wxString& name) const;
+  SessionPage *GetSessionByName(const wxString &name) const;
   void RenameTerminal(int tabIdx);
 
 private:

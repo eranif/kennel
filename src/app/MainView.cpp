@@ -76,6 +76,7 @@ MainView::MainView(wxWindow *parent)
   }
   Bind(wxEVT_GROUP_PAGE_CHANGED, &MainView::OnGroupPageChanged, this);
   Bind(wxEVT_GROUP_LAST_PAGE_CLOSED, &MainView::OnGroupLastPageClosed, this);
+  Bind(wxEVT_GROUP_MOVE_TO_GROUP, &MainView::OnMoveSessionToGroup, this);
 }
 
 SessionGroup *MainView::EnsureGroup(const wxString &groupName) {
@@ -700,4 +701,28 @@ void MainView::OnGroupLastPageClosed(SessionGroupEvent &event) {
   event.Skip();
   KLOG_DEBUG() << "Last Page Closed event from group: " << event.GetGroupName();
   DeleteGroupByName(event.GetGroupName());
+}
+
+void MainView::OnMoveSessionToGroup(SessionGroupEvent &event) {
+  KLOG_DEBUG() << "Moving session: " << event.GetSessionName()
+               << " from: " << event.GetGroupName() << "->"
+               << event.GetNewGroupName();
+
+  auto *oldGroup = GetSessionGroup(event.GetGroupName());
+  CHECK_NOT_NULL_RETURN(oldGroup);
+
+  auto *newGroup = EnsureGroup(event.GetNewGroupName());
+  CHECK_NOT_NULL_RETURN(newGroup);
+
+  auto *page = oldGroup->RemoveSessionPage(event.GetSessionName());
+  CHECK_NOT_NULL_RETURN(page);
+
+  newGroup->AddSessionPage(page);
+  if (Status st = m_workspace->MoveSession(event.GetSessionName(),
+                                           event.GetNewGroupName());
+      !st.ok()) {
+    wxMessageBox(st.message(), "Kennel", wxOK | wxICON_ERROR, this);
+    return;
+  }
+  m_workspace->Persist();
 }

@@ -58,7 +58,7 @@ bool SessionGroup::AddSessionPage(SessionPage *page) {
     KLOG_WARN() << "A session with this name already exist";
     return false;
   }
-  const auto &session = page->GetSession();
+  auto &session = page->GetSession();
 
   wxBitmapBundle bmp{};
   if (!session.plainTerminal) {
@@ -71,7 +71,7 @@ bool SessionGroup::AddSessionPage(SessionPage *page) {
       }
     }
   }
-
+  session.groupName = GetGroupName();
   page->Reparent(m_book);
   m_book->AddPage(page, session.name, true, bmp);
   return true;
@@ -114,10 +114,10 @@ std::vector<SessionPage *> SessionGroup::GetAllSessions() const {
   return result;
 }
 
-StatusOr<SessionPage *> SessionGroup::RemoveSessionPage(const wxString &name) {
+SessionPage *SessionGroup::RemoveSessionPage(const wxString &name) {
   int where = FindByName(name);
   if (where == wxNOT_FOUND) {
-    return Status::Error("No such session");
+    return nullptr;
   }
 
   auto *session = GetSessionByIndex(where);
@@ -436,13 +436,64 @@ void SessionGroup::OnContextMenu(wxAuiNotebookEvent &event) {
       },
       XRCID("session-group-close-session"));
 
+  menu.AppendSeparator();
   if (page->IsPlainTerminal()) {
-    menu.AppendSeparator();
     menu.Append(XRCID("rename-terminal"), _("Rename Terminal"),
                 _("Rename Terminal"));
     menu.Bind(
         wxEVT_MENU, [index, this](wxCommandEvent &) { RenameTerminal(index); },
         XRCID("rename-terminal"));
+  } else {
+    wxMenu *moveMenu = new wxMenu;
+    wxString currentGroupName = GetGroupName();
+    auto groups = AppManager::Get().Groups(
+        [currentGroupName](const Session &sess) -> bool {
+          KLOG_INFO() << "Filtering: '" << sess.groupName << "' vs '"
+                      << currentGroupName << "'";
+          if (sess.plainTerminal)
+            return false;
+          if (sess.groupName == currentGroupName)
+            return false;
+          return true;
+        });
+
+    if (!groups.empty()) {
+      for (const wxString &group_name : groups) {
+        int id = wxXmlResource::GetXRCID(
+            wxString::Format("move-to-group-%s", group_name));
+        moveMenu->Append(id, group_name,
+                         wxString::Format(_("Move to group: %s"), group_name));
+        moveMenu->Bind(
+            wxEVT_MENU,
+            [group_name, page, this](wxCommandEvent &) {
+              SessionGroupEvent moveEvent{wxEVT_GROUP_MOVE_TO_GROUP};
+              moveEvent.SetGroupName(GetGroupName());
+              moveEvent.SetNewGroupName(group_name);
+              moveEvent.SetSessionName(page->GetSession().name);
+              GetMainFrame()->GetMainView()->GetEventHandler()->AddPendingEvent(
+                  moveEvent);
+            },
+            id);
+      }
+      moveMenu->AppendSeparator();
+    }
+    moveMenu->Append(XRCID("create-new-group"), _("New Group..."));
+    moveMenu->Bind(
+        wxEVT_MENU,
+        [page, this](wxCommandEvent &) {
+          wxString newGroup = ::wxGetTextFromUser(
+              _("New Group Name"), "Kennel", wxEmptyString, GetMainFrame());
+          if (newGroup.empty() || newGroup == GetGroupName())
+            return;
+          SessionGroupEvent moveEvent{wxEVT_GROUP_MOVE_TO_GROUP};
+          moveEvent.SetGroupName(GetGroupName());
+          moveEvent.SetNewGroupName(newGroup);
+          moveEvent.SetSessionName(page->GetSession().name);
+          GetMainFrame()->GetMainView()->GetEventHandler()->AddPendingEvent(
+              moveEvent);
+        },
+        XRCID("create-new-group"));
+    menu.AppendSubMenu(moveMenu, _("Move To Group"));
   }
   m_book->PopupMenu(&menu);
 }
