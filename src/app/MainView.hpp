@@ -115,7 +115,7 @@ public:
 protected:
   void DoSelectGroup(const wxDataViewItem &item);
   void DoSelectGroup(const wxString &name);
-  void OnContextMenu(wxDataViewEvent &event);
+  void OnContextMenu(wxDataViewEvent &event) override;
   void OnSelectionChanged(wxDataViewEvent &event) override;
   void OnGroupPageChanged(wxCommandEvent &event);
   void OnGroupLastPageClosed(wxCommandEvent &event);

@@ -92,6 +92,12 @@ SessionPage *SessionGroup::NewSessionPage(const Session &session, bool resume) {
   }
 
   auto *page = new SessionPage(m_book, agent, session, resume);
+  if (page->Status() == SessionStatus::Starting) {
+    // Could not start the session
+    wxDELETE(page);
+    return nullptr;
+  }
+
   if (!AddSessionPage(page)) {
     wxDELETE(page);
     return nullptr;

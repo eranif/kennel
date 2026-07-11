@@ -201,13 +201,21 @@ bool MainView::LaunchSession(const NewSessionRequest &req) {
     return false;
   }
 
+  auto *sessionGroup = EnsureGroup(session->groupName);
+  auto *page = sessionGroup->NewSessionPage(*session, req.resume);
+  if (page == nullptr) {
+    KLOG_INFO() << "Session creation failed";
+    auto item = GetSessionGroupItem(session->groupName);
+    if (item.IsOk()) {
+      RemoveGroupIfEmpty(item);
+    }
+    return false;
+  }
+
   if (Status st = m_workspace->Persist(); !st.ok()) {
     KLOG_WARN() << "Session created but workspace not persisted: "
                 << st.message();
   }
-
-  auto *sessionGroup = EnsureGroup(session->groupName);
-  sessionGroup->NewSessionPage(*session, req.resume);
 
   auto &prefs = AppManager::Get().GetPrefs();
   PushRecent(prefs.recentWorkingDirs, req.workingDir);
@@ -471,7 +479,7 @@ void MainView::DoGroupMenu(const wxDataViewItem &item) {
     menu.Append(XRCID("refresh-sessions"), _("Refresh"));
 
     // The "Default" group must always exist and cannot be renamed.
-    if (!group->IsDefaultGroup()) {
+    if (group->IsDefaultGroup()) {
       menu.Enable(XRCID("rename-group"), false);
     }
 
@@ -555,7 +563,7 @@ void MainView::RemoveGroupIfEmpty(const wxDataViewItem &item) {
   auto *group = GetSessionGroup(row);
   CHECK_NOT_NULL_RETURN(group);
 
-  if (group->IsEmpty() || group->IsDefaultGroup()) {
+  if (!group->IsEmpty() || group->IsDefaultGroup()) {
     return;
   }
 

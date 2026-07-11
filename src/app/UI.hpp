@@ -81,6 +81,7 @@ protected:
 
 protected:
   virtual void OnSelectionChanged(wxDataViewEvent &event) { event.Skip(); }
+  virtual void OnContextMenu(wxDataViewEvent &event) { event.Skip(); }
 
 public:
   wxDataViewListCtrl *GetDvListCtrlGroups() { return m_dvListCtrlGroups; }
