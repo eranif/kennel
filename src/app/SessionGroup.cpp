@@ -37,6 +37,8 @@ SessionGroup::SessionGroup(wxWindow *parent, const wxString &groupName,
                this);
   m_book->Bind(wxEVT_AUINOTEBOOK_PAGE_CLOSED, &SessionGroup::OnPageClosed,
                this);
+  m_book->Bind(wxEVT_AUINOTEBOOK_TAB_RIGHT_DOWN, &SessionGroup::OnContextMenu,
+               this);
 }
 
 SessionGroup::~SessionGroup() {
@@ -72,10 +74,6 @@ bool SessionGroup::AddSessionPage(SessionPage *page) {
 
   page->Reparent(m_book);
   m_book->AddPage(page, session.name, true, bmp);
-  m_history.Push(Tab{
-      .title = session.name,
-      .agentName = session.agentName,
-  });
   return true;
 }
 
@@ -124,7 +122,7 @@ StatusOr<SessionPage *> SessionGroup::RemoveSessionPage(const wxString &name) {
 
   auto *session = GetSessionByIndex(where);
   m_book->RemovePage(where);
-  NotifyLastPageClosed();
+  NotifyLastPageClosedIfEmpty();
   return session;
 }
 
@@ -173,10 +171,7 @@ void SessionGroup::OnSessionActive(wxCommandEvent &e) { e.Skip(); }
 bool SessionGroup::DeleteSessionByName(const wxString &name) {
   for (size_t i = 0; i < m_book->GetPageCount(); ++i) {
     if (m_book->GetPageText(i) == name) {
-      m_book->DeletePage(i);
-      NotifyLastPageClosed();
-      AppManager::Get().Workspace().CloseSession(name);
-      AppManager::Get().Workspace().Persist();
+      CloseSession(name, i);
       return true;
     }
   }
@@ -353,12 +348,16 @@ void SessionGroup::RefreshAll() {
   }
 }
 
+void SessionGroup::CloseActiveSession() {
+  auto *page = dynamic_cast<SessionPage *>(m_book->GetCurrentPage());
+  CHECK_NOT_NULL_RETURN(page);
+  CloseSession(page->GetSession().name, m_book->GetSelection());
+}
+
 void SessionGroup::CloseAll() {
   m_book->DeleteAllPages();
-  m_history.Clear();
   m_pendingIdle = 0;
-
-  NotifyLastPageClosed();
+  NotifyLastPageClosedIfEmpty();
 }
 
 void SessionGroup::OnPageChanged(wxAuiNotebookEvent &event) {
@@ -370,13 +369,46 @@ void SessionGroup::OnPageChanged(wxAuiNotebookEvent &event) {
 
 void SessionGroup::OnPageClosed(wxAuiNotebookEvent &event) {
   event.Skip();
-  NotifyLastPageClosed();
+  NotifyLastPageClosedIfEmpty();
 }
 
-void SessionGroup::NotifyLastPageClosed() {
+void SessionGroup::NotifyLastPageClosedIfEmpty() {
   if (m_book->GetPageCount() == 0) {
     wxCommandEvent e{wxEVT_GROUP_LAST_PAGE_CLOSED};
     e.SetString(GetGroupName());
     GetMainFrame()->GetMainView()->GetEventHandler()->AddPendingEvent(e);
+  }
+}
+
+void SessionGroup::OnContextMenu(wxAuiNotebookEvent &event) {
+  event.Skip();
+  int index =
+      m_book->HitTest(m_book->ScreenToClient(::wxGetMousePosition()), nullptr);
+  if (index == wxNOT_FOUND) {
+    return;
+  }
+
+  auto *page = dynamic_cast<SessionPage *>(m_book->GetPage(index));
+  CHECK_NOT_NULL_RETURN(page);
+
+  wxString sessionName = page->GetSession().name;
+  KLOG_DEBUG() << "Will close session=" << sessionName << ", index=" << index;
+  wxMenu menu;
+  menu.Append(XRCID("session-group-close-session"), _("Close"),
+              _("Close the active session"));
+  menu.Bind(
+      wxEVT_MENU,
+      [index, sessionName, this](wxCommandEvent &) {
+        CloseSession(sessionName, index);
+      },
+      XRCID("session-group-close-session"));
+  m_book->PopupMenu(&menu);
+}
+
+void SessionGroup::CloseSession(const wxString &sessionName, int index) {
+  if (m_book->DeletePage(index)) {
+    NotifyLastPageClosedIfEmpty();
+    AppManager::Get().Workspace().CloseSession(sessionName);
+    AppManager::Get().Workspace().Persist();
   }
 }

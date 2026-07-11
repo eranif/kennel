@@ -99,16 +99,19 @@ public:
   void RefreshAll();
   void RefreshSelection();
   void CloseAll();
+  void CloseActiveSession();
 
 protected:
   void OnSessionExited(wxCommandEvent &e);
   void OnSessionIdle(wxCommandEvent &e);
   void OnSessionActive(wxCommandEvent &e);
   void OnIdleEvent(wxIdleEvent &e);
-  void NotifyLastPageClosed();
+  void NotifyLastPageClosedIfEmpty();
+  void CloseSession(const wxString& sessionName, int index);
 
   void OnPageChanged(wxAuiNotebookEvent &event);
   void OnPageClosed(wxAuiNotebookEvent &event);
+  void OnContextMenu(wxAuiNotebookEvent &event);
 
   bool DeleteSessionByName(const wxString &name);
   int FindByName(const wxString &name) const;
@@ -117,7 +120,6 @@ protected:
 private:
   wxString m_groupName;
   wxAuiNotebook *m_book{nullptr};
-  TabHistory m_history;
   int m_pendingIdle{0};
   bool m_idleHandled{false};
   bool m_terminalsGroup{false};
