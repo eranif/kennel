@@ -398,6 +398,11 @@ void SessionGroup::OnPageChanged(wxAuiNotebookEvent &event) {
   SessionGroupEvent e{wxEVT_GROUP_PAGE_CHANGED};
   e.SetGroupName(GetGroupName());
   GetMainFrame()->GetMainView()->GetEventHandler()->AddPendingEvent(e);
+
+  auto *page = dynamic_cast<SessionPage *>(m_book->GetCurrentPage());
+  if (page) {
+    page->ApplyTitle();
+  }
 }
 
 void SessionGroup::OnPageClosed(wxAuiNotebookEvent &event) {

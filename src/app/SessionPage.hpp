@@ -36,6 +36,7 @@ public:
 
   bool IsActive() const;
   void SetDefaultSessionName(const wxString &name);
+  void ApplyTitle();
 
 private:
   void CreateTerminal();
@@ -43,10 +44,10 @@ private:
   void OnTerminated(wxTerminalEvent &evt);
   void OnTitleChanged(wxTerminalEvent &evt);
   void OnTerminalLink(wxTerminalEvent &evt);
-  void OnParentPageChanged(wxBookCtrlEvent &event);
-  void ApplyTitle();
+  wxBookCtrlBase *GetBook() const {
+    return dynamic_cast<wxBookCtrlBase *>(GetParent());
+  }
 
-  wxBookCtrlBase *m_parentBook{nullptr};
   AppPaths m_paths;
   std::optional<AgentDef> m_agent{std::nullopt};
   Session m_session;

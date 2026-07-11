@@ -99,9 +99,13 @@ SessionGroup *MainView::EnsureGroup(const wxString &groupName) {
   wxVariant v;
   v << icontext;
   cols.push_back(v);
-  m_dvListCtrlGroups->AppendItem(
-      cols,
-      reinterpret_cast<wxUIntPtr>(new GroupItemData(groupName, sessionGroup)));
+  auto *itemData = new GroupItemData(groupName, sessionGroup);
+  if (sessionGroup->IsDefaultGroup()) {
+    m_dvListCtrlGroups->PrependItem(cols,
+                                    reinterpret_cast<wxUIntPtr>(itemData));
+  } else {
+    m_dvListCtrlGroups->AppendItem(cols, reinterpret_cast<wxUIntPtr>(itemData));
+  }
   return sessionGroup;
 }
 
@@ -278,6 +282,7 @@ void MainView::DoSelectGroup(const wxDataViewItem &item) {
       auto *activeSession = group->GetActivePage();
       if (activeSession) {
         activeSession->CallAfter(&SessionPage::SetFocus);
+        activeSession->ApplyTitle();
       }
       return;
     }

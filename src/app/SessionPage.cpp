@@ -48,22 +48,17 @@ BuildEnvironment(const std::map<wxString, wxString> &overrides) {
 
 SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
                          Session session, bool resume)
-    : SessionBasePage(parent), m_parentBook{parent},
-      m_paths(AppManager::Get().Paths()), m_agent(std::move(agent)),
-      m_session(std::move(session)), m_resume(resume) {
+    : SessionBasePage(parent), m_paths(AppManager::Get().Paths()),
+      m_agent(std::move(agent)), m_session(std::move(session)),
+      m_resume(resume) {
   SetDefaultSessionName(m_session.name);
-  m_parentBook->Bind(wxEVT_BOOKCTRL_PAGE_CHANGED,
-                     &SessionPage::OnParentPageChanged, this);
   CreateTerminal();
 }
 
-SessionPage::~SessionPage() {
-  m_parentBook->Unbind(wxEVT_BOOKCTRL_PAGE_CHANGED,
-                       &SessionPage::OnParentPageChanged, this);
-}
+SessionPage::~SessionPage() {}
 
 bool SessionPage::IsActive() const {
-  return m_parentBook->GetCurrentPage() == this;
+  return GetBook() && GetBook()->GetCurrentPage() == this;
 }
 
 void SessionPage::SetDefaultSessionName(const wxString &name) {
@@ -245,9 +240,4 @@ void SessionPage::ApplyTitle() {
     auto *frame = dynamic_cast<wxFrame *>(wxTheApp->GetTopWindow());
     frame->SetLabel(m_terminalTitle.empty() ? m_defaultTitle : m_terminalTitle);
   }
-}
-
-void SessionPage::OnParentPageChanged(wxBookCtrlEvent &event) {
-  event.Skip();
-  ApplyTitle();
 }
