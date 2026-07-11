@@ -138,3 +138,9 @@ namespace platform {
 std::optional<wxString> Which(const wxString &command,
                               bool useSystemPath = true);
 }
+
+inline bool IsDarkColour(const wxColour &c) {
+  // Perceived luminance (ITU-R BT.601)
+  double luminance = 0.299 * c.Red() + 0.587 * c.Green() + 0.114 * c.Blue();
+  return luminance < 128.0;
+}

@@ -1,4 +1,6 @@
 #include "app/SessionGroup.h"
+#include "app/AssetBootstrap.h"
+#include "app/AuiTabArt.h"
 #include "app/MainFrame.h"
 #include "core/AppManager.h"
 #include "core/Logger.h"
@@ -20,6 +22,11 @@ SessionGroup::SessionGroup(wxWindow *parent, const wxString &groupName,
   m_book = new wxAuiNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                              wxAUI_NB_TAB_MOVE | wxAUI_NB_TAB_FIXED_WIDTH |
                                  wxAUI_NB_TAB_SPLIT);
+  m_book->SetArtProvider(new AuiFlatTabArt());
+  if (ThemeManager::Get().ActiveTheme()) {
+    m_book->SetBackgroundColour(ThemeManager::Get().ActiveTheme()->bg);
+  }
+
   GetSizer()->Add(m_book, wxSizerFlags(1).Expand());
 
   Bind(wxEVT_SESSION_IDLE, &SessionGroup::OnSessionIdle, this);
@@ -50,8 +57,21 @@ bool SessionGroup::AddSessionPage(SessionPage *page) {
     return false;
   }
   const auto &session = page->GetSession();
+
+  wxBitmapBundle bmp{};
+  if (!session.plainTerminal) {
+    const auto *agentDef =
+        AppManager::Get().Adapters().FindAgent(session.agentName);
+    if (agentDef) {
+      const wxString path = ResolveIconPath(agentDef->iconPath);
+      if (!path.empty() && wxFileExists(path)) {
+        bmp = wxBitmapBundle::FromSVGFile(path, wxSize(16, 16));
+      }
+    }
+  }
+
   page->Reparent(m_book);
-  m_book->AddPage(page, session.name, true);
+  m_book->AddPage(page, session.name, true, bmp);
   m_history.Push(Tab{
       .title = session.name,
       .agentName = session.agentName,
@@ -265,6 +285,10 @@ void SessionGroup::ApplyTheme(const wxString &themeName) {
   };
 
   Apply(callback);
+  if (themeMgr.ActiveTheme()) {
+    m_book->SetBackgroundColour(themeMgr.ActiveTheme()->bg);
+    m_book->Refresh();
+  }
   SendSizeEvent(); // Force the terminals to recalculate their size
 }
 

@@ -198,6 +198,12 @@ set(KENNEL_APP_SOURCES
     src/app/SessionGroup.cpp
     src/app/FileBrowserDlg.cpp)
 
+if(APPLE)
+  list(APPEND KENNEL_APP_SOURCES src/app/AuiTabArtMac.cpp)
+else()
+  list(APPEND KENNEL_APP_SOURCES src/app/AuiTabArtDefault.cpp)
+endif()
+
 # Built-in assets shipped with the app: client icons (SVG) and terminal colour
 # themes (TOML). SVGs are copied into ~/.kennel/assets on first run so users can
 # edit/replace them; TOML themes are read in place (not copied). Both are
