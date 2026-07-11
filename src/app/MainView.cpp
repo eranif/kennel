@@ -653,14 +653,14 @@ void MainView::LoadBitmaps() {
   }
 }
 
-void MainView::OnGroupPageChanged(wxCommandEvent &event) {
+void MainView::OnGroupPageChanged(SessionGroupEvent &event) {
   event.Skip();
-  KLOG_DEBUG() << "Page Changed event from group: " << event.GetString();
-  DoSelectGroup(event.GetString());
+  KLOG_DEBUG() << "Page Changed event from group: " << event.GetGroupName();
+  DoSelectGroup(event.GetGroupName());
 }
 
-void MainView::OnGroupLastPageClosed(wxCommandEvent &event) {
+void MainView::OnGroupLastPageClosed(SessionGroupEvent &event) {
   event.Skip();
-  KLOG_DEBUG() << "Last Page Closed event from group: " << event.GetString();
-  DeleteGroupByName(event.GetString());
+  KLOG_DEBUG() << "Last Page Closed event from group: " << event.GetGroupName();
+  DeleteGroupByName(event.GetGroupName());
 }

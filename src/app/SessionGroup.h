@@ -10,9 +10,30 @@
 #include <wx/aui/auibook.h>
 #include <wx/panel.h>
 
-wxDECLARE_EVENT(wxEVT_GROUP_PAGE_CHANGED, wxCommandEvent);
-wxDECLARE_EVENT(wxEVT_GROUP_LAST_PAGE_CLOSED, wxCommandEvent);
-wxDECLARE_EVENT(wxEVT_SESSION_PAGE_CLOSED, wxCommandEvent);
+class SessionGroupEvent : public wxCommandEvent {
+public:
+  SessionGroupEvent(wxEventType type = wxEVT_NULL, int id = 0)
+      : wxCommandEvent(type, id) {}
+
+  SessionGroupEvent(const SessionGroupEvent &other) = default;
+  wxEvent *Clone() const override { return new SessionGroupEvent(*this); }
+  void SetGroupName(const wxString &groupName) {
+    this->m_groupName = groupName;
+  }
+  void SetNewGroupName(const wxString &newGroupName) {
+    this->m_newGroupName = newGroupName;
+  }
+  const wxString &GetGroupName() const { return m_groupName; }
+  const wxString &GetNewGroupName() const { return m_newGroupName; }
+
+private:
+  wxString m_groupName;
+  wxString m_newGroupName;
+};
+
+wxDECLARE_EVENT(wxEVT_GROUP_PAGE_CHANGED, SessionGroupEvent);
+wxDECLARE_EVENT(wxEVT_GROUP_LAST_PAGE_CLOSED, SessionGroupEvent);
+wxDECLARE_EVENT(wxEVT_GROUP_MOVE_TO_GROUP, SessionGroupEvent);
 
 class SessionGroup : public wxPanel {
 public:
@@ -107,7 +128,7 @@ protected:
   void OnSessionActive(wxCommandEvent &e);
   void OnIdleEvent(wxIdleEvent &e);
   void NotifyLastPageClosedIfEmpty();
-  void CloseSession(const wxString& sessionName, int index);
+  void CloseSession(const wxString &sessionName, int index);
 
   void OnPageChanged(wxAuiNotebookEvent &event);
   void OnPageClosed(wxAuiNotebookEvent &event);

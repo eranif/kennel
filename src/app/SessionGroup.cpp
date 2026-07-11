@@ -10,9 +10,9 @@
 #include <wx/sizer.h>
 #include <wx/textdlg.h>
 
-wxDEFINE_EVENT(wxEVT_GROUP_PAGE_CHANGED, wxCommandEvent);
-wxDEFINE_EVENT(wxEVT_GROUP_LAST_PAGE_CLOSED, wxCommandEvent);
-wxDEFINE_EVENT(wxEVT_SESSION_PAGE_CLOSED, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_GROUP_PAGE_CHANGED, SessionGroupEvent);
+wxDEFINE_EVENT(wxEVT_GROUP_LAST_PAGE_CLOSED, SessionGroupEvent);
+wxDEFINE_EVENT(wxEVT_GROUP_MOVE_TO_GROUP, SessionGroupEvent);
 
 SessionGroup::SessionGroup(wxWindow *parent, const wxString &groupName,
                            bool terminalsGroup)
@@ -362,8 +362,8 @@ void SessionGroup::CloseAll() {
 
 void SessionGroup::OnPageChanged(wxAuiNotebookEvent &event) {
   event.Skip();
-  wxCommandEvent e{wxEVT_GROUP_PAGE_CHANGED};
-  e.SetString(GetGroupName());
+  SessionGroupEvent e{wxEVT_GROUP_PAGE_CHANGED};
+  e.SetGroupName(GetGroupName());
   GetMainFrame()->GetMainView()->GetEventHandler()->AddPendingEvent(e);
 }
 
@@ -374,8 +374,8 @@ void SessionGroup::OnPageClosed(wxAuiNotebookEvent &event) {
 
 void SessionGroup::NotifyLastPageClosedIfEmpty() {
   if (m_book->GetPageCount() == 0) {
-    wxCommandEvent e{wxEVT_GROUP_LAST_PAGE_CLOSED};
-    e.SetString(GetGroupName());
+    SessionGroupEvent e{wxEVT_GROUP_LAST_PAGE_CLOSED};
+    e.SetGroupName(GetGroupName());
     GetMainFrame()->GetMainView()->GetEventHandler()->AddPendingEvent(e);
   }
 }

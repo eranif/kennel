@@ -117,8 +117,8 @@ protected:
   void DoSelectGroup(const wxString &name);
   void OnContextMenu(wxDataViewEvent &event) override;
   void OnSelectionChanged(wxDataViewEvent &event) override;
-  void OnGroupPageChanged(wxCommandEvent &event);
-  void OnGroupLastPageClosed(wxCommandEvent &event);
+  void OnGroupPageChanged(SessionGroupEvent &event);
+  void OnGroupLastPageClosed(SessionGroupEvent &event);
   void DeleteGroupByName(const wxString &name);
   void DeleteAll();
   void DoGroupMenu(const wxDataViewItem &item);
