@@ -20,9 +20,20 @@ SessionGroup::SessionGroup(wxWindow *parent, const wxString &groupName,
       m_terminalsGroup{terminalsGroup} {
   SetSizer(new wxBoxSizer(wxVERTICAL));
   m_book = new wxAuiNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                             wxAUI_NB_TAB_MOVE | wxAUI_NB_TAB_FIXED_WIDTH |
-                                 wxAUI_NB_TAB_SPLIT);
+                             wxAUI_NB_TAB_MOVE | wxAUI_NB_TAB_SPLIT);
+#ifdef __WXMAC__
+  auto *art = new wxAuiFlatTabArt();
+  wxColour activeTextColour =
+      wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
+  wxColour normalTextColour =
+      wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT);
+  art->SetColour(normalTextColour);
+  art->SetActiveColour(activeTextColour);
+  art->SetSelectedFont(art->GetNormalFont());
+  m_book->SetArtProvider(art);
+#else
   m_book->SetArtProvider(new AuiFlatTabArt());
+#endif
   if (ThemeManager::Get().ActiveTheme()) {
     m_book->SetBackgroundColour(ThemeManager::Get().ActiveTheme()->bg);
   }
@@ -401,6 +412,7 @@ void SessionGroup::OnPageChanged(wxAuiNotebookEvent &event) {
 
   auto *page = dynamic_cast<SessionPage *>(m_book->GetCurrentPage());
   if (page) {
+    page->SetFocus();
     page->ApplyTitle();
   }
 }
