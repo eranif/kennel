@@ -289,7 +289,7 @@ wxSize AuiFlatTabArt::GetPageTabSize(wxReadOnlyDC &dc, wxWindow *wnd,
   if (page.bitmap.IsOk()) {
     const wxSize bitmapSize = page.bitmap.GetPreferredLogicalSizeFor(wnd);
 
-    size.x += bitmapSize.x + wnd->FromDIP(Data::MARGIN);
+    size.x += bitmapSize.x + (2 * wnd->FromDIP(Data::PADDING_X));
 
     // Increase the height if necessary (the width is never affected here).
     size.IncTo(bitmapSize);

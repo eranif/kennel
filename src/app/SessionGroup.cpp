@@ -19,10 +19,16 @@ SessionGroup::SessionGroup(wxWindow *parent, const wxString &groupName,
     : wxPanel(parent), m_groupName{groupName},
       m_terminalsGroup{terminalsGroup} {
   SetSizer(new wxBoxSizer(wxVERTICAL));
-  m_book = new wxAuiNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                             wxAUI_NB_TAB_MOVE | wxAUI_NB_TAB_SPLIT);
+  long style = wxAUI_NB_TAB_MOVE | wxAUI_NB_TAB_SPLIT;
 #ifdef __WXMAC__
   auto *art = new wxAuiFlatTabArt();
+#else
+  auto *art = new AuiFlatTabArt();
+  style |= wxAUI_NB_TAB_FIXED_WIDTH;
+#endif
+
+  m_book = new wxAuiNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                             style);
   wxColour activeTextColour =
       wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
   wxColour normalTextColour =
@@ -31,9 +37,6 @@ SessionGroup::SessionGroup(wxWindow *parent, const wxString &groupName,
   art->SetActiveColour(activeTextColour);
   art->SetSelectedFont(art->GetNormalFont());
   m_book->SetArtProvider(art);
-#else
-  m_book->SetArtProvider(new AuiFlatTabArt());
-#endif
   if (ThemeManager::Get().ActiveTheme()) {
     m_book->SetBackgroundColour(ThemeManager::Get().ActiveTheme()->bg);
   }
