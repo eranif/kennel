@@ -53,6 +53,8 @@ SessionGroup::SessionGroup(wxWindow *parent, const wxString &groupName,
                this);
   m_book->Bind(wxEVT_AUINOTEBOOK_TAB_RIGHT_DOWN, &SessionGroup::OnContextMenu,
                this);
+  m_book->Bind(wxEVT_AUINOTEBOOK_TAB_MIDDLE_UP, &SessionGroup::OnTabMiddleClick,
+               this);
 }
 
 SessionGroup::~SessionGroup() {
@@ -516,6 +518,22 @@ void SessionGroup::OnContextMenu(wxAuiNotebookEvent &event) {
     menu.AppendSubMenu(moveMenu, _("Move To Group"));
   }
   m_book->PopupMenu(&menu);
+}
+
+void SessionGroup::OnTabMiddleClick(wxAuiNotebookEvent &event) {
+  event.Skip();
+  int index =
+      m_book->HitTest(m_book->ScreenToClient(::wxGetMousePosition()), nullptr);
+  if (index == wxNOT_FOUND) {
+    return;
+  }
+
+  auto *page = dynamic_cast<SessionPage *>(m_book->GetPage(index));
+  CHECK_NOT_NULL_RETURN(page);
+
+  wxString sessionName = page->GetSession().name;
+  KLOG_DEBUG() << "Closing session via middle-click: " << sessionName;
+  CloseSession(sessionName, index);
 }
 
 void SessionGroup::CloseSession(const wxString &sessionName, int index) {

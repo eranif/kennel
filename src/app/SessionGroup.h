@@ -139,6 +139,7 @@ protected:
   void OnPageChanged(wxAuiNotebookEvent &event);
   void OnPageClosed(wxAuiNotebookEvent &event);
   void OnContextMenu(wxAuiNotebookEvent &event);
+  void OnTabMiddleClick(wxAuiNotebookEvent &event);
 
   bool DeleteSessionByName(const wxString &name);
   int FindByName(const wxString &name) const;
