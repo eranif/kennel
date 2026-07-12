@@ -225,9 +225,14 @@ void SessionPage::SetStatus(SessionStatus status) {
 }
 
 void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
-  wxString text = evt.GetClickedText().Lower();
-  if (text.StartsWith("http://") || text.StartsWith("https://")) {
-    ::wxLaunchDefaultBrowser(evt.GetClickedText());
+  wxString text = evt.GetClickedText();
+  wxString textLower = text.Lower();
+
+  if (textLower.StartsWith("http://") || textLower.StartsWith("https://")) {
+    ::wxLaunchDefaultBrowser(text);
+  } else if (wxFileName::FileExists(text)) {
+    // Handle file paths - open with default application
+    ::wxLaunchDefaultApplication(text);
   }
 }
 
