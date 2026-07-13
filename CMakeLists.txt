@@ -208,8 +208,7 @@ endif()
 # themes (TOML). SVGs are copied into ~/.kennel/assets on first run so users can
 # edit/replace them; TOML themes are read in place (not copied). Both are
 # shipped into the same on-disk assets location.
-file(GLOB KENNEL_ASSET_FILES "${CMAKE_SOURCE_DIR}/assets/*.svg"
-     "${CMAKE_SOURCE_DIR}/assets/*.toml")
+file(GLOB KENNEL_ASSET_FILES "${CMAKE_SOURCE_DIR}/assets/*.svg")
 
 file(GLOB KENNEL_THEME_FILES "${CMAKE_SOURCE_DIR}/assets/themes/*.toml")
 
@@ -240,7 +239,8 @@ if(APPLE)
   endif()
 
   add_executable(kennel MACOSX_BUNDLE ${KENNEL_APP_SOURCES}
-                                      ${KENNEL_ASSET_FILES})
+                                      ${KENNEL_ASSET_FILES}
+                                      ${KENNEL_THEME_FILES})
   set_target_properties(
     kennel
     PROPERTIES MACOSX_BUNDLE_GUI_IDENTIFIER "com.eranif.kennel"
