@@ -22,4 +22,13 @@ public:
   bool OptimizeTerminalDrawing() const {
     return m_checkBoxOptimizeDrawings->IsChecked();
   }
+
+  void RestoreThemeAndFont();
+
+protected:
+  void OnChoiceTheme(wxCommandEvent &event) override;
+  void OnFontSelected(wxFontPickerEvent &event) override;
+
+  wxFont m_initialFont{wxNullFont};
+  wxString m_initialTheme;
 };

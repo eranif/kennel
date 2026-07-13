@@ -1578,9 +1578,19 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
   } else {
     wxPersistenceManager::Get().Restore(this);
   }
+  // Connect events
+  m_choiceTheme->Bind(wxEVT_COMMAND_CHOICE_SELECTED,
+                      &SettingsDlgBase::OnChoiceTheme, this);
+  m_fontPicker->Bind(wxEVT_COMMAND_FONTPICKER_CHANGED,
+                     &SettingsDlgBase::OnFontSelected, this);
 }
 
-SettingsDlgBase::~SettingsDlgBase() {}
+SettingsDlgBase::~SettingsDlgBase() {
+  m_choiceTheme->Unbind(wxEVT_COMMAND_CHOICE_SELECTED,
+                        &SettingsDlgBase::OnChoiceTheme, this);
+  m_fontPicker->Unbind(wxEVT_COMMAND_FONTPICKER_CHANGED,
+                       &SettingsDlgBase::OnFontSelected, this);
+}
 
 NewAgentWizardBase::NewAgentWizardBase(wxWindow *parent, wxWindowID id,
                                        const wxString &title,

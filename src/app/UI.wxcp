@@ -14950,7 +14950,15 @@
                                               "m_value": ""
                                             }
                                           ],
-                                          "m_events": [],
+                                          "m_events": [
+                                            {
+                                              "m_description": "Process a wxEVT_COMMAND_CHOICE_SELECTED event, when an item on the list is selected.",
+                                              "m_eventClass": "wxCommandEvent",
+                                              "m_eventName": "wxEVT_COMMAND_CHOICE_SELECTED",
+                                              "m_functionNameAndSignature": "OnChoiceTheme(wxCommandEvent& event)",
+                                              "m_noBody": false
+                                            }
+                                          ],
                                           "m_children": []
                                         },
                                         {
@@ -15143,7 +15151,15 @@
                                               "m_value": ""
                                             }
                                           ],
-                                          "m_events": [],
+                                          "m_events": [
+                                            {
+                                              "m_description": "Generated whenever the selected font changes.",
+                                              "m_eventClass": "wxFontPickerEvent",
+                                              "m_eventName": "wxEVT_COMMAND_FONTPICKER_CHANGED",
+                                              "m_functionNameAndSignature": "OnFontSelected(wxFontPickerEvent& event)",
+                                              "m_noBody": false
+                                            }
+                                          ],
                                           "m_children": []
                                         }
                                       ]

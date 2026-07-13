@@ -418,6 +418,9 @@ protected:
   wxButton *m_buttonCancel;
 
 protected:
+  virtual void OnChoiceTheme(wxCommandEvent &event) { event.Skip(); }
+  virtual void OnFontSelected(wxFontPickerEvent &event) { event.Skip(); }
+
 public:
   wxStaticText *GetStaticText355() { return m_staticText355; }
   wxChoice *GetChoiceTheme() { return m_choiceTheme; }

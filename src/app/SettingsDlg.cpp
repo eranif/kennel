@@ -1,4 +1,5 @@
 #include "SettingsDlg.hpp"
+#include "app/MainFrame.h"
 #include "app/ThemeManager.h"
 #include "core/AppManager.h"
 #include "core/Helpers.h"
@@ -8,9 +9,8 @@
 SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
   const auto &prefs = AppManager::Get().GetPrefs();
 
-  wxFont f;
-  f.SetNativeFontInfo(prefs.terminalFontDesc);
-  m_fontPicker->SetSelectedFont(f);
+  m_initialFont.SetNativeFontInfo(prefs.terminalFontDesc);
+  m_fontPicker->SetSelectedFont(m_initialFont);
 
   m_choiceTheme->Append(ThemeManager::Get().Names());
   int where = m_choiceTheme->FindString(prefs.terminalTheme);
@@ -19,6 +19,7 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
   }
 
   if (where != wxNOT_FOUND) {
+    m_initialTheme = prefs.terminalTheme;
     m_choiceTheme->SetSelection(where);
   }
 
@@ -45,3 +46,21 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
 }
 
 SettingsDlg::~SettingsDlg() {}
+
+void SettingsDlg::OnChoiceTheme(wxCommandEvent &event) {
+  int selection = event.GetSelection();
+  wxString themeName = m_choiceTheme->GetString(selection);
+  if (!themeName.empty())
+    GetMainFrame()->GetMainView()->ApplyTheme(themeName);
+}
+
+void SettingsDlg::OnFontSelected(wxFontPickerEvent &event) {
+  GetMainFrame()->GetMainView()->ApplyFont(event.GetFont());
+}
+
+void SettingsDlg::RestoreThemeAndFont() {
+  if (m_initialFont.IsOk())
+    GetMainFrame()->GetMainView()->ApplyFont(m_initialFont);
+  if (!m_initialTheme.empty())
+    GetMainFrame()->GetMainView()->ApplyTheme(m_initialTheme);
+}

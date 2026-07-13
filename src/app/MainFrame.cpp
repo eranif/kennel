@@ -361,6 +361,8 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     m_mainView->ApplyFont(settingsDlg.GetSelectedFont());
     m_mainView->ApplyTheme(settingsDlg.GetTheme());
     m_mainView->ApplyOptimizedDrawing();
+  } else {
+    settingsDlg.RestoreThemeAndFont();
   }
 }
 
