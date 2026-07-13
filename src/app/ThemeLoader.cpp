@@ -166,12 +166,13 @@ bool ParseThemeTomlFile(const wxString &path, wxTerminalTheme *out) {
 std::vector<LoadedTheme> LoadShippedThemes() {
   std::vector<LoadedTheme> themes;
 
-  const wxFileName shipped = ShippedAssetsDir();
+  wxFileName shipped = ShippedAssetsDir();
   if (!shipped.IsOk() || !shipped.DirExists()) {
     KLOG_INFO() << "No shipped assets directory; no themes loaded";
     return themes;
   }
 
+  shipped.AppendDir("themes");
   wxDir dir(shipped.GetPath());
   if (!dir.IsOpened()) {
     return themes;

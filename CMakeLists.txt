@@ -211,14 +211,20 @@ endif()
 file(GLOB KENNEL_ASSET_FILES "${CMAKE_SOURCE_DIR}/assets/*.svg"
      "${CMAKE_SOURCE_DIR}/assets/*.toml")
 
+file(GLOB KENNEL_THEME_FILES "${CMAKE_SOURCE_DIR}/assets/themes/*.toml")
+
 # Include LICENSE file in the bundle
 list(APPEND KENNEL_ASSET_FILES "${CMAKE_SOURCE_DIR}/LICENSE")
 
 if(APPLE)
   # Bundle the SVGs under Kennel.app/Contents/Resources/assets. Bundle LICENSE
-  # at the root of Resources.
+  # at the root of Resources. Bundle the TOMLs under
+  # Kennel.app/Contents/Resources/assets/themes
   set_source_files_properties(
     ${KENNEL_ASSET_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets")
+  set_source_files_properties(
+    ${KENNEL_THEME_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION
+                                     "Resources/assets/themes")
   set_source_files_properties("${CMAKE_SOURCE_DIR}/LICENSE"
                               PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 
@@ -259,15 +265,21 @@ endif()
 # built binary finds them when run in-tree (ShippedAssetsDir() checks here).
 if(NOT APPLE)
   # Copy assets (SVGs and themes only, not LICENSE)
-  file(GLOB KENNEL_ASSET_FILES_ONLY "${CMAKE_SOURCE_DIR}/assets/*.svg"
-       "${CMAKE_SOURCE_DIR}/assets/*.toml")
+  file(GLOB KENNEL_ASSET_FILES_ONLY "${CMAKE_SOURCE_DIR}/assets/*.svg")
+  file(GLOB KENNEL_ASSET_TOML_FILES_ONLY
+       "${CMAKE_SOURCE_DIR}/assets/themes/*.toml")
   add_custom_command(
     TARGET kennel
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory
             "$<TARGET_FILE_DIR:kennel>/assets"
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:kennel>/assets/themes"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_ASSET_FILES_ONLY}
             "$<TARGET_FILE_DIR:kennel>/assets"
+    COMMAND
+      ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_ASSET_TOML_FILES_ONLY}
+      "$<TARGET_FILE_DIR:kennel>/assets/themes"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/LICENSE"
             "$<TARGET_FILE_DIR:kennel>/LICENSE"
     COMMENT "Staging assets and license next to the kennel executable"
@@ -294,10 +306,13 @@ if(APPLE)
 else()
   install(TARGETS kennel RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   # Assets (SVGs and themes)
-  file(GLOB KENNEL_ASSET_FILES_ONLY "${CMAKE_SOURCE_DIR}/assets/*.svg"
-       "${CMAKE_SOURCE_DIR}/assets/*.toml")
+  file(GLOB KENNEL_ASSET_FILES_ONLY "${CMAKE_SOURCE_DIR}/assets/*.svg")
+  file(GLOB KENNEL_ASSET_THEME_FILES_ONLY
+       "${CMAKE_SOURCE_DIR}/assets/themes/*.toml")
   install(FILES ${KENNEL_ASSET_FILES_ONLY}
           DESTINATION ${CMAKE_INSTALL_DATADIR}/kennel/assets)
+  install(FILES ${KENNEL_ASSET_FILES_ONLY}
+          DESTINATION ${CMAKE_INSTALL_DATADIR}/kennel/assets/themes)
   # License
   install(FILES "${CMAKE_SOURCE_DIR}/LICENSE"
           DESTINATION ${CMAKE_INSTALL_DATADIR}/kennel)
