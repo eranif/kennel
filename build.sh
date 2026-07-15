@@ -51,13 +51,7 @@ function build_wx_widgets_Linux() {
   git submodule update --init --depth 1
   mkdir .build-release
   cd .build-release
-  cmake .. -DCMAKE_BUILD_TYPE=Release \
-    -DwxBUILD_DEBUG_LEVEL=0 \
-    -DwxBUILD_MONOLITHIC=1 \
-    -DwxBUILD_SAMPLES=OFF \
-    -DwxUSE_SYS_LIBS=OFF \
-    -DwxUSE_LUNASVG=OFF \
-    -DCMAKE_INSTALL_PREFIX=${BUILD_DIR}/wxWidgets-install
+  ../configure --disable-debug_flag --with-gtk=3 --enable-stl --prefix=${wx_install_dir}
   make -j$(nproc) install
   export PATH="${wx_install_dir}/bin":$PATH
   cd ${ROOT_DIR}
