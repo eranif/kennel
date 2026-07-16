@@ -241,7 +241,7 @@ void SessionPage::ApplyTheme(const wxTerminalTheme &theme) {
 }
 
 void SessionPage::ApplyTitle() {
-  if (IsActive()) {
+  if (IsActive() && IsShown()) {
     auto *frame = dynamic_cast<wxFrame *>(wxTheApp->GetTopWindow());
     frame->SetLabel(m_terminalTitle.empty() ? m_defaultTitle : m_terminalTitle);
   }
