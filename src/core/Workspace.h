@@ -14,8 +14,16 @@ struct Session {
   wxString loginShell;
 };
 
+// Persisted per-group metadata not tied to any single session (e.g. the
+// group's icon), keyed by group name.
+struct GroupMeta {
+  wxString name;
+  wxString icon; // Bitmaps alias, e.g. "group-red"
+};
+
 // The single implicit workspace and its sessions.
 struct Workspace {
   int version = 1;
   std::vector<Session> sessions;
+  std::vector<GroupMeta> groups;
 };

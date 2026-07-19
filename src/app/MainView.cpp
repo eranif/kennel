@@ -16,6 +16,7 @@
 
 #include "core/Helpers.h"
 #include <algorithm>
+#include <random>
 #include <wx/dir.h>
 #include <wx/fontdlg.h>
 #include <wx/menu.h>
@@ -25,6 +26,28 @@
 namespace {
 static wxString kTerminalsGroupName = _("Terminals");
 constexpr int kLineHeightSpacer = 2;
+
+// Icon aliases for freshly created groups; one is picked at random and
+// persisted so the group keeps its color across restarts.
+constexpr const char *kGroupIconAliases[] = {
+    "group-red",    "group-orange", "group-lime",   "group-green",
+    "group-teal",   "group-cyan",   "group-blue",   "group-indigo",
+    "group-purple", "group-pink",
+};
+
+// Hands out icons from a shuffled bag so every colour is used once before
+// any colour repeats; the bag is reshuffled once it runs dry.
+wxString PickRandomGroupIcon() {
+  static std::mt19937 rng{std::random_device{}()};
+  static std::vector<wxString> bag;
+  if (bag.empty()) {
+    bag.assign(std::begin(kGroupIconAliases), std::end(kGroupIconAliases));
+    std::shuffle(bag.begin(), bag.end(), rng);
+  }
+  wxString icon = bag.back();
+  bag.pop_back();
+  return icon;
+}
 
 void PushRecent(std::vector<wxString> &list, const wxString &value,
                 size_t maxSize = 10) {
@@ -95,10 +118,21 @@ SessionGroup *MainView::EnsureGroup(const wxString &groupName) {
                                   groupName == kTerminalsGroupName);
   m_sessionsBook->AddPage(sessionGroup, groupName, true);
 
-  wxDataViewIconText icontext(
-      groupName,
-      bmps.GetByAlias(sessionGroup->IsTerminalsGroup() ? "terminal" : "folder",
-                      false));
+  wxString iconAlias;
+  if (sessionGroup->IsTerminalsGroup()) {
+    iconAlias = "terminal";
+  } else if (sessionGroup->IsDefaultGroup()) {
+    iconAlias = "group-default";
+  } else {
+    iconAlias = m_workspace->GroupIcon(groupName);
+    if (iconAlias.empty()) {
+      iconAlias = PickRandomGroupIcon();
+      m_workspace->SetGroupIcon(groupName, iconAlias);
+      m_workspace->Persist();
+    }
+  }
+
+  wxDataViewIconText icontext(groupName, bmps.GetByAlias(iconAlias, false));
   wxVector<wxVariant> cols;
   wxVariant v;
   v << icontext;
@@ -692,6 +726,15 @@ void MainView::LoadBitmaps() {
   bmps.Load("folder-open.svg");
   bmps.AddAlias("folder-open.svg", "folder-open");
 
+  bmps.Load("group-default.svg");
+  bmps.AddAlias("group-default.svg", "group-default");
+
+  for (const char *alias : kGroupIconAliases) {
+    wxString filename = wxString(alias) + ".svg";
+    bmps.Load(filename);
+    bmps.AddAlias(filename, alias);
+  }
+
   bmps.Load("up.svg");
   bmps.AddAlias("up.svg", "up");
 
@@ -706,6 +749,9 @@ void MainView::LoadBitmaps() {
 
   bmps.Load("agent.svg");
   bmps.AddAlias("agent.svg", "agent");
+
+  bmps.Load("pin.svg");
+  bmps.AddAlias("pin.svg", "pin");
 
   // Load file*.svg
   wxArrayString files;

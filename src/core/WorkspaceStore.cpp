@@ -28,9 +28,16 @@ json ToJson(const Workspace &ws) {
         {"groupName", ToUtf8(s.groupName)},
     });
   }
+  json groups = json::array();
+  for (const GroupMeta &g : ws.groups) {
+    groups.push_back({
+        {"name", ToUtf8(g.name)},
+        {"icon", ToUtf8(g.icon)},
+    });
+  }
   return json{
       {"version", ws.version},
-      {"workspace", {{"sessions", sessions}}},
+      {"workspace", {{"sessions", sessions}, {"groups", groups}}},
   };
 }
 
@@ -43,6 +50,13 @@ Session ParseSession(const json &j) {
   return s;
 }
 
+GroupMeta ParseGroupMeta(const json &j) {
+  GroupMeta g;
+  g.name = GetStr(j, "name");
+  g.icon = GetStr(j, "icon");
+  return g;
+}
+
 Workspace ParseWorkspace(const json &root) {
   Workspace ws;
   ws.version = GetInt(root, "version", 1);
@@ -53,6 +67,14 @@ Workspace ParseWorkspace(const json &root) {
       for (const auto &s : *sIt) {
         if (s.is_object()) {
           ws.sessions.push_back(ParseSession(s));
+        }
+      }
+    }
+    if (auto gIt = wsIt->find("groups");
+        gIt != wsIt->end() && gIt->is_array()) {
+      for (const auto &g : *gIt) {
+        if (g.is_object()) {
+          ws.groups.push_back(ParseGroupMeta(g));
         }
       }
     }

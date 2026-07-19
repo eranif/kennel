@@ -13,6 +13,7 @@ Status WorkspaceManager::Load() {
   }
   m_version = ws.value().version;
   m_sessions = ws.value().sessions;
+  m_groups = ws.value().groups;
   return Status::Ok();
 }
 
@@ -32,6 +33,35 @@ std::vector<Session>::iterator WorkspaceManager::FindIt(const wxString &name) {
     }
   }
   return m_sessions.end();
+}
+
+std::vector<GroupMeta>::iterator
+WorkspaceManager::FindGroupMetaIt(const wxString &name) {
+  for (auto it = m_groups.begin(); it != m_groups.end(); ++it) {
+    if (it->name == name) {
+      return it;
+    }
+  }
+  return m_groups.end();
+}
+
+wxString WorkspaceManager::GroupIcon(const wxString &groupName) const {
+  for (const GroupMeta &g : m_groups) {
+    if (g.name == groupName) {
+      return g.icon;
+    }
+  }
+  return wxEmptyString;
+}
+
+void WorkspaceManager::SetGroupIcon(const wxString &groupName,
+                                    const wxString &icon) {
+  auto it = FindGroupMetaIt(groupName);
+  if (it != m_groups.end()) {
+    it->icon = icon;
+    return;
+  }
+  m_groups.push_back(GroupMeta{groupName, icon});
 }
 
 StatusOr<Session> WorkspaceManager::Create(const NewSessionRequest &req) {
@@ -102,6 +132,9 @@ Status WorkspaceManager::RenameGroup(const wxString &from, const wxString &to) {
       s.groupName = to;
     }
   }
+  if (auto it = FindGroupMetaIt(from); it != m_groups.end()) {
+    it->name = to;
+  }
   KLOG_INFO() << "Renamed group '" << from << "' to '" << to << "'";
   return Status::Ok();
 }
@@ -139,6 +172,9 @@ Status WorkspaceManager::CloseGroup(const wxString &name) {
     }
   }
   m_sessions.swap(sessions);
+  if (auto it = FindGroupMetaIt(name); it != m_groups.end()) {
+    m_groups.erase(it);
+  }
   return Status::Ok();
 }
 
@@ -146,6 +182,7 @@ Status WorkspaceManager::Persist() {
   Workspace ws;
   ws.version = m_version;
   ws.sessions = m_sessions;
+  ws.groups = m_groups;
   Status st = m_store->Save(ws);
   if (!st.ok()) {
     KLOG_ERROR() << "Failed to persist workspace.json: " << st.message();
@@ -153,4 +190,7 @@ Status WorkspaceManager::Persist() {
   return st;
 }
 
-void WorkspaceManager::CloseAll() { m_sessions.clear(); }
+void WorkspaceManager::CloseAll() {
+  m_sessions.clear();
+  m_groups.clear();
+}

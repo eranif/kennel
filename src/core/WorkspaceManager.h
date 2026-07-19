@@ -55,6 +55,13 @@ public:
   // Removes a session from the registry. Does not persist.
   Status CloseGroup(const wxString &name);
 
+  // Returns the persisted icon alias for `groupName`, or an empty string if
+  // none has been assigned yet.
+  wxString GroupIcon(const wxString &groupName) const;
+
+  // Assigns (or replaces) the icon alias for `groupName`. Does not persist.
+  void SetGroupIcon(const wxString &groupName, const wxString &icon);
+
   // Writes the current registry to workspace.json.
   Status Persist();
 
@@ -62,10 +69,12 @@ public:
 
 private:
   std::vector<Session>::iterator FindIt(const wxString &name);
+  std::vector<GroupMeta>::iterator FindGroupMetaIt(const wxString &name);
 
   AppPaths m_paths;
   WorkspaceStore *m_store;
   const AdapterRegistry *m_registry;
   std::vector<Session> m_sessions;
+  std::vector<GroupMeta> m_groups;
   int m_version = 1;
 };
