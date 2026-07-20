@@ -22,6 +22,9 @@ public:
   bool OptimizeTerminalDrawing() const {
     return m_checkBoxOptimizeDrawings->IsChecked();
   }
+  bool GetCheckForUpdatesOnStartup() const {
+    return m_checkBoxForNewVersionOnStartup->IsChecked();
+  }
 
   void RestoreThemeAndFont();
 

@@ -24,6 +24,7 @@ struct UiPrefs {
   wxString terminalFontDesc;    // wxFont native info desc (empty => default)
   bool blockCursor{true};
   bool terminalOptimizedDrawing{false}; // Enable optimized drawing?
+  bool checkForUpdatesOnStartup{true};
   wxString terminalLoginShell = ::FindShells().GetDefaultShellCmd();
   wxString terminalHomeDir = ::wxGetHomeDir();
   std::vector<wxString> recentWorkingDirs; // most-recent first, capped at 10

@@ -34,6 +34,7 @@ json ToJson(const UiPrefs &p) {
       {"terminalTheme", ToUtf8(p.terminalTheme)},
       {"terminalFontDesc", ToUtf8(p.terminalFontDesc)},
       {"terminalOptimizedDrawing", p.terminalOptimizedDrawing},
+      {"checkForUpdatesOnStartup", p.checkForUpdatesOnStartup},
       {"recentWorkingDirs", toStrArr(p.recentWorkingDirs)},
       {"recentHosts", toStrArr(p.recentHosts)},
       {"blockCursor", p.blockCursor},
@@ -62,6 +63,8 @@ void ParsePrefs(const json &root, UiPrefs &p) {
   p.terminalOptimizedDrawing =
       GetBool(root, "terminalOptimizedDrawing", p.terminalOptimizedDrawing);
   p.blockCursor = GetBool(root, "blockCursor", p.blockCursor);
+  p.checkForUpdatesOnStartup =
+      GetBool(root, "checkForUpdatesOnStartup", p.checkForUpdatesOnStartup);
   auto parseStrArr = [&](const char *key, std::vector<wxString> &out) {
     if (auto it = root.find(key); it != root.end() && it->is_array()) {
       for (const auto &el : *it) {

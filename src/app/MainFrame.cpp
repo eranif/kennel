@@ -105,7 +105,9 @@ MainFrame::MainFrame()
   // Rebuild any sessions persisted in workspace.json (resuming where possible).
   m_mainView->RestoreSessions();
 
-  CheckForUpdates(/*silent=*/true);
+  if (AppManager::Get().GetPrefs().checkForUpdatesOnStartup) {
+    CheckForUpdates(/*silent=*/true);
+  }
 }
 
 MainFrame::~MainFrame() {
@@ -365,6 +367,7 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.terminalLoginShell = settingsDlg.GetDefaultLoginShell();
     prefs.terminalHomeDir = settingsDlg.GetDefaultHomeDir();
     prefs.terminalOptimizedDrawing = settingsDlg.OptimizeTerminalDrawing();
+    prefs.checkForUpdatesOnStartup = settingsDlg.GetCheckForUpdatesOnStartup();
     AppManager::Get().SavePrefs();
 
     m_mainView->ApplyFont(settingsDlg.GetSelectedFont());

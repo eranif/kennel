@@ -1474,7 +1474,7 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
   wxStaticBoxSizer *staticBoxSizer363 = new wxStaticBoxSizer(
       new wxStaticBox(m_panel361, wxID_ANY, _("Terminal:")), wxVERTICAL);
 
-  boxSizer367->Add(staticBoxSizer363, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+  boxSizer367->Add(staticBoxSizer363, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
   wxBoxSizer *boxSizer362 = new wxBoxSizer(wxVERTICAL);
 
@@ -1539,6 +1539,19 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
 
   flexGridSizer364->Add(m_checkBoxOptimizeDrawings, 0, wxALL | wxEXPAND,
                         WXC_FROM_DIP(5));
+
+  wxStaticBoxSizer *staticBoxSizer502 = new wxStaticBoxSizer(
+      new wxStaticBox(m_panel361, wxID_ANY, _("Misc:")), wxVERTICAL);
+
+  boxSizer367->Add(staticBoxSizer502, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
+  m_checkBoxForNewVersionOnStartup = new wxCheckBox(
+      m_panel361, wxID_ANY, _("Check for new version on startup"),
+      wxDefaultPosition, wxDLG_UNIT(m_panel361, wxSize(-1, -1)), 0);
+  m_checkBoxForNewVersionOnStartup->SetValue(true);
+
+  staticBoxSizer502->Add(m_checkBoxForNewVersionOnStartup, 0, wxALL,
+                         WXC_FROM_DIP(5));
 
   m_stdBtnSizer347 = new wxStdDialogButtonSizer();
 

@@ -413,6 +413,7 @@ protected:
   wxDirPickerCtrl *m_dirPickerShellHomeDir;
   wxCheckBox *m_checkBoxBlockCaret;
   wxCheckBox *m_checkBoxOptimizeDrawings;
+  wxCheckBox *m_checkBoxForNewVersionOnStartup;
   wxStdDialogButtonSizer *m_stdBtnSizer347;
   wxButton *m_buttonOk;
   wxButton *m_buttonCancel;
@@ -436,6 +437,9 @@ public:
   wxCheckBox *GetCheckBoxBlockCaret() { return m_checkBoxBlockCaret; }
   wxCheckBox *GetCheckBoxOptimizeDrawings() {
     return m_checkBoxOptimizeDrawings;
+  }
+  wxCheckBox *GetCheckBoxForNewVersionOnStartup() {
+    return m_checkBoxForNewVersionOnStartup;
   }
   wxPanel *GetPanel361() { return m_panel361; }
   wxNotebook *GetNotebook352() { return m_notebook352; }

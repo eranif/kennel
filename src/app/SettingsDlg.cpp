@@ -40,6 +40,7 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
   }
   m_choiceShell->SetSelection(selection);
   m_checkBoxBlockCaret->SetValue(prefs.blockCursor);
+  m_checkBoxForNewVersionOnStartup->SetValue(prefs.checkForUpdatesOnStartup);
   m_dirPickerShellHomeDir->SetPath(prefs.terminalHomeDir);
   GetSizer()->Fit(this);
   PositionDialog(this);
