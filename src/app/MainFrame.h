@@ -1,11 +1,13 @@
 #pragma once
 
 #include "MainView.hpp"
+#include "core/UpdateChecker.h"
 
 #include <wx/activityindicator.h>
 #include <wx/aui/auibar.h>
 #include <wx/frame.h>
 
+#include <memory>
 #include <vector>
 
 // Top-level application window. Hosts a menu bar (File, Launch), a toolbar with
@@ -79,6 +81,12 @@ private:
   // Shows the About dialog
   void OnAbout(wxCommandEvent &evt);
 
+  // Checks kennel-releases.json for a newer version. `silent` suppresses the
+  // "you're up to date" / error dialogs, used for the on-startup check so it
+  // stays quiet unless an update is actually found.
+  void CheckForUpdates(bool silent);
+  void OnCheckForUpdates(wxCommandEvent &evt);
+
   // Builds the toolbar, one tool per adapter. Tool ids are assigned
   // sequentially from kFirstClientToolId and map to m_clientToolIds.
   void BuildToolBar();
@@ -102,6 +110,7 @@ private:
 
   MainView *m_mainView{nullptr};
   wxActivityIndicator *m_statusIndicator{nullptr};
+  std::unique_ptr<UpdateChecker> m_updateChecker;
 
   // Parallel to the toolbar tools: m_clientToolIds[i] is the adapter id for the
   // tool whose wx id is kFirstClientToolId + i.

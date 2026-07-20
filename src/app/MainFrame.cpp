@@ -9,6 +9,7 @@
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/Logger.h"
+#include "core/UpdateChecker.h"
 #include "core/Version.h"
 
 #include "terminal_view.h"
@@ -103,6 +104,8 @@ MainFrame::MainFrame()
 
   // Rebuild any sessions persisted in workspace.json (resuming where possible).
   m_mainView->RestoreSessions();
+
+  CheckForUpdates(/*silent=*/true);
 }
 
 MainFrame::~MainFrame() {
@@ -318,6 +321,12 @@ void MainFrame::BuildSettingsMenu(wxMenuBar *menuBar) {
                        _("Open the Remote Hosts Edit View"));
   Bind(wxEVT_MENU, &MainFrame::OnEditAgents, this, XRCID("edit-agents"));
 
+  settingsMenu->AppendSeparator();
+  settingsMenu->Append(XRCID("check-for-updates"), _("Check for Updates..."),
+                       _("Check if a newer version of Kennel is available"));
+  Bind(wxEVT_MENU, &MainFrame::OnCheckForUpdates, this,
+       XRCID("check-for-updates"));
+
 #ifdef __WXMAC__
   settingsMenu->AppendSeparator();
   settingsMenu->Append(wxID_ABOUT, _("&About Kennel"));
@@ -488,6 +497,40 @@ void MainFrame::OnAbout(wxCommandEvent &evt) {
   wxUnusedVar(evt);
   AboutDialog dlg(this);
   dlg.ShowModal();
+}
+
+void MainFrame::OnCheckForUpdates(wxCommandEvent &evt) {
+  wxUnusedVar(evt);
+  CheckForUpdates(/*silent=*/false);
+}
+
+void MainFrame::CheckForUpdates(bool silent) {
+  m_updateChecker = std::make_unique<UpdateChecker>();
+  m_updateChecker->Check(
+      kAppVersion,
+      [this, silent](const UpdateCheckResult &result) {
+        if (result.updateAvailable) {
+          const wxString msg = wxString::Format(
+              _("A new version of Kennel is available: %s\n\n"
+                "Open the download page?"),
+              result.latestVersion);
+          if (::wxMessageBox(msg, "Kennel", wxICON_INFORMATION | wxYES_NO,
+                             this) == wxYES) {
+            ::wxLaunchDefaultBrowser(result.downloadUrl);
+          }
+        } else if (!silent) {
+          ::wxMessageBox(_("You are running the latest version of Kennel."),
+                        "Kennel", wxICON_INFORMATION | wxOK, this);
+        }
+      },
+      [this, silent](const wxString &error) {
+        KLOG_WARN() << "Update check failed: " << error;
+        if (!silent) {
+          ::wxMessageBox(
+              wxString::Format(_("Could not check for updates: %s"), error),
+              "Kennel", wxICON_WARNING | wxOK, this);
+        }
+      });
 }
 
 void MainFrame::OnRenameItem(wxCommandEvent &event) {

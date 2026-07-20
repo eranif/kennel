@@ -155,6 +155,7 @@ add_library(
   src/core/WorkspaceStore.cpp
   src/core/WorkspaceManager.cpp
   src/core/UiPrefsStore.cpp
+  src/core/UpdateChecker.cpp
   src/core/Logger.cpp
   src/core/SshConfigParser.cpp
   src/core/HostsStore.cpp
