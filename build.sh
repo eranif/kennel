@@ -51,7 +51,7 @@ function build_wx_widgets_Linux() {
   git submodule update --init --depth 1
   mkdir .build-release
   cd .build-release
-  ../configure --disable-debug_flag --with-gtk=3 --enable-stl --prefix=${wx_install_dir}
+  ../configure --disable-debug_flag --with-gtk=3 --enable-stl --prefix=/home/eran/devl/kennel/.build-release/wxWidgets-install --disable-shared --enable-monolithic
   make -j$(nproc) install
   export PATH="${wx_install_dir}/bin":$PATH
   cd ${ROOT_DIR}

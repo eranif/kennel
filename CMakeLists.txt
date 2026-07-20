@@ -238,9 +238,9 @@ if(APPLE)
     list(APPEND KENNEL_ASSET_FILES "${KENNEL_ICNS}")
   endif()
 
-  add_executable(kennel MACOSX_BUNDLE ${KENNEL_APP_SOURCES}
-                                      ${KENNEL_ASSET_FILES}
-                                      ${KENNEL_THEME_FILES})
+  add_executable(
+    kennel MACOSX_BUNDLE ${KENNEL_APP_SOURCES} ${KENNEL_ASSET_FILES}
+                         ${KENNEL_THEME_FILES})
   set_target_properties(
     kennel
     PROPERTIES MACOSX_BUNDLE_GUI_IDENTIFIER "com.eranif.kennel"
@@ -391,53 +391,32 @@ endif()
 # install/share/kennel/assets
 # ---------------------------------------------------------------------------
 if(UNIX AND NOT APPLE)
-  # Get the wxWidgets library path and copy shared libraries
-  execute_process(
-    COMMAND wx-config --libs
-    OUTPUT_VARIABLE _WX_LINK_FLAGS
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-  string(REGEX MATCH "-L([^ ;]+)" _ "${_WX_LINK_FLAGS}")
-  set(_WX_LIB_DIR "${CMAKE_MATCH_1}")
+  # Create install directory structure
+  set(_INSTALL_LIB_DIR "${CMAKE_BINARY_DIR}/install/lib")
+  set(_INSTALL_BIN_DIR "${CMAKE_BINARY_DIR}/install/bin")
+  set(_INSTALL_SHARE_DIR "${CMAKE_BINARY_DIR}/install/share/kennel/assets")
 
-  # Resolve the wx shared lib symlink to get the real filename
-  file(GLOB _WX_LIBS "${_WX_LIB_DIR}/libwx_gtk3u*.so*")
-
-  if(_WX_LIBS)
-    # Create install directory structure
-    set(_INSTALL_LIB_DIR "${CMAKE_BINARY_DIR}/install/lib")
-    set(_INSTALL_BIN_DIR "${CMAKE_BINARY_DIR}/install/bin")
-    set(_INSTALL_SHARE_DIR "${CMAKE_BINARY_DIR}/install/share/kennel/assets")
-
-    add_custom_command(
-      TARGET kennel
-      POST_BUILD
-      # Create directories
-      COMMAND ${CMAKE_COMMAND} -E make_directory "${_INSTALL_LIB_DIR}"
-      COMMAND ${CMAKE_COMMAND} -E make_directory "${_INSTALL_BIN_DIR}"
-      COMMAND ${CMAKE_COMMAND} -E make_directory "${_INSTALL_SHARE_DIR}"
-      # Copy wxWidgets libraries
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different ${_WX_LIBS}
-              "${_INSTALL_LIB_DIR}/"
-      # Copy kennel binary
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:kennel>"
-              "${_INSTALL_BIN_DIR}/"
-      # Copy assets
-      COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/assets"
-              "${_INSTALL_SHARE_DIR}/"
-      # Copy LICENSE
-      COMMAND
-        ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/LICENSE"
-        "${CMAKE_BINARY_DIR}/install/share/kennel/"
-      # Set rpath on the executable in install/bin to find libraries relative to
-      # installation
-      COMMAND patchelf --set-rpath "\$ORIGIN/../lib"
-              "${_INSTALL_BIN_DIR}/kennel"
-      # Also set rpath on the executable in the build directory
-      COMMAND patchelf --set-rpath "\$ORIGIN/../wxWidgets-install/lib"
-              "$<TARGET_FILE:kennel>"
-      COMMENT "Setting up self-contained Linux install directory with rpath"
-      VERBATIM)
-  endif()
+  add_custom_command(
+    TARGET kennel
+    POST_BUILD
+    # Create directories
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${_INSTALL_LIB_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${_INSTALL_BIN_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${_INSTALL_SHARE_DIR}"
+    # Copy kennel binary
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:kennel>"
+            "${_INSTALL_BIN_DIR}/"
+    # Copy assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/assets"
+            "${_INSTALL_SHARE_DIR}/"
+    # Copy LICENSE
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/LICENSE"
+            "${CMAKE_BINARY_DIR}/install/share/kennel/"
+    # Set rpath on the executable in install/bin to find libraries relative to
+    # installation
+    COMMAND patchelf --set-rpath "\$ORIGIN/../lib" "${_INSTALL_BIN_DIR}/kennel"
+    COMMENT "Setting up self-contained Linux install directory with rpath"
+    VERBATIM)
 endif()
 
 # ---------------------------------------------------------------------------
