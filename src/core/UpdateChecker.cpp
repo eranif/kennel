@@ -89,8 +89,8 @@ void UpdateChecker::OnRequestState(wxWebRequestEvent &evt) {
         IsVersionNewer(result.latestVersion, m_currentVersion);
 
     KLOG_INFO() << "Update check: current=" << m_currentVersion
-               << " latest=" << result.latestVersion
-               << " updateAvailable=" << result.updateAvailable;
+                << " latest=" << result.latestVersion
+                << " updateAvailable=" << result.updateAvailable;
 
     if (m_onResult)
       m_onResult(result);
