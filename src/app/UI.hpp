@@ -38,6 +38,7 @@
 #include <wx/menu.h>
 #include <wx/fontpicker.h>
 #include <wx/filepicker.h>
+#include <wx/spinctrl.h>
 #include <wx/wizard.h>
 #include <vector>
 #include <wx/bannerwindow.h>
@@ -411,6 +412,8 @@ protected:
   wxChoice *m_choiceShell;
   wxStaticText *m_staticText498;
   wxDirPickerCtrl *m_dirPickerShellHomeDir;
+  wxStaticText *m_staticText504;
+  wxSpinCtrl *m_spinCtrlScrollBackLines;
   wxCheckBox *m_checkBoxBlockCaret;
   wxCheckBox *m_checkBoxOptimizeDrawings;
   wxCheckBox *m_checkBoxForNewVersionOnStartup;
@@ -434,6 +437,8 @@ public:
   wxDirPickerCtrl *GetDirPickerShellHomeDir() {
     return m_dirPickerShellHomeDir;
   }
+  wxStaticText *GetStaticText504() { return m_staticText504; }
+  wxSpinCtrl *GetSpinCtrlScrollBackLines() { return m_spinCtrlScrollBackLines; }
   wxCheckBox *GetCheckBoxBlockCaret() { return m_checkBoxBlockCaret; }
   wxCheckBox *GetCheckBoxOptimizeDrawings() {
     return m_checkBoxOptimizeDrawings;

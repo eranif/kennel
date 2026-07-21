@@ -31,6 +31,7 @@ bool WriteFileUtf8(const wxString &path, const std::string &text);
 // --- tolerant typed-field readers (missing/wrong type -> default) ----------
 wxString GetStr(const json &j, const char *key, const wxString &dflt = "");
 int GetInt(const json &j, const char *key, int dflt);
+size_t GetSizeT(const json &j, const char *key, size_t dflt);
 bool GetBool(const json &j, const char *key, bool dflt);
 std::vector<wxString> GetStrArray(const json &j, const char *key);
 

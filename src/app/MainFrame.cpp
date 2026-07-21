@@ -368,6 +368,7 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.terminalHomeDir = settingsDlg.GetDefaultHomeDir();
     prefs.terminalOptimizedDrawing = settingsDlg.OptimizeTerminalDrawing();
     prefs.checkForUpdatesOnStartup = settingsDlg.GetCheckForUpdatesOnStartup();
+    prefs.scrollbackLines = settingsDlg.GetScrollBackLines();
     AppManager::Get().SavePrefs();
 
     m_mainView->ApplyFont(settingsDlg.GetSelectedFont());
@@ -513,17 +514,17 @@ void MainFrame::CheckForUpdates(bool silent) {
       kAppVersion,
       [this, silent](const UpdateCheckResult &result) {
         if (result.updateAvailable) {
-          const wxString msg = wxString::Format(
-              _("A new version of Kennel is available: %s\n\n"
-                "Open the download page?"),
-              result.latestVersion);
+          const wxString msg =
+              wxString::Format(_("A new version of Kennel is available: %s\n\n"
+                                 "Open the download page?"),
+                               result.latestVersion);
           if (::wxMessageBox(msg, "Kennel", wxICON_INFORMATION | wxYES_NO,
                              this) == wxYES) {
             ::wxLaunchDefaultBrowser(result.downloadUrl);
           }
         } else if (!silent) {
           ::wxMessageBox(_("You are running the latest version of Kennel."),
-                        "Kennel", wxICON_INFORMATION | wxOK, this);
+                         "Kennel", wxICON_INFORMATION | wxOK, this);
         }
       },
       [this, silent](const wxString &error) {

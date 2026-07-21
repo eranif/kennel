@@ -1518,6 +1518,22 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
   flexGridSizer364->Add(m_dirPickerShellHomeDir, 0, wxALL | wxEXPAND,
                         WXC_FROM_DIP(5));
 
+  m_staticText504 = new wxStaticText(m_panel361, wxID_ANY,
+                                     _("Scrollback Lines:"), wxDefaultPosition,
+                                     wxDLG_UNIT(m_panel361, wxSize(-1, -1)), 0);
+
+  flexGridSizer364->Add(m_staticText504, 0,
+                        wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
+                        WXC_FROM_DIP(5));
+
+  m_spinCtrlScrollBackLines =
+      new wxSpinCtrl(m_panel361, wxID_ANY, wxT("5000"), wxDefaultPosition,
+                     wxDLG_UNIT(m_panel361, wxSize(-1, -1)), wxSP_ARROW_KEYS);
+  m_spinCtrlScrollBackLines->SetRange(1000, 100000);
+  m_spinCtrlScrollBackLines->SetValue(5000);
+
+  flexGridSizer364->Add(m_spinCtrlScrollBackLines, 0, wxALL, WXC_FROM_DIP(5));
+
   flexGridSizer364->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
 
   m_checkBoxBlockCaret = new wxCheckBox(

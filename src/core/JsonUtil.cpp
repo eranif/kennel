@@ -39,6 +39,13 @@ int GetInt(const json &j, const char *key, int dflt) {
   return dflt;
 }
 
+size_t GetSizeT(const json &j, const char *key, size_t dflt) {
+  if (auto it = j.find(key); it != j.end() && it->is_number_unsigned()) {
+    return it->get<size_t>();
+  }
+  return dflt;
+}
+
 bool GetBool(const json &j, const char *key, bool dflt) {
   if (auto it = j.find(key); it != j.end() && it->is_boolean()) {
     return it->get<bool>();

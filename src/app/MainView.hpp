@@ -90,6 +90,7 @@ public:
     return ThemeManager::Get().Themes();
   }
 
+  void ApplyPrefs();
   void ApplyTheme(const wxString &themeName);
   void ApplyOptimizedDrawing();
   void ApplyFont(const wxFont &f);

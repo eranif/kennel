@@ -26,6 +26,10 @@ public:
     return m_checkBoxForNewVersionOnStartup->IsChecked();
   }
 
+  size_t GetScrollBackLines() const {
+    return m_spinCtrlScrollBackLines->GetValue();
+  }
+
   void RestoreThemeAndFont();
 
 protected:

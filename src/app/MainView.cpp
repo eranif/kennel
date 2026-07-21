@@ -30,9 +30,8 @@ constexpr int kLineHeightSpacer = 2;
 // Icon aliases for freshly created groups; one is picked at random and
 // persisted so the group keeps its color across restarts.
 constexpr const char *kGroupIconAliases[] = {
-    "group-red",    "group-orange", "group-lime",   "group-green",
-    "group-teal",   "group-cyan",   "group-blue",   "group-indigo",
-    "group-purple", "group-pink",
+    "group-red",  "group-orange", "group-lime",   "group-green",  "group-teal",
+    "group-cyan", "group-blue",   "group-indigo", "group-purple", "group-pink",
 };
 
 // Hands out icons from a shuffled bag so every colour is used once before
@@ -353,6 +352,24 @@ void MainView::ApplyOptimizedDrawing() {
     auto *sg = dynamic_cast<SessionGroup *>(m_sessionsBook->GetPage(i));
     if (sg) {
       sg->ApplyOptimizedDrawing();
+    }
+  }
+}
+
+void MainView::ApplyPrefs() {
+  const auto &prefs = AppManager::Get().GetPrefs();
+  ApplyTheme(prefs.terminalTheme);
+  wxFont font;
+  font.SetNativeFontInfo(prefs.terminalFontDesc);
+  ApplyFont(font);
+  ApplyOptimizedDrawing();
+
+  for (size_t i = 0; i < m_sessionsBook->GetPageCount(); ++i) {
+    auto *sg = dynamic_cast<SessionGroup *>(m_sessionsBook->GetPage(i));
+    if (sg) {
+      sg->Apply([&prefs](SessionPage *page) {
+        page->GetTerminal()->SetBufferSize(prefs.scrollbackLines);
+      });
     }
   }
 }

@@ -25,6 +25,7 @@ struct UiPrefs {
   bool blockCursor{true};
   bool terminalOptimizedDrawing{false}; // Enable optimized drawing?
   bool checkForUpdatesOnStartup{true};
+  size_t scrollbackLines{5000};
   wxString terminalLoginShell = ::FindShells().GetDefaultShellCmd();
   wxString terminalHomeDir = ::wxGetHomeDir();
   std::vector<wxString> recentWorkingDirs; // most-recent first, capped at 10

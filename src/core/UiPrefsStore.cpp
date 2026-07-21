@@ -7,6 +7,7 @@ namespace {
 
 using jsonutil::GetBool;
 using jsonutil::GetInt;
+using jsonutil::GetSizeT;
 using jsonutil::GetStr;
 using jsonutil::ReadFileUtf8;
 using jsonutil::ToUtf8;
@@ -30,6 +31,7 @@ json ToJson(const UiPrefs &p) {
         {"height", p.window.height},
         {"maximized", p.window.maximized}}},
       {"sidebarWidth", p.sidebarWidth},
+      {"scrollbackLines", p.scrollbackLines},
       {"lastSelectedSession", ToUtf8(p.lastSelectedSession)},
       {"terminalTheme", ToUtf8(p.terminalTheme)},
       {"terminalFontDesc", ToUtf8(p.terminalFontDesc)},
@@ -53,6 +55,7 @@ void ParsePrefs(const json &root, UiPrefs &p) {
     p.window.maximized = GetBool(*it, "maximized", p.window.maximized);
   }
   p.sidebarWidth = GetInt(root, "sidebarWidth", p.sidebarWidth);
+  p.scrollbackLines = GetSizeT(root, "scrollbackLines", p.scrollbackLines);
   p.lastSelectedSession =
       GetStr(root, "lastSelectedSession", p.lastSelectedSession);
   p.terminalTheme = GetStr(root, "terminalTheme", p.terminalTheme);
