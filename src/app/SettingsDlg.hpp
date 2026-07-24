@@ -17,7 +17,7 @@ public:
   bool GetUseBlockCursor() const { return m_checkBoxBlockCaret->IsChecked(); }
   wxString GetShell() const { return m_choiceShell->GetStringSelection(); }
   wxString GetDefaultHomeDir() const {
-    return m_dirPickerShellHomeDir->GetPath();
+    return m_textCtrlShellWorkingDir->GetValue();
   }
   bool OptimizeTerminalDrawing() const {
     return m_checkBoxOptimizeDrawings->IsChecked();
@@ -33,6 +33,7 @@ public:
   void RestoreThemeAndFont();
 
 protected:
+  void OnBrowseForShellWorkingDir(wxCommandEvent &event) override;
   void OnChoiceTheme(wxCommandEvent &event) override;
   void OnFontSelected(wxFontPickerEvent &event) override;
 

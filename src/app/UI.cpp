@@ -1510,13 +1510,26 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
                         wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
                         WXC_FROM_DIP(5));
 
-  m_dirPickerShellHomeDir = new wxDirPickerCtrl(
-      m_panel361, wxID_ANY, wxEmptyString, _("Select a folder"),
-      wxDefaultPosition, wxDLG_UNIT(m_panel361, wxSize(-1, -1)),
-      wxDIRP_SMALL | wxDIRP_DEFAULT_STYLE);
+  wxBoxSizer *boxSizer506 = new wxBoxSizer(wxHORIZONTAL);
 
-  flexGridSizer364->Add(m_dirPickerShellHomeDir, 0, wxALL | wxEXPAND,
-                        WXC_FROM_DIP(5));
+  flexGridSizer364->Add(boxSizer506, 0, wxEXPAND, WXC_FROM_DIP(5));
+
+  m_textCtrlShellWorkingDir =
+      new wxTextCtrl(m_panel361, wxID_ANY, wxT(""), wxDefaultPosition,
+                     wxDLG_UNIT(m_panel361, wxSize(-1, -1)), 0);
+#if wxVERSION_NUMBER >= 3000
+  m_textCtrlShellWorkingDir->SetHint(wxT(""));
+#endif
+
+  boxSizer506->Add(m_textCtrlShellWorkingDir, 1,
+                   wxALL | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+
+  m_button508 =
+      new wxButton(m_panel361, wxID_ANY, _(".."), wxDefaultPosition,
+                   wxDLG_UNIT(m_panel361, wxSize(-1, -1)), wxBU_EXACTFIT);
+
+  boxSizer506->Add(m_button508, 0, wxALL | wxALIGN_CENTER_VERTICAL,
+                   WXC_FROM_DIP(5));
 
   m_staticText504 = new wxStaticText(m_panel361, wxID_ANY,
                                      _("Scrollback Lines:"), wxDefaultPosition,
@@ -1612,6 +1625,8 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
                       &SettingsDlgBase::OnChoiceTheme, this);
   m_fontPicker->Bind(wxEVT_COMMAND_FONTPICKER_CHANGED,
                      &SettingsDlgBase::OnFontSelected, this);
+  m_button508->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
+                    &SettingsDlgBase::OnBrowseForShellWorkingDir, this);
 }
 
 SettingsDlgBase::~SettingsDlgBase() {
@@ -1619,6 +1634,8 @@ SettingsDlgBase::~SettingsDlgBase() {
                         &SettingsDlgBase::OnChoiceTheme, this);
   m_fontPicker->Unbind(wxEVT_COMMAND_FONTPICKER_CHANGED,
                        &SettingsDlgBase::OnFontSelected, this);
+  m_button508->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
+                      &SettingsDlgBase::OnBrowseForShellWorkingDir, this);
 }
 
 NewAgentWizardBase::NewAgentWizardBase(wxWindow *parent, wxWindowID id,

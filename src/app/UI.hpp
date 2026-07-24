@@ -37,7 +37,6 @@
 #include <map>
 #include <wx/menu.h>
 #include <wx/fontpicker.h>
-#include <wx/filepicker.h>
 #include <wx/spinctrl.h>
 #include <wx/wizard.h>
 #include <vector>
@@ -411,7 +410,8 @@ protected:
   wxStaticText *m_staticText365;
   wxChoice *m_choiceShell;
   wxStaticText *m_staticText498;
-  wxDirPickerCtrl *m_dirPickerShellHomeDir;
+  wxTextCtrl *m_textCtrlShellWorkingDir;
+  wxButton *m_button508;
   wxStaticText *m_staticText504;
   wxSpinCtrl *m_spinCtrlScrollBackLines;
   wxCheckBox *m_checkBoxBlockCaret;
@@ -424,6 +424,9 @@ protected:
 protected:
   virtual void OnChoiceTheme(wxCommandEvent &event) { event.Skip(); }
   virtual void OnFontSelected(wxFontPickerEvent &event) { event.Skip(); }
+  virtual void OnBrowseForShellWorkingDir(wxCommandEvent &event) {
+    event.Skip();
+  }
 
 public:
   wxStaticText *GetStaticText355() { return m_staticText355; }
@@ -434,9 +437,8 @@ public:
   wxStaticText *GetStaticText365() { return m_staticText365; }
   wxChoice *GetChoiceShell() { return m_choiceShell; }
   wxStaticText *GetStaticText498() { return m_staticText498; }
-  wxDirPickerCtrl *GetDirPickerShellHomeDir() {
-    return m_dirPickerShellHomeDir;
-  }
+  wxTextCtrl *GetTextCtrlShellWorkingDir() { return m_textCtrlShellWorkingDir; }
+  wxButton *GetButton508() { return m_button508; }
   wxStaticText *GetStaticText504() { return m_staticText504; }
   wxSpinCtrl *GetSpinCtrlScrollBackLines() { return m_spinCtrlScrollBackLines; }
   wxCheckBox *GetCheckBoxBlockCaret() { return m_checkBoxBlockCaret; }

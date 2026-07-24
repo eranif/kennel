@@ -1,4 +1,5 @@
 #include "SettingsDlg.hpp"
+#include "app/FileBrowserDlg.hpp"
 #include "app/MainFrame.h"
 #include "app/ThemeManager.h"
 #include "core/AppManager.h"
@@ -42,7 +43,7 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
   m_checkBoxBlockCaret->SetValue(prefs.blockCursor);
   m_checkBoxForNewVersionOnStartup->SetValue(prefs.checkForUpdatesOnStartup);
   m_spinCtrlScrollBackLines->SetValue(prefs.scrollbackLines);
-  m_dirPickerShellHomeDir->SetPath(prefs.terminalHomeDir);
+  m_textCtrlShellWorkingDir->SetValue(prefs.terminalHomeDir);
   GetSizer()->Fit(this);
   PositionDialog(this);
 }
@@ -65,4 +66,21 @@ void SettingsDlg::RestoreThemeAndFont() {
     GetMainFrame()->GetMainView()->ApplyFont(m_initialFont);
   if (!m_initialTheme.empty())
     GetMainFrame()->GetMainView()->ApplyTheme(m_initialTheme);
+}
+
+void SettingsDlg::OnBrowseForShellWorkingDir(wxCommandEvent &event) {
+  wxUnusedVar(event);
+  std::unique_ptr<FileProvider> provider{nullptr};
+  if (m_choiceShell->GetStringSelection().StartsWith("WSL:")) {
+    wxString distroName = m_choiceShell->GetStringSelection().Mid(4);
+    distroName.Trim().Trim(false);
+    provider =
+        std::make_unique<WSLFilesProvider>(distroName, wxEmptyString, true);
+  } else {
+    provider = std::make_unique<LocalFilesProvider>(wxEmptyString, true);
+  }
+  FileBrowserDlg dlg(this, std::move(provider));
+  if (dlg.ShowModal() == wxID_OK) {
+    m_textCtrlShellWorkingDir->ChangeValue(dlg.GetPath());
+  }
 }
