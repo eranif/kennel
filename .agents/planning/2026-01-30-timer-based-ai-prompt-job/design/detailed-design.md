@@ -52,7 +52,8 @@ The infrastructure must support create, update, enable/disable, immediate run, d
 - Scheduling is active only while Kennel is running.
 - Daily jobs run once per matching local calendar day at the configured time.
 - Weekday jobs run once on each selected local weekday at the configured time.
-- The current machine timezone is used; phase 1 does not persist a separate timezone.
+- Scheduling uses `wxDateTime` and the current machine's local timezone; phase 1
+  does not persist a separate timezone.
 - Missed occurrences are ignored when Kennel is stopped.
 - If a job is running at its due time, that occurrence is skipped, not queued and not run concurrently.
 - Manual runs participate in the same per-job non-overlap rule.
@@ -159,7 +160,7 @@ Suggested representation:
 - `std::vector<int> weekdays` using a documented stable convention (for example, Monday = 1 through Sunday = 7).
 - `hour` and `minute` in local time.
 
-Validation rejects invalid times, empty weekday schedules, duplicate weekdays, and unsupported schedule kinds. Daily schedules ignore the weekday list.
+Validation rejects invalid times, empty weekday schedules, duplicate weekdays, and unsupported schedule kinds. Daily schedules ignore the weekday list. The scheduler should use `wxDateTime::Now()` for the current local machine time, compare its date and time against the persisted schedule, and use `wxDateTime::GetWeekDay()` for weekday matching. Persist only the schedule's stable calendar values (`hour`, `minute`, and weekday numbers), not a serialized `wxDateTime`; construct transient `wxDateTime` values when evaluating due occurrences. The clock abstraction used by tests should return `wxDateTime` values so production and test scheduling use the same calendar representation.
 
 ### `JobsStore`
 
@@ -190,7 +191,7 @@ A runtime adapter builds argv from structured arguments and the prompt. It also 
 
 ### `JobExecutor`
 
-Executes one job and returns a result. It validates the runtime, resolves the working directory, constructs argv, applies the MCP allowlist, invokes the direct process API, captures output, and maps exit/launch failures into a typed result.
+Executes one job asynchronously. Starting an execution returns immediately after dispatching the work; process completion is reported through wxWidgets events posted to a configured event handler. It validates the runtime, resolves the working directory, constructs argv, applies the MCP allowlist, invokes the direct process API, captures output, and maps exit/launch failures into a typed result. The executor owns the asynchronous process lifecycle and must not require callers to block while waiting for an AI runtime. Events must be delivered on the wx event-loop thread rather than invoking UI-facing handlers directly from a worker thread.
 
 Suggested interface:
 
@@ -205,17 +206,31 @@ struct JobExecutionResult {
 
 class JobExecutor {
 public:
-  JobExecutionResult Execute(const JobDefinition& job);
+  // Dispatches execution and returns immediately. Results are reported by
+  // wxEVT_JOB_EXECUTION_STARTED, wxEVT_JOB_EXECUTION_COMPLETED, or
+  // wxEVT_JOB_EXECUTION_FAILED events posted to the target handler.
+  bool ExecuteAsync(const JobDefinition& job, wxEvtHandler* eventTarget);
 };
 ```
 
-The process API should gain a safe `workingDirectory` parameter or an execution-options structure while retaining the non-shell default.
+The process API should gain a safe `workingDirectory` parameter or an execution-options structure while retaining the non-shell default. The executor should define wx event subclasses carrying the job identity, trigger/run identity, execution result, and error details. Use `wxQueueEvent` (or an equivalent queued wx event mechanism) to transfer ownership safely from the worker to the target handler. The target must outlive the execution or cancellation/shutdown must prevent events from being posted to it.
+
+Suggested event types:
+
+```cpp
+wxDECLARE_EVENT(wxEVT_JOB_EXECUTION_STARTED, wxCommandEvent);
+wxDECLARE_EVENT(wxEVT_JOB_EXECUTION_COMPLETED, JobExecutionEvent);
+wxDECLARE_EVENT(wxEVT_JOB_EXECUTION_FAILED, JobExecutionEvent);
+wxDECLARE_EVENT(wxEVT_JOB_EXECUTION_SKIPPED, JobExecutionEvent);
+```
+
+`JobExecutionEvent` should derive from `wxEvent`, implement `Clone()`, and carry a copyable `JobExecutionResult` plus job/run identifiers. Events are the public notification mechanism; callbacks and futures are not required for phase 1.
 
 ### `CalendarScheduler`
 
-Owns the periodic wake-up mechanism and injectable clock. It determines due occurrences but delegates execution and overlap decisions to `JobService`. It must not execute AI commands on the UI thread.
+Owns the periodic wake-up mechanism and a wxDateTime-based clock provider. It determines due occurrences by evaluating the current local `wxDateTime`, but delegates execution and overlap decisions to `JobService`. It must not execute AI commands on the UI thread; it only dispatches asynchronous work through `JobExecutor`.
 
-The scheduler should use a modest polling cadence (for example, once per minute) and a persisted/in-memory last-trigger key to ensure one trigger per matching local date. A clock abstraction makes daylight-saving and boundary behavior testable.
+The scheduler should use a `wxTimer` with a modest polling cadence (for example, once per minute). On each timer event it obtains the current local time as a `wxDateTime`, checks whether the configured hour/minute and weekday match, and uses an in-memory last-trigger date key to ensure one trigger per matching local date. The clock provider should return `wxDateTime` values, making calendar and daylight-saving behavior testable without persisting runtime state. Missed occurrences remain ignored because the service is active only while Kennel is running.
 
 ### `JobService`
 
@@ -238,7 +253,7 @@ public:
 };
 ```
 
-`RunNow` returns after scheduling/dispatching work or uses a future/result abstraction; the exact asynchronous result contract should be chosen to match the future UI API. It must report a skipped result when the job is already running.
+`RunNow` dispatches asynchronous work and returns immediately. It must report a skipped result by posting `wxEVT_JOB_EXECUTION_SKIPPED` when the job is already running. `JobService` receives executor events, releases the per-job running state, writes the final `jobs.log` record, and forwards or emits service-level events without blocking the scheduler or UI thread.
 
 ### `JobLogWriter`
 
@@ -327,7 +342,7 @@ Tests belong in `kennel_core` and should avoid requiring the GUI.
    - Trigger daily jobs once on the matching local date/time.
    - Trigger selected weekdays only on selected days.
    - Ignore missed occurrences after a stopped period.
-   - Verify local-time boundary behavior with an injected clock.
+   - Verify local-time boundary behavior with an injected `wxDateTime` clock.
 4. **Execution**
    - Verify predefined runtime resolution and structured argv construction.
    - Verify prompt and arguments remain separate argv values and no shell is used.
