@@ -14,7 +14,7 @@ running between tasks, and jump between conversations without juggling terminal 
 back exactly where it left off, using the agent's native resume flag** (e.g., Claude's
 `--continue` or Kiro's `--resume`).
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.2.0-blue)
 ![License](https://img.shields.io/badge/license-BSD--3--Clause-green)
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-informational)
 
@@ -24,8 +24,8 @@ back exactly where it left off, using the agent's native resume flag** (e.g., Cl
 
 | Platform | Download | Notes |
 |---|---|---|
-| **Windows 11** | [kennel-1.1.0-amd64-installer.exe](https://github.com/eranif/kennel/releases/download/1.1.0/kennel-1.1.0-amd64-installer.exe) | Installer for Windows 11 and later |
-| **macOS ARM** | [kennel-macOS_26.5.1_arm64.zip](https://github.com/eranif/kennel/releases/download/1.1.0/kennel-macOS_26.5.1_arm64.zip) | Signed + notarized app bundle for Apple Silicon |
+| **Windows 11** | [kennel-1.2.0-amd64-installer.exe](https://github.com/eranif/kennel/releases/download/1.2.0/kennel-1.2.0-amd64-installer.exe) | Installer for Windows 11 and later |
+| **macOS ARM** | [kennel-macOS_26.5.2_arm64.zip](https://github.com/eranif/kennel/releases/download/1.2.0/kennel-macOS_26.5.2_arm64.zip) | Signed + notarized app bundle for Apple Silicon |
 
 See [Releases](https://github.com/eranif/kennel/releases) for other platforms and versions.
 
@@ -50,6 +50,23 @@ you close a window. Kennel fixes that.
 - 🧩 **Add any agent, no code required** — define new agents through a simple dialog or
   JSON. Local or over SSH.
 - 🌈 **Make it yours** — built-in color themes, custom fonts, and per-agent icons.
+
+---
+
+## What's New in 1.2.0
+
+Version 1.2.0 brings major improvements to session organization, theming, and application usability:
+
+- **Enhanced Session Management** — Rename sessions and move them between groups with ease
+- **Session Group Icons** — Each group gets a unique persistent colored icon for quick visual identification
+- **Advanced Navigation** — Use Alt+Arrow keys to navigate between session groups
+- **Real-Time Theme Switching** — Change themes and fonts live in the Settings dialog with instant preview
+- **Extensive Theme Collection** — Ships with multiple built-in color themes to suit your workflow
+- **Terminal Customization** — Configure scrollback buffer size and close tabs with middle-click
+- **Automatic Update Checking** — Optional periodic checks for new versions with manual override
+- **Improved Settings** — Better preference management with persistent settings across app restarts
+
+See [Release Notes](RELEASE_NOTES_1.2.0.md) for the complete changelog.
 
 ---
 
@@ -202,13 +219,15 @@ sidebar.
 
 ## Customization
 
-- **Themes** — pick a terminal color theme from **Settings → Theme** (Cobalt2, Monokai,
-  One Dark, One Light, and more).
-- **Font** — set the terminal font and size from **Settings → Change Terminal Font…**.
+- **Themes** — pick from an extensive collection of terminal color themes in **Settings → Theme** with real-time preview (includes Cobalt2, Monokai, One Dark, One Light, Solarized, and more). Changes apply instantly without restart.
+- **Font** — set the terminal font and size from **Settings → Change Terminal Font…** with live preview.
+- **Terminal Preferences** — customize scrollback buffer size and choose to close tabs with a middle-click.
+- **Session Icons** — each session group is automatically assigned a unique persistent colored icon for easy visual identification.
 - **Remote hosts** — manage reusable SSH hosts from **Settings → Manage Remote Hosts…**.
+- **Update Checks** — enable or disable automatic startup update checks from **Settings → Update Checks**.
 - **Plain terminals** — open a terminal without an agent via **File → New Terminal** (`Ctrl`/`Cmd`+`E`).
 
-All settings live under `~/.kennel/` and are editable in the app.
+All settings live under `~/.kennel/` and are editable in the app. Your preferences persist across session restarts.
 
 ---
 
