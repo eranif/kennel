@@ -291,6 +291,7 @@ void MainView::RestoreSessions() {
       ++restored;
     }
   }
+
   KLOG_INFO() << "Restored " << restored << " session(s)";
   if (m_dvListCtrlGroups->GetItemCount() > 0) {
     m_dvListCtrlGroups->SelectRow(0);

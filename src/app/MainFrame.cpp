@@ -104,6 +104,7 @@ MainFrame::MainFrame()
 
   // Rebuild any sessions persisted in workspace.json (resuming where possible).
   m_mainView->RestoreSessions();
+  AppManager::Get().SavePrefs();
 
   if (AppManager::Get().GetPrefs().checkForUpdatesOnStartup) {
     CheckForUpdates(/*silent=*/true);
@@ -370,10 +371,7 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.checkForUpdatesOnStartup = settingsDlg.GetCheckForUpdatesOnStartup();
     prefs.scrollbackLines = settingsDlg.GetScrollBackLines();
     AppManager::Get().SavePrefs();
-
-    m_mainView->ApplyFont(settingsDlg.GetSelectedFont());
-    m_mainView->ApplyTheme(settingsDlg.GetTheme());
-    m_mainView->ApplyOptimizedDrawing();
+    m_mainView->ApplyPrefs();
   } else {
     settingsDlg.RestoreThemeAndFont();
   }
