@@ -15,13 +15,12 @@
 // iconPath), and the main view (session tree + terminal area). Choosing a
 // client from the Launch menu or toolbar opens the New Client Launch dialog
 // with that client preselected. Shared state is reached via AppManager::Get().
+class SessionPage;
 class MainFrame : public wxFrame {
 public:
   MainFrame();
   ~MainFrame() override;
 
-  // Captures Ctrl-Tab / Ctrl-Shift-Tab before child controls consume them.
-  void HandleCtrlTabNavigation(wxKeyEvent &evt);
   MainView *GetMainView() { return m_mainView; }
 
   void SetActivityText(const wxString &text) { SetStatusText(text, 0); }
@@ -41,6 +40,8 @@ public:
       m_statusIndicator->Hide();
     }
   }
+
+  bool IsWindowActive(const SessionPage *win) const;
 
 private:
   // Builds the menu bar: File -> Exit, Launch -> one item per adapter, and

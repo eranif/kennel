@@ -21,6 +21,8 @@
 #define CHECK_ITEM_RETURN_FALSE(Item) __CHECK_ITEM_RETURN_VALUE(Item, false)
 #define CHECK_NOT_EMPTY_OR_RETURN(Obj) __CHECK_COND_RETURN_VALUE(!Obj.empty(), )
 #define CHECK_NOT_NULL_RETURN(Ptr) __CHECK_COND_RETURN_VALUE(Ptr != nullptr, )
+#define CHECK_NOT_NULL_RETURN_FALSE(Ptr)                                       \
+  __CHECK_COND_RETURN_VALUE(Ptr != nullptr, false)
 
 enum Orientation {
   kNone = 0,

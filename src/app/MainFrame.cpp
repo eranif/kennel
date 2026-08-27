@@ -137,24 +137,6 @@ void MainFrame::OnClose(wxCloseEvent &evt) {
   evt.Skip(); // continue with the default close (destroys the frame)
 }
 
-void MainFrame::HandleCtrlTabNavigation(wxKeyEvent &evt) {
-  if (m_mainView->GetActiveTerminal() == nullptr) {
-    evt.Skip();
-    return;
-  }
-
-  if (evt.GetId() == XRCID("tab-nav-right")) {
-    // Navigating right
-    m_mainView->SelectSession(true);
-  } else if (evt.GetId() == XRCID("tab-nav-left")) {
-    // Navigating left
-    m_mainView->SelectSession(false);
-  } else {
-    // Unsupported
-    evt.Skip();
-  }
-}
-
 void MainFrame::BuildToolBar() {
 #ifdef __WXMSW__
   m_toolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
@@ -558,4 +540,10 @@ void MainFrame::OnPrevGroupUI(wxUpdateUIEvent &e) {
 
 void MainFrame::OnNextGroupUI(wxUpdateUIEvent &e) {
   e.Enable(m_mainView->GroupCount() > 1);
+}
+
+bool MainFrame::IsWindowActive(const SessionPage *win) const {
+  CHECK_NOT_NULL_RETURN_FALSE(win);
+  CHECK_NOT_NULL_RETURN_FALSE(m_mainView->GetSelectedGroup());
+  return m_mainView->GetSelectedGroup()->GetActivePage() == win;
 }

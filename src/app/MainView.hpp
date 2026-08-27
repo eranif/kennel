@@ -98,8 +98,6 @@ public:
   bool CanRefreshCurrent() const;
   void RefreshCurrentSelection();
 
-  SessionPage *GetActiveTerminal();
-
   void SelectSession(const wxString &sessionName);
   void SelectSession(bool forward);
   void SelectGroup(bool forward);

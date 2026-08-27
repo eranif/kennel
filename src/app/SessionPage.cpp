@@ -59,10 +59,7 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
 SessionPage::~SessionPage() {}
 
 bool SessionPage::IsActive() const {
-  auto *grp = GetMainFrame()->GetMainView()->GetSelectedGroup();
-  if (grp == nullptr)
-    return false;
-  return grp->GetActivePage() == this;
+  return GetMainFrame()->IsWindowActive(this);
 }
 
 void SessionPage::SetDefaultSessionName(const wxString &name) {

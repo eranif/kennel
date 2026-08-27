@@ -674,14 +674,6 @@ void MainView::OnContextMenu(wxDataViewEvent &event) {
   DoGroupMenu(event.GetItem());
 }
 
-SessionPage *MainView::GetActiveTerminal() {
-  if (m_sessionsBook->GetSelection() == wxNOT_FOUND) {
-    return nullptr;
-  }
-  return dynamic_cast<SessionPage *>(
-      m_sessionsBook->GetPage(m_sessionsBook->GetSelection()));
-}
-
 void MainView::SelectSession(const wxString &sessionName) {
   auto *group = GetSelectedGroup();
   CHECK_NOT_NULL_RETURN(group);
