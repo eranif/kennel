@@ -226,9 +226,16 @@ void MainView::StartAgent(const wxString &agentName,
   if (!agentName.empty()) {
     dlg.SetSelectedClientName(agentName);
   }
-  if (!groupName.empty()) {
-    dlg.SetSelectedGroup(groupName);
+
+  wxString selectedGroupName{groupName};
+  if (selectedGroupName.empty() && GetSelectedGroup()) {
+    selectedGroupName = GetSelectedGroup()->GetGroupName();
   }
+
+  if (!selectedGroupName.empty()) {
+    dlg.SetSelectedGroup(selectedGroupName);
+  }
+
   if (dlg.ShowModal() != wxID_OK) {
     return;
   }
