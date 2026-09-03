@@ -74,15 +74,14 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
   m_leftPaneMainSizer = new wxBoxSizer(wxVERTICAL);
   m_splitterPageLeft->SetSizer(m_leftPaneMainSizer);
 
-  m_dvListCtrlGroups =
-      new wxDataViewListCtrl(m_splitterPageLeft, wxID_ANY, wxDefaultPosition,
-                             wxDLG_UNIT(m_splitterPageLeft, wxSize(200, -1)),
+  m_treeSessions =
+      new wxDataViewTreeCtrl(m_splitterPageLeft, wxID_ANY, wxDefaultPosition,
+                             wxDLG_UNIT(m_splitterPageLeft, wxSize(-1, -1)),
                              wxDV_NO_HEADER | wxDV_ROW_LINES | wxDV_SINGLE);
 
-  m_leftPaneMainSizer->Add(m_dvListCtrlGroups, 1, wxEXPAND, WXC_FROM_DIP(5));
+  m_leftPaneMainSizer->Add(m_treeSessions, 1, wxALL | wxEXPAND,
+                           WXC_FROM_DIP(5));
 
-  m_dvListCtrlGroups->AppendIconTextColumn(_("Groups"), wxDATAVIEW_CELL_INERT,
-                                           WXC_FROM_DIP(-2), wxALIGN_LEFT, 0);
   m_splitterPageRight =
       new wxPanel(m_splitterMain, wxID_ANY, wxDefaultPosition,
                   wxDLG_UNIT(m_splitterMain, wxSize(-1, -1)), wxTAB_TRAVERSAL);
@@ -105,17 +104,17 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
     GetSizer()->Fit(this);
   }
   // Connect events
-  m_dvListCtrlGroups->Bind(wxEVT_COMMAND_DATAVIEW_SELECTION_CHANGED,
-                           &MainViewBase::OnSelectionChanged, this);
-  m_dvListCtrlGroups->Bind(wxEVT_COMMAND_DATAVIEW_ITEM_CONTEXT_MENU,
-                           &MainViewBase::OnContextMenu, this);
+  m_treeSessions->Bind(wxEVT_COMMAND_DATAVIEW_SELECTION_CHANGED,
+                       &MainViewBase::OnSelectionChanged, this);
+  m_treeSessions->Bind(wxEVT_COMMAND_DATAVIEW_ITEM_CONTEXT_MENU,
+                       &MainViewBase::OnContextMenu, this);
 }
 
 MainViewBase::~MainViewBase() {
-  m_dvListCtrlGroups->Unbind(wxEVT_COMMAND_DATAVIEW_SELECTION_CHANGED,
-                             &MainViewBase::OnSelectionChanged, this);
-  m_dvListCtrlGroups->Unbind(wxEVT_COMMAND_DATAVIEW_ITEM_CONTEXT_MENU,
-                             &MainViewBase::OnContextMenu, this);
+  m_treeSessions->Unbind(wxEVT_COMMAND_DATAVIEW_SELECTION_CHANGED,
+                         &MainViewBase::OnSelectionChanged, this);
+  m_treeSessions->Unbind(wxEVT_COMMAND_DATAVIEW_ITEM_CONTEXT_MENU,
+                         &MainViewBase::OnContextMenu, this);
 }
 
 StartAgentDialogBase::StartAgentDialogBase(wxWindow *parent, wxWindowID id,

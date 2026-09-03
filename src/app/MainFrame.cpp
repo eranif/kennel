@@ -544,6 +544,5 @@ void MainFrame::OnNextGroupUI(wxUpdateUIEvent &e) {
 
 bool MainFrame::IsWindowActive(const SessionPage *win) const {
   CHECK_NOT_NULL_RETURN_FALSE(win);
-  CHECK_NOT_NULL_RETURN_FALSE(m_mainView->GetSelectedGroup());
-  return m_mainView->GetSelectedGroup()->GetActivePage() == win;
+  return m_mainView->GetActiveSessionPage() == win;
 }

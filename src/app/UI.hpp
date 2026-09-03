@@ -75,7 +75,7 @@ protected:
   wxSplitterWindow *m_splitterMain;
   wxPanel *m_splitterPageLeft;
   wxBoxSizer *m_leftPaneMainSizer;
-  wxDataViewListCtrl *m_dvListCtrlGroups;
+  wxDataViewTreeCtrl *m_treeSessions;
   wxPanel *m_splitterPageRight;
   wxSimplebook *m_sessionsBook;
 
@@ -84,7 +84,7 @@ protected:
   virtual void OnContextMenu(wxDataViewEvent &event) { event.Skip(); }
 
 public:
-  wxDataViewListCtrl *GetDvListCtrlGroups() { return m_dvListCtrlGroups; }
+  wxDataViewTreeCtrl *GetTreeSessions() { return m_treeSessions; }
   wxPanel *GetSplitterPageLeft() { return m_splitterPageLeft; }
   wxSimplebook *GetSessionsBook() { return m_sessionsBook; }
   wxPanel *GetSplitterPageRight() { return m_splitterPageRight; }

@@ -12,6 +12,7 @@
 #include <wx/dataview.h>
 #include <wx/timer.h>
 
+#include <memory>
 #include <vector>
 
 class SessionPage;
@@ -22,13 +23,22 @@ class UiPrefsStore;
 
 static constexpr int kSpinnerFrameCount = 8;
 
-// Client data on each agent group container.
-class GroupItemData {
+// Client data on each group's container tree item. Owns the SessionGroup:
+// deleting the tree item (via wxDataViewTreeStore) deletes this, which
+// deletes the group.
+class GroupItemData : public wxClientData {
 public:
-  explicit GroupItemData(const wxString &n, SessionGroup *p)
-      : groupName{n}, groupPage{p} {}
-  wxString groupName;
-  SessionGroup *groupPage{nullptr};
+  explicit GroupItemData(std::unique_ptr<SessionGroup> g)
+      : group{std::move(g)} {}
+  std::unique_ptr<SessionGroup> group;
+};
+
+// Client data on each session leaf tree item. Non-owning: the SessionPage
+// window is owned by m_sessionsBook.
+class SessionItemData : public wxClientData {
+public:
+  explicit SessionItemData(SessionPage *p) : page{p} {}
+  SessionPage *page{nullptr};
 };
 
 class SpinnerRenderer : public wxEvtHandler {
@@ -104,7 +114,7 @@ public:
 
   size_t SessionCount() const;
   size_t GroupCount() const;
-  
+
   // Prompts for confirmation, then closes every session in every group.
   void CloseAllSessions();
   bool IsSelectionSessionGroup() const;
@@ -113,23 +123,35 @@ public:
   bool IsNameExist(const wxString &name) const;
   SessionGroup *GetSelectedGroup() const;
 
+  // The single SessionPage currently shown on the right, or nullptr.
+  SessionPage *GetActiveSessionPage() const;
+
 protected:
   void DoSelectGroup(const wxDataViewItem &item);
   void DoSelectGroup(const wxString &name);
   void OnContextMenu(wxDataViewEvent &event) override;
   void OnSelectionChanged(wxDataViewEvent &event) override;
-  void OnGroupPageChanged(SessionGroupEvent &event);
-  void OnMoveSessionToGroup(SessionGroupEvent &event);
-  void OnGroupLastPageClosed(SessionGroupEvent &event);
+  void OnSessionIdle(wxCommandEvent &e);
+  void OnSessionActive(wxCommandEvent &e);
+  void OnSessionExited(wxCommandEvent &e);
+  void OnIdleEvent(wxIdleEvent &e);
   void DeleteGroupByName(const wxString &name);
   void DeleteAll();
   void DoGroupMenu(const wxDataViewItem &item);
+  void DoSessionMenu(const wxDataViewItem &item);
+  void RenameGroup(SessionGroup *group);
+  void RenameSession(SessionPage *page);
+  void RefreshGroup(SessionGroup *group);
+  void CloseSession(SessionGroup *group, const wxString &sessionName);
+  // Shows some session after the active one is removed: prefers a
+  // sibling in `preferredGroup`, else the first session in any group.
+  void SelectFallbackSession(SessionGroup *preferredGroup);
   void Traverse(std::function<bool(SessionPage *)> visit) const;
   std::vector<SessionPage *> GetAllSessions() const;
   std::vector<SessionGroup *> GetAllGroups() const;
 
-  // Removes `group` (and its backing page) if it has no children, unless it is
-  // the "Default" group, which must always exist.
+  // Removes `group` (and its backing tree item) if it has no children,
+  // unless it is the "Default" group, which must always exist.
   void RemoveGroupIfEmpty(const wxDataViewItem &group);
 
 private:
@@ -137,13 +159,25 @@ private:
 
   SessionGroup *EnsureGroup(const wxString &groupName);
   GroupItemData *GetGroupItemData(const wxDataViewItem &item) const;
+  SessionItemData *GetSessionItemData(const wxDataViewItem &item) const;
   SessionGroup *GetSessionGroup(const wxString &name) const;
-  SessionGroup *GetSessionGroup(int row) const;
+  wxDataViewItem FindLeafItem(SessionGroup *group, SessionPage *page) const;
+
+  // Attaches an already-constructed SessionPage to its group: adds it to
+  // the group's session list, m_sessionsBook, and a new tree leaf.
   SessionPage *AddSession(SessionPage *page);
-  wxDataViewItem GetSessionGroupItem(const wxString &name);
+
+  // Makes `page` the one visible session: selects its leaf in the tree,
+  // shows it in m_sessionsBook, and remembers it as its group's last-active.
+  void SelectSessionPage(SessionPage *page);
+
+  void MoveSessionToGroup(const wxString &sessionName,
+                          const wxString &fromGroupName,
+                          const wxString &toGroupName);
+
   void SavePrefs();
 
-  // Creates and adds a terminal page for an existing Session.
+  // Creates and adds a terminal/agent page for an existing Session.
   SessionPage *AddSessionPage(const Session &session, bool resume);
 
   const AdapterRegistry *m_registry{nullptr};
