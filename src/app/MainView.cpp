@@ -427,13 +427,20 @@ void MainView::OnSelectionChanged(wxDataViewEvent &event) {
   }
 
   // Clicking a group node only toggles its expand/collapse state; it must
-  // not change which session is selected/shown.
-  if (m_treeSessions->IsExpanded(item)) {
-    m_treeSessions->Collapse(item);
-  } else {
-    m_treeSessions->Expand(item);
-  }
-  RestoreActiveSessionSelection();
+  // not change which session is selected/shown. Defer the toggle: calling
+  // Collapse()/Expand() synchronously from within the selection-changed
+  // handler mutates the tree while wxDataViewCtrl's generic (Windows)
+  // implementation is still processing the click that triggered this
+  // event, which crashes the app.
+  bool expanded = m_treeSessions->IsExpanded(item);
+  CallAfter([this, item, expanded] {
+    if (expanded) {
+      m_treeSessions->Collapse(item);
+    } else {
+      m_treeSessions->Expand(item);
+    }
+    RestoreActiveSessionSelection();
+  });
 }
 
 void MainView::ApplyFont(const wxFont &f) {
