@@ -15,10 +15,8 @@ AcceleratorInterceptor::~AcceleratorInterceptor() {}
 
 void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
   if ((keyEvent.GetKeyCode() == WXK_LEFT ||
-       keyEvent.GetKeyCode() == WXK_RIGHT || keyEvent.GetKeyCode() == WXK_UP ||
-       keyEvent.GetKeyCode() == WXK_DOWN) &&
-      (keyEvent.GetModifiers() == wxMOD_ALT)) {
-    wxCommandEvent dummyEvt{};
+       keyEvent.GetKeyCode() == WXK_RIGHT) &&
+      (keyEvent.GetModifiers() == wxMOD_CONTROL)) {
     switch (keyEvent.GetKeyCode()) {
     case WXK_LEFT: {
       wxCommandEvent evtLeft{wxEVT_MENU, wxID_BACKWARD};
@@ -26,14 +24,6 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     } break;
     case WXK_RIGHT: {
       wxCommandEvent evtRight{wxEVT_MENU, wxID_FORWARD};
-      GetMainFrame()->GetEventHandler()->AddPendingEvent(evtRight);
-    } break;
-    case WXK_UP: {
-      wxCommandEvent evtRight{wxEVT_MENU, wxID_UP};
-      GetMainFrame()->GetEventHandler()->AddPendingEvent(evtRight);
-    } break;
-    case WXK_DOWN: {
-      wxCommandEvent evtRight{wxEVT_MENU, wxID_DOWN};
       GetMainFrame()->GetEventHandler()->AddPendingEvent(evtRight);
     } break;
     default:

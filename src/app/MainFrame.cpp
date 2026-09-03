@@ -246,39 +246,17 @@ void MainFrame::BuildMenuBar() {
 
 void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
   auto *searchMenu = new wxMenu();
-#ifdef __WXMAC__
   searchMenu->Append(wxID_FORWARD, _("Select Next Session\tCtrl-RIGHT"),
                      _("Select the next session"));
   searchMenu->Append(wxID_BACKWARD, _("Select Previous Session\tCtrl-LEFT"),
                      _("Select the previous session"));
-  searchMenu->AppendSeparator();
-  searchMenu->Append(wxID_DOWN, _("Select Next Group\tCtrl-DOWN"),
-                     _("Select the next session"));
-  searchMenu->Append(wxID_UP, _("Select Previous Group\tCtrl-UP"),
-                     _("Select the previous group"));
-#else
-  searchMenu->Append(wxID_FORWARD, _("Select Next Session\tAlt-RIGHT"),
-                     _("Select the next session"));
-  searchMenu->Append(wxID_BACKWARD, _("Select Previous Session\tAlt-LEFT"),
-                     _("Select the previous session"));
-  searchMenu->AppendSeparator();
-  searchMenu->Append(wxID_DOWN, _("Select Next Group\tAlt-DOWN"),
-                     _("Select the next session"));
-  searchMenu->Append(wxID_UP, _("Select Previous Group\tAlt-UP"),
-                     _("Select the previous group"));
-#endif
 
-  // Session movement
+  // Session movement: cycles through every open session, regardless of
+  // which group it belongs to.
   Bind(wxEVT_MENU, &MainFrame::OnNextSession, this, wxID_FORWARD);
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnPrevSessionUI, this, wxID_BACKWARD);
   Bind(wxEVT_MENU, &MainFrame::OnPrevSession, this, wxID_BACKWARD);
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnNextSessionUI, this, wxID_FORWARD);
-
-  // Group movement
-  Bind(wxEVT_MENU, &MainFrame::OnNextGroup, this, wxID_DOWN);
-  Bind(wxEVT_UPDATE_UI, &MainFrame::OnNextGroupUI, this, wxID_DOWN);
-  Bind(wxEVT_UPDATE_UI, &MainFrame::OnPrevGroupUI, this, wxID_UP);
-  Bind(wxEVT_MENU, &MainFrame::OnPrevGroup, this, wxID_UP);
   menuBar->Append(searchMenu, _("Search"));
 }
 
@@ -523,24 +501,6 @@ void MainFrame::OnRenameItem(wxCommandEvent &event) {
 }
 
 MainFrame *GetMainFrame() { return mainFrame; }
-
-void MainFrame::OnNextGroup(wxCommandEvent &e) {
-  wxUnusedVar(e);
-  m_mainView->SelectGroup(true);
-}
-
-void MainFrame::OnPrevGroup(wxCommandEvent &e) {
-  wxUnusedVar(e);
-  m_mainView->SelectGroup(false);
-}
-
-void MainFrame::OnPrevGroupUI(wxUpdateUIEvent &e) {
-  e.Enable(m_mainView->GroupCount() > 1);
-}
-
-void MainFrame::OnNextGroupUI(wxUpdateUIEvent &e) {
-  e.Enable(m_mainView->GroupCount() > 1);
-}
 
 bool MainFrame::IsWindowActive(const SessionPage *win) const {
   CHECK_NOT_NULL_RETURN_FALSE(win);

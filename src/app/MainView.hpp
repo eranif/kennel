@@ -109,8 +109,9 @@ public:
   void RefreshCurrentSelection();
 
   void SelectSession(const wxString &sessionName);
+
+  // Cycles to the next/previous session across all groups, in tree order.
   void SelectSession(bool forward);
-  void SelectGroup(bool forward);
 
   size_t SessionCount() const;
   size_t GroupCount() const;
@@ -170,6 +171,11 @@ private:
   // Makes `page` the one visible session: selects its leaf in the tree,
   // shows it in m_sessionsBook, and remembers it as its group's last-active.
   void SelectSessionPage(SessionPage *page);
+
+  // Re-selects the currently active session's leaf in the tree, undoing a
+  // selection change (e.g. after a group node was clicked to expand/collapse
+  // it) without touching m_sessionsBook.
+  void RestoreActiveSessionSelection();
 
   void MoveSessionToGroup(const wxString &sessionName,
                           const wxString &fromGroupName,

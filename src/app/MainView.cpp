@@ -260,6 +260,18 @@ void MainView::SelectSessionPage(SessionPage *page) {
   page->ApplyTitle();
 }
 
+void MainView::RestoreActiveSessionSelection() {
+  auto *activePage = GetActiveSessionPage();
+  if (activePage == nullptr) {
+    return;
+  }
+  auto *group = GetSessionGroup(activePage->GetSession().groupName);
+  auto leafItem = FindLeafItem(group, activePage);
+  if (leafItem.IsOk()) {
+    m_treeSessions->Select(leafItem);
+  }
+}
+
 void MainView::StartTerminal() {
   static int terminalId{0};
   const auto &prefs = AppManager::Get().GetPrefs();
@@ -411,7 +423,15 @@ void MainView::OnSelectionChanged(wxDataViewEvent &event) {
     SelectSessionPage(sessionData->page);
     return;
   }
-  DoSelectGroup(item);
+
+  // Clicking a group node only toggles its expand/collapse state; it must
+  // not change which session is selected/shown.
+  if (m_treeSessions->IsExpanded(item)) {
+    m_treeSessions->Collapse(item);
+  } else {
+    m_treeSessions->Expand(item);
+  }
+  RestoreActiveSessionSelection();
 }
 
 void MainView::ApplyFont(const wxFont &f) {
@@ -933,34 +953,8 @@ size_t MainView::SessionCount() const {
   return count;
 }
 
-void MainView::SelectGroup(bool forward) {
-  auto groups = GetAllGroups();
-  if (groups.size() <= 1) {
-    return;
-  }
-
-  auto *current = GetSelectedGroup();
-  int row = -1;
-  for (size_t i = 0; i < groups.size(); ++i) {
-    if (groups[i] == current) {
-      row = static_cast<int>(i);
-      break;
-    }
-  }
-  if (row == -1) {
-    return;
-  }
-
-  const int count = static_cast<int>(groups.size());
-  row = forward ? (row + 1) % count : (row - 1 + count) % count;
-  DoSelectGroup(groups[row]->GetContainerItem());
-}
-
 void MainView::SelectSession(bool forward) {
-  auto *group = GetSelectedGroup();
-  CHECK_NOT_NULL_RETURN(group);
-
-  const auto &sessions = group->GetSessions();
+  auto sessions = GetAllSessions();
   if (sessions.size() <= 1) {
     return;
   }
