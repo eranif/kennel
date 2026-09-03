@@ -25,8 +25,8 @@
 #include <wx/arrstr.h>
 #include <wx/textctrl.h>
 #include <wx/combobox.h>
-#include <wx/button.h>
 #include <wx/checkbox.h>
+#include <wx/button.h>
 #include <wx/toolbar.h>
 #include <wx/stc/stc.h>
 #include <wx/notebook.h>
@@ -105,20 +105,19 @@ protected:
   wxStaticText *m_staticTextErrorMessage;
   wxStaticText *m_staticText343;
   wxComboBox *m_comboBoxGroup;
-  wxStaticText *m_staticText24;
+  wxCheckBox *m_checkBoxResume;
+  wxCheckBox *m_checkBoxCustomWorkingDirectory;
   wxComboBox *m_comboBoxWorkingDir;
   wxButton *m_buttonBrowseWD;
-  wxCheckBox *m_checkBoxInnderFolder;
-  wxCheckBox *m_checkBoxResume;
   wxStdDialogButtonSizer *m_stdBtnSizer17;
   wxButton *m_buttonOk;
   wxButton *m_buttonCancel;
 
 protected:
   virtual void OnNameUpdated(wxCommandEvent &event) { event.Skip(); }
+  virtual void OnUseCustomWdUI(wxUpdateUIEvent &event) { event.Skip(); }
   virtual void OnBrowseWdUI(wxUpdateUIEvent &event) { event.Skip(); }
   virtual void OnBrowseWD(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnInnerFolder(wxCommandEvent &event) { event.Skip(); }
   virtual void OnOkUI(wxUpdateUIEvent &event) { event.Skip(); }
 
 public:
@@ -129,11 +128,12 @@ public:
   wxStaticText *GetStaticTextErrorMessage() { return m_staticTextErrorMessage; }
   wxStaticText *GetStaticText343() { return m_staticText343; }
   wxComboBox *GetComboBoxGroup() { return m_comboBoxGroup; }
-  wxStaticText *GetStaticText24() { return m_staticText24; }
+  wxCheckBox *GetCheckBoxResume() { return m_checkBoxResume; }
+  wxCheckBox *GetCheckBoxCustomWorkingDirectory() {
+    return m_checkBoxCustomWorkingDirectory;
+  }
   wxComboBox *GetComboBoxWorkingDir() { return m_comboBoxWorkingDir; }
   wxButton *GetButtonBrowseWD() { return m_buttonBrowseWD; }
-  wxCheckBox *GetCheckBoxInnderFolder() { return m_checkBoxInnderFolder; }
-  wxCheckBox *GetCheckBoxResume() { return m_checkBoxResume; }
   StartAgentDialogBase(wxWindow *parent, wxWindowID id = wxID_ANY,
                        const wxString &title = _("Start Agent"),
                        const wxPoint &pos = wxDefaultPosition,

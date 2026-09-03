@@ -8,6 +8,7 @@
 
 #include "core/Helpers.h"
 #include <wx/clntdata.h>
+#include <wx/stdpaths.h>
 #include <wx/textdlg.h>
 #include <wx/utils.h>
 
@@ -64,17 +65,6 @@ void StartAgentDialog::PopulateClients() {
     m_comboBoxGroup->SetSelection(0);
   }
 
-  const auto &prefs = AppManager::Get().GetPrefs();
-  m_comboBoxWorkingDir->Clear();
-  if (!prefs.recentWorkingDirs.empty()) {
-    m_comboBoxWorkingDir->Append(wxEmptyString);
-    for (const wxString &d : prefs.recentWorkingDirs) {
-      m_comboBoxWorkingDir->Append(d);
-    }
-  } else {
-    m_comboBoxWorkingDir->ChangeValue(wxEmptyString);
-  }
-
   CenterOnParent();
   Move(GetPosition().x, GetParent()->GetPosition().y);
 }
@@ -109,8 +99,7 @@ void StartAgentDialog::OnOkUI(wxUpdateUIEvent &event) {
   wxString name = m_textCtrlName->GetValue();
   name.Trim().Trim(false);
   event.Enable(!name.IsEmpty() &&
-               !GetMainFrame()->GetMainView()->IsNameExist(name) &&
-               !m_comboBoxWorkingDir->GetValue().IsEmpty());
+               !GetMainFrame()->GetMainView()->IsNameExist(name));
 }
 
 wxString StartAgentDialog::MakeGroupName() const {
@@ -121,12 +110,27 @@ wxString StartAgentDialog::MakeGroupName() const {
   return groupName;
 }
 
-wxString StartAgentDialog::MakeWorkingDir(bool checked) const {
-  wxString folder = m_comboBoxWorkingDir->GetValue();
-  if (checked) {
-    folder << wxFileName::GetPathSeparator()
-           << NormaliseFilename(m_textCtrlName->GetValue());
+wxString StartAgentDialog::MakeWorkingDir() const {
+  if (m_checkBoxCustomWorkingDirectory->IsChecked()) {
+    // If user requested a custom working directory, use it.
+    return m_comboBoxWorkingDir->GetValue();
   }
+
+  if (SelectedAgentId().empty())
+    return wxEmptyString;
+
+  const auto *a = AppManager::Get().Adapters().FindAgent(SelectedAgentId());
+  if (a == nullptr)
+    return wxEmptyString;
+
+  wxString folder;
+  if (a->IsRemote()) {
+    folder = "$HOME/.kennel";
+  } else {
+    folder = AppManager::Get().Paths().SessionsDir().GetPath();
+  }
+
+  folder << "/" << NormaliseFilename(m_textCtrlName->GetValue());
   return folder;
 }
 
@@ -134,13 +138,28 @@ NewSessionRequest StartAgentDialog::GetRequest() const {
   return NewSessionRequest{
       .name = m_textCtrlName->GetValue(),
       .agentName = SelectedAgentId(),
-      .workingDir = MakeWorkingDir(m_checkBoxInnderFolder->IsChecked()),
+      .workingDir = MakeWorkingDir(),
       .resume = m_checkBoxResume->IsChecked(),
       .groupName = MakeGroupName(),
   };
 }
 
-void StartAgentDialog::OnInnerFolder(wxCommandEvent &event) { event.Skip(); }
+void StartAgentDialog::OnNameUpdated(wxCommandEvent &event) {
+  wxUnusedVar(event);
+  wxString name = m_textCtrlName->GetValue();
+  name.Trim().Trim(false);
+  if (GetMainFrame()->GetMainView()->IsNameExist(name)) {
+    if (!m_staticTextErrorMessage->IsShown()) {
+      m_staticTextErrorMessage->Show();
+      GetSizer()->Fit(this);
+      GetSizer()->Layout();
+    }
+  } else if (m_staticTextErrorMessage->IsShown()) {
+    m_staticTextErrorMessage->Hide();
+    GetSizer()->Fit(this);
+    GetSizer()->Layout();
+  }
+}
 
 void StartAgentDialog::OnBrowseWD(wxCommandEvent &event) {
   auto agentName = SelectedAgentId();
@@ -179,22 +198,9 @@ void StartAgentDialog::OnBrowseWD(wxCommandEvent &event) {
 void StartAgentDialog::OnBrowseWdUI(wxUpdateUIEvent &event) {
   auto agentName = SelectedAgentId();
   const AgentDef *agent = AppManager::Get().Adapters().FindAgent(agentName);
-  event.Enable(agent);
+  event.Enable(agent && m_checkBoxCustomWorkingDirectory->IsChecked());
 }
 
-void StartAgentDialog::OnNameUpdated(wxCommandEvent &event) {
-  wxUnusedVar(event);
-  wxString name = m_textCtrlName->GetValue();
-  name.Trim().Trim(false);
-  if (GetMainFrame()->GetMainView()->IsNameExist(name)) {
-    if (!m_staticTextErrorMessage->IsShown()) {
-      m_staticTextErrorMessage->Show();
-      GetSizer()->Fit(this);
-      GetSizer()->Layout();
-    }
-  } else if (m_staticTextErrorMessage->IsShown()) {
-    m_staticTextErrorMessage->Hide();
-    GetSizer()->Fit(this);
-    GetSizer()->Layout();
-  }
+void StartAgentDialog::OnUseCustomWdUI(wxUpdateUIEvent &event) {
+  event.Enable(m_checkBoxCustomWorkingDirectory->IsChecked());
 }

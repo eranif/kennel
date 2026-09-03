@@ -206,25 +206,39 @@ StartAgentDialogBase::StartAgentDialogBase(wxWindow *parent, wxWindowID id,
 
   flexGridSizer31->Add(m_comboBoxGroup, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
-  m_staticText24 =
-      new wxStaticText(this, wxID_ANY, _("Working Directory:"),
-                       wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  flexGridSizer31->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
 
-  flexGridSizer31->Add(m_staticText24, 0,
-                       wxALL | wxEXPAND | wxALIGN_RIGHT |
-                           wxALIGN_CENTER_VERTICAL,
-                       WXC_FROM_DIP(5));
+  m_checkBoxResume = new wxCheckBox(
+      this, wxID_ANY, _("Resume the Latest Session in This Folder"),
+      wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  m_checkBoxResume->SetValue(false);
+
+  flexGridSizer31->Add(m_checkBoxResume, 0, wxALL, WXC_FROM_DIP(5));
+
+  wxStaticBoxSizer *staticBoxSizer510 = new wxStaticBoxSizer(
+      new wxStaticBox(this, wxID_ANY, _("Working Directory:")), wxVERTICAL);
+
+  boxSizer16->Add(staticBoxSizer510, 0, wxALL | wxEXPAND, WXC_FROM_DIP(10));
+
+  m_checkBoxCustomWorkingDirectory = new wxCheckBox(
+      this, wxID_ANY,
+      _("Optionally, launch the agent in a specific working directory"),
+      wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  m_checkBoxCustomWorkingDirectory->SetValue(false);
+
+  staticBoxSizer510->Add(m_checkBoxCustomWorkingDirectory, 0, wxALL,
+                         WXC_FROM_DIP(5));
 
   wxBoxSizer *boxSizer317 = new wxBoxSizer(wxHORIZONTAL);
 
-  flexGridSizer31->Add(boxSizer317, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+  staticBoxSizer510->Add(boxSizer317, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
   wxArrayString m_comboBoxWorkingDirArr;
   m_comboBoxWorkingDir = new wxComboBox(
       this, wxID_ANY, wxT(""), wxDefaultPosition,
       wxDLG_UNIT(this, wxSize(-1, -1)), m_comboBoxWorkingDirArr, 0);
 #if wxVERSION_NUMBER >= 3000
-  m_comboBoxWorkingDir->SetHint(_("* Choose a working directory"));
+  m_comboBoxWorkingDir->SetHint(_("Optional: choose a working directory"));
 #endif
 
   boxSizer317->Add(m_comboBoxWorkingDir, 1, wxALIGN_CENTER_VERTICAL,
@@ -237,27 +251,6 @@ StartAgentDialogBase::StartAgentDialogBase(wxWindow *parent, wxWindowID id,
   boxSizer317->Add(m_buttonBrowseWD, 0,
                    wxLEFT | wxTOP | wxBOTTOM | wxALIGN_CENTER_VERTICAL,
                    WXC_FROM_DIP(5));
-
-  flexGridSizer31->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
-
-  m_checkBoxInnderFolder = new wxCheckBox(
-      this, wxID_ANY, _("Create an inner folder within the working directory"),
-      wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
-  m_checkBoxInnderFolder->SetValue(false);
-  m_checkBoxInnderFolder->SetToolTip(
-      _("If checked, the working directory is formed by appending the session "
-        "name to the specified working directory."));
-
-  flexGridSizer31->Add(m_checkBoxInnderFolder, 0, wxALL, WXC_FROM_DIP(5));
-
-  flexGridSizer31->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
-
-  m_checkBoxResume = new wxCheckBox(
-      this, wxID_ANY, _("Resume the Latest Session in This Folder"),
-      wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
-  m_checkBoxResume->SetValue(false);
-
-  flexGridSizer31->Add(m_checkBoxResume, 0, wxALL, WXC_FROM_DIP(5));
 
   m_stdBtnSizer17 = new wxStdDialogButtonSizer();
 
@@ -292,24 +285,24 @@ StartAgentDialogBase::StartAgentDialogBase(wxWindow *parent, wxWindowID id,
   // Connect events
   m_textCtrlName->Bind(wxEVT_COMMAND_TEXT_UPDATED,
                        &StartAgentDialogBase::OnNameUpdated, this);
+  m_comboBoxWorkingDir->Bind(wxEVT_UPDATE_UI,
+                             &StartAgentDialogBase::OnUseCustomWdUI, this);
   m_buttonBrowseWD->Bind(wxEVT_UPDATE_UI, &StartAgentDialogBase::OnBrowseWdUI,
                          this);
   m_buttonBrowseWD->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
                          &StartAgentDialogBase::OnBrowseWD, this);
-  m_checkBoxInnderFolder->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED,
-                               &StartAgentDialogBase::OnInnerFolder, this);
   m_buttonOk->Bind(wxEVT_UPDATE_UI, &StartAgentDialogBase::OnOkUI, this);
 }
 
 StartAgentDialogBase::~StartAgentDialogBase() {
   m_textCtrlName->Unbind(wxEVT_COMMAND_TEXT_UPDATED,
                          &StartAgentDialogBase::OnNameUpdated, this);
+  m_comboBoxWorkingDir->Unbind(wxEVT_UPDATE_UI,
+                               &StartAgentDialogBase::OnUseCustomWdUI, this);
   m_buttonBrowseWD->Unbind(wxEVT_UPDATE_UI, &StartAgentDialogBase::OnBrowseWdUI,
                            this);
   m_buttonBrowseWD->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
                            &StartAgentDialogBase::OnBrowseWD, this);
-  m_checkBoxInnderFolder->Unbind(wxEVT_COMMAND_CHECKBOX_CLICKED,
-                                 &StartAgentDialogBase::OnInnerFolder, this);
   m_buttonOk->Unbind(wxEVT_UPDATE_UI, &StartAgentDialogBase::OnOkUI, this);
 }
 

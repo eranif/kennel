@@ -20,12 +20,12 @@ public:
   void SetSelectedGroup(const wxString &name);
 
 protected:
+  void OnUseCustomWdUI(wxUpdateUIEvent &event) override;
   void OnNameUpdated(wxCommandEvent &event) override;
   void OnBrowseWD(wxCommandEvent &event) override;
   void OnBrowseWdUI(wxUpdateUIEvent &event) override;
-  void OnInnerFolder(wxCommandEvent &event) override;
   void OnOkUI(wxUpdateUIEvent &event) override;
-  wxString MakeWorkingDir(bool checked) const;
+  wxString MakeWorkingDir() const;
   wxString MakeGroupName() const;
 
 private:
