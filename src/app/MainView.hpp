@@ -148,16 +148,19 @@ protected:
   void DuplicateSession(SessionPage *page);
   void RefreshGroup(SessionGroup *group);
   void CloseSession(SessionGroup *group, const wxString &sessionName);
+  // Re-resolves `sessionName` to its group and closes it. Callers reached
+  // from a menu/native callback must go through this via CallAfter rather
+  // than calling CloseSession directly — deleting the session's tree leaf
+  // (and possibly its now-empty parent group) synchronously from inside such
+  // a callback can crash the native macOS outline view mid-redraw.
+  void CloseSessionByName(const wxString &sessionName);
   // Shows some session after the active one is removed: prefers a
   // sibling in `preferredGroup`, else the first session in any group.
   void SelectFallbackSession(SessionGroup *preferredGroup);
   void Traverse(std::function<bool(SessionPage *)> visit) const;
   std::vector<SessionPage *> GetAllSessions() const;
   std::vector<SessionGroup *> GetAllGroups() const;
-
-  // Removes `group` (and its backing tree item) if it has no children,
-  // unless it is the "Default" group, which must always exist.
-  void RemoveGroupIfEmpty(const wxDataViewItem &group);
+  void RemoveEmptyGroups();
 
 private:
   void LoadBitmaps();

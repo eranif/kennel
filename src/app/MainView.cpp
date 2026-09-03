@@ -121,7 +121,8 @@ wxBitmapBundle SessionIconFor(const Session &session) {
   if (session.plainTerminal) {
     return wxBitmapBundle{};
   }
-  const auto *agentDef = AppManager::Get().Adapters().FindAgent(session.agentName);
+  const auto *agentDef =
+      AppManager::Get().Adapters().FindAgent(session.agentName);
   if (agentDef == nullptr) {
     return wxBitmapBundle{};
   }
@@ -183,7 +184,8 @@ GroupItemData *MainView::GetGroupItemData(const wxDataViewItem &item) const {
   return dynamic_cast<GroupItemData *>(m_treeSessions->GetItemData(item));
 }
 
-SessionItemData *MainView::GetSessionItemData(const wxDataViewItem &item) const {
+SessionItemData *
+MainView::GetSessionItemData(const wxDataViewItem &item) const {
   if (!item.IsOk()) {
     return nullptr;
   }
@@ -350,7 +352,7 @@ bool MainView::LaunchSession(const NewSessionRequest &req) {
   if (page == nullptr) {
     KLOG_INFO() << "Session creation failed";
     if (auto *group = GetSessionGroup(session->groupName)) {
-      RemoveGroupIfEmpty(group->GetContainerItem());
+      RemoveEmptyGroups();
     }
     return false;
   }
@@ -722,31 +724,48 @@ void MainView::SelectFallbackSession(SessionGroup *preferredGroup) {
   }
 }
 
+void MainView::CloseSessionByName(const wxString &sessionName) {
+  for (auto *group : GetAllGroups()) {
+    if (group->FindByName(sessionName) != wxNOT_FOUND) {
+      CloseSession(group, sessionName);
+      return;
+    }
+  }
+}
+
 void MainView::CloseSession(SessionGroup *group, const wxString &sessionName) {
   CHECK_NOT_NULL_RETURN(group);
   auto *page = group->GetSessionByName(sessionName);
   CHECK_NOT_NULL_RETURN(page);
 
   bool wasActive = (GetActiveSessionPage() == page);
+  // If this is the group's last session (and it's not the "Default" group,
+  // which must always exist), delete the container in one shot while its
+  // leaf is still attached, instead of deleting the leaf and then the
+  // now-empty container as two separate calls. Doing those as two calls can
+  // crash the native macOS outline view mid-redraw.
+  bool willEmptyGroup = group->GetCount() == 1 && !group->IsDefaultGroup();
   auto leafItem = FindLeafItem(group, page);
-  group->RemoveSession(sessionName);
-  if (leafItem.IsOk()) {
+  if (leafItem.IsOk())
     m_treeSessions->DeleteItem(leafItem);
-  }
 
   int where = m_sessionsBook->FindPage(page);
   if (where != wxNOT_FOUND) {
     m_sessionsBook->DeletePage(where); // destroys the SessionPage window
   }
 
+  group->RemoveSession(sessionName);
   m_workspace->CloseSession(sessionName);
   m_workspace->Persist();
 
+  // `group` may now be dangling: willEmptyGroup deleted its owning
+  // container (and thus the GroupItemData that owns the SessionGroup) above.
   if (wasActive) {
-    SelectFallbackSession(group->IsEmpty() ? nullptr : group);
+    SelectFallbackSession(willEmptyGroup ? nullptr : group);
   }
 
-  RemoveGroupIfEmpty(group->GetContainerItem());
+  // Cleanup the tree from empty groups
+  CallAfter(&MainView::RemoveEmptyGroups);
 }
 
 void MainView::RefreshGroup(SessionGroup *group) {
@@ -832,8 +851,9 @@ void MainView::DoSessionMenu(const wxDataViewItem &item) {
               _("Close Session"));
   menu.Bind(
       wxEVT_MENU,
-      [group, sessionName, this](wxCommandEvent &) {
-        CloseSession(group, sessionName);
+      [sessionName, this](wxCommandEvent &) {
+        // Deferred: see OnSessionExited for why.
+        CallAfter(&MainView::CloseSessionByName, sessionName);
       },
       XRCID("session-group-close-session"));
 
@@ -872,7 +892,10 @@ void MainView::DoSessionMenu(const wxDataViewItem &item) {
         moveMenu->Bind(
             wxEVT_MENU,
             [groupName, sessionName, currentGroupName, this](wxCommandEvent &) {
-              MoveSessionToGroup(sessionName, currentGroupName, groupName);
+              // Deferred: see OnSessionExited for why.
+              CallAfter([this, sessionName, currentGroupName, groupName] {
+                MoveSessionToGroup(sessionName, currentGroupName, groupName);
+              });
             },
             id);
       }
@@ -882,11 +905,14 @@ void MainView::DoSessionMenu(const wxDataViewItem &item) {
     moveMenu->Bind(
         wxEVT_MENU,
         [sessionName, currentGroupName, this](wxCommandEvent &) {
-          wxString newGroup = ::wxGetTextFromUser(
-              _("New Group Name"), "Kennel", wxEmptyString, this);
+          wxString newGroup = ::wxGetTextFromUser(_("New Group Name"), "Kennel",
+                                                  wxEmptyString, this);
           if (newGroup.empty() || newGroup == currentGroupName)
             return;
-          MoveSessionToGroup(sessionName, currentGroupName, newGroup);
+          // Deferred: see OnSessionExited for why.
+          CallAfter([this, sessionName, currentGroupName, newGroup] {
+            MoveSessionToGroup(sessionName, currentGroupName, newGroup);
+          });
         },
         XRCID("create-new-group"));
     menu.AppendSubMenu(moveMenu, _("Move To Group"));
@@ -939,16 +965,24 @@ bool MainView::IsNameExist(const wxString &name) const {
   return matchFound;
 }
 
-void MainView::RemoveGroupIfEmpty(const wxDataViewItem &item) {
-  auto *data = GetGroupItemData(item);
-  CHECK_NOT_NULL_RETURN(data);
-  auto *group = data->group.get();
-
-  if (!group->IsEmpty() || group->IsDefaultGroup()) {
-    return;
+void MainView::RemoveEmptyGroups() {
+  const wxDataViewItem root{nullptr};
+  std::vector<wxDataViewItem> groupItems;
+  const int count = m_treeSessions->GetChildCount(root);
+  for (int i = 0; i < count; ++i) {
+    auto child = m_treeSessions->GetNthChild(root, i);
+    if (!child.IsOk())
+      continue;
+    auto *groupData = GetGroupItemData(child);
+    if (groupData == nullptr)
+      continue;
+    if (!groupData->group->IsDefaultGroup() &&
+        m_treeSessions->GetChildCount(child) == 0)
+      groupItems.push_back(child);
   }
 
-  m_treeSessions->DeleteItem(item);
+  for (const auto item : groupItems)
+    m_treeSessions->DeleteItem(item);
 }
 
 void MainView::OnContextMenu(wxDataViewEvent &event) {
@@ -1007,8 +1041,8 @@ void MainView::SelectSession(bool forward) {
 void MainView::MoveSessionToGroup(const wxString &sessionName,
                                   const wxString &fromGroupName,
                                   const wxString &toGroupName) {
-  KLOG_DEBUG() << "Moving session: " << sessionName << " from: "
-              << fromGroupName << "->" << toGroupName;
+  KLOG_DEBUG() << "Moving session: " << sessionName
+               << " from: " << fromGroupName << "->" << toGroupName;
 
   auto *oldGroup = GetSessionGroup(fromGroupName);
   CHECK_NOT_NULL_RETURN(oldGroup);
@@ -1017,10 +1051,20 @@ void MainView::MoveSessionToGroup(const wxString &sessionName,
   CHECK_NOT_NULL_RETURN(page);
 
   bool wasActive = (GetActiveSessionPage() == page);
+  // If this is the old group's last session (and it's not the "Default"
+  // group, which must always exist), delete its container in one shot while
+  // the leaf is still attached, instead of deleting the leaf and then the
+  // now-empty container as two separate calls — see CloseSession for why.
+  bool willEmptyOldGroup =
+      oldGroup->GetCount() == 1 && !oldGroup->IsDefaultGroup();
   auto oldLeafItem = FindLeafItem(oldGroup, page);
-  oldGroup->RemoveSession(sessionName);
   if (oldLeafItem.IsOk()) {
     m_treeSessions->DeleteItem(oldLeafItem);
+  }
+  oldGroup->RemoveSession(sessionName);
+  if (willEmptyOldGroup) {
+    CallAfter(&MainView::RemoveEmptyGroups);
+    oldGroup = nullptr; // will be deleted by deferred RemoveEmptyGroups
   }
 
   auto *newGroup = EnsureGroup(toGroupName);
@@ -1037,7 +1081,8 @@ void MainView::MoveSessionToGroup(const wxString &sessionName,
     m_treeSessions->SetItemIcon(leafItem, bmp);
   }
 
-  if (Status st = m_workspace->MoveSession(sessionName, toGroupName); !st.ok()) {
+  if (Status st = m_workspace->MoveSession(sessionName, toGroupName);
+      !st.ok()) {
     wxMessageBox(st.message(), "Kennel", wxOK | wxICON_ERROR, this);
     return;
   }
@@ -1046,8 +1091,6 @@ void MainView::MoveSessionToGroup(const wxString &sessionName,
   if (wasActive) {
     SelectSessionPage(page);
   }
-
-  RemoveGroupIfEmpty(oldGroup->GetContainerItem());
 }
 
 void MainView::OnSessionIdle(wxCommandEvent &e) {
@@ -1068,13 +1111,10 @@ void MainView::OnSessionIdle(wxCommandEvent &e) {
 void MainView::OnSessionActive(wxCommandEvent &e) { e.Skip(); }
 
 void MainView::OnSessionExited(wxCommandEvent &e) {
-  wxString name = e.GetString();
-  for (auto *group : GetAllGroups()) {
-    if (group->FindByName(name) != wxNOT_FOUND) {
-      CloseSession(group, name);
-      return;
-    }
-  }
+  // Deferred: deleting the session's tree leaf (and its now-empty group
+  // container, if any) synchronously from inside this handler can crash the
+  // native macOS outline view mid-redraw.
+  CallAfter(&MainView::CloseSessionByName, e.GetString());
 }
 
 void MainView::OnIdleEvent(wxIdleEvent &e) {

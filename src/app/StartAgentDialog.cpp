@@ -130,7 +130,7 @@ wxString StartAgentDialog::MakeWorkingDir() const {
 
   wxString folder;
   if (a->IsRemote()) {
-    folder = "$HOME/.kennel";
+    folder = "$HOME/.kennel/sessions";
   } else {
     folder = AppManager::Get().Paths().SessionsDir().GetPath();
   }
