@@ -79,8 +79,7 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
                              wxDLG_UNIT(m_splitterPageLeft, wxSize(-1, -1)),
                              wxDV_NO_HEADER | wxDV_ROW_LINES | wxDV_SINGLE);
 
-  m_leftPaneMainSizer->Add(m_treeSessions, 1, wxALL | wxEXPAND,
-                           WXC_FROM_DIP(5));
+  m_leftPaneMainSizer->Add(m_treeSessions, 1, wxEXPAND, WXC_FROM_DIP(5));
 
   m_splitterPageRight =
       new wxPanel(m_splitterMain, wxID_ANY, wxDefaultPosition,
@@ -133,7 +132,7 @@ StartAgentDialogBase::StartAgentDialogBase(wxWindow *parent, wxWindowID id,
   this->SetSizer(boxSizer16);
 
   wxStaticBoxSizer *staticBoxSizer340 = new wxStaticBoxSizer(
-      new wxStaticBox(this, wxID_ANY, wxT("")), wxVERTICAL);
+      new wxStaticBox(this, wxID_ANY, _("Options:")), wxVERTICAL);
 
   boxSizer16->Add(staticBoxSizer340, 1, wxALL | wxEXPAND, WXC_FROM_DIP(10));
 

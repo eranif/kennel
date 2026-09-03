@@ -642,6 +642,27 @@ void MainView::RenameGroup(SessionGroup *group) {
   m_treeSessions->SetItemText(group->GetContainerItem(), newName);
 }
 
+void MainView::DuplicateSession(SessionPage *page) {
+  CHECK_NOT_NULL_RETURN(page);
+  const auto &session = page->GetSession();
+
+  wxString candidate;
+  int suffix = 1;
+  do {
+    candidate = wxString::Format("%s%d", session.name, suffix++);
+  } while (IsNameExist(candidate));
+
+  StartAgentDialog dlg(this);
+  dlg.SetSelectedClientName(session.agentName);
+  dlg.SetSelectedGroup(session.groupName);
+  dlg.SetSessionName(candidate);
+
+  if (dlg.ShowModal() != wxID_OK) {
+    return;
+  }
+  LaunchSession(dlg.GetRequest());
+}
+
 void MainView::RenameSession(SessionPage *page) {
   CHECK_NOT_NULL_RETURN(page);
   const wxString oldName = page->GetSession().name;
@@ -824,6 +845,13 @@ void MainView::DoSessionMenu(const wxDataViewItem &item) {
         wxEVT_MENU, [page, this](wxCommandEvent &) { RenameSession(page); },
         XRCID("rename-terminal"));
   } else {
+    menu.Append(XRCID("duplicate-session"), _("Duplicate..."),
+                _("Duplicate Session"));
+    menu.Bind(
+        wxEVT_MENU, [page, this](wxCommandEvent &) { DuplicateSession(page); },
+        XRCID("duplicate-session"));
+    menu.AppendSeparator();
+
     wxMenu *moveMenu = new wxMenu;
     wxString currentGroupName = group->GetGroupName();
     auto groups = AppManager::Get().Groups(

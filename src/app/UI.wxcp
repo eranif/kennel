@@ -617,11 +617,6 @@
                             "wxDV_SINGLE"
                           ],
                           "m_sizerFlags": [
-                            "wxALL",
-                            "wxLEFT",
-                            "wxRIGHT",
-                            "wxTOP",
-                            "wxBOTTOM",
                             "wxEXPAND"
                           ],
                           "m_properties": [
@@ -1216,7 +1211,7 @@
                 {
                   "type": "string",
                   "m_label": "Label:",
-                  "m_value": ""
+                  "m_value": "Options:"
                 }
               ],
               "m_events": [],

@@ -142,6 +142,10 @@ protected:
   void DoSessionMenu(const wxDataViewItem &item);
   void RenameGroup(SessionGroup *group);
   void RenameSession(SessionPage *page);
+  // Opens the Start Agent dialog pre-filled with `page`'s agent and group,
+  // and an auto-generated unique name, so the user launches a fresh,
+  // independent session cloned from it.
+  void DuplicateSession(SessionPage *page);
   void RefreshGroup(SessionGroup *group);
   void CloseSession(SessionGroup *group, const wxString &sessionName);
   // Shows some session after the active one is removed: prefers a

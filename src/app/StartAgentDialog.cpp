@@ -95,6 +95,11 @@ void StartAgentDialog::SetSelectedGroup(const wxString &name) {
   m_comboBoxGroup->SetValue(name);
 }
 
+void StartAgentDialog::SetSessionName(const wxString &name) {
+  m_textCtrlName->SetValue(name);
+  m_textCtrlName->SelectAll();
+}
+
 void StartAgentDialog::OnOkUI(wxUpdateUIEvent &event) {
   wxString name = m_textCtrlName->GetValue();
   name.Trim().Trim(false);
