@@ -36,6 +36,7 @@ json ToJson(const AppConfig &cfg) {
         {"executable", ToUtf8(a.executable)},
         {"baseArgs", baseArgs},
         {"resumeArg", ToUtf8(a.resumeArg)},
+        {"nonInteractiveArg", ToUtf8(a.nonInteractiveArg)},
         {"iconPath", ToUtf8(a.iconPath)},
         {"extraArgs", extraArgs},
         {"env", env},
@@ -45,10 +46,24 @@ json ToJson(const AppConfig &cfg) {
     });
   }
 
+  json jobs = json::array();
+  for (const JobDef &j : cfg.jobs) {
+    jobs.push_back({
+        {"name", ToUtf8(j.name)},
+        {"type", ToUtf8(JobTypeToString(j.type))},
+        {"command", ToUtf8(j.command)},
+        {"agentName", ToUtf8(j.agentName)},
+        {"prompt", ToUtf8(j.prompt)},
+        {"intervalHours", j.intervalHours},
+        {"keepTerminalOpen", j.keepTerminalOpen},
+    });
+  }
+
   return json{
       {"version", cfg.version},
       {"global", {}},
       {"agents", agents},
+      {"jobs", jobs},
   };
 }
 
@@ -58,12 +73,34 @@ GlobalSettings ParseGlobal(const json &g) {
   return out;
 }
 
+// Backward compatibility: agents configured before AgentDef::nonInteractiveArg
+// existed have no value for it. Fill in a sensible default for the known
+// built-in CLIs so existing configs work with Prompt jobs without the user
+// having to revisit every agent by hand.
+wxString DefaultNonInteractiveArg(const wxString &executable) {
+  const wxString exeName = wxFileName(executable).GetName().Lower();
+  if (exeName == "claude") {
+    return "-p";
+  }
+  if (exeName == "codex") {
+    return "exec";
+  }
+  if (exeName == "kiro-cli") {
+    return "chat --no-interactive";
+  }
+  return wxEmptyString;
+}
+
 AgentDef ParseAgent(const json &j) {
   AgentDef out;
   out.name = GetStr(j, "name");
   out.executable = GetStr(j, "executable");
   out.baseArgs = GetStrArray(j, "baseArgs");
   out.resumeArg = GetStr(j, "resumeArg");
+  out.nonInteractiveArg = GetStr(j, "nonInteractiveArg");
+  if (out.nonInteractiveArg.empty()) {
+    out.nonInteractiveArg = DefaultNonInteractiveArg(out.executable);
+  }
   out.iconPath = GetStr(j, "iconPath");
   out.extraArgs = GetStrArray(j, "extraArgs");
   out.remoteHost = GetStr(j, "remoteHost");
@@ -79,6 +116,18 @@ AgentDef ParseAgent(const json &j) {
   return out;
 }
 
+JobDef ParseJob(const json &j) {
+  JobDef out;
+  out.name = GetStr(j, "name");
+  out.type = JobTypeFromString(GetStr(j, "type"));
+  out.command = GetStr(j, "command");
+  out.agentName = GetStr(j, "agentName");
+  out.prompt = GetStr(j, "prompt");
+  out.intervalHours = GetInt(j, "intervalHours", 1);
+  out.keepTerminalOpen = GetBool(j, "keepTerminalOpen", true);
+  return out;
+}
+
 AppConfig ParseConfig(const json &root) {
   AppConfig cfg;
   cfg.version = GetInt(root, "version", 1);
@@ -89,6 +138,13 @@ AppConfig ParseConfig(const json &root) {
     for (const auto &a : *it) {
       if (a.is_object()) {
         cfg.agents.push_back(ParseAgent(a));
+      }
+    }
+  }
+  if (auto it = root.find("jobs"); it != root.end() && it->is_array()) {
+    for (const auto &j : *it) {
+      if (j.is_object()) {
+        cfg.jobs.push_back(ParseJob(j));
       }
     }
   }

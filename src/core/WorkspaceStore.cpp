@@ -18,8 +18,8 @@ using nlohmann::json;
 json ToJson(const Workspace &ws) {
   json sessions = json::array();
   for (const Session &s : ws.sessions) {
-    if (s.plainTerminal)
-      // do not persist terminals
+    if (s.plainTerminal || s.IsJobRun())
+      // do not persist terminals or one-shot job runs
       continue;
     sessions.push_back({
         {"name", ToUtf8(s.name)},

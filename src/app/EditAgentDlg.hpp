@@ -12,6 +12,7 @@ public:
 
 protected:
   void OnSuggestResumeArgs(wxCommandEvent &event) override;
+  void OnSuggestNonInteractiveOptions(wxCommandEvent &event) override;
   void OnRemoteHost(wxCommandEvent &event) override;
   void OnBrowseBitmap(wxCommandEvent &event) override;
   void OnOk(wxCommandEvent &event) override;

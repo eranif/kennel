@@ -580,7 +580,7 @@ EditAgentDlgBase::EditAgentDlgBase(wxWindow *parent, wxWindowID id,
   flexGridSizer82->Add(m_textCtrlLaunchArgs, 0, wxALL | wxEXPAND,
                        WXC_FROM_DIP(5));
 
-  m_staticText293 = new wxStaticText(m_panel87, wxID_ANY, _("Resume Args:"),
+  m_staticText293 = new wxStaticText(m_panel87, wxID_ANY, _("Resume Switch:"),
                                      wxDefaultPosition,
                                      wxDLG_UNIT(m_panel87, wxSize(-1, -1)), 0);
 
@@ -609,6 +609,36 @@ EditAgentDlgBase::EditAgentDlgBase(wxWindow *parent, wxWindowID id,
 
   boxSizer330->Add(m_button331, 0, wxALL | wxALIGN_CENTER_VERTICAL,
                    WXC_FROM_DIP(5));
+
+  m_staticText3724 = new wxStaticText(
+      m_panel87, wxID_ANY, _("Non-Interactive Switch:"), wxDefaultPosition,
+      wxDLG_UNIT(m_panel87, wxSize(-1, -1)), 0);
+
+  flexGridSizer82->Add(m_staticText3724, 0,
+                       wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
+                       WXC_FROM_DIP(5));
+
+  wxBoxSizer *boxSizer3301 = new wxBoxSizer(wxHORIZONTAL);
+
+  flexGridSizer82->Add(boxSizer3301, 0, wxEXPAND, WXC_FROM_DIP(5));
+
+  m_textCtrlNonInteractiveSwitch =
+      new wxTextCtrl(m_panel87, wxID_ANY, wxT(""), wxDefaultPosition,
+                     wxDLG_UNIT(m_panel87, wxSize(-1, -1)), 0);
+#if wxVERSION_NUMBER >= 3000
+  m_textCtrlNonInteractiveSwitch->SetHint(_("e.g. -p"));
+#endif
+
+  boxSizer3301->Add(m_textCtrlNonInteractiveSwitch, 1,
+                    wxALL | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+
+  m_buttonNonInteractiveSuggest =
+      new wxButton(m_panel87, wxID_ANY, _("..."), wxDefaultPosition,
+                   wxDLG_UNIT(m_panel87, wxSize(-1, -1)), wxBU_EXACTFIT);
+  m_buttonNonInteractiveSuggest->SetToolTip(_("Suggest"));
+
+  boxSizer3301->Add(m_buttonNonInteractiveSuggest, 0,
+                    wxALL | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
 
   m_staticText372 = new wxStaticText(m_panel87, wxID_ANY, _("Login Shell:"),
                                      wxDefaultPosition,
@@ -788,6 +818,9 @@ EditAgentDlgBase::EditAgentDlgBase(wxWindow *parent, wxWindowID id,
   // Connect events
   m_button331->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
                     &EditAgentDlgBase::OnSuggestResumeArgs, this);
+  m_buttonNonInteractiveSuggest->Bind(
+      wxEVT_COMMAND_BUTTON_CLICKED,
+      &EditAgentDlgBase::OnSuggestNonInteractiveOptions, this);
   m_button155->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
                     &EditAgentDlgBase::OnBrowseBitmap, this);
   m_button292->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
@@ -807,6 +840,9 @@ EditAgentDlgBase::EditAgentDlgBase(wxWindow *parent, wxWindowID id,
 EditAgentDlgBase::~EditAgentDlgBase() {
   m_button331->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
                       &EditAgentDlgBase::OnSuggestResumeArgs, this);
+  m_buttonNonInteractiveSuggest->Unbind(
+      wxEVT_COMMAND_BUTTON_CLICKED,
+      &EditAgentDlgBase::OnSuggestNonInteractiveOptions, this);
   m_button155->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
                       &EditAgentDlgBase::OnBrowseBitmap, this);
   m_button292->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
@@ -2058,4 +2094,190 @@ NewAgentWizardBase::~NewAgentWizardBase() {
                               &NewAgentWizardBase::OnDeleteEnv, this);
   m_buttonDeleteEnv42->Unbind(wxEVT_UPDATE_UI,
                               &NewAgentWizardBase::OnDeleteEnvUI, this);
+}
+
+JobDlgBase::JobDlgBase(wxWindow *parent, wxWindowID id, const wxString &title,
+                       const wxPoint &pos, const wxSize &size, long style)
+    : wxDialog(parent, id, title, pos, size, style) {
+  if (!bBitmapLoaded) {
+    // We need to initialise the default bitmap handler
+    wxXmlResource::Get()->AddHandler(new wxBitmapXmlHandler);
+    wxCrafterFiTVkcInitBitmapResources();
+    bBitmapLoaded = true;
+  }
+
+  wxBoxSizer *boxSizer521 = new wxBoxSizer(wxVERTICAL);
+  this->SetSizer(boxSizer521);
+
+  wxFlexGridSizer *flexGridSizer525 = new wxFlexGridSizer(0, 2, 0, 0);
+  flexGridSizer525->SetFlexibleDirection(wxBOTH);
+  flexGridSizer525->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
+  flexGridSizer525->AddGrowableCol(1);
+
+  boxSizer521->Add(flexGridSizer525, 1, wxALL | wxEXPAND, WXC_FROM_DIP(10));
+
+  m_staticText526 =
+      new wxStaticText(this, wxID_ANY, _("Name:"), wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+  flexGridSizer525->Add(m_staticText526, 0,
+                        wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
+                        WXC_FROM_DIP(5));
+
+  m_textCtrlName = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition,
+                                  wxDLG_UNIT(this, wxSize(250, -1)), 0);
+#if wxVERSION_NUMBER >= 3000
+  m_textCtrlName->SetHint(wxT(""));
+#endif
+
+  flexGridSizer525->Add(m_textCtrlName, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
+  m_staticText528 =
+      new wxStaticText(this, wxID_ANY, _("Job type:"), wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+  flexGridSizer525->Add(m_staticText528, 0,
+                        wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
+                        WXC_FROM_DIP(5));
+
+  wxArrayString m_choiceJobTypeArr;
+  m_choiceJobType =
+      new wxChoice(this, wxID_ANY, wxDefaultPosition,
+                   wxDLG_UNIT(this, wxSize(-1, -1)), m_choiceJobTypeArr, 0);
+
+  flexGridSizer525->Add(m_choiceJobType, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
+  m_staticTextAgent =
+      new wxStaticText(this, wxID_ANY, _("Agent:"), wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+  flexGridSizer525->Add(m_staticTextAgent, 0,
+                        wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
+                        WXC_FROM_DIP(5));
+
+  wxArrayString m_choiceAgentArr;
+  m_choiceAgent =
+      new wxChoice(this, wxID_ANY, wxDefaultPosition,
+                   wxDLG_UNIT(this, wxSize(-1, -1)), m_choiceAgentArr, 0);
+
+  flexGridSizer525->Add(m_choiceAgent, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
+  m_staticText532 =
+      new wxStaticText(this, wxID_ANY, _("Run every (hours):"),
+                       wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+  flexGridSizer525->Add(m_staticText532, 0, wxALL, WXC_FROM_DIP(5));
+
+  m_spinIntervalHours =
+      new wxSpinCtrl(this, wxID_ANY, wxT("1"), wxDefaultPosition,
+                     wxDLG_UNIT(this, wxSize(-1, -1)), wxSP_ARROW_KEYS);
+  m_spinIntervalHours->SetRange(1, 720);
+  m_spinIntervalHours->SetValue(1);
+
+  flexGridSizer525->Add(m_spinIntervalHours, 0, wxALL, WXC_FROM_DIP(5));
+
+  m_staticTextCommand =
+      new wxStaticText(this, wxID_ANY, _("Command:"), wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+  flexGridSizer525->Add(m_staticTextCommand, 0,
+                        wxALL | wxALIGN_RIGHT | wxALIGN_TOP, WXC_FROM_DIP(5));
+
+  m_textCtrlCommand = new wxStyledTextCtrl(this, wxID_ANY, wxDefaultPosition,
+                                           wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  // Configure the fold margin
+  m_textCtrlCommand->SetMarginType(4, wxSTC_MARGIN_SYMBOL);
+  m_textCtrlCommand->SetMarginMask(4, wxSTC_MASK_FOLDERS);
+  m_textCtrlCommand->SetMarginSensitive(4, true);
+  m_textCtrlCommand->SetMarginWidth(4, 0);
+
+  // Configure the tracker margin
+  m_textCtrlCommand->SetMarginWidth(1, 0);
+
+  // Configure the symbol margin
+  m_textCtrlCommand->SetMarginType(2, wxSTC_MARGIN_SYMBOL);
+  m_textCtrlCommand->SetMarginMask(2, ~(wxSTC_MASK_FOLDERS));
+  m_textCtrlCommand->SetMarginWidth(2, 0);
+  m_textCtrlCommand->SetMarginSensitive(2, true);
+
+  // Configure the line numbers margin
+  m_textCtrlCommand->SetMarginType(0, wxSTC_MARGIN_NUMBER);
+  m_textCtrlCommand->SetMarginWidth(0, 0);
+
+  // Configure the line symbol margin
+  m_textCtrlCommand->SetMarginType(3, wxSTC_MARGIN_FORE);
+  m_textCtrlCommand->SetMarginMask(3, 0);
+  m_textCtrlCommand->SetMarginWidth(3, 0);
+  // Select the lexer
+  m_textCtrlCommand->SetLexer(wxSTC_LEX_NULL);
+  // Set default font / styles
+  m_textCtrlCommand->StyleClearAll();
+  m_textCtrlCommand->SetWrapMode(1);
+  m_textCtrlCommand->SetIndentationGuides(0);
+  m_textCtrlCommand->SetKeyWords(0, wxT(""));
+  m_textCtrlCommand->SetKeyWords(1, wxT(""));
+  m_textCtrlCommand->SetKeyWords(2, wxT(""));
+  m_textCtrlCommand->SetKeyWords(3, wxT(""));
+  m_textCtrlCommand->SetKeyWords(4, wxT(""));
+
+  flexGridSizer525->Add(m_textCtrlCommand, 1, wxALL | wxEXPAND,
+                        WXC_FROM_DIP(5));
+
+  flexGridSizer525->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
+
+  m_checkBoxKeepTerminalOpen =
+      new wxCheckBox(this, wxID_ANY, _("Keep terminal open when finished"),
+                     wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  m_checkBoxKeepTerminalOpen->SetValue(false);
+
+  flexGridSizer525->Add(m_checkBoxKeepTerminalOpen, 0, wxALL, WXC_FROM_DIP(5));
+
+  m_staticLine538 =
+      new wxStaticLine(this, wxID_ANY, wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), wxLI_HORIZONTAL);
+
+  boxSizer521->Add(m_staticLine538, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
+  m_stdBtnSizer522 = new wxStdDialogButtonSizer();
+
+  boxSizer521->Add(m_stdBtnSizer522, 0, wxALL | wxALIGN_CENTER_HORIZONTAL,
+                   WXC_FROM_DIP(10));
+
+  m_button523 = new wxButton(this, wxID_OK, wxT(""), wxDefaultPosition,
+                             wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  m_button523->SetDefault();
+  m_stdBtnSizer522->AddButton(m_button523);
+
+  m_button524 = new wxButton(this, wxID_CANCEL, wxT(""), wxDefaultPosition,
+                             wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  m_stdBtnSizer522->AddButton(m_button524);
+  m_stdBtnSizer522->Realize();
+
+  SetName(wxT("JobDlgBase"));
+  SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
+  if (GetSizer()) {
+    GetSizer()->Fit(this);
+  }
+  if (GetParent()) {
+    CentreOnParent(wxBOTH);
+  } else {
+    CentreOnScreen(wxBOTH);
+  }
+  if (!wxPersistenceManager::Get().Find(this)) {
+    wxPersistenceManager::Get().RegisterAndRestore(this);
+  } else {
+    wxPersistenceManager::Get().Restore(this);
+  }
+  // Connect events
+  m_choiceJobType->Bind(wxEVT_COMMAND_CHOICE_SELECTED,
+                        &JobDlgBase::OnJobTypeChanged, this);
+  m_button523->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &JobDlgBase::OnOk, this);
+  m_button523->Bind(wxEVT_UPDATE_UI, &JobDlgBase::OnOkUI, this);
+}
+
+JobDlgBase::~JobDlgBase() {
+  m_choiceJobType->Unbind(wxEVT_COMMAND_CHOICE_SELECTED,
+                          &JobDlgBase::OnJobTypeChanged, this);
+  m_button523->Unbind(wxEVT_COMMAND_BUTTON_CLICKED, &JobDlgBase::OnOk, this);
+  m_button523->Unbind(wxEVT_UPDATE_UI, &JobDlgBase::OnOkUI, this);
 }

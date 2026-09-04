@@ -5,6 +5,7 @@
 #include "app/AssetBootstrap.h"
 #include "app/EditAgentsDlg.hpp"
 #include "app/EditHosts.hpp"
+#include "app/EditJobsDlg.hpp"
 #include "app/NewAgentWizard.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
@@ -106,6 +107,14 @@ MainFrame::MainFrame()
   m_mainView->RestoreSessions();
   AppManager::Get().SavePrefs();
 
+  // Jobs run in a fresh terminal tab each time they fire, so the scheduler
+  // just needs a callback into the view; it owns no UI state of its own.
+  m_jobScheduler =
+      std::make_unique<JobScheduler>([this](const JobDef &job) {
+        m_mainView->RunJob(job);
+      });
+  m_jobScheduler->Reload();
+
   if (AppManager::Get().GetPrefs().checkForUpdatesOnStartup) {
     CheckForUpdates(/*silent=*/true);
   }
@@ -156,6 +165,7 @@ void MainFrame::BuildToolBar() {
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnRefreshSessionUI, this, wxID_REFRESH);
   Bind(wxEVT_TOOL, &MainFrame::OnStartAgent, this, XRCID("start-agent"));
   Bind(wxEVT_TOOL, &MainFrame::OnNewTerminal, this, XRCID("start-terminal"));
+  Bind(wxEVT_TOOL, &MainFrame::OnManageJobs, this, XRCID("manage-jobs"));
 
   // Static content first...
   m_toolBar->AddTool(XRCID("start-agent"), _("Start a New Agent"),
@@ -164,6 +174,11 @@ void MainFrame::BuildToolBar() {
                      bmps.Get("terminal", true), _("Start a New Terminal"));
   m_toolBar->AddTool(wxID_REFRESH, _("Refresh"), bmps.Get("restart", true),
                      _("Refresh the Current Agent"));
+  m_toolBar->AddTool(
+      XRCID("manage-jobs"), _("Manage Jobs"),
+      wxArtProvider::GetBitmapBundle(wxART_LIST_VIEW, wxART_TOOLBAR,
+                                     Bitmaps::GetToolBarIconSize()),
+      _("Manage Jobs"));
   m_toolBar->AddSeparator();
   BuildLaunchTools();
   m_toolBar->Realize();
@@ -238,6 +253,7 @@ void MainFrame::BuildMenuBar() {
 
   BuildEditMenu(menuBar);
   BuildSearchMenu(menuBar);
+  BuildJobsMenu(menuBar);
   BuildSettingsMenu(menuBar);
   SetMenuBar(menuBar);
 
@@ -273,6 +289,25 @@ void MainFrame::BuildEditMenu(wxMenuBar *menuBar) {
         e.Enable(group && group->IsSessionGroup() && !group->IsDefaultGroup());
       },
       XRCID("rename-selection"));
+}
+
+void MainFrame::BuildJobsMenu(wxMenuBar *menuBar) {
+  auto *jobsMenu = new wxMenu();
+  jobsMenu->Append(XRCID("manage-jobs"), _("Manage Jobs..."),
+                   _("Create, edit, or delete timer-based jobs"));
+  Bind(wxEVT_MENU, &MainFrame::OnManageJobs, this, XRCID("manage-jobs"));
+  menuBar->Append(jobsMenu, _("&Jobs"));
+}
+
+void MainFrame::OnManageJobs(wxCommandEvent &evt) {
+  wxUnusedVar(evt);
+  EditJobsDlg dlg{this};
+  if (dlg.ShowModal() == wxID_OK) {
+    auto &config = AppManager::Get().Config();
+    config.jobs = dlg.GetJobs();
+    AppManager::Get().Configs().Save(config);
+    m_jobScheduler->Reload();
+  }
 }
 
 void MainFrame::BuildSettingsMenu(wxMenuBar *menuBar) {

@@ -5,6 +5,7 @@
 #include "app/SessionGroup.h"
 #include "app/ThemeManager.h"
 #include "core/AppPaths.h"
+#include "core/Job.h"
 #include "core/WorkspaceManager.h"
 
 #include <wx/bmpbndl.h>
@@ -12,6 +13,7 @@
 #include <wx/dataview.h>
 #include <wx/timer.h>
 
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -82,7 +84,10 @@ public:
   explicit MainView(wxWindow *parent);
   ~MainView() override;
 
-  bool LaunchSession(const NewSessionRequest &req);
+  // `selectAfterLaunch` false keeps the current focus/selection untouched
+  // (used for job runs, which shouldn't steal focus from whatever the user
+  // is doing when the timer fires or "Run Now" is clicked).
+  bool LaunchSession(const NewSessionRequest &req, bool selectAfterLaunch = true);
 
   // Shows the Start Agent dialog, then launches on OK. `agentName` preselects
   // an agent (empty -> first defined agent); `groupName` pre-sets the group
@@ -92,6 +97,10 @@ public:
 
   // Shows a plain terminal.
   void StartTerminal();
+
+  // Launches a one-shot session running `job`'s command/prompt, under a
+  // "Jobs" group. Never persisted to workspace.json.
+  void RunJob(const JobDef &job);
 
   // Rebuilds UI from sessions persisted in workspace.json.
   void RestoreSessions();
@@ -196,6 +205,11 @@ private:
   const AdapterRegistry *m_registry{nullptr};
   WorkspaceManager *m_workspace{nullptr};
   AppPaths m_paths;
+
+  // Per-job run counter (job name -> next sequence number), so consecutive
+  // runs of the same job get distinct tab names ("Test Job #1", "#2", ...)
+  // instead of colliding with a still-open previous run's tab.
+  std::map<wxString, int> m_jobRunCounters;
 
   std::array<wxBitmapBundle, kSpinnerFrameCount> m_spinnerFrames;
   int m_pendingIdle{0};

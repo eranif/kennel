@@ -1,23 +1,10 @@
 #include "core/ClientAdapter.h"
 
-std::vector<wxString> BuildCommandLine(const AgentDef &agent,
-                                       const wxString &workingDir,
-                                       bool resume) {
-  std::vector<wxString> args = agent.baseArgs;
+namespace {
 
-  if (resume && !agent.resumeArg.empty()) {
-    args.push_back(agent.resumeArg);
-  }
-
-  for (const wxString &arg : agent.extraArgs) {
-    args.push_back(arg);
-  }
-
-  wxString cmd = wxString::Format(R"("%s")", agent.executable);
-  for (const wxString &arg : args) {
-    cmd << " " << arg;
-  }
-
+std::vector<wxString> WrapCommand(const AgentDef &agent,
+                                  const wxString &workingDir,
+                                  const wxString &cmd) {
   std::vector<wxString> commands;
   if (!agent.remoteHost.empty()) {
     wxString loginCommand;
@@ -43,4 +30,49 @@ std::vector<wxString> BuildCommandLine(const AgentDef &agent,
 
   commands.push_back(cmd);
   return commands;
+}
+
+} // namespace
+
+std::vector<wxString> BuildCommandLine(const AgentDef &agent,
+                                       const wxString &workingDir,
+                                       bool resume) {
+  std::vector<wxString> args = agent.baseArgs;
+
+  if (resume && !agent.resumeArg.empty()) {
+    args.push_back(agent.resumeArg);
+  }
+
+  for (const wxString &arg : agent.extraArgs) {
+    args.push_back(arg);
+  }
+
+  wxString cmd = wxString::Format(R"("%s")", agent.executable);
+  for (const wxString &arg : args) {
+    cmd << " " << arg;
+  }
+
+  return WrapCommand(agent, workingDir, cmd);
+}
+
+std::vector<wxString> BuildJobCommandLine(const AgentDef &agent,
+                                          const wxString &workingDir,
+                                          const wxString &prompt) {
+  std::vector<wxString> args = agent.baseArgs;
+
+  if (!agent.nonInteractiveArg.empty()) {
+    args.push_back(agent.nonInteractiveArg);
+  }
+
+  for (const wxString &arg : agent.extraArgs) {
+    args.push_back(arg);
+  }
+
+  wxString cmd = wxString::Format(R"("%s")", agent.executable);
+  for (const wxString &arg : args) {
+    cmd << " " << arg;
+  }
+  cmd << " " << wxString::Format(R"("%s")", prompt);
+
+  return WrapCommand(agent, workingDir, cmd);
 }

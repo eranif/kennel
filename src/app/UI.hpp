@@ -41,6 +41,7 @@
 #include <wx/wizard.h>
 #include <vector>
 #include <wx/bannerwindow.h>
+#include <wx/statline.h>
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
 #include <wx/persist/toplevel.h>
@@ -202,6 +203,9 @@ protected:
   wxStaticText *m_staticText293;
   wxTextCtrl *m_textCtrlResumeArgs;
   wxButton *m_button331;
+  wxStaticText *m_staticText3724;
+  wxTextCtrl *m_textCtrlNonInteractiveSwitch;
+  wxButton *m_buttonNonInteractiveSuggest;
   wxStaticText *m_staticText372;
   wxChoice *m_choiceShell;
   wxStaticText *m_staticText99;
@@ -221,6 +225,9 @@ protected:
 
 protected:
   virtual void OnSuggestResumeArgs(wxCommandEvent &event) { event.Skip(); }
+  virtual void OnSuggestNonInteractiveOptions(wxCommandEvent &event) {
+    event.Skip();
+  }
   virtual void OnBrowseBitmap(wxCommandEvent &event) { event.Skip(); }
   virtual void OnRemoteHost(wxCommandEvent &event) { event.Skip(); }
   virtual void OnEnvActivated(wxDataViewEvent &event) { event.Skip(); }
@@ -240,6 +247,13 @@ public:
   wxStaticText *GetStaticText293() { return m_staticText293; }
   wxTextCtrl *GetTextCtrlResumeArgs() { return m_textCtrlResumeArgs; }
   wxButton *GetButton331() { return m_button331; }
+  wxStaticText *GetStaticText3724() { return m_staticText3724; }
+  wxTextCtrl *GetTextCtrlNonInteractiveSwitch() {
+    return m_textCtrlNonInteractiveSwitch;
+  }
+  wxButton *GetButtonNonInteractiveSuggest() {
+    return m_buttonNonInteractiveSuggest;
+  }
   wxStaticText *GetStaticText372() { return m_staticText372; }
   wxChoice *GetChoiceShell() { return m_choiceShell; }
   wxStaticText *GetStaticText99() { return m_staticText99; }
@@ -558,6 +572,52 @@ public:
     return NULL;
   }
   virtual ~NewAgentWizardBase();
+};
+
+class JobDlgBase : public wxDialog {
+protected:
+  wxStaticText *m_staticText526;
+  wxTextCtrl *m_textCtrlName;
+  wxStaticText *m_staticText528;
+  wxChoice *m_choiceJobType;
+  wxStaticText *m_staticTextAgent;
+  wxChoice *m_choiceAgent;
+  wxStaticText *m_staticText532;
+  wxSpinCtrl *m_spinIntervalHours;
+  wxStaticText *m_staticTextCommand;
+  wxStyledTextCtrl *m_textCtrlCommand;
+  wxCheckBox *m_checkBoxKeepTerminalOpen;
+  wxStaticLine *m_staticLine538;
+  wxStdDialogButtonSizer *m_stdBtnSizer522;
+  wxButton *m_button523;
+  wxButton *m_button524;
+
+protected:
+  virtual void OnJobTypeChanged(wxCommandEvent &event) { event.Skip(); }
+  virtual void OnOk(wxCommandEvent &event) { event.Skip(); }
+  virtual void OnOkUI(wxUpdateUIEvent &event) { event.Skip(); }
+
+public:
+  wxStaticText *GetStaticText526() { return m_staticText526; }
+  wxTextCtrl *GetTextCtrlName() { return m_textCtrlName; }
+  wxStaticText *GetStaticText528() { return m_staticText528; }
+  wxChoice *GetChoiceJobType() { return m_choiceJobType; }
+  wxStaticText *GetStaticTextAgent() { return m_staticTextAgent; }
+  wxChoice *GetChoiceAgent() { return m_choiceAgent; }
+  wxStaticText *GetStaticText532() { return m_staticText532; }
+  wxSpinCtrl *GetSpinIntervalHours() { return m_spinIntervalHours; }
+  wxStaticText *GetStaticTextCommand() { return m_staticTextCommand; }
+  wxStyledTextCtrl *GetTextCtrlCommand() { return m_textCtrlCommand; }
+  wxCheckBox *GetCheckBoxKeepTerminalOpen() {
+    return m_checkBoxKeepTerminalOpen;
+  }
+  wxStaticLine *GetStaticLine538() { return m_staticLine538; }
+  JobDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,
+             const wxString &title = wxT(""),
+             const wxPoint &pos = wxDefaultPosition,
+             const wxSize &size = wxSize(-1, -1),
+             long style = wxDEFAULT_DIALOG_STYLE);
+  virtual ~JobDlgBase();
 };
 
 #endif

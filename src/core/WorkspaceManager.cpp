@@ -79,6 +79,7 @@ StatusOr<Session> WorkspaceManager::Create(const NewSessionRequest &req) {
   s.workingDir = req.workingDir;
   s.groupName = req.groupName;
   s.plainTerminal = req.plainTerminal;
+  s.jobCommands = req.jobCommands;
   m_sessions.push_back(s);
   KLOG_INFO() << "Created session '" << s.name << "' (agent " << s.agentName
               << ")";

@@ -71,7 +71,12 @@ void SessionPage::SetDefaultSessionName(const wxString &name) {
 void SessionPage::CreateTerminal() {
   std::vector<wxString> commands;
   std::optional<wxTerminalViewCtrl::EnvironmentList> env{std::nullopt};
-  if (m_agent) {
+  if (m_session.IsJobRun()) {
+    commands = m_session.jobCommands;
+    if (m_agent) {
+      env = BuildEnvironment(m_agent->env);
+    }
+  } else if (m_agent) {
     commands = BuildCommandLine(*m_agent, m_session.workingDir, m_resume);
     env = BuildEnvironment(m_agent->env);
   }

@@ -9,6 +9,7 @@
 #include "app/SessionPage.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
+#include "core/ClientAdapter.h"
 #include "core/Logger.h"
 #include "core/WorkspaceManager.h"
 
@@ -295,6 +296,38 @@ void MainView::StartTerminal() {
   LaunchSession(request);
 }
 
+void MainView::RunJob(const JobDef &job) {
+  int &sequence = m_jobRunCounters[job.name];
+  wxString candidate;
+  do {
+    candidate = wxString::Format("%s #%d", job.name, ++sequence);
+  } while (IsNameExist(candidate));
+
+  NewSessionRequest request{
+      .name = candidate,
+      .groupName = _("Jobs"),
+  };
+
+  if (job.type == JobType::kPrompt) {
+    const AgentDef *agent = AppManager::Get().Adapters().FindAgent(job.agentName);
+    if (agent == nullptr) {
+      KLOG_WARN() << "Job '" << job.name << "': agent '" << job.agentName
+                  << "' no longer exists; skipping run";
+      return;
+    }
+    request.agentName = job.agentName;
+    request.jobCommands = BuildJobCommandLine(*agent, wxEmptyString, job.prompt);
+  } else {
+    request.jobCommands = {job.command};
+  }
+
+  if (!job.keepTerminalOpen) {
+    request.jobCommands.push_back("exit");
+  }
+
+  LaunchSession(request, /*selectAfterLaunch=*/false);
+}
+
 void MainView::StartAgent(const wxString &agentName,
                           const wxString &groupName) {
   StartAgentDialog dlg(this);
@@ -324,7 +357,7 @@ SessionPage *MainView::AddSessionPage(const Session &session, bool resume) {
   }
 
   std::optional<AgentDef> agent{std::nullopt};
-  if (group->IsSessionGroup()) {
+  if (group->IsSessionGroup() && !session.agentName.empty()) {
     auto &registry = AppManager::Get().Adapters();
     const AgentDef *pagent = registry.FindAgent(session.agentName);
     if (pagent == nullptr) {
@@ -348,7 +381,8 @@ SessionPage *MainView::AddSessionPage(const Session &session, bool resume) {
   return page;
 }
 
-bool MainView::LaunchSession(const NewSessionRequest &req) {
+bool MainView::LaunchSession(const NewSessionRequest &req,
+                             bool selectAfterLaunch) {
   StatusOr<Session> session = m_workspace->Create(req);
   if (!session.ok()) {
     wxMessageBox(session.status().message(), "Launch failed",
@@ -365,7 +399,9 @@ bool MainView::LaunchSession(const NewSessionRequest &req) {
     return false;
   }
 
-  SelectSessionPage(page);
+  if (selectAfterLaunch) {
+    SelectSessionPage(page);
+  }
 
   if (Status st = m_workspace->Persist(); !st.ok()) {
     KLOG_WARN() << "Session created but workspace not persisted: "

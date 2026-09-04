@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MainView.hpp"
+#include "core/JobScheduler.h"
 #include "core/UpdateChecker.h"
 
 #include <wx/activityindicator.h>
@@ -60,6 +61,10 @@ private:
   // Appends edit menu.
   void BuildEditMenu(wxMenuBar *menuBar);
 
+  // Appends the Jobs menu.
+  void BuildJobsMenu(wxMenuBar *menuBar);
+  void OnManageJobs(wxCommandEvent &evt);
+
   void OnNextSession(wxCommandEvent &e);
   void OnPrevSession(wxCommandEvent &e);
   void OnPrevSessionUI(wxUpdateUIEvent &e);
@@ -107,6 +112,7 @@ private:
   MainView *m_mainView{nullptr};
   wxActivityIndicator *m_statusIndicator{nullptr};
   std::unique_ptr<UpdateChecker> m_updateChecker;
+  std::unique_ptr<JobScheduler> m_jobScheduler;
 
   // Parallel to the toolbar tools: m_clientToolIds[i] is the adapter id for the
   // tool whose wx id is kFirstClientToolId + i.

@@ -7,6 +7,8 @@
 #include <map>
 #include <vector>
 
+#include "core/Job.h"
+
 wxString GetDefaultFontFamily();
 int GetDefaultFontSize();
 
@@ -33,6 +35,10 @@ struct AgentDef {
   wxString executable;
   std::vector<wxString> baseArgs;
   wxString resumeArg;
+  // Flag that puts this agent into non-interactive/one-shot mode (e.g.
+  // "-p" for claude, "exec" for codex). Used only when a "Prompt" job runs
+  // this agent; empty means the agent cannot be used for prompt jobs.
+  wxString nonInteractiveArg;
   wxString iconPath;
   std::vector<wxString> extraArgs;
   std::map<wxString, wxString> env;
@@ -51,6 +57,7 @@ struct AppConfig {
   int version = 1;
   GlobalSettings global;
   std::vector<AgentDef> agents;
+  std::vector<JobDef> jobs;
 
   wxArrayString GetAgentNames() const;
 
