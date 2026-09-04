@@ -147,7 +147,10 @@ void EditJobsDlg::OnRunNow(wxCommandEvent &event) {
     return;
   }
   GetMainFrame()->GetMainView()->RunJob(m_jobs[row], /*selectAfterLaunch=*/true);
-  EndModal(wxID_CANCEL);
+  // Close as if OK was pressed so the caller (MainFrame::OnManageJobs)
+  // persists m_jobs — otherwise any pending New/Edit/Delete made in this
+  // session would be silently discarded along with the dialog.
+  EndModal(wxID_OK);
 }
 
 void EditJobsDlg::OnEditUI(wxUpdateUIEvent &event) {
