@@ -56,6 +56,7 @@ json ToJson(const AppConfig &cfg) {
         {"prompt", ToUtf8(j.prompt)},
         {"intervalHours", j.intervalHours},
         {"keepTerminalOpen", j.keepTerminalOpen},
+        {"enabled", j.enabled},
     });
   }
 
@@ -125,6 +126,7 @@ JobDef ParseJob(const json &j) {
   out.prompt = GetStr(j, "prompt");
   out.intervalHours = GetInt(j, "intervalHours", 1);
   out.keepTerminalOpen = GetBool(j, "keepTerminalOpen", true);
+  out.enabled = GetBool(j, "enabled", true);
   return out;
 }
 

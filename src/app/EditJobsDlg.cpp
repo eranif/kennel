@@ -14,11 +14,15 @@
 
 namespace {
 wxString DescribeJob(const JobDef &job) {
-  return wxString::Format(
+  wxString label = wxString::Format(
       "%s  (%s, every %dh, %s)", job.name,
       job.type == JobType::kPrompt ? _("Prompt") : _("Command"),
       job.intervalHours,
       job.keepTerminalOpen ? _("keeps terminal open") : _("auto-closes"));
+  if (!job.enabled) {
+    label << "  [" << _("disabled") << "]";
+  }
+  return label;
 }
 } // namespace
 
@@ -49,7 +53,6 @@ EditJobsDlg::EditJobsDlg(wxWindow *parent)
   btnColumn->Add(newBtn, 0, wxEXPAND | wxBOTTOM, 5);
   btnColumn->Add(editBtn, 0, wxEXPAND | wxBOTTOM, 5);
   btnColumn->Add(deleteBtn, 0, wxEXPAND | wxBOTTOM, 5);
-  btnColumn->AddSpacer(10);
   btnColumn->Add(runNowBtn, 0, wxEXPAND);
   rowSizer->Add(btnColumn, 0, wxEXPAND | wxTOP | wxRIGHT | wxBOTTOM, 10);
 

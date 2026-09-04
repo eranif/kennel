@@ -587,6 +587,7 @@ protected:
   wxStaticText *m_staticTextCommand;
   wxStyledTextCtrl *m_textCtrlCommand;
   wxCheckBox *m_checkBoxKeepTerminalOpen;
+  wxCheckBox *m_checkBoxEnabled;
   wxStaticLine *m_staticLine538;
   wxStdDialogButtonSizer *m_stdBtnSizer522;
   wxButton *m_button523;
@@ -611,6 +612,7 @@ public:
   wxCheckBox *GetCheckBoxKeepTerminalOpen() {
     return m_checkBoxKeepTerminalOpen;
   }
+  wxCheckBox *GetCheckBoxEnabled() { return m_checkBoxEnabled; }
   wxStaticLine *GetStaticLine538() { return m_staticLine538; }
   JobDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,
              const wxString &title = wxT(""),

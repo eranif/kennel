@@ -2232,6 +2232,16 @@ JobDlgBase::JobDlgBase(wxWindow *parent, wxWindowID id, const wxString &title,
 
   flexGridSizer525->Add(m_checkBoxKeepTerminalOpen, 0, wxALL, WXC_FROM_DIP(5));
 
+  flexGridSizer525->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
+
+  m_checkBoxEnabled =
+      new wxCheckBox(this, wxID_ANY, _("Enabled"), wxDefaultPosition,
+                     wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  m_checkBoxEnabled->SetValue(true);
+  m_checkBoxEnabled->SetToolTip(_("Enable or disable this job."));
+
+  flexGridSizer525->Add(m_checkBoxEnabled, 0, wxALL, WXC_FROM_DIP(5));
+
   m_staticLine538 =
       new wxStaticLine(this, wxID_ANY, wxDefaultPosition,
                        wxDLG_UNIT(this, wxSize(-1, -1)), wxLI_HORIZONTAL);

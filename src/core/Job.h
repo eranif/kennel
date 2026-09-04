@@ -16,6 +16,7 @@ struct JobDef {
   wxString prompt;    // prompt text to send, when type == kPrompt
   int intervalHours = 1;
   bool keepTerminalOpen = true;
+  bool enabled = true; // A disabled job is never triggered by the scheduler.
 };
 
 wxString JobTypeToString(JobType type);

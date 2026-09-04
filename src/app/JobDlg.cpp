@@ -33,10 +33,12 @@ JobDlg::JobDlg(wxWindow *parent, const JobDef *job)
     }
     m_spinIntervalHours->SetValue(job->intervalHours);
     m_checkBoxKeepTerminalOpen->SetValue(job->keepTerminalOpen);
+    m_checkBoxEnabled->SetValue(job->enabled);
   } else {
     m_choiceJobType->SetSelection(kJobTypeRawCommand);
     m_spinIntervalHours->SetValue(1);
     m_checkBoxKeepTerminalOpen->SetValue(true);
+    m_checkBoxEnabled->SetValue(true);
   }
 
   UpdateFieldsForType();
@@ -124,6 +126,7 @@ JobDef JobDlg::GetData() const {
   }
   d.intervalHours = m_spinIntervalHours->GetValue();
   d.keepTerminalOpen = m_checkBoxKeepTerminalOpen->GetValue();
+  d.enabled = m_checkBoxEnabled->GetValue();
   return d;
 }
 void JobDlg::OnOkUI(wxUpdateUIEvent &event) {

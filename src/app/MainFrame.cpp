@@ -174,11 +174,8 @@ void MainFrame::BuildToolBar() {
                      bmps.Get("terminal", true), _("Start a New Terminal"));
   m_toolBar->AddTool(wxID_REFRESH, _("Refresh"), bmps.Get("restart", true),
                      _("Refresh the Current Agent"));
-  m_toolBar->AddTool(
-      XRCID("manage-jobs"), _("Manage Jobs"),
-      wxArtProvider::GetBitmapBundle(wxART_LIST_VIEW, wxART_TOOLBAR,
-                                     Bitmaps::GetToolBarIconSize()),
-      _("Manage Jobs"));
+  m_toolBar->AddTool(XRCID("manage-jobs"), _("Manage Jobs"),
+                     bmps.Get("job", true), _("Manage Jobs"));
   m_toolBar->AddSeparator();
   BuildLaunchTools();
   m_toolBar->Realize();

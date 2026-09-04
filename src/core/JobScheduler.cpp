@@ -57,6 +57,13 @@ void JobScheduler::OnTimer(wxTimerEvent &event) {
       continue;
     }
 
+    if (!j.enabled) {
+      // Disabled: don't run, but resync the schedule so re-enabling it later
+      // doesn't immediately fire a backlog of catch-up runs.
+      it->second = now + wxTimeSpan::Hours(j.intervalHours);
+      continue;
+    }
+
     KLOG_INFO() << "Job '" << j.name << "' is due; running";
     m_onRun(j);
 
