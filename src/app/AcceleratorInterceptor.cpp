@@ -16,7 +16,7 @@ AcceleratorInterceptor::~AcceleratorInterceptor() {}
 void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
   if ((keyEvent.GetKeyCode() == WXK_LEFT ||
        keyEvent.GetKeyCode() == WXK_RIGHT) &&
-      (keyEvent.GetModifiers() == wxMOD_CONTROL)) {
+      (keyEvent.GetModifiers() == wxMOD_ALT)) {
     switch (keyEvent.GetKeyCode()) {
     case WXK_LEFT: {
       wxCommandEvent evtLeft{wxEVT_MENU, wxID_BACKWARD};
