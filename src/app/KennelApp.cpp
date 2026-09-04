@@ -38,8 +38,8 @@ public:
     // Resolve ~/.kennel (or <-d value>/.kennel) and create its directory
     // tree before anything else touches config/workspace/log files.
     const AppPaths paths = m_homeOverride.empty()
-                                ? AppPaths::Default()
-                                : AppPaths::WithHome(m_homeOverride);
+                               ? AppPaths::Default()
+                               : AppPaths::WithHome(m_homeOverride);
     wxString error;
     if (!paths.EnsureDirectories(&error)) {
       // The log file lives under the very directory we failed to make,

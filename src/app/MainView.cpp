@@ -107,10 +107,12 @@ MainView::MainView(wxWindow *parent)
   Bind(wxEVT_IDLE, &MainView::OnIdleEvent, this);
 
   // Renaming is only offered via the context menu / F2 (RenameItem), which
-  // goes through a proper dialog with validation. Block the tree's built-in
-  // in-place label editing (F2/slow double-click) so there's a single path.
-  m_treeSessions->Bind(wxEVT_DATAVIEW_ITEM_START_EDITING,
-                       [](wxDataViewEvent &event) { event.Veto(); });
+  // goes through a proper dialog with validation. Make the tree's
+  // auto-created text column inert so it can't fall into in-place label
+  // editing (F2/slow double-click) as a second, unvalidated path.
+  if (wxDataViewColumn *column = m_treeSessions->GetColumn(0)) {
+    column->GetRenderer()->SetMode(wxDATAVIEW_CELL_INERT);
+  }
 }
 
 MainView::~MainView() {
