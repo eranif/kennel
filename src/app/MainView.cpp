@@ -105,6 +105,12 @@ MainView::MainView(wxWindow *parent)
   Bind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
   Bind(wxEVT_SESSION_EXITED, &MainView::OnSessionExited, this);
   Bind(wxEVT_IDLE, &MainView::OnIdleEvent, this);
+
+  // Renaming is only offered via the context menu / F2 (RenameItem), which
+  // goes through a proper dialog with validation. Block the tree's built-in
+  // in-place label editing (F2/slow double-click) so there's a single path.
+  m_treeSessions->Bind(wxEVT_DATAVIEW_ITEM_START_EDITING,
+                       [](wxDataViewEvent &event) { event.Veto(); });
 }
 
 MainView::~MainView() {
