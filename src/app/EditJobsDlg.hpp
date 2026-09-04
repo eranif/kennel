@@ -20,11 +20,16 @@ public:
 private:
   void RefreshList(int selectRow = 0);
   void EditSelection();
+  // True if closing now would discard unsaved changes: either the user
+  // isn't dirty, or they confirmed discarding in a Yes/No prompt.
+  bool ConfirmDiscardChanges();
 
   void OnNewJob(wxCommandEvent &event);
   void OnEditJob(wxCommandEvent &event);
   void OnDeleteJob(wxCommandEvent &event);
   void OnRunNow(wxCommandEvent &event);
+  void OnCancel(wxCommandEvent &event);
+  void OnClose(wxCloseEvent &event);
   void OnListDClick(wxCommandEvent &event);
   void OnEditUI(wxUpdateUIEvent &event);
   void OnDeleteUI(wxUpdateUIEvent &event);
@@ -32,4 +37,5 @@ private:
 
   wxListBox *m_listBoxJobs{nullptr};
   std::vector<JobDef> m_jobs;
+  bool m_dirty{false};
 };

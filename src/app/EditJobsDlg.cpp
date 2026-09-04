@@ -61,6 +61,12 @@ EditJobsDlg::EditJobsDlg(wxWindow *parent)
                 wxSizerFlags().Border(wxALL, 10).CenterHorizontal());
   SetSizer(topSizer);
 
+  // Escape emulates a click on wxID_CANCEL, so this one bind covers the
+  // Cancel button, Escape, and (together with the close-event bind below)
+  // the title bar's X.
+  FindWindow(wxID_CANCEL)->Bind(wxEVT_BUTTON, &EditJobsDlg::OnCancel, this);
+  Bind(wxEVT_CLOSE_WINDOW, &EditJobsDlg::OnClose, this);
+
   RefreshList();
   m_listBoxJobs->SetFocus();
   ::PositionDialog(this, Orientation::kResize);
@@ -92,6 +98,7 @@ void EditJobsDlg::OnNewJob(wxCommandEvent &event) {
     }
   }
   m_jobs.push_back(job);
+  m_dirty = true;
   RefreshList(static_cast<int>(m_jobs.size()) - 1);
 }
 
@@ -113,6 +120,7 @@ void EditJobsDlg::EditSelection() {
     }
   }
   m_jobs[row] = job;
+  m_dirty = true;
   RefreshList(row);
 }
 
@@ -137,6 +145,7 @@ void EditJobsDlg::OnDeleteJob(wxCommandEvent &event) {
     return;
   }
   m_jobs.erase(m_jobs.begin() + row);
+  m_dirty = true;
   RefreshList(row);
 }
 
@@ -151,6 +160,33 @@ void EditJobsDlg::OnRunNow(wxCommandEvent &event) {
   // persists m_jobs — otherwise any pending New/Edit/Delete made in this
   // session would be silently discarded along with the dialog.
   EndModal(wxID_OK);
+}
+
+bool EditJobsDlg::ConfirmDiscardChanges() {
+  if (!m_dirty) {
+    return true;
+  }
+  return ::wxMessageBox(_("You have unsaved changes to your jobs. Discard "
+                          "them?"),
+                        "Kennel", wxICON_WARNING | wxYES_NO, this) == wxYES;
+}
+
+void EditJobsDlg::OnCancel(wxCommandEvent &event) {
+  wxUnusedVar(event);
+  if (!ConfirmDiscardChanges()) {
+    return;
+  }
+  EndModal(wxID_CANCEL);
+}
+
+void EditJobsDlg::OnClose(wxCloseEvent &event) {
+  if (!ConfirmDiscardChanges()) {
+    if (event.CanVeto()) {
+      event.Veto();
+    }
+    return;
+  }
+  EndModal(wxID_CANCEL);
 }
 
 void EditJobsDlg::OnEditUI(wxUpdateUIEvent &event) {
