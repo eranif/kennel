@@ -146,7 +146,8 @@ void EditJobsDlg::OnRunNow(wxCommandEvent &event) {
   if (row == wxNOT_FOUND) {
     return;
   }
-  GetMainFrame()->GetMainView()->RunJob(m_jobs[row]);
+  GetMainFrame()->GetMainView()->RunJob(m_jobs[row], /*selectAfterLaunch=*/true);
+  EndModal(wxID_CANCEL);
 }
 
 void EditJobsDlg::OnEditUI(wxUpdateUIEvent &event) {

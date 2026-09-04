@@ -296,7 +296,7 @@ void MainView::StartTerminal() {
   LaunchSession(request);
 }
 
-void MainView::RunJob(const JobDef &job) {
+void MainView::RunJob(const JobDef &job, bool selectAfterLaunch) {
   int &sequence = m_jobRunCounters[job.name];
   wxString candidate;
   do {
@@ -325,7 +325,7 @@ void MainView::RunJob(const JobDef &job) {
     request.jobCommands.push_back("exit");
   }
 
-  LaunchSession(request, /*selectAfterLaunch=*/false);
+  LaunchSession(request, selectAfterLaunch);
 }
 
 void MainView::StartAgent(const wxString &agentName,

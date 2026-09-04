@@ -99,8 +99,10 @@ public:
   void StartTerminal();
 
   // Launches a one-shot session running `job`'s command/prompt, under a
-  // "Jobs" group. Never persisted to workspace.json.
-  void RunJob(const JobDef &job);
+  // "Jobs" group. Never persisted to workspace.json. `selectAfterLaunch`
+  // false (the scheduler's default) keeps focus on whatever the user is
+  // doing; pass true (e.g. "Run Now") to switch to and focus the new tab.
+  void RunJob(const JobDef &job, bool selectAfterLaunch = false);
 
   // Rebuilds UI from sessions persisted in workspace.json.
   void RestoreSessions();
