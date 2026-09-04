@@ -1,4 +1,5 @@
 #include <wx/app.h>
+#include <wx/cmdline.h>
 #include <wx/log.h>
 
 #include "app/MainFrame.h"
@@ -10,12 +11,35 @@
 // wxWidgets application entry point. Creates and shows the main window.
 class KennelApp : public wxApp {
 public:
+  void OnInitCmdLine(wxCmdLineParser &parser) override {
+    wxApp::OnInitCmdLine(parser);
+    parser.AddOption(
+        "d", wxEmptyString,
+        "Home directory to use instead of the real user home; Kennel data "
+        "is stored under <dir>/.kennel. Lets multiple instances run "
+        "side by side with separate data.",
+        wxCMD_LINE_VAL_STRING);
+  }
+
+  bool OnCmdLineParsed(wxCmdLineParser &parser) override {
+    if (!wxApp::OnCmdLineParsed(parser)) {
+      return false;
+    }
+    parser.Found("d", &m_homeOverride);
+    return true;
+  }
+
   bool OnInit() override {
+    if (!wxApp::OnInit()) {
+      return false;
+    }
     SetAppearance(Appearance::Dark);
 
-    // Resolve ~/.kennel and create its directory tree before anything
-    // else touches config/workspace/log files.
-    const AppPaths paths = AppPaths::Default();
+    // Resolve ~/.kennel (or <-d value>/.kennel) and create its directory
+    // tree before anything else touches config/workspace/log files.
+    const AppPaths paths = m_homeOverride.empty()
+                                ? AppPaths::Default()
+                                : AppPaths::WithHome(m_homeOverride);
     wxString error;
     if (!paths.EnsureDirectories(&error)) {
       // The log file lives under the very directory we failed to make,
@@ -44,6 +68,9 @@ public:
     SetTopWindow(frame);
     return true;
   }
+
+private:
+  wxString m_homeOverride;
 };
 
 wxIMPLEMENT_APP(KennelApp);

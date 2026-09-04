@@ -872,6 +872,11 @@ void MainView::DoSessionMenu(const wxDataViewItem &item) {
         wxEVT_MENU, [page, this](wxCommandEvent &) { RenameSession(page); },
         XRCID("rename-terminal"));
   } else {
+    menu.Append(XRCID("rename-session"), _("Rename..."), _("Rename Session"));
+    menu.Bind(
+        wxEVT_MENU, [page, this](wxCommandEvent &) { RenameSession(page); },
+        XRCID("rename-session"));
+
     menu.Append(XRCID("duplicate-session"), _("Duplicate..."),
                 _("Duplicate Session"));
     menu.Bind(

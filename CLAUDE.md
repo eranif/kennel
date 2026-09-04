@@ -19,6 +19,8 @@ read those for depth. This file covers the rules an agent must not violate.
   etc.), no wxWidgets UI classes. UI logic belongs in `src/app/`.
 - **Logging goes through `KLOG_DEBUG()/KLOG_INFO()/KLOG_WARN()/KLOG_ERROR()`**
   (`core/Logger.h`), never `wxLog*`. Output goes to `~/.kennel/logs/kennel.log`.
+- When git-committing a change, make sure to sign-off the commit using git's "-s"
+- NEVER add a "Co-Authored-By:" line to the commit message.
 
 ## Build & verify
 
