@@ -36,6 +36,7 @@ public:
 
     m_editor->GetCtrl()->Bind(wxEVT_KEY_DOWN, &ReadOnlyFileViewer::OnKeyDown,
                               this);
+    CenterOnParent();
   }
   ~ReadOnlyFileViewer() override = default;
 
