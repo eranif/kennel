@@ -275,8 +275,8 @@ void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
 
 void MainFrame::BuildEditMenu(wxMenuBar *menuBar) {
   auto *editMenu = new wxMenu();
-  editMenu->Append(XRCID("rename-selection"), _("Rename Group\tF2"),
-                   _("Rename the selected group"));
+  editMenu->Append(XRCID("rename-selection"), _("Rename Session...\tF2"),
+                   _("Rename the selected session"));
   menuBar->Append(editMenu, "&Edit");
   Bind(wxEVT_MENU, &MainFrame::OnRenameItem, this, XRCID("rename-selection"));
   Bind(
