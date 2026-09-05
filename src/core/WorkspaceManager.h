@@ -19,8 +19,9 @@ struct NewSessionRequest {
   wxString groupName;
   bool plainTerminal{false};
 
-  // Set for a one-shot job run; see Session::jobCommands.
+  // Set for a one-shot job run; see Session::jobCommands/jobName.
   std::vector<wxString> jobCommands;
+  wxString jobName;
 };
 
 // Owns the in-memory session registry and persistence to workspace.json.

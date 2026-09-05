@@ -10,6 +10,7 @@
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/ClientAdapter.h"
+#include "core/JobLog.h"
 #include "core/Logger.h"
 #include "core/WorkspaceManager.h"
 
@@ -306,13 +307,28 @@ void MainView::RunJob(const JobDef &job, bool selectAfterLaunch) {
   NewSessionRequest request{
       .name = candidate,
       .groupName = _("Jobs"),
+      .jobName = job.name,
   };
+
+  const wxString trigger = selectAfterLaunch ? "manual" : "scheduled";
+  const wxString typeStr = JobTypeToString(job.type);
+  const wxString typeLabel = job.type == JobType::kPrompt ? "Prompt" : "Command";
 
   if (job.type == JobType::kPrompt) {
     const AgentDef *agent = AppManager::Get().Adapters().FindAgent(job.agentName);
     if (agent == nullptr) {
       KLOG_WARN() << "Job '" << job.name << "': agent '" << job.agentName
                   << "' no longer exists; skipping run";
+      AppendJobLogEntry(JobLogEntry{
+          .event = "failed",
+          .job = job.name,
+          .type = typeStr,
+          .trigger = trigger,
+          .reason = wxString::Format("agent '%s' not found", job.agentName),
+          .message = wxString::Format(
+              "Job '%s' failed to start: agent '%s' not found", job.name,
+              job.agentName),
+      });
       return;
     }
     request.agentName = job.agentName;
@@ -324,6 +340,16 @@ void MainView::RunJob(const JobDef &job, bool selectAfterLaunch) {
   if (!job.keepTerminalOpen) {
     request.jobCommands.push_back("exit");
   }
+
+  AppendJobLogEntry(JobLogEntry{
+      .event = "start",
+      .job = job.name,
+      .type = typeStr,
+      .trigger = trigger,
+      .session = candidate,
+      .message = wxString::Format("Job '%s' started (%s, %s)", job.name,
+                                  typeLabel, trigger),
+  });
 
   LaunchSession(request, selectAfterLaunch);
 }
@@ -1167,6 +1193,23 @@ void MainView::OnSessionIdle(wxCommandEvent &e) {
 void MainView::OnSessionActive(wxCommandEvent &e) { e.Skip(); }
 
 void MainView::OnSessionExited(wxCommandEvent &e) {
+  const wxString &sessionName = e.GetString();
+  for (auto *group : GetAllGroups()) {
+    if (auto *page = group->GetSessionByName(sessionName)) {
+      const Session &session = page->GetSession();
+      if (session.IsJobRun()) {
+        AppendJobLogEntry(JobLogEntry{
+            .event = "end",
+            .job = session.jobName,
+            .session = sessionName,
+            .message = wxString::Format("Job '%s' terminal closed",
+                                        session.jobName),
+        });
+      }
+      break;
+    }
+  }
+
   // Deferred: deleting the session's tree leaf (and its now-empty group
   // container, if any) synchronously from inside this handler can crash the
   // native macOS outline view mid-redraw.

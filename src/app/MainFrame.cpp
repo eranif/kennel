@@ -6,6 +6,7 @@
 #include "app/EditAgentsDlg.hpp"
 #include "app/EditHosts.hpp"
 #include "app/EditJobsDlg.hpp"
+#include "app/JobLogViewer.hpp"
 #include "app/NewAgentWizard.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
@@ -293,6 +294,10 @@ void MainFrame::BuildJobsMenu(wxMenuBar *menuBar) {
   jobsMenu->Append(XRCID("manage-jobs"), _("Manage Jobs..."),
                    _("Create, edit, or delete timer-based jobs"));
   Bind(wxEVT_MENU, &MainFrame::OnManageJobs, this, XRCID("manage-jobs"));
+  jobsMenu->AppendSeparator();
+  jobsMenu->Append(XRCID("view-job-log"), _("View Job Log..."),
+                   _("View the history of job runs"));
+  Bind(wxEVT_MENU, &MainFrame::OnViewJobLog, this, XRCID("view-job-log"));
   menuBar->Append(jobsMenu, _("&Jobs"));
 }
 
@@ -305,6 +310,12 @@ void MainFrame::OnManageJobs(wxCommandEvent &evt) {
     AppManager::Get().Configs().Save(config);
     m_jobScheduler->Reload();
   }
+}
+
+void MainFrame::OnViewJobLog(wxCommandEvent &evt) {
+  wxUnusedVar(evt);
+  JobLogViewer dlg{this};
+  dlg.ShowModal();
 }
 
 void MainFrame::BuildSettingsMenu(wxMenuBar *menuBar) {

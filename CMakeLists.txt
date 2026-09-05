@@ -152,6 +152,7 @@ add_library(
   src/core/AdapterRegistry.cpp
   src/core/ActivityMonitor.cpp
   src/core/Job.cpp
+  src/core/JobLog.cpp
   src/core/JobScheduler.cpp
   src/core/JsonUtil.cpp
   src/core/WorkspaceStore.cpp
@@ -190,6 +191,7 @@ set(KENNEL_APP_SOURCES
     src/app/EditAgentDlg.cpp
     src/app/EditJobsDlg.cpp
     src/app/JobDlg.cpp
+    src/app/JobLogViewer.cpp
     src/app/Editor.cpp
     src/app/SettingsDlg.cpp
     src/app/EditHosts.cpp

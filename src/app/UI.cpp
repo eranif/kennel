@@ -2291,3 +2291,70 @@ JobDlgBase::~JobDlgBase() {
   m_button523->Unbind(wxEVT_COMMAND_BUTTON_CLICKED, &JobDlgBase::OnOk, this);
   m_button523->Unbind(wxEVT_UPDATE_UI, &JobDlgBase::OnOkUI, this);
 }
+
+JobLogViewerBase::JobLogViewerBase(wxWindow *parent, wxWindowID id,
+                                   const wxString &title, const wxPoint &pos,
+                                   const wxSize &size, long style)
+    : wxDialog(parent, id, title, pos, size, style) {
+  if (!bBitmapLoaded) {
+    // We need to initialise the default bitmap handler
+    wxXmlResource::Get()->AddHandler(new wxBitmapXmlHandler);
+    wxCrafterFiTVkcInitBitmapResources();
+    bBitmapLoaded = true;
+  }
+
+  wxBoxSizer *boxSizer542 = new wxBoxSizer(wxVERTICAL);
+  this->SetSizer(boxSizer542);
+
+  m_searchCtrlFilter =
+      new wxSearchCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), wxTE_PROCESS_ENTER);
+  m_searchCtrlFilter->ShowSearchButton(true);
+  m_searchCtrlFilter->ShowCancelButton(false);
+
+  boxSizer542->Add(m_searchCtrlFilter, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
+  m_dvListCtrlEntries = new wxDataViewListCtrl(
+      this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(500, 300)),
+      wxDV_ROW_LINES | wxDV_SINGLE);
+
+  boxSizer542->Add(m_dvListCtrlEntries, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
+  m_stdBtnSizer543 = new wxStdDialogButtonSizer();
+
+  boxSizer542->Add(m_stdBtnSizer543, 0, wxALL | wxALIGN_CENTER_HORIZONTAL,
+                   WXC_FROM_DIP(10));
+
+  m_buttonClose = new wxButton(this, wxID_CLOSE, wxT(""), wxDefaultPosition,
+                               wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  m_stdBtnSizer543->AddButton(m_buttonClose);
+  m_stdBtnSizer543->Realize();
+
+  SetName(wxT("JobLogViewerBase"));
+  SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
+  if (GetSizer()) {
+    GetSizer()->Fit(this);
+  }
+  if (GetParent()) {
+    CentreOnParent(wxBOTH);
+  } else {
+    CentreOnScreen(wxBOTH);
+  }
+  if (!wxPersistenceManager::Get().Find(this)) {
+    wxPersistenceManager::Get().RegisterAndRestore(this);
+  } else {
+    wxPersistenceManager::Get().Restore(this);
+  }
+  // Connect events
+  m_searchCtrlFilter->Bind(wxEVT_COMMAND_TEXT_UPDATED,
+                           &JobLogViewerBase::OnFilterUpdated, this);
+  m_dvListCtrlEntries->Bind(wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED,
+                            &JobLogViewerBase::OnLogEntryActivated, this);
+}
+
+JobLogViewerBase::~JobLogViewerBase() {
+  m_searchCtrlFilter->Unbind(wxEVT_COMMAND_TEXT_UPDATED,
+                             &JobLogViewerBase::OnFilterUpdated, this);
+  m_dvListCtrlEntries->Unbind(wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED,
+                              &JobLogViewerBase::OnLogEntryActivated, this);
+}

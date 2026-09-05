@@ -20,6 +20,9 @@ struct Session {
   // shell then terminates on its own and the existing exit-triggered tab
   // close (OnSessionExited) takes care of the rest.
   std::vector<wxString> jobCommands;
+  // The originating JobDef::name, for jobs.log attribution (a job run's
+  // session name is "<jobName> #N", but the name alone isn't parsed back).
+  wxString jobName;
   inline bool IsJobRun() const { return !jobCommands.empty(); }
 };
 

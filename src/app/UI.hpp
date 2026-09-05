@@ -42,6 +42,7 @@
 #include <vector>
 #include <wx/bannerwindow.h>
 #include <wx/statline.h>
+#include <wx/srchctrl.h>
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
 #include <wx/persist/toplevel.h>
@@ -620,6 +621,28 @@ public:
              const wxSize &size = wxSize(-1, -1),
              long style = wxDEFAULT_DIALOG_STYLE);
   virtual ~JobDlgBase();
+};
+
+class JobLogViewerBase : public wxDialog {
+protected:
+  wxSearchCtrl *m_searchCtrlFilter;
+  wxDataViewListCtrl *m_dvListCtrlEntries;
+  wxStdDialogButtonSizer *m_stdBtnSizer543;
+  wxButton *m_buttonClose;
+
+protected:
+  virtual void OnFilterUpdated(wxCommandEvent &event) { event.Skip(); }
+  virtual void OnLogEntryActivated(wxDataViewEvent &event) { event.Skip(); }
+
+public:
+  wxSearchCtrl *GetSearchCtrlFilter() { return m_searchCtrlFilter; }
+  wxDataViewListCtrl *GetDvListCtrlEntries() { return m_dvListCtrlEntries; }
+  JobLogViewerBase(wxWindow *parent, wxWindowID id = wxID_ANY,
+                   const wxString &title = _("Log Viewer"),
+                   const wxPoint &pos = wxDefaultPosition,
+                   const wxSize &size = wxSize(-1, -1),
+                   long style = wxDEFAULT_DIALOG_STYLE);
+  virtual ~JobLogViewerBase();
 };
 
 #endif

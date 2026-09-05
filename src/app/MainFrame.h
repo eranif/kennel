@@ -64,6 +64,7 @@ private:
   // Appends the Jobs menu.
   void BuildJobsMenu(wxMenuBar *menuBar);
   void OnManageJobs(wxCommandEvent &evt);
+  void OnViewJobLog(wxCommandEvent &evt);
 
   void OnNextSession(wxCommandEvent &e);
   void OnPrevSession(wxCommandEvent &e);
