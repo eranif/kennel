@@ -100,7 +100,7 @@ void JobLogViewer::OnLogEntryActivated(wxDataViewEvent &event) {
       continue;
     }
     if (++visible == row) {
-      EditFileDlg dlg{
+      ReadOnlyFileViewer dlg{
           this, ThemeManager::Get().ActiveTheme().value_or(wxTerminalTheme{})};
       dlg.LoadText(ToPrettyJson(r), EditorLang::kJson);
       dlg.SetEditable(false);

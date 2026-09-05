@@ -11,6 +11,16 @@ enum class EditorLang {
   kCxx,
 };
 
+struct EditableLocker {
+  wxStyledTextCtrl *m_ctrl{nullptr};
+  bool m_oldState{true};
+  EditableLocker(wxStyledTextCtrl *ctrl)
+      : m_ctrl{ctrl}, m_oldState{ctrl->IsEditable()} {
+    m_ctrl->SetEditable(true);
+  }
+  ~EditableLocker() { m_ctrl->SetEditable(m_oldState); }
+};
+
 class Editor : public wxPanel {
 public:
   Editor(wxWindow *parent, EditorLang lang = EditorLang::kText,
@@ -24,6 +34,7 @@ public:
   bool IsEditable() const { return m_ctrl->IsEditable(); }
   void SetEditable(bool editable) { m_ctrl->SetEditable(editable); }
   bool LoadFile(const wxString &filePath) {
+    EditableLocker editable{m_ctrl};
     if (!m_ctrl->LoadFile(filePath)) {
       return false;
     }
@@ -34,6 +45,7 @@ public:
   }
 
   void SetText(const wxString &text) {
+    EditableLocker editable{m_ctrl};
     m_ctrl->SetText(text);
     m_ctrl->SetModified(false);
     m_ctrl->SetSavePoint();
