@@ -28,10 +28,10 @@
 #include <wx/checkbox.h>
 #include <wx/button.h>
 #include <wx/toolbar.h>
-#include <wx/stc/stc.h>
 #include <wx/notebook.h>
 #include <wx/imaglist.h>
 #include <wx/statbmp.h>
+#include <wx/stc/stc.h>
 #include <wx/pen.h>
 #include <wx/aui/auibar.h>
 #include <map>
@@ -147,12 +147,10 @@ public:
 class EditFileDlgBase : public wxDialog {
 protected:
   wxToolBar *m_toolbar;
-  wxStyledTextCtrl *m_stcEditor;
 
 protected:
 public:
   wxToolBar *GetToolbar() { return m_toolbar; }
-  wxStyledTextCtrl *GetStcEditor() { return m_stcEditor; }
   EditFileDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,
                   const wxString &title = _("Edit File"),
                   const wxPoint &pos = wxDefaultPosition,

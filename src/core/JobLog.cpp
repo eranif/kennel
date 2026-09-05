@@ -19,11 +19,10 @@ wxFileName JobLogFile() {
   logFile.SetFullName("jobs.log");
   return logFile;
 }
-} // namespace
 
-void AppendJobLogEntry(const JobLogEntry &entry) {
+json ToJson(const JobLogEntry &entry, const wxString &timestamp) {
   json j;
-  j["timestamp"] = ToUtf8(wxDateTime::Now().FormatISOCombined(' '));
+  j["timestamp"] = ToUtf8(timestamp);
   j["event"] = ToUtf8(entry.event);
   if (!entry.job.empty()) {
     j["job"] = ToUtf8(entry.job);
@@ -43,6 +42,12 @@ void AppendJobLogEntry(const JobLogEntry &entry) {
   if (!entry.message.empty()) {
     j["message"] = ToUtf8(entry.message);
   }
+  return j;
+}
+} // namespace
+
+void AppendJobLogEntry(const JobLogEntry &entry) {
+  const json j = ToJson(entry, wxDateTime::Now().FormatISOCombined(' '));
 
   wxFFile file(JobLogFile().GetFullPath(), "a");
   if (!file.IsOpened()) {
@@ -88,4 +93,9 @@ std::vector<JobLogRecord> ReadJobLog() {
     records.push_back(std::move(record));
   }
   return records;
+}
+
+wxString ToPrettyJson(const JobLogRecord &record) {
+  const json j = ToJson(record, record.timestamp);
+  return wxString::FromUTF8(j.dump(2));
 }

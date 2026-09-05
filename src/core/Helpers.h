@@ -146,3 +146,10 @@ inline bool IsDarkColour(const wxColour &c) {
   double luminance = 0.299 * c.Red() + 0.587 * c.Green() + 0.114 * c.Blue();
   return luminance < 128.0;
 }
+
+template <typename Map, typename Key, typename Value>
+typename Map::mapped_type find_or(const Map &map, const Key &key,
+                                  const Value &default_value) {
+  auto it = map.find(key);
+  return (it != map.end()) ? it->second : default_value;
+}

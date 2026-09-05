@@ -1,8 +1,9 @@
 #include "JobLogViewer.hpp"
 
+#include "app/EditFileDlg.hpp"
+#include "app/ThemeManager.h"
+#include "core/Helpers.h"
 #include "core/JobLog.h"
-
-#include <wx/msgdlg.h>
 
 #include <algorithm>
 
@@ -26,29 +27,29 @@ bool Matches(const JobLogRecord &r, const wxString &needle) {
   if (needle.empty()) {
     return true;
   }
-  const wxString haystack = (r.timestamp + " " + r.event + " " + r.job + " " +
-                            r.type + " " + r.trigger + " " + r.session + " " +
-                            r.reason + " " + r.message)
-                               .Lower();
+  const wxString haystack =
+      (r.timestamp + " " + r.event + " " + r.job + " " + r.type + " " +
+       r.trigger + " " + r.session + " " + r.reason + " " + r.message)
+          .Lower();
   return haystack.Contains(needle.Lower());
 }
 } // namespace
 
 JobLogViewer::JobLogViewer(wxWindow *parent) : JobLogViewerBase(parent) {
-  m_dvListCtrlEntries->AppendTextColumn(
-      _("Time"), wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE);
-  m_dvListCtrlEntries->AppendTextColumn(
-      _("Event"), wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE);
+  m_dvListCtrlEntries->AppendTextColumn(_("Time"), wxDATAVIEW_CELL_INERT,
+                                        wxCOL_WIDTH_AUTOSIZE);
+  m_dvListCtrlEntries->AppendTextColumn(_("Event"), wxDATAVIEW_CELL_INERT,
+                                        wxCOL_WIDTH_AUTOSIZE);
   m_dvListCtrlEntries->AppendTextColumn(_("Job"), wxDATAVIEW_CELL_INERT,
-                                       wxCOL_WIDTH_AUTOSIZE);
+                                        wxCOL_WIDTH_AUTOSIZE);
   m_dvListCtrlEntries->AppendTextColumn(_("Type"), wxDATAVIEW_CELL_INERT,
-                                       wxCOL_WIDTH_AUTOSIZE);
+                                        wxCOL_WIDTH_AUTOSIZE);
   m_dvListCtrlEntries->AppendTextColumn(_("Trigger"), wxDATAVIEW_CELL_INERT,
-                                       wxCOL_WIDTH_AUTOSIZE);
+                                        wxCOL_WIDTH_AUTOSIZE);
   m_dvListCtrlEntries->AppendTextColumn(_("Session"), wxDATAVIEW_CELL_INERT,
-                                       wxCOL_WIDTH_AUTOSIZE);
+                                        wxCOL_WIDTH_AUTOSIZE);
   m_dvListCtrlEntries->AppendTextColumn(_("Message"), wxDATAVIEW_CELL_INERT,
-                                       200);
+                                        200);
 
   // Newest first: a log viewer is read top-down for "what just happened".
   m_entries = ReadJobLog();
@@ -56,6 +57,7 @@ JobLogViewer::JobLogViewer(wxWindow *parent) : JobLogViewerBase(parent) {
 
   PopulateList(wxEmptyString);
   m_searchCtrlFilter->CallAfter(&wxSearchCtrl::SetFocus);
+  PositionDialog(this, Orientation::kResize);
 }
 
 JobLogViewer::~JobLogViewer() {}
@@ -98,15 +100,12 @@ void JobLogViewer::OnLogEntryActivated(wxDataViewEvent &event) {
       continue;
     }
     if (++visible == row) {
-      wxString detail = wxString::Format(
-          "%s\n\n%s", r.timestamp,
-          r.message.empty() ? r.reason : r.message);
-      if (!r.reason.empty() && !r.message.empty()) {
-        detail << "\n\n" << _("Reason: ") << r.reason;
-      }
-      ::wxMessageBox(detail, wxString::Format(_("%s: %s"), EventLabel(r.event),
-                                              r.job),
-                    wxOK | wxICON_INFORMATION, this);
+      EditFileDlg dlg{
+          this, ThemeManager::Get().ActiveTheme().value_or(wxTerminalTheme{})};
+      dlg.LoadText(ToPrettyJson(r), EditorLang::kJson);
+      dlg.SetEditable(false);
+      dlg.SetLabel(wxString::Format(_("%s: %s"), EventLabel(r.event), r.job));
+      dlg.ShowModal();
       return;
     }
   }

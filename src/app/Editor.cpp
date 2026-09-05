@@ -1,15 +1,14 @@
 #include "app/Editor.h"
 #include "wx/sizer.h"
 
-Editor::Editor(wxWindow *parent, EditorLang lang)
-    : wxPanel(parent), m_lang{lang} {
+Editor::Editor(wxWindow *parent, EditorLang lang, const wxTerminalTheme &theme)
+    : wxPanel(parent), m_lang{lang}, m_theme{theme} {
   SetSizer(new wxBoxSizer(wxVERTICAL));
   m_ctrl = new wxStyledTextCtrl(this);
   GetSizer()->Add(m_ctrl, wxSizerFlags(1).Expand());
   GetSizer()->Fit(this);
   Layout();
-
-  InitEditor(wxTerminalTheme::MakeDarkTheme());
+  InitEditor();
 }
 
 Editor::~Editor() {}
@@ -19,7 +18,7 @@ void Editor::AddProperty(int style, const wxColour &bg, const wxColour &fg) {
   m_ctrl->StyleSetBackground(style, bg);
 }
 
-void Editor::InitEditor(const wxTerminalTheme &theme) {
+void Editor::InitEditor() {
   m_ctrl->StyleClearAll();
   m_ctrl->FoldDisplayTextSetStyle(wxSTC_FOLDDISPLAYTEXT_BOXED);
   m_ctrl->SetIdleStyling(wxSTC_IDLESTYLING_TOVISIBLE);
@@ -27,9 +26,9 @@ void Editor::InitEditor(const wxTerminalTheme &theme) {
 
   // Find the default style
   for (int i = 0; i < wxSTC_STYLE_MAX; ++i) {
-    m_ctrl->StyleSetBackground(i, theme.bg);
-    m_ctrl->StyleSetForeground(i, theme.fg);
-    m_ctrl->StyleSetFont(i, theme.font);
+    m_ctrl->StyleSetBackground(i, m_theme.bg);
+    m_ctrl->StyleSetForeground(i, m_theme.fg);
+    m_ctrl->StyleSetFont(i, m_theme.font);
   }
 
   // Indentation
@@ -68,29 +67,28 @@ void Editor::InitEditor(const wxTerminalTheme &theme) {
   m_ctrl->CmdKeyAssign(wxSTC_KEY_RIGHT, wxSTC_KEYMOD_META,
                        wxSTC_CMD_WORDPARTRIGHT);
 #endif
-
   switch (m_lang) {
   case EditorLang::kText:
-    InitTextStyle(theme);
+    InitTextStyle();
     break;
   case EditorLang::kCxx:
-    InitCxxStyle(theme);
+    InitCxxStyle();
     break;
   case EditorLang::kJson:
-    InitJsonStyle(theme);
+    InitJsonStyle();
     break;
   }
 }
 
-void Editor::InitTextStyle(const wxTerminalTheme &theme) {
+void Editor::InitTextStyle() {
   // Plain text: no syntax highlighting, just the default colours.
   m_ctrl->SetLexer(wxSTC_LEX_NULL);
-  AddProperty(wxSTC_STYLE_DEFAULT, theme.bg, theme.fg);
-  AddProperty(wxSTC_STYLE_LINENUMBER, theme.bg, theme.brightBlack);
-  AddProperty(wxSTC_STYLE_INDENTGUIDE, theme.bg, theme.black);
+  AddProperty(wxSTC_STYLE_DEFAULT, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
-void Editor::InitCxxStyle(const wxTerminalTheme &theme) {
+void Editor::InitCxxStyle() {
   m_ctrl->SetLexer(wxSTC_LEX_CPP);
 
   // Primary C/C++ keywords.
@@ -108,58 +106,66 @@ void Editor::InitCxxStyle(const wxTerminalTheme &theme) {
       "union unsigned using virtual void volatile wchar_t while xor xor_eq "
       "override final");
 
-  AddProperty(wxSTC_C_DEFAULT, theme.bg, theme.fg);
-  AddProperty(wxSTC_C_COMMENT, theme.bg, theme.brightBlack);
-  AddProperty(wxSTC_C_COMMENTLINE, theme.bg, theme.brightBlack);
-  AddProperty(wxSTC_C_COMMENTDOC, theme.bg, theme.brightBlack);
-  AddProperty(wxSTC_C_COMMENTLINEDOC, theme.bg, theme.brightBlack);
-  AddProperty(wxSTC_C_COMMENTDOCKEYWORD, theme.bg, theme.cyan);
-  AddProperty(wxSTC_C_COMMENTDOCKEYWORDERROR, theme.bg, theme.red);
-  AddProperty(wxSTC_C_NUMBER, theme.bg, theme.green);
-  AddProperty(wxSTC_C_WORD, theme.bg, theme.magenta);
-  AddProperty(wxSTC_C_WORD2, theme.bg, theme.blue);
-  AddProperty(wxSTC_C_STRING, theme.bg, theme.yellow);
-  AddProperty(wxSTC_C_STRINGEOL, theme.bg, theme.yellow);
-  AddProperty(wxSTC_C_STRINGRAW, theme.bg, theme.yellow);
-  AddProperty(wxSTC_C_CHARACTER, theme.bg, theme.yellow);
-  AddProperty(wxSTC_C_HASHQUOTEDSTRING, theme.bg, theme.yellow);
-  AddProperty(wxSTC_C_VERBATIM, theme.bg, theme.yellow);
-  AddProperty(wxSTC_C_ESCAPESEQUENCE, theme.bg, theme.yellow);
-  AddProperty(wxSTC_C_PREPROCESSOR, theme.bg, theme.cyan);
-  AddProperty(wxSTC_C_PREPROCESSORCOMMENT, theme.bg, theme.brightBlack);
-  AddProperty(wxSTC_C_PREPROCESSORCOMMENTDOC, theme.bg, theme.brightBlack);
-  AddProperty(wxSTC_C_OPERATOR, theme.bg, theme.fg);
-  AddProperty(wxSTC_C_IDENTIFIER, theme.bg, theme.fg);
-  AddProperty(wxSTC_C_UUID, theme.bg, theme.green);
-  AddProperty(wxSTC_C_REGEX, theme.bg, theme.yellow);
-  AddProperty(wxSTC_C_USERLITERAL, theme.bg, theme.green);
-  AddProperty(wxSTC_C_TASKMARKER, theme.bg, theme.brightYellow);
-  AddProperty(wxSTC_STYLE_LINENUMBER, theme.bg, theme.brightBlack);
-  AddProperty(wxSTC_STYLE_INDENTGUIDE, theme.bg, theme.black);
+  AddProperty(wxSTC_C_DEFAULT, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_C_COMMENT, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_C_COMMENTLINE, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_C_COMMENTDOC, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_C_COMMENTLINEDOC, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_C_COMMENTDOCKEYWORD, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_C_COMMENTDOCKEYWORDERROR, m_theme.bg, m_theme.red);
+  AddProperty(wxSTC_C_NUMBER, m_theme.bg, m_theme.green);
+  AddProperty(wxSTC_C_WORD, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_C_WORD2, m_theme.bg, m_theme.blue);
+  AddProperty(wxSTC_C_STRING, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_C_STRINGEOL, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_C_STRINGRAW, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_C_CHARACTER, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_C_HASHQUOTEDSTRING, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_C_VERBATIM, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_C_ESCAPESEQUENCE, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_C_PREPROCESSOR, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_C_PREPROCESSORCOMMENT, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_C_PREPROCESSORCOMMENTDOC, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_C_OPERATOR, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_C_IDENTIFIER, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_C_UUID, m_theme.bg, m_theme.green);
+  AddProperty(wxSTC_C_REGEX, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_C_USERLITERAL, m_theme.bg, m_theme.green);
+  AddProperty(wxSTC_C_TASKMARKER, m_theme.bg, m_theme.brightYellow);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
-void Editor::InitJsonStyle(const wxTerminalTheme &theme) {
+void Editor::InitJsonStyle() {
   m_ctrl->SetLexer(wxSTC_LEX_JSON);
 
   // JSON literal keywords.
   m_ctrl->SetKeyWords(0, "true false null");
 
-  AddProperty(wxSTC_JSON_DEFAULT, theme.bg, theme.fg);
-  AddProperty(wxSTC_JSON_NUMBER, theme.bg, theme.green);
-  AddProperty(wxSTC_JSON_STRING, theme.bg, theme.yellow);
-  AddProperty(wxSTC_JSON_STRINGEOL, theme.bg, theme.yellow);
-  AddProperty(wxSTC_JSON_PROPERTYNAME, theme.bg, theme.brightBlue);
-  AddProperty(wxSTC_JSON_ESCAPESEQUENCE, theme.bg, theme.yellow);
-  AddProperty(wxSTC_JSON_LINECOMMENT, theme.bg, theme.cyan);
-  AddProperty(wxSTC_JSON_BLOCKCOMMENT, theme.bg, theme.cyan);
-  AddProperty(wxSTC_JSON_OPERATOR, theme.bg, theme.fg);
-  AddProperty(wxSTC_JSON_URI, theme.bg, theme.blue);
-  AddProperty(wxSTC_JSON_COMPACTIRI, theme.bg, theme.blue);
-  AddProperty(wxSTC_JSON_KEYWORD, theme.bg, theme.magenta);
-  AddProperty(wxSTC_JSON_LDKEYWORD, theme.bg, theme.magenta);
-  AddProperty(wxSTC_JSON_ERROR, theme.bg, theme.red);
-  AddProperty(wxSTC_STYLE_LINENUMBER, theme.bg, theme.brightBlack);
-  AddProperty(wxSTC_STYLE_INDENTGUIDE, theme.bg, theme.black);
+  AddProperty(wxSTC_JSON_DEFAULT, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_JSON_NUMBER, m_theme.bg, m_theme.green);
+  AddProperty(wxSTC_JSON_STRING, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_JSON_STRINGEOL, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_JSON_PROPERTYNAME, m_theme.bg, m_theme.brightBlue);
+  AddProperty(wxSTC_JSON_ESCAPESEQUENCE, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_JSON_LINECOMMENT, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_JSON_BLOCKCOMMENT, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_JSON_OPERATOR, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_JSON_URI, m_theme.bg, m_theme.blue);
+  AddProperty(wxSTC_JSON_COMPACTIRI, m_theme.bg, m_theme.blue);
+  AddProperty(wxSTC_JSON_KEYWORD, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_JSON_LDKEYWORD, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_JSON_ERROR, m_theme.bg, m_theme.red);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
-void Editor::ApplyTheme(const wxTerminalTheme &theme) { InitEditor(theme); }
+void Editor::SetTheme(const wxTerminalTheme &theme) {
+  m_theme = theme;
+  InitEditor();
+}
+
+void Editor::SetEditorLanguage(EditorLang lang) {
+  m_lang = lang;
+  InitEditor();
+}

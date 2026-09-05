@@ -33,3 +33,7 @@ struct JobLogRecord : JobLogEntry {
 // parse (corrupt/partial) are skipped rather than failing the whole read. An
 // absent file yields an empty list.
 std::vector<JobLogRecord> ReadJobLog();
+
+// Re-serializes a record back to pretty-printed JSON (2-space indent), for
+// showing a single log entry in a viewer.
+wxString ToPrettyJson(const JobLogRecord &record);

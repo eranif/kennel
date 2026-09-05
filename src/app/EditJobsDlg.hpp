@@ -30,6 +30,7 @@ private:
   void OnRunNow(wxCommandEvent &event);
   void OnCancel(wxCommandEvent &event);
   void OnClose(wxCloseEvent &event);
+  void OnCharHook(wxKeyEvent &event);
   void OnListDClick(wxCommandEvent &event);
   void OnEditUI(wxUpdateUIEvent &event);
   void OnDeleteUI(wxUpdateUIEvent &event);

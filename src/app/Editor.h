@@ -1,8 +1,9 @@
 #pragma once
 
 #include "terminal_theme.h"
-#include "wx/panel.h"
-#include "wx/stc/stc.h"
+#include <optional>
+#include <wx/panel.h>
+#include <wx/stc/stc.h>
 
 enum class EditorLang {
   kText,
@@ -12,20 +13,63 @@ enum class EditorLang {
 
 class Editor : public wxPanel {
 public:
-  Editor(wxWindow *parent, EditorLang lang);
+  Editor(wxWindow *parent, EditorLang lang = EditorLang::kText,
+         const wxTerminalTheme &theme = wxTerminalTheme::MakeDarkTheme());
   ~Editor() override;
 
-  void ApplyTheme(const wxTerminalTheme &theme);
+  void SetEditorLanguage(EditorLang lang);
+  void SetTheme(const wxTerminalTheme &theme);
 
   wxStyledTextCtrl *GetCtrl() { return m_ctrl; }
+  bool IsEditable() const { return m_ctrl->IsEditable(); }
+  void SetEditable(bool editable) { m_ctrl->SetEditable(editable); }
+  bool LoadFile(const wxString &filePath) {
+    if (!m_ctrl->LoadFile(filePath)) {
+      return false;
+    }
+    m_ctrl->SetSavePoint();
+    m_ctrl->SetModified(false);
+    m_filepath = filePath;
+    return true;
+  }
+
+  void SetText(const wxString &text) {
+    m_ctrl->SetText(text);
+    m_ctrl->SetModified(false);
+    m_ctrl->SetSavePoint();
+  }
+
+  wxString GetText() const { return m_ctrl->GetText(); }
+  bool CanSave() const {
+    return m_filepath.has_value() && m_ctrl->IsEditable();
+  }
+
+  bool Save() {
+    if (!CanSave())
+      return false;
+    if (m_ctrl->SaveFile(*m_filepath)) {
+      m_ctrl->SetSavePoint();
+      m_ctrl->SetModified(false);
+      return true;
+    }
+    return false;
+  }
+
+  wxString GetFile() const {
+    if (m_filepath)
+      return *m_filepath;
+    return wxEmptyString;
+  }
 
 private:
   void AddProperty(int style, const wxColour &bg, const wxColour &fg);
-  void InitEditor(const wxTerminalTheme &theme);
-  void InitJsonStyle(const wxTerminalTheme &theme);
-  void InitTextStyle(const wxTerminalTheme &theme);
-  void InitCxxStyle(const wxTerminalTheme &theme);
+  void InitEditor();
+  void InitJsonStyle();
+  void InitTextStyle();
+  void InitCxxStyle();
 
   wxStyledTextCtrl *m_ctrl{nullptr};
   EditorLang m_lang = EditorLang::kText;
+  wxTerminalTheme m_theme;
+  std::optional<wxString> m_filepath{std::nullopt};
 };

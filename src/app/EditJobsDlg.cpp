@@ -61,11 +61,12 @@ EditJobsDlg::EditJobsDlg(wxWindow *parent)
                 wxSizerFlags().Border(wxALL, 10).CenterHorizontal());
   SetSizer(topSizer);
 
-  // Escape emulates a click on wxID_CANCEL, so this one bind covers the
-  // Cancel button, Escape, and (together with the close-event bind below)
-  // the title bar's X.
   FindWindow(wxID_CANCEL)->Bind(wxEVT_BUTTON, &EditJobsDlg::OnCancel, this);
   Bind(wxEVT_CLOSE_WINDOW, &EditJobsDlg::OnClose, this);
+  // CHAR_HOOK (rather than relying on Escape being emulated as a click on
+  // wxID_CANCEL) catches Escape regardless of which child control — the
+  // list box, a button — currently has focus.
+  Bind(wxEVT_CHAR_HOOK, &EditJobsDlg::OnCharHook, this);
 
   RefreshList();
   m_listBoxJobs->SetFocus();
@@ -155,7 +156,8 @@ void EditJobsDlg::OnRunNow(wxCommandEvent &event) {
   if (row == wxNOT_FOUND) {
     return;
   }
-  GetMainFrame()->GetMainView()->RunJob(m_jobs[row], /*selectAfterLaunch=*/true);
+  GetMainFrame()->GetMainView()->RunJob(m_jobs[row],
+                                        /*selectAfterLaunch=*/true);
   // Close as if OK was pressed so the caller (MainFrame::OnManageJobs)
   // persists m_jobs — otherwise any pending New/Edit/Delete made in this
   // session would be silently discarded along with the dialog.
@@ -187,6 +189,18 @@ void EditJobsDlg::OnClose(wxCloseEvent &event) {
     return;
   }
   EndModal(wxID_CANCEL);
+}
+
+void EditJobsDlg::OnCharHook(wxKeyEvent &event) {
+  if (event.GetKeyCode() != WXK_ESCAPE) {
+    event.Skip();
+    return;
+  }
+  if (ConfirmDiscardChanges()) {
+    EndModal(wxID_CANCEL);
+  }
+  // Swallow either way: don't let Escape fall through to default handling
+  // (which could bypass the dirty-changes prompt).
 }
 
 void EditJobsDlg::OnEditUI(wxUpdateUIEvent &event) {

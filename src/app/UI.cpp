@@ -325,48 +325,6 @@ EditFileDlgBase::EditFileDlgBase(wxWindow *parent, wxWindowID id,
 
   boxSizer35->Add(m_toolbar, 0, wxALL | wxEXPAND, WXC_FROM_DIP(0));
 
-  m_stcEditor = new wxStyledTextCtrl(this, wxID_ANY, wxDefaultPosition,
-                                     wxDLG_UNIT(this, wxSize(-1, -1)), 0);
-  // Configure the fold margin
-  m_stcEditor->SetMarginType(4, wxSTC_MARGIN_SYMBOL);
-  m_stcEditor->SetMarginMask(4, wxSTC_MASK_FOLDERS);
-  m_stcEditor->SetMarginSensitive(4, true);
-  m_stcEditor->SetMarginWidth(4, 0);
-
-  // Configure the tracker margin
-  m_stcEditor->SetMarginWidth(1, 0);
-
-  // Configure the symbol margin
-  m_stcEditor->SetMarginType(2, wxSTC_MARGIN_SYMBOL);
-  m_stcEditor->SetMarginMask(2, ~(wxSTC_MASK_FOLDERS));
-  m_stcEditor->SetMarginWidth(2, 0);
-  m_stcEditor->SetMarginSensitive(2, true);
-
-  // Configure the line numbers margin
-  int m_stcEditor_PixelWidth =
-      4 + 5 * m_stcEditor->TextWidth(wxSTC_STYLE_LINENUMBER, wxT("9"));
-  m_stcEditor->SetMarginType(0, wxSTC_MARGIN_NUMBER);
-  m_stcEditor->SetMarginWidth(0, m_stcEditor_PixelWidth);
-
-  // Configure the line symbol margin
-  m_stcEditor->SetMarginType(3, wxSTC_MARGIN_FORE);
-  m_stcEditor->SetMarginMask(3, 0);
-  m_stcEditor->SetMarginWidth(3, 1);
-  // Select the lexer
-  m_stcEditor->SetLexer(wxSTC_LEX_NULL);
-  // Set default font / styles
-  m_stcEditor->StyleClearAll();
-  m_stcEditor->SetWrapMode(1);
-  m_stcEditor->SetIndentationGuides(2);
-  m_stcEditor->SetEOLMode(2);
-  m_stcEditor->SetKeyWords(0, wxT(""));
-  m_stcEditor->SetKeyWords(1, wxT(""));
-  m_stcEditor->SetKeyWords(2, wxT(""));
-  m_stcEditor->SetKeyWords(3, wxT(""));
-  m_stcEditor->SetKeyWords(4, wxT(""));
-
-  boxSizer35->Add(m_stcEditor, 1, wxEXPAND, WXC_FROM_DIP(5));
-
   SetName(wxT("EditFileDlgBase"));
   SetSize(wxDLG_UNIT(this, wxSize(500, 300)));
   if (GetSizer()) {
