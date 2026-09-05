@@ -630,6 +630,7 @@ protected:
 
 protected:
   virtual void OnFilterUpdated(wxCommandEvent &event) { event.Skip(); }
+  virtual void OnKeyDown(wxKeyEvent &event) { event.Skip(); }
   virtual void OnLogEntryActivated(wxDataViewEvent &event) { event.Skip(); }
 
 public:

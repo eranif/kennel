@@ -110,3 +110,11 @@ void JobLogViewer::OnLogEntryActivated(wxDataViewEvent &event) {
     }
   }
 }
+
+void JobLogViewer::OnKeyDown(wxKeyEvent &event) {
+  if (event.GetKeyCode() != WXK_ESCAPE) {
+    event.Skip();
+    return;
+  }
+  EndModal(wxID_CLOSE);
+}

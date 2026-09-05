@@ -2306,13 +2306,19 @@ JobLogViewerBase::JobLogViewerBase(wxWindow *parent, wxWindowID id,
   // Connect events
   m_searchCtrlFilter->Bind(wxEVT_COMMAND_TEXT_UPDATED,
                            &JobLogViewerBase::OnFilterUpdated, this);
+  m_searchCtrlFilter->Bind(wxEVT_KEY_DOWN, &JobLogViewerBase::OnKeyDown, this);
   m_dvListCtrlEntries->Bind(wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED,
                             &JobLogViewerBase::OnLogEntryActivated, this);
+  m_dvListCtrlEntries->Bind(wxEVT_KEY_DOWN, &JobLogViewerBase::OnKeyDown, this);
 }
 
 JobLogViewerBase::~JobLogViewerBase() {
   m_searchCtrlFilter->Unbind(wxEVT_COMMAND_TEXT_UPDATED,
                              &JobLogViewerBase::OnFilterUpdated, this);
+  m_searchCtrlFilter->Unbind(wxEVT_KEY_DOWN, &JobLogViewerBase::OnKeyDown,
+                             this);
   m_dvListCtrlEntries->Unbind(wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED,
                               &JobLogViewerBase::OnLogEntryActivated, this);
+  m_dvListCtrlEntries->Unbind(wxEVT_KEY_DOWN, &JobLogViewerBase::OnKeyDown,
+                              this);
 }

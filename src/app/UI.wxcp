@@ -24040,6 +24040,13 @@
                   "m_eventName": "wxEVT_COMMAND_TEXT_UPDATED",
                   "m_functionNameAndSignature": "OnFilterUpdated(wxCommandEvent& event)",
                   "m_noBody": false
+                },
+                {
+                  "m_description": "Process a wxEVT_KEY_DOWN event (any key has been pressed)",
+                  "m_eventClass": "wxKeyEvent",
+                  "m_eventName": "wxEVT_KEY_DOWN",
+                  "m_functionNameAndSignature": "OnKeyDown(wxKeyEvent& event)",
+                  "m_noBody": false
                 }
               ],
               "m_children": []
@@ -24140,6 +24147,13 @@
                   "m_eventClass": "wxDataViewEvent",
                   "m_eventName": "wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED",
                   "m_functionNameAndSignature": "OnLogEntryActivated(wxDataViewEvent& event)",
+                  "m_noBody": false
+                },
+                {
+                  "m_description": "Process a wxEVT_KEY_DOWN event (any key has been pressed)",
+                  "m_eventClass": "wxKeyEvent",
+                  "m_eventName": "wxEVT_KEY_DOWN",
+                  "m_functionNameAndSignature": "OnKeyDown(wxKeyEvent& event)",
                   "m_noBody": false
                 }
               ],
