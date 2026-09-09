@@ -312,10 +312,12 @@ void MainView::RunJob(const JobDef &job, bool selectAfterLaunch) {
 
   const wxString trigger = selectAfterLaunch ? "manual" : "scheduled";
   const wxString typeStr = JobTypeToString(job.type);
-  const wxString typeLabel = job.type == JobType::kPrompt ? "Prompt" : "Command";
+  const wxString typeLabel =
+      job.type == JobType::kPrompt ? "Prompt" : "Command";
 
   if (job.type == JobType::kPrompt) {
-    const AgentDef *agent = AppManager::Get().Adapters().FindAgent(job.agentName);
+    const AgentDef *agent =
+        AppManager::Get().Adapters().FindAgent(job.agentName);
     if (agent == nullptr) {
       KLOG_WARN() << "Job '" << job.name << "': agent '" << job.agentName
                   << "' no longer exists; skipping run";
@@ -325,14 +327,15 @@ void MainView::RunJob(const JobDef &job, bool selectAfterLaunch) {
           .type = typeStr,
           .trigger = trigger,
           .reason = wxString::Format("agent '%s' not found", job.agentName),
-          .message = wxString::Format(
-              "Job '%s' failed to start: agent '%s' not found", job.name,
-              job.agentName),
+          .message =
+              wxString::Format("Job '%s' failed to start: agent '%s' not found",
+                               job.name, job.agentName),
       });
       return;
     }
     request.agentName = job.agentName;
-    request.jobCommands = BuildJobCommandLine(*agent, wxEmptyString, job.prompt);
+    request.jobCommands =
+        BuildJobCommandLine(*agent, wxEmptyString, job.prompt);
   } else {
     request.jobCommands = {job.command};
   }
@@ -837,8 +840,12 @@ void MainView::CloseSession(SessionGroup *group, const wxString &sessionName) {
 
   // `group` may now be dangling: willEmptyGroup deleted its owning
   // container (and thus the GroupItemData that owns the SessionGroup) above.
+  // Deferred: selecting a fallback session touches the tree control right
+  // after DeleteItem() above, which can crash the native macOS outline view
+  // mid-redraw (see OnSessionExited for the same issue).
   if (wasActive) {
-    SelectFallbackSession(willEmptyGroup ? nullptr : group);
+    CallAfter(&MainView::SelectFallbackSession,
+              willEmptyGroup ? nullptr : group);
   }
 
   // Cleanup the tree from empty groups
@@ -1202,8 +1209,8 @@ void MainView::OnSessionExited(wxCommandEvent &e) {
             .event = "end",
             .job = session.jobName,
             .session = sessionName,
-            .message = wxString::Format("Job '%s' terminal closed",
-                                        session.jobName),
+            .message =
+                wxString::Format("Job '%s' terminal closed", session.jobName),
         });
       }
       break;
