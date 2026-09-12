@@ -24,6 +24,8 @@ public:
 
   MainView *GetMainView() { return m_mainView; }
 
+  JobScheduler *GetJobScheduler() { return m_jobScheduler.get(); }
+
   void SetActivityText(const wxString &text) { SetStatusText(text, 0); }
 
   void ClearActivityText() { SetStatusText(wxEmptyString, 0); }

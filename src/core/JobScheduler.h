@@ -26,6 +26,12 @@ public:
   // instead of only after the old one would have fired.
   void Reload();
 
+  // The pending next-run time for `job`, or — when the scheduler has no entry
+  // for it or `job` carries an edited schedule — the time it would be
+  // anchored to if that schedule were saved now. Lets a caller show the same
+  // time the next Reload() will settle on.
+  wxDateTime NextRunFor(const JobDef &job) const;
+
 private:
   // A job's pending run, plus the schedule fields it was computed from so
   // Reload() can tell an edited schedule from an untouched one.

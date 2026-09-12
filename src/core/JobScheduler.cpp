@@ -55,6 +55,14 @@ JobScheduler::Entry JobScheduler::MakeEntry(const JobDef &job,
   return entry;
 }
 
+wxDateTime JobScheduler::NextRunFor(const JobDef &job) const {
+  if (auto it = m_schedules.find(job.name);
+      it != m_schedules.end() && it->second.Matches(job)) {
+    return it->second.nextRun;
+  }
+  return ComputeNextRun(job, wxDateTime::Now());
+}
+
 void JobScheduler::Reload() {
   const wxDateTime now = wxDateTime::Now();
   const auto &jobs = AppManager::Get().Config().jobs;

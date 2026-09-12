@@ -6,7 +6,8 @@
 
 #include <vector>
 
-class wxListBox;
+class wxDataViewListCtrl;
+class wxDataViewEvent;
 
 // Hand-written (not wxCrafter-generated) "Manage Jobs" dialog: a simple
 // list-CRUD view over the configured jobs, mirroring EditAgentsDlg's pattern
@@ -31,12 +32,14 @@ private:
   void OnCancel(wxCommandEvent &event);
   void OnClose(wxCloseEvent &event);
   void OnCharHook(wxKeyEvent &event);
-  void OnListDClick(wxCommandEvent &event);
+  void OnItemActivated(wxDataViewEvent &event);
   void OnEditUI(wxUpdateUIEvent &event);
   void OnDeleteUI(wxUpdateUIEvent &event);
   void OnRunNowUI(wxUpdateUIEvent &event);
 
-  wxListBox *m_listBoxJobs{nullptr};
+  int SelectedRow() const;
+
+  wxDataViewListCtrl *m_dvListCtrlJobs{nullptr};
   std::vector<JobDef> m_jobs;
   bool m_dirty{false};
 };

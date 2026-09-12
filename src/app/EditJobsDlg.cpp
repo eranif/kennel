@@ -6,41 +6,55 @@
 #include "core/Helpers.h"
 
 #include <wx/button.h>
-#include <wx/listbox.h>
+#include <wx/dataview.h>
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
 
 #include <algorithm>
 
 namespace {
-wxString DescribeJob(const JobDef &job) {
-  const wxString schedule =
-      job.scheduleMode == ScheduleMode::kDailyAt
-          ? wxString::Format(_("daily at %02d:%02d"), job.dailyHour,
-                             job.dailyMinute)
-          : wxString::Format(_("every %dh"), job.intervalHours);
-  wxString label = wxString::Format(
-      "%s  (%s, %s, %s)", job.name,
-      job.type == JobType::kPrompt ? _("Prompt") : _("Command"), schedule,
-      job.keepTerminalOpen ? _("keeps terminal open") : _("auto-closes"));
+wxString DescribeSchedule(const JobDef &job) {
+  return job.scheduleMode == ScheduleMode::kDailyAt
+             ? wxString::Format(_("daily at %02d:%02d"), job.dailyHour,
+                                job.dailyMinute)
+             : wxString::Format(_("every %dh"), job.intervalHours);
+}
+
+// A disabled job's stored next-run time keeps advancing even though the job
+// never fires, so showing that time here would be misleading.
+wxString DescribeNextRun(const JobDef &job) {
   if (!job.enabled) {
-    label << "  [" << _("disabled") << "]";
+    return "-";
   }
-  return label;
+  const wxDateTime nextRun = GetMainFrame()->GetJobScheduler()->NextRunFor(job);
+  return nextRun.Format("%Y-%m-%d %H:%M");
 }
 } // namespace
 
 EditJobsDlg::EditJobsDlg(wxWindow *parent)
     : wxDialog(parent, wxID_ANY, _("Manage Jobs"), wxDefaultPosition,
-               wxSize(560, 360), wxDEFAULT_DIALOG_STYLE) {
+               wxSize(760, 360), wxDEFAULT_DIALOG_STYLE) {
   m_jobs = AppManager::Get().Config().jobs;
 
   auto *topSizer = new wxBoxSizer(wxVERTICAL);
   auto *rowSizer = new wxBoxSizer(wxHORIZONTAL);
 
-  m_listBoxJobs = new wxListBox(this, wxID_ANY);
-  m_listBoxJobs->Bind(wxEVT_LISTBOX_DCLICK, &EditJobsDlg::OnListDClick, this);
-  rowSizer->Add(m_listBoxJobs, 1, wxEXPAND | wxALL, 10);
+  m_dvListCtrlJobs = new wxDataViewListCtrl(this, wxID_ANY);
+  m_dvListCtrlJobs->AppendTextColumn(_("Job"), wxDATAVIEW_CELL_INERT,
+                                     wxCOL_WIDTH_AUTOSIZE);
+  m_dvListCtrlJobs->AppendTextColumn(_("Type"), wxDATAVIEW_CELL_INERT,
+                                     wxCOL_WIDTH_AUTOSIZE);
+  m_dvListCtrlJobs->AppendTextColumn(_("Schedule"), wxDATAVIEW_CELL_INERT,
+                                     wxCOL_WIDTH_AUTOSIZE);
+  m_dvListCtrlJobs->AppendTextColumn(_("Next Run"), wxDATAVIEW_CELL_INERT,
+                                     wxCOL_WIDTH_AUTOSIZE);
+  m_dvListCtrlJobs->AppendTextColumn(_("Terminal"), wxDATAVIEW_CELL_INERT,
+                                     wxCOL_WIDTH_AUTOSIZE);
+  m_dvListCtrlJobs->AppendTextColumn(_("Enabled"), wxDATAVIEW_CELL_INERT,
+                                     wxCOL_WIDTH_AUTOSIZE);
+  m_dvListCtrlJobs->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED,
+                         &EditJobsDlg::OnItemActivated, this);
+  rowSizer->Add(m_dvListCtrlJobs, 1, wxEXPAND | wxALL, 10);
 
   auto *btnColumn = new wxBoxSizer(wxVERTICAL);
   auto *newBtn = new wxButton(this, wxID_ANY, _("New..."));
@@ -69,23 +83,34 @@ EditJobsDlg::EditJobsDlg(wxWindow *parent)
   Bind(wxEVT_CLOSE_WINDOW, &EditJobsDlg::OnClose, this);
   // CHAR_HOOK (rather than relying on Escape being emulated as a click on
   // wxID_CANCEL) catches Escape regardless of which child control — the
-  // list box, a button — currently has focus.
+  // job list, a button — currently has focus.
   Bind(wxEVT_CHAR_HOOK, &EditJobsDlg::OnCharHook, this);
 
   RefreshList();
-  m_listBoxJobs->SetFocus();
+  m_dvListCtrlJobs->SetFocus();
   ::PositionDialog(this, Orientation::kResize);
 }
 
 void EditJobsDlg::RefreshList(int selectRow) {
-  m_listBoxJobs->Clear();
+  m_dvListCtrlJobs->DeleteAllItems();
   for (const JobDef &job : m_jobs) {
-    m_listBoxJobs->Append(DescribeJob(job));
+    wxVector<wxVariant> cols;
+    cols.push_back(job.name);
+    cols.push_back(job.type == JobType::kPrompt ? _("Prompt") : _("Command"));
+    cols.push_back(DescribeSchedule(job));
+    cols.push_back(DescribeNextRun(job));
+    cols.push_back(job.keepTerminalOpen ? _("Keeps open") : _("Auto-closes"));
+    cols.push_back(job.enabled ? _("Yes") : _("No"));
+    m_dvListCtrlJobs->AppendItem(cols);
   }
   if (!m_jobs.empty()) {
-    m_listBoxJobs->SetSelection(
+    m_dvListCtrlJobs->SelectRow(
         std::clamp(selectRow, 0, static_cast<int>(m_jobs.size()) - 1));
   }
+}
+
+int EditJobsDlg::SelectedRow() const {
+  return m_dvListCtrlJobs->GetSelectedRow();
 }
 
 void EditJobsDlg::OnNewJob(wxCommandEvent &event) {
@@ -108,7 +133,7 @@ void EditJobsDlg::OnNewJob(wxCommandEvent &event) {
 }
 
 void EditJobsDlg::EditSelection() {
-  const int row = m_listBoxJobs->GetSelection();
+  const int row = SelectedRow();
   if (row == wxNOT_FOUND) {
     return;
   }
@@ -134,14 +159,14 @@ void EditJobsDlg::OnEditJob(wxCommandEvent &event) {
   EditSelection();
 }
 
-void EditJobsDlg::OnListDClick(wxCommandEvent &event) {
+void EditJobsDlg::OnItemActivated(wxDataViewEvent &event) {
   wxUnusedVar(event);
   EditSelection();
 }
 
 void EditJobsDlg::OnDeleteJob(wxCommandEvent &event) {
   wxUnusedVar(event);
-  const int row = m_listBoxJobs->GetSelection();
+  const int row = SelectedRow();
   if (row == wxNOT_FOUND) {
     return;
   }
@@ -156,7 +181,7 @@ void EditJobsDlg::OnDeleteJob(wxCommandEvent &event) {
 
 void EditJobsDlg::OnRunNow(wxCommandEvent &event) {
   wxUnusedVar(event);
-  const int row = m_listBoxJobs->GetSelection();
+  const int row = SelectedRow();
   if (row == wxNOT_FOUND) {
     return;
   }
@@ -208,13 +233,13 @@ void EditJobsDlg::OnCharHook(wxKeyEvent &event) {
 }
 
 void EditJobsDlg::OnEditUI(wxUpdateUIEvent &event) {
-  event.Enable(m_listBoxJobs->GetSelection() != wxNOT_FOUND);
+  event.Enable(SelectedRow() != wxNOT_FOUND);
 }
 
 void EditJobsDlg::OnDeleteUI(wxUpdateUIEvent &event) {
-  event.Enable(m_listBoxJobs->GetSelection() != wxNOT_FOUND);
+  event.Enable(SelectedRow() != wxNOT_FOUND);
 }
 
 void EditJobsDlg::OnRunNowUI(wxUpdateUIEvent &event) {
-  event.Enable(m_listBoxJobs->GetSelection() != wxNOT_FOUND);
+  event.Enable(SelectedRow() != wxNOT_FOUND);
 }
