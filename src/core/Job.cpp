@@ -16,3 +16,20 @@ JobType JobTypeFromString(const wxString &str) {
   }
   return JobType::kRawCommand;
 }
+
+wxString ScheduleModeToString(ScheduleMode mode) {
+  switch (mode) {
+  case ScheduleMode::kDailyAt:
+    return "dailyAt";
+  case ScheduleMode::kIntervalHours:
+  default:
+    return "intervalHours";
+  }
+}
+
+ScheduleMode ScheduleModeFromString(const wxString &str) {
+  if (str == "dailyAt") {
+    return ScheduleMode::kDailyAt;
+  }
+  return ScheduleMode::kIntervalHours;
+}

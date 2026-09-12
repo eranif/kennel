@@ -41,6 +41,8 @@
 #include <wx/wizard.h>
 #include <vector>
 #include <wx/bannerwindow.h>
+#include <wx/timectrl.h>
+#include <wx/dateevt.h>
 #include <wx/statline.h>
 #include <wx/srchctrl.h>
 #if wxVERSION_NUMBER >= 2900
@@ -582,6 +584,8 @@ protected:
   wxStaticText *m_staticTextAgent;
   wxChoice *m_choiceAgent;
   wxStaticText *m_staticText532;
+  wxChoice *m_choiceScheduleMode;
+  wxTimePickerCtrl *m_timePickerRunAt;
   wxSpinCtrl *m_spinIntervalHours;
   wxStaticText *m_staticTextCommand;
   wxStyledTextCtrl *m_textCtrlCommand;
@@ -594,6 +598,7 @@ protected:
 
 protected:
   virtual void OnJobTypeChanged(wxCommandEvent &event) { event.Skip(); }
+  virtual void OnScheduleModeChanged(wxCommandEvent &event) { event.Skip(); }
   virtual void OnOk(wxCommandEvent &event) { event.Skip(); }
   virtual void OnOkUI(wxUpdateUIEvent &event) { event.Skip(); }
 
@@ -605,6 +610,8 @@ public:
   wxStaticText *GetStaticTextAgent() { return m_staticTextAgent; }
   wxChoice *GetChoiceAgent() { return m_choiceAgent; }
   wxStaticText *GetStaticText532() { return m_staticText532; }
+  wxChoice *GetChoiceScheduleMode() { return m_choiceScheduleMode; }
+  wxTimePickerCtrl *GetTimePickerRunAt() { return m_timePickerRunAt; }
   wxSpinCtrl *GetSpinIntervalHours() { return m_spinIntervalHours; }
   wxStaticText *GetStaticTextCommand() { return m_staticTextCommand; }
   wxStyledTextCtrl *GetTextCtrlCommand() { return m_textCtrlCommand; }

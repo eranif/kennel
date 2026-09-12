@@ -1,11 +1,11 @@
 #include "app/EditAgentDlg.hpp"
 #include "FileBrowserDlg.hpp"
-#include "core/KennelRemote.h"
 #include "NewEnvVarDlg.hpp"
 #include "app/AssetBootstrap.h"
 #include "app/EditHosts.hpp"
 #include "core/AppManager.h"
 #include "core/Helpers.h"
+#include "core/KennelRemote.h"
 #include <wx/choicdlg.h>
 #include <wx/filedlg.h>
 #include <wx/textdlg.h>

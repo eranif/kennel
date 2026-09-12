@@ -14,10 +14,14 @@
 
 namespace {
 wxString DescribeJob(const JobDef &job) {
+  const wxString schedule =
+      job.scheduleMode == ScheduleMode::kDailyAt
+          ? wxString::Format(_("daily at %02d:%02d"), job.dailyHour,
+                             job.dailyMinute)
+          : wxString::Format(_("every %dh"), job.intervalHours);
   wxString label = wxString::Format(
-      "%s  (%s, every %dh, %s)", job.name,
-      job.type == JobType::kPrompt ? _("Prompt") : _("Command"),
-      job.intervalHours,
+      "%s  (%s, %s, %s)", job.name,
+      job.type == JobType::kPrompt ? _("Prompt") : _("Command"), schedule,
       job.keepTerminalOpen ? _("keeps terminal open") : _("auto-closes"));
   if (!job.enabled) {
     label << "  [" << _("disabled") << "]";

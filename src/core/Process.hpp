@@ -8,8 +8,6 @@
 #include <string>
 #include <vector>
 
-
-
 struct ProcessOutput {
   bool ok{true};
   std::string out;
@@ -210,5 +208,3 @@ private:
   std::atomic_bool m_running{false};
   mutable std::mutex m_write_mutex;
 };
-
-

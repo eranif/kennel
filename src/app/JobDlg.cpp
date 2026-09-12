@@ -15,6 +15,13 @@
 namespace {
 constexpr int kJobTypeRawCommand = 0;
 constexpr int kJobTypePrompt = 1;
+
+constexpr int kChoiceIntervalHours =
+    static_cast<int>(ScheduleMode::kIntervalHours);
+static_assert(kChoiceIntervalHours == 0);
+
+constexpr int kChoiceDailyAt = static_cast<int>(ScheduleMode::kDailyAt);
+static_assert(kChoiceDailyAt == 1);
 } // namespace
 
 JobDlg::JobDlg(wxWindow *parent, const JobDef *job)
@@ -34,11 +41,20 @@ JobDlg::JobDlg(wxWindow *parent, const JobDef *job)
     m_spinIntervalHours->SetValue(job->intervalHours);
     m_checkBoxKeepTerminalOpen->SetValue(job->keepTerminalOpen);
     m_checkBoxEnabled->SetValue(job->enabled);
+    m_choiceScheduleMode->SetSelection(
+        job->scheduleMode == ScheduleMode::kDailyAt ? kChoiceDailyAt
+                                                    : kChoiceIntervalHours);
+    wxDateTime runAt = wxDateTime::Now();
+    runAt.SetHour(job->dailyHour);
+    runAt.SetMinute(job->dailyMinute);
+    runAt.SetSecond(0);
+    m_timePickerRunAt->SetValue(runAt);
   } else {
     m_choiceJobType->SetSelection(kJobTypeRawCommand);
     m_spinIntervalHours->SetValue(1);
     m_checkBoxKeepTerminalOpen->SetValue(true);
     m_checkBoxEnabled->SetValue(true);
+    m_choiceScheduleMode->SetSelection(kChoiceIntervalHours);
   }
 
   UpdateFieldsForType();
@@ -76,6 +92,7 @@ void JobDlg::UpdateFieldsForType() {
   m_staticTextAgent->Show(isPrompt);
   m_choiceAgent->Show(isPrompt);
   m_staticTextCommand->SetLabel(isPrompt ? _("Prompt:") : _("Command:"));
+  UpdateJobTypeUi();
   GetSizer()->Layout();
 }
 
@@ -124,11 +141,34 @@ JobDef JobDlg::GetData() const {
   } else {
     d.command = m_textCtrlCommand->GetValue();
   }
+  d.scheduleMode = m_choiceScheduleMode->GetSelection() == kChoiceDailyAt
+                       ? ScheduleMode::kDailyAt
+                       : ScheduleMode::kIntervalHours;
   d.intervalHours = m_spinIntervalHours->GetValue();
+  const wxDateTime runAt = m_timePickerRunAt->GetValue();
+  d.dailyHour = runAt.GetHour();
+  d.dailyMinute = runAt.GetMinute();
   d.keepTerminalOpen = m_checkBoxKeepTerminalOpen->GetValue();
   d.enabled = m_checkBoxEnabled->GetValue();
   return d;
 }
+
 void JobDlg::OnOkUI(wxUpdateUIEvent &event) {
   event.Enable(Validate().empty());
+}
+
+void JobDlg::UpdateJobTypeUi() {
+  if (m_choiceScheduleMode->GetSelection() == kChoiceIntervalHours) {
+    m_timePickerRunAt->Hide();
+    m_spinIntervalHours->Show();
+  } else {
+    m_timePickerRunAt->Show();
+    m_spinIntervalHours->Hide();
+  }
+  GetSizer()->Layout();
+}
+
+void JobDlg::OnScheduleModeChanged(wxCommandEvent &event) {
+  event.Skip();
+  UpdateJobTypeUi();
 }

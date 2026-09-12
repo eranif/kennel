@@ -1,7 +1,7 @@
 #pragma once
 
-#include <wx/dialog.h>
 #include "app/UI.hpp"
+#include <wx/dialog.h>
 
 class wxNotebook;
 class wxPanel;

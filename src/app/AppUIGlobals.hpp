@@ -4,7 +4,6 @@
 #include <wx/statusbr.h>
 #include <wx/string.h>
 
-
 void SetStatusText(const wxString &message, int field = 0,
                    wxStatusBar *statusBar = nullptr);
 
@@ -16,4 +15,3 @@ struct StatusBarLocker {
   StatusBarLocker(wxStatusBar *statusBar = nullptr, int field = 0);
   ~StatusBarLocker();
 };
-

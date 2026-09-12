@@ -2121,10 +2121,33 @@ JobDlgBase::JobDlgBase(wxWindow *parent, wxWindowID id, const wxString &title,
   flexGridSizer525->Add(m_choiceAgent, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
   m_staticText532 =
-      new wxStaticText(this, wxID_ANY, _("Run every (hours):"),
-                       wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+      new wxStaticText(this, wxID_ANY, _("Schedule mode:"), wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), 0);
 
-  flexGridSizer525->Add(m_staticText532, 0, wxALL, WXC_FROM_DIP(5));
+  flexGridSizer525->Add(m_staticText532, 0, wxALL | wxALIGN_CENTER_VERTICAL,
+                        WXC_FROM_DIP(5));
+
+  wxBoxSizer *boxSizer547 = new wxBoxSizer(wxHORIZONTAL);
+
+  flexGridSizer525->Add(boxSizer547, 1, wxALL | wxALIGN_CENTER_VERTICAL,
+                        WXC_FROM_DIP(5));
+
+  wxArrayString m_choiceScheduleModeArr;
+  m_choiceScheduleModeArr.Add(_("Every N Hours"));
+  m_choiceScheduleModeArr.Add(_("Daily At"));
+  m_choiceScheduleMode = new wxChoice(this, wxID_ANY, wxDefaultPosition,
+                                      wxDLG_UNIT(this, wxSize(-1, -1)),
+                                      m_choiceScheduleModeArr, 0);
+  m_choiceScheduleMode->SetSelection(0);
+
+  boxSizer547->Add(m_choiceScheduleMode, 0, wxRIGHT | wxEXPAND,
+                   WXC_FROM_DIP(5));
+
+  m_timePickerRunAt =
+      new wxTimePickerCtrl(this, wxID_ANY, wxDefaultDateTime, wxDefaultPosition,
+                           wxDLG_UNIT(this, wxSize(-1, -1)), wxTP_DEFAULT);
+
+  boxSizer547->Add(m_timePickerRunAt, 0, wxRIGHT | wxEXPAND, WXC_FROM_DIP(5));
 
   m_spinIntervalHours =
       new wxSpinCtrl(this, wxID_ANY, wxT("1"), wxDefaultPosition,
@@ -2132,7 +2155,8 @@ JobDlgBase::JobDlgBase(wxWindow *parent, wxWindowID id, const wxString &title,
   m_spinIntervalHours->SetRange(1, 720);
   m_spinIntervalHours->SetValue(1);
 
-  flexGridSizer525->Add(m_spinIntervalHours, 0, wxALL, WXC_FROM_DIP(5));
+  boxSizer547->Add(m_spinIntervalHours, 0, wxEXPAND | wxALIGN_CENTER_VERTICAL,
+                   WXC_FROM_DIP(5));
 
   m_staticTextCommand =
       new wxStaticText(this, wxID_ANY, _("Command:"), wxDefaultPosition,
@@ -2239,6 +2263,8 @@ JobDlgBase::JobDlgBase(wxWindow *parent, wxWindowID id, const wxString &title,
   // Connect events
   m_choiceJobType->Bind(wxEVT_COMMAND_CHOICE_SELECTED,
                         &JobDlgBase::OnJobTypeChanged, this);
+  m_choiceScheduleMode->Bind(wxEVT_COMMAND_CHOICE_SELECTED,
+                             &JobDlgBase::OnScheduleModeChanged, this);
   m_button523->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &JobDlgBase::OnOk, this);
   m_button523->Bind(wxEVT_UPDATE_UI, &JobDlgBase::OnOkUI, this);
 }
@@ -2246,6 +2272,8 @@ JobDlgBase::JobDlgBase(wxWindow *parent, wxWindowID id, const wxString &title,
 JobDlgBase::~JobDlgBase() {
   m_choiceJobType->Unbind(wxEVT_COMMAND_CHOICE_SELECTED,
                           &JobDlgBase::OnJobTypeChanged, this);
+  m_choiceScheduleMode->Unbind(wxEVT_COMMAND_CHOICE_SELECTED,
+                               &JobDlgBase::OnScheduleModeChanged, this);
   m_button523->Unbind(wxEVT_COMMAND_BUTTON_CLICKED, &JobDlgBase::OnOk, this);
   m_button523->Unbind(wxEVT_UPDATE_UI, &JobDlgBase::OnOkUI, this);
 }

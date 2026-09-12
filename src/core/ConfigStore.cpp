@@ -1,7 +1,9 @@
 #include "core/ConfigStore.h"
 
 #include "core/JsonUtil.h"
+#include "core/Logger.h"
 
+#include <algorithm>
 #include <string>
 
 namespace {
@@ -54,7 +56,10 @@ json ToJson(const AppConfig &cfg) {
         {"command", ToUtf8(j.command)},
         {"agentName", ToUtf8(j.agentName)},
         {"prompt", ToUtf8(j.prompt)},
+        {"scheduleMode", ToUtf8(ScheduleModeToString(j.scheduleMode))},
         {"intervalHours", j.intervalHours},
+        {"dailyHour", j.dailyHour},
+        {"dailyMinute", j.dailyMinute},
         {"keepTerminalOpen", j.keepTerminalOpen},
         {"enabled", j.enabled},
     });
@@ -117,6 +122,22 @@ AgentDef ParseAgent(const json &j) {
   return out;
 }
 
+// config.json is hand-editable, so an out-of-range value can reach us here.
+// Clamp it: an invalid hour would otherwise be passed to
+// wxDateTime::SetHour(), which takes an unsigned short and would leave the
+// scheduler with a date it can't compare.
+int GetClampedInt(const json &j, const char *key, int dflt, int lo, int hi,
+                  const wxString &jobName) {
+  const int raw = GetInt(j, key, dflt);
+  const int clamped = std::clamp(raw, lo, hi);
+  if (clamped != raw) {
+    KLOG_WARN() << "Job '" << jobName << "': " << key << " value " << raw
+                << " is outside [" << lo << ".." << hi << "]; using "
+                << clamped;
+  }
+  return clamped;
+}
+
 JobDef ParseJob(const json &j) {
   JobDef out;
   out.name = GetStr(j, "name");
@@ -124,7 +145,10 @@ JobDef ParseJob(const json &j) {
   out.command = GetStr(j, "command");
   out.agentName = GetStr(j, "agentName");
   out.prompt = GetStr(j, "prompt");
-  out.intervalHours = GetInt(j, "intervalHours", 1);
+  out.scheduleMode = ScheduleModeFromString(GetStr(j, "scheduleMode"));
+  out.intervalHours = GetClampedInt(j, "intervalHours", 1, 1, 720, out.name);
+  out.dailyHour = GetClampedInt(j, "dailyHour", 10, 0, 23, out.name);
+  out.dailyMinute = GetClampedInt(j, "dailyMinute", 0, 0, 59, out.name);
   out.keepTerminalOpen = GetBool(j, "keepTerminalOpen", true);
   out.enabled = GetBool(j, "enabled", true);
   return out;

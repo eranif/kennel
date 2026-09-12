@@ -110,10 +110,8 @@ MainFrame::MainFrame()
 
   // Jobs run in a fresh terminal tab each time they fire, so the scheduler
   // just needs a callback into the view; it owns no UI state of its own.
-  m_jobScheduler =
-      std::make_unique<JobScheduler>([this](const JobDef &job) {
-        m_mainView->RunJob(job);
-      });
+  m_jobScheduler = std::make_unique<JobScheduler>(
+      [this](const JobDef &job) { m_mainView->RunJob(job); });
   m_jobScheduler->Reload();
 
   if (AppManager::Get().GetPrefs().checkForUpdatesOnStartup) {
