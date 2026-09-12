@@ -118,3 +118,8 @@ void JobLogViewer::OnKeyDown(wxKeyEvent &event) {
   }
   EndModal(wxID_CLOSE);
 }
+
+void JobLogViewer::OnCloseButton(wxCommandEvent &event) {
+  event.Skip();
+  EndModal(wxID_OK);
+}

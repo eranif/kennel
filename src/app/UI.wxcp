@@ -24533,7 +24533,15 @@
                       "m_value": false
                     }
                   ],
-                  "m_events": [],
+                  "m_events": [
+                    {
+                      "m_description": "Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked.",
+                      "m_eventClass": "wxCommandEvent",
+                      "m_eventName": "wxEVT_COMMAND_BUTTON_CLICKED",
+                      "m_functionNameAndSignature": "OnCloseButton(wxCommandEvent& event)",
+                      "m_noBody": false
+                    }
+                  ],
                   "m_children": []
                 }
               ]

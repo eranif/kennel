@@ -2338,6 +2338,8 @@ JobLogViewerBase::JobLogViewerBase(wxWindow *parent, wxWindowID id,
   m_dvListCtrlEntries->Bind(wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED,
                             &JobLogViewerBase::OnLogEntryActivated, this);
   m_dvListCtrlEntries->Bind(wxEVT_KEY_DOWN, &JobLogViewerBase::OnKeyDown, this);
+  m_buttonClose->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
+                      &JobLogViewerBase::OnCloseButton, this);
 }
 
 JobLogViewerBase::~JobLogViewerBase() {
@@ -2349,4 +2351,6 @@ JobLogViewerBase::~JobLogViewerBase() {
                               &JobLogViewerBase::OnLogEntryActivated, this);
   m_dvListCtrlEntries->Unbind(wxEVT_KEY_DOWN, &JobLogViewerBase::OnKeyDown,
                               this);
+  m_buttonClose->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
+                        &JobLogViewerBase::OnCloseButton, this);
 }

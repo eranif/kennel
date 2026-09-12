@@ -11,6 +11,7 @@ public:
   ~JobLogViewer() override;
 
 protected:
+  void OnCloseButton(wxCommandEvent &event) override;
   void OnKeyDown(wxKeyEvent &event) override;
   void OnFilterUpdated(wxCommandEvent &event) override;
   void OnLogEntryActivated(wxDataViewEvent &event) override;

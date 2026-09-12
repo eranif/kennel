@@ -639,6 +639,7 @@ protected:
   virtual void OnFilterUpdated(wxCommandEvent &event) { event.Skip(); }
   virtual void OnKeyDown(wxKeyEvent &event) { event.Skip(); }
   virtual void OnLogEntryActivated(wxDataViewEvent &event) { event.Skip(); }
+  virtual void OnCloseButton(wxCommandEvent &event) { event.Skip(); }
 
 public:
   wxSearchCtrl *GetSearchCtrlFilter() { return m_searchCtrlFilter; }
