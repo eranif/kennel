@@ -174,11 +174,23 @@ Beyond interactive sessions, Kennel can run things on a timer, whether or not yo
 watching:
 
 - A **job** either runs a raw shell command, or sends a one-shot prompt to a configured
-  agent running in non-interactive mode. Each job fires on a fixed interval (in hours).
+  agent running in non-interactive mode.
+- Each job runs on one of two schedules, picked with the **Schedule mode** dropdown:
+  - **Every N Hours** — a fixed interval, from 1 to 720 hours.
+  - **Daily At** — once a day at a wall-clock time you set with the time picker, on a
+    24-hour clock (for example, every day at 10:00).
+- The scheduler checks once a minute, so a job starts within a minute of its target
+  time. A daily job is always re-anchored to the exact `HH:MM` you picked, so a late
+  start never pushes the time forward from one day to the next.
+- Editing a job's schedule takes effect immediately: the next run is recomputed from
+  the moment you save, instead of waiting for the old schedule to come around.
 - **Jobs → Manage Jobs…** opens a CRUD dialog: **New…**, **Edit…**, **Delete**, and
-  **Run Now**. Each job can also be individually enabled or disabled — a disabled job is
-  skipped, but its next-run time keeps advancing so it won't fire a backlog of missed
-  runs once re-enabled.
+  **Run Now**. The list shows each job's schedule as either `every Nh` or
+  `daily at HH:MM`. Each job can also be individually enabled or disabled — a disabled
+  job is skipped, but its next-run time keeps advancing so it won't fire a backlog of
+  missed runs once re-enabled.
+- Schedules are tracked while Kennel runs. If the app is closed (or the machine is
+  asleep) at a daily job's time, that day's run is skipped rather than caught up later.
 - Jobs launch into a dedicated **Jobs** session group. These are one-shot runs and
   aren't persisted to the workspace the way regular sessions are.
 - **Run Now** saves any pending edits and focuses the new session's terminal; jobs fired
