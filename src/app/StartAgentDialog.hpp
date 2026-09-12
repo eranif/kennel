@@ -2,7 +2,7 @@
 
 #include "UI.hpp"
 
-#include "core/WorkspaceManager.h"
+#include "core/Workspace.h"
 
 #include <wx/string.h>
 
@@ -19,7 +19,8 @@ public:
   // Pre-sets the group field to `name` (does not need to be an existing group).
   void SetSelectedGroup(const wxString &name);
 
-  // Pre-fills and selects the session name field (e.g. for "Duplicate Session").
+  // Pre-fills and selects the session name field (e.g. for "Duplicate
+  // Session").
   void SetSessionName(const wxString &name);
 
 protected:

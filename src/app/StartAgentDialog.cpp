@@ -53,14 +53,9 @@ void StartAgentDialog::PopulateClients() {
     m_choiceClients->SetSelection(0);
   }
 
-  // Existing logical groups. Exclude "Terminals"
+  // Existing logical groups. Excludes "Terminals".
   m_comboBoxGroup->Clear();
-  m_comboBoxGroup->Append(
-      AppManager::Get().Groups([](const Session &sess) -> bool {
-        if (sess.plainTerminal)
-          return false;
-        return true;
-      }));
+  m_comboBoxGroup->Append(GetMainFrame()->GetMainView()->GetGroupNames());
   if (m_comboBoxGroup->GetCount() > 0) {
     m_comboBoxGroup->SetSelection(0);
   }

@@ -6,7 +6,7 @@
 #include "app/ThemeManager.h"
 #include "core/AppPaths.h"
 #include "core/Job.h"
-#include "core/WorkspaceManager.h"
+#include "core/Workspace.h"
 
 #include <wx/bmpbndl.h>
 #include <wx/clntdata.h>
@@ -20,7 +20,7 @@
 class SessionPage;
 
 class AdapterRegistry;
-class WorkspaceManager;
+class WorkspaceStore;
 class UiPrefsStore;
 
 static constexpr int kSpinnerFrameCount = 8;
@@ -87,7 +87,8 @@ public:
   // `selectAfterLaunch` false keeps the current focus/selection untouched
   // (used for job runs, which shouldn't steal focus from whatever the user
   // is doing when the timer fires or "Run Now" is clicked).
-  bool LaunchSession(const NewSessionRequest &req, bool selectAfterLaunch = true);
+  bool LaunchSession(const NewSessionRequest &req,
+                     bool selectAfterLaunch = true);
 
   // Shows the Start Agent dialog, then launches on OK. `agentName` preselects
   // an agent (empty -> first defined agent); `groupName` pre-sets the group
@@ -135,6 +136,9 @@ public:
   bool IsNameExist(const wxString &name) const;
   SessionGroup *GetSelectedGroup() const;
 
+  // Logical group names currently in use, excluding the "Terminals" group.
+  wxArrayString GetGroupNames() const;
+
   // The single SessionPage currently shown on the right, or nullptr.
   SessionPage *GetActiveSessionPage() const;
 
@@ -180,10 +184,22 @@ private:
   GroupItemData *GetGroupItemData(const wxDataViewItem &item) const;
   SessionItemData *GetSessionItemData(const wxDataViewItem &item) const;
   SessionGroup *GetSessionGroup(const wxString &name) const;
-  wxDataViewItem FindLeafItem(SessionGroup *group, SessionPage *page) const;
 
-  // Attaches an already-constructed SessionPage to its group: adds it to
-  // the group's session list, m_sessionsBook, and a new tree leaf.
+  // Name-based tree lookups. The tree is the only source of truth for group
+  // and session membership, so these always walk it fresh rather than
+  // consulting any cached list.
+  wxDataViewItem FindGroupItem(const wxString &groupName) const;
+  wxDataViewItem FindLeafItem(const wxString &groupName,
+                              const wxString &sessionName) const;
+  std::vector<SessionPage *> GetGroupSessions(const wxString &groupName) const;
+
+  // Rebuilds a full Workspace snapshot from the current UI state (tree +
+  // notebook) and writes it as the complete contents of workspace.json. No
+  // caller ever incrementally patches the file — every mutation ends here.
+  void SyncWorkspaceToDisk();
+
+  // Attaches an already-constructed SessionPage to its group: adds
+  // m_sessionsBook, and a new tree leaf.
   SessionPage *AddSession(SessionPage *page);
 
   // Makes `page` the one visible session: selects its leaf in the tree,
@@ -205,7 +221,7 @@ private:
   SessionPage *AddSessionPage(const Session &session, bool resume);
 
   const AdapterRegistry *m_registry{nullptr};
-  WorkspaceManager *m_workspace{nullptr};
+  WorkspaceStore *m_workspaceStore{nullptr};
   AppPaths m_paths;
 
   // Per-job run counter (job name -> next sequence number), so consecutive

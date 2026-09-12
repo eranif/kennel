@@ -1,56 +1,22 @@
 #pragma once
 
-#include "app/SessionPage.hpp"
-
-#include <functional>
-#include <vector>
-#include <wx/dataview.h>
 #include <wx/string.h>
+#include <wx/translation.h>
+
+class SessionPage;
 
 // Data-only representation of a session group: a name, a "kind" flag, and
-// the list of sessions that currently belong to it. Owns no window; MainView
-// owns the tree item and the SessionPage windows.
+// its persisted icon. Holds no session list and no reference to the UI
+// (tree item, notebook page, ...) — MainView owns the tree/notebook and is
+// the only source of truth for which sessions belong to this group.
 class SessionGroup {
 public:
   SessionGroup(const wxString &groupName, bool terminalsGroup);
 
   inline const wxString &GetGroupName() const { return m_groupName; }
-
-  /**
-   * Renames the group and updates every session's stored group name.
-   * Persists the rename to the workspace.
-   */
-  void SetGroupName(const wxString &groupName);
-
-  /**
-   * Adds an existing session page to the group.
-   *
-   * @param page The session page to add.
-   * @return false if page is null or a session with the same name already
-   *         exists in this group.
-   */
-  bool AddSession(SessionPage *page);
-
-  /**
-   * Removes a session page by name from the group's bookkeeping. Does not
-   * destroy the page window.
-   *
-   * @param name The name of the session to remove.
-   * @return The removed session or nullptr.
-   */
-  SessionPage *RemoveSession(const wxString &name);
-
-  /**
-   * Applies a function to every session page in the group.
-   */
-  void Apply(std::function<void(SessionPage *)> func);
-
-  const std::vector<SessionPage *> &GetSessions() const { return m_sessions; }
-  inline size_t GetCount() const { return m_sessions.size(); }
-  inline bool IsEmpty() const { return m_sessions.empty(); }
-
-  int FindByName(const wxString &name) const;
-  SessionPage *GetSessionByName(const wxString &name) const;
+  inline void SetGroupName(const wxString &groupName) {
+    m_groupName = groupName;
+  }
 
   inline bool IsTerminalsGroup() const { return m_terminalsGroup; }
   inline bool IsSessionGroup() const { return !IsTerminalsGroup(); }
@@ -59,21 +25,16 @@ public:
   // The most recently shown session in this group; used when the user
   // selects the group's tree node directly rather than a session leaf.
   inline SessionPage *GetLastActive() const { return m_lastActive; }
-  void SetLastActive(SessionPage *page) { m_lastActive = page; }
+  inline void SetLastActive(SessionPage *page) { m_lastActive = page; }
 
-  // This group's own node in MainView's tree. Set once by MainView right
-  // after the container item is created.
-  inline const wxDataViewItem &GetContainerItem() const {
-    return m_containerItem;
-  }
-  inline void SetContainerItem(const wxDataViewItem &item) {
-    m_containerItem = item;
-  }
+  // Persisted icon alias for this group (e.g. "group-red"), assigned once
+  // and kept for the group's lifetime.
+  inline const wxString &GetIcon() const { return m_icon; }
+  inline void SetIcon(const wxString &icon) { m_icon = icon; }
 
 private:
   wxString m_groupName;
   bool m_terminalsGroup{false};
-  std::vector<SessionPage *> m_sessions;
   SessionPage *m_lastActive{nullptr};
-  wxDataViewItem m_containerItem;
+  wxString m_icon;
 };

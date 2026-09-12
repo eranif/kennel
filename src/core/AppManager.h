@@ -10,15 +10,14 @@
 #include "core/UiPrefs.h"
 #include "core/UiPrefsStore.h"
 #include "core/Workspace.h"
-#include "core/WorkspaceManager.h"
 #include "core/WorkspaceStore.h"
 
 #include <memory>
 #include <optional>
 
 // Process-wide owner of the application's configuration and persistence
-// objects (paths, config + its store, adapter registry, workspace manager + its
-// store, UI prefs + its store). Lets UI code reach shared state via
+// objects (paths, config + its store, adapter registry, workspace store, UI
+// prefs + its store). Lets UI code reach shared state via
 // AppManager::Get() instead of threading a dependency through every
 // constructor. GUI-free, so it lives in kennel_core.
 //
@@ -31,7 +30,8 @@ public:
   // Builds the config/workspace/prefs objects rooted at `paths`:
   //   - loads config.json (falls back to DefaultConfig on error),
   //   - builds the adapter registry,
-  //   - loads workspace.json through the manager,
+  //   - loads workspace.json (kept for MainView::RestoreSessions to seed the
+  //   UI),
   //   - loads .persist.json (UI prefs).
   // Idempotent guard: a second call is ignored (logged). Never throws.
   void Initialize(const AppPaths &paths);
@@ -59,13 +59,18 @@ public:
   ConfigStore &Configs();
 
   AdapterRegistry &Adapters();
-  WorkspaceManager &Workspace();
-  HostsStore &Hosts();
 
-  // Distinct logical group names currently in use, collected O(n) from the
-  // workspace sessions. Optionally, apply "filter" method.
-  wxArrayString
-  Groups(std::function<bool(const Session &)> filter = nullptr) const;
+  // Reads/writes workspace.json. Holds no in-memory session registry: the
+  // UI (MainView's tree + notebook) is the only source of truth for which
+  // sessions/groups currently exist, so callers must rebuild a full
+  // Workspace snapshot from the UI before calling Save().
+  WorkspaceStore &Workspace();
+
+  // The workspace.json contents as loaded once at startup, consumed by
+  // MainView::RestoreSessions() to seed the UI. Not updated afterward.
+  const ::Workspace &InitialWorkspace() const { return m_initialWorkspace; }
+
+  HostsStore &Hosts();
 
   // UI preferences: the live snapshot and the store backing .persist.json.
   UiPrefs &GetPrefs();
@@ -81,7 +86,7 @@ private:
   std::unique_ptr<ConfigStore> m_configStore;
   std::unique_ptr<AdapterRegistry> m_adapters;
   std::unique_ptr<WorkspaceStore> m_workspaceStore;
-  std::unique_ptr<WorkspaceManager> m_workspace;
+  ::Workspace m_initialWorkspace;
   std::unique_ptr<UiPrefsStore> m_uiPrefsStore;
   std::unique_ptr<HostsStore> m_hostsStore;
   std::unique_ptr<Bitmaps> m_bitmaps;

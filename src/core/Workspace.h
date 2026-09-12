@@ -39,3 +39,17 @@ struct Workspace {
   std::vector<Session> sessions;
   std::vector<GroupMeta> groups;
 };
+
+// Inputs for creating a new session.
+struct NewSessionRequest {
+  wxString name;
+  wxString agentName;
+  wxString workingDir;
+  bool resume{false};
+  wxString groupName;
+  bool plainTerminal{false};
+
+  // Set for a one-shot job run; see Session::jobCommands/jobName.
+  std::vector<wxString> jobCommands;
+  wxString jobName;
+};

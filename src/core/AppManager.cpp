@@ -39,17 +39,18 @@ void AppManager::Initialize(const AppPaths &paths) {
   KLOG_INFO() << "Registry ready with " << m_adapters->AgentCount()
               << " agent(s)";
 
-  // Workspace registry. Corrupt files self-recover in the store (backed up,
-  // then empty), so only a hard I/O error is logged.
+  // Workspace store. Corrupt files self-recover (backed up, then empty), so
+  // only a hard I/O error is logged. The loaded contents are consumed once by
+  // MainView::RestoreSessions() to seed the UI, which is the only source of
+  // truth for sessions/groups from then on.
   m_workspaceStore = std::make_unique<WorkspaceStore>(paths);
-  m_workspace = std::make_unique<WorkspaceManager>(
-      paths, m_workspaceStore.get(), m_adapters.get());
-  if (Status st = m_workspace->Load(); !st.ok()) {
-    KLOG_ERROR() << "Could not load workspace.json: " << st.message()
+  if (StatusOr<::Workspace> ws = m_workspaceStore->Load(); !ws.ok()) {
+    KLOG_ERROR() << "Could not load workspace.json: " << ws.status().message()
                  << " - starting with an empty workspace";
   } else {
+    m_initialWorkspace = ws.value();
     KLOG_INFO() << "Loaded workspace with "
-                << static_cast<int>(m_workspace->Sessions().size())
+                << static_cast<int>(m_initialWorkspace.sessions.size())
                 << " session(s)";
   }
 
@@ -95,8 +96,6 @@ Status AppManager::Reload() {
   for (const wxString &w : m_configStore->Warnings()) {
     KLOG_WARN() << w;
   }
-  // Rebuild the registry IN PLACE so the AdapterRegistry* held by
-  // WorkspaceManager (and anyone else) stays valid.
   m_adapters->Rebuild(m_config);
   KLOG_INFO() << "Reloaded config.json with " << m_config.agents.size()
               << " agent(s)";
@@ -127,11 +126,11 @@ AdapterRegistry &AppManager::Adapters() {
   return *m_adapters;
 }
 
-WorkspaceManager &AppManager::Workspace() {
-  if (!m_workspace) {
+WorkspaceStore &AppManager::Workspace() {
+  if (!m_workspaceStore) {
     std::abort();
   }
-  return *m_workspace;
+  return *m_workspaceStore;
 }
 
 HostsStore &AppManager::Hosts() {
@@ -139,22 +138,6 @@ HostsStore &AppManager::Hosts() {
     std::abort();
   }
   return *m_hostsStore;
-}
-
-wxArrayString
-AppManager::Groups(std::function<bool(const Session &)> filter) const {
-  wxArrayString groups;
-  if (m_workspace) {
-    for (const Session &session : m_workspace->Sessions()) {
-      if (filter && !filter(session))
-        continue;
-      if (!session.groupName.empty() &&
-          groups.Index(session.groupName) == wxNOT_FOUND) {
-        groups.Add(session.groupName);
-      }
-    }
-  }
-  return groups;
 }
 
 UiPrefs &AppManager::GetPrefs() { return m_uiPrefs; }
