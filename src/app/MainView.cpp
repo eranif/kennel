@@ -368,7 +368,7 @@ void MainView::RunJob(const JobDef &job, bool selectAfterLaunch) {
   wxString candidate;
   do {
     candidate = wxString::Format("%s #%d", job.name, ++sequence);
-  } while (IsNameExist(candidate));
+  } while (IsNameExist(candidate, _("Jobs")));
 
   NewSessionRequest request{
       .name = candidate,
@@ -483,9 +483,10 @@ bool MainView::LaunchSession(const NewSessionRequest &req,
                  wxOK | wxICON_ERROR, this);
     return false;
   }
-  if (IsNameExist(req.name)) {
+  if (IsNameExist(req.name, req.groupName)) {
     wxMessageBox(
-        wxString::Format("A session named '%s' already exists", req.name),
+        wxString::Format("A session named '%s' already exists in group '%s'",
+                         req.name, req.groupName),
         "Launch failed", wxOK | wxICON_ERROR, this);
     return false;
   }
@@ -843,7 +844,7 @@ void MainView::DuplicateSession(SessionPage *page) {
   int suffix = 1;
   do {
     candidate = wxString::Format("%s%d", session.name, suffix++);
-  } while (IsNameExist(candidate));
+  } while (IsNameExist(candidate, session.groupName));
 
   StartAgentDialog dlg(this);
   dlg.SetSelectedClientName(session.agentName);
@@ -865,13 +866,13 @@ void MainView::RenameSession(SessionPage *page) {
     return;
   }
 
-  if (IsNameExist(newName)) {
-    wxMessageBox(_("A session with this name already exists"), "Kennel",
-                 wxICON_WARNING | wxOK | wxCENTER, this);
+  const wxString groupName = page->GetSession().groupName;
+  if (IsNameExist(newName, groupName)) {
+    wxMessageBox(_("A session with this name already exists in this group"),
+                 "Kennel", wxICON_WARNING | wxOK | wxCENTER, this);
     return;
   }
 
-  const wxString groupName = page->GetSession().groupName;
   auto leafItem = FindLeafItem(groupName, oldName);
 
   page->GetSession().name = newName;
@@ -1139,27 +1140,9 @@ std::vector<SessionGroup *> MainView::GetAllGroups() const {
   return result;
 }
 
-void MainView::Traverse(std::function<bool(SessionPage *)> visit) const {
-  auto all = GetAllSessions();
-  for (auto *session : all) {
-    if (!visit(session))
-      return;
-  }
-}
-
-bool MainView::IsNameExist(const wxString &name) const {
-  bool matchFound{false};
-  auto checkIfNameExists = [&name, &matchFound](SessionPage *page) {
-    if (page->IsPlainTerminal())
-      return true; // continue
-    if (page->GetSession().name == name) {
-      matchFound = true;
-      return false;
-    }
-    return true;
-  };
-  Traverse(checkIfNameExists);
-  return matchFound;
+bool MainView::IsNameExist(const wxString &name,
+                           const wxString &groupName) const {
+  return FindLeafItem(groupName, name).IsOk();
 }
 
 void MainView::RemoveEmptyGroups() {
@@ -1243,6 +1226,15 @@ void MainView::MoveSessionToGroup(const wxString &sessionName,
   auto *oldSessionData = GetSessionItemData(oldLeafItem);
   auto *page = oldSessionData ? oldSessionData->page : nullptr;
   CHECK_NOT_NULL_RETURN(page);
+
+  if (IsNameExist(sessionName, toGroupName)) {
+    wxMessageBox(
+        wxString::Format(_("Cannot move session '%s' to group '%s': a session "
+                           "with that name already exists there."),
+                         sessionName, toGroupName),
+        "Kennel", wxOK | wxICON_ERROR, this);
+    return;
+  }
 
   bool wasActive = (GetActiveSessionPage() == page);
   // If this is the old group's last session (and it's not the "Default"

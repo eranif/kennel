@@ -98,8 +98,8 @@ void StartAgentDialog::SetSessionName(const wxString &name) {
 void StartAgentDialog::OnOkUI(wxUpdateUIEvent &event) {
   wxString name = m_textCtrlName->GetValue();
   name.Trim().Trim(false);
-  event.Enable(!name.IsEmpty() &&
-               !GetMainFrame()->GetMainView()->IsNameExist(name));
+  event.Enable(!name.IsEmpty() && !GetMainFrame()->GetMainView()->IsNameExist(
+                                      name, MakeGroupName()));
 }
 
 wxString StartAgentDialog::MakeGroupName() const {
@@ -130,7 +130,11 @@ wxString StartAgentDialog::MakeWorkingDir() const {
     folder = AppManager::Get().Paths().SessionsDir().GetPath();
   }
 
-  folder << "/" << NormaliseFilename(m_textCtrlName->GetValue());
+  // Session names are only unique within their group, so the default folder
+  // must include the group name too — otherwise same-named sessions in
+  // different groups would collide on disk.
+  folder << "/" << NormaliseFilename(MakeGroupName()) << "_"
+         << NormaliseFilename(m_textCtrlName->GetValue());
   return folder;
 }
 
@@ -148,7 +152,7 @@ void StartAgentDialog::OnNameUpdated(wxCommandEvent &event) {
   wxUnusedVar(event);
   wxString name = m_textCtrlName->GetValue();
   name.Trim().Trim(false);
-  if (GetMainFrame()->GetMainView()->IsNameExist(name)) {
+  if (GetMainFrame()->GetMainView()->IsNameExist(name, MakeGroupName())) {
     if (!m_staticTextErrorMessage->IsShown()) {
       m_staticTextErrorMessage->Show();
       GetSizer()->Fit(this);

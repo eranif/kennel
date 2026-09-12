@@ -133,7 +133,9 @@ public:
   bool IsSelectionSessionGroup() const;
   bool IsSelectionTerminalGroup() const;
   void RenameItem();
-  bool IsNameExist(const wxString &name) const;
+  // Whether `groupName` already contains a session named `name`. Names only
+  // need to be unique within a group, not across the whole workspace.
+  bool IsNameExist(const wxString &name, const wxString &groupName) const;
   SessionGroup *GetSelectedGroup() const;
 
   // Logical group names currently in use, excluding the "Terminals" group.
@@ -172,7 +174,6 @@ protected:
   // Shows some session after the active one is removed: prefers a
   // sibling in `preferredGroup`, else the first session in any group.
   void SelectFallbackSession(SessionGroup *preferredGroup);
-  void Traverse(std::function<bool(SessionPage *)> visit) const;
   std::vector<SessionPage *> GetAllSessions() const;
   std::vector<SessionGroup *> GetAllGroups() const;
   void RemoveEmptyGroups();
