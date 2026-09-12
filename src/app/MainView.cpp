@@ -333,7 +333,7 @@ void MainView::SelectSessionPage(SessionPage *page) {
     m_sessionsBook->SetSelection(where);
   }
 
-  group->SetLastActive(page);
+  group->SetLastActive(session.name);
   page->CallAfter(&SessionPage::SetFocus);
   page->ApplyTitle();
 }
@@ -562,7 +562,14 @@ void MainView::DoSelectGroup(const wxDataViewItem &item) {
     return;
   }
 
-  auto *target = group->GetLastActive();
+  SessionPage *target = nullptr;
+  const wxString &lastActive = group->GetLastActive();
+  if (!lastActive.empty()) {
+    if (auto *data = GetSessionItemData(
+            FindLeafItem(group->GetGroupName(), lastActive))) {
+      target = data->page;
+    }
+  }
   if (target == nullptr) {
     if (auto *sessionData =
             GetSessionItemData(m_treeSessions->GetNthChild(item, 0))) {
