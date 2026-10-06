@@ -1,6 +1,7 @@
 #include "SessionPage.hpp"
 
 #include "MainFrame.h"
+#include "EditFileDlg.hpp"
 #include "ThemeManager.h"
 #include "core/AppManager.h"
 #include "core/ClientAdapter.h"
@@ -10,10 +11,12 @@
 #include "terminal_event.h"
 #include "terminal_view.h"
 
+#include <wx/file.h>
 #include <wx/filename.h>
 #include <wx/frame.h>
 #include <wx/utils.h>
 
+#include <cstring>
 #include <map>
 #include <optional>
 #include <wx/choicdlg.h>
@@ -24,6 +27,22 @@ wxDEFINE_EVENT(wxEVT_SESSION_ACTIVE, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_EXITED, wxCommandEvent);
 
 namespace {
+
+// Text we can show in the built-in editor: not huge and no NUL bytes in the
+// first chunk (the same heuristic git uses to spot binary files).
+bool LooksLikeTextFile(const wxString &path) {
+  constexpr wxFileOffset kMaxEditableSize = 16 * 1024 * 1024;
+  wxFile file(path);
+  if (!file.IsOpened() || file.Length() > kMaxEditableSize) {
+    return false;
+  }
+  char head[8192];
+  const ssize_t n = file.Read(head, sizeof(head));
+  if (n < 0) {
+    return false;
+  }
+  return std::memchr(head, 0, static_cast<size_t>(n)) == nullptr;
+}
 
 std::optional<wxTerminalViewCtrl::EnvironmentList>
 BuildEnvironment(const std::map<wxString, wxString> &overrides) {
@@ -259,9 +278,24 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
     fn.MakeAbsolute(m_session.workingDir.empty() ? wxGetHomeDir()
                                                   : m_session.workingDir);
   }
-  if (fn.FileExists()) {
-    ::wxLaunchDefaultApplication(fn.GetFullPath());
+  if (!fn.FileExists()) {
+    return;
   }
+  const wxString fullPath = fn.GetFullPath();
+  if (!LooksLikeTextFile(fullPath)) {
+    // Images, PDFs, archives, ...: the OS knows best.
+    ::wxLaunchDefaultApplication(fullPath);
+    return;
+  }
+  // Deferred: don't run a modal loop from inside the terminal's mouse handler.
+  CallAfter([fullPath]() {
+    EditFileDlg dlg{wxTheApp->GetTopWindow(),
+                    ThemeManager::Get().ActiveTheme().value_or(
+                        wxTerminalTheme{})};
+    dlg.LoadFile(fullPath);
+    dlg.SetLabel(fullPath);
+    dlg.ShowModal();
+  });
 }
 
 void SessionPage::ApplyTheme(const wxTerminalTheme &theme) {
