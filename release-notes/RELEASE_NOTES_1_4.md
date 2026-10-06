@@ -67,14 +67,20 @@ The Manage Jobs dialog now uses a multi-column list showing each job's name, typ
   the workspace is persisted from it through `WorkspaceStore`. `SessionGroup` became a plain
   data holder.
 - **libssh 0.11.5** is now fetched with CMake `FetchContent` from the Jarod42 mirror and built
-  as a static library on every platform. OpenSSL and zlib come from the system.
+  as a static library on every platform.
+- **OpenSSL on macOS is now vendored**: a static OpenSSL 3.3.4 is built from source at configure
+  time (via `eranif/openssl-cmake`, fetched with `FetchContent`) into `.build-release/local_builds`,
+  so the app bundle has no Homebrew runtime dependency. The first macOS build takes a few
+  minutes longer; later builds skip it. Windows and Linux use the system OpenSSL (on Linux a
+  second, vendored copy crashes because another library in the process uses the system one).
 - `wxTerminalEmulator` was updated to a newer revision.
 
 ## Upgrade Notes
 
 - **New build dependency: OpenSSL.** Windows: `pacman -S mingw-w64-clang-x86_64-openssl`.
-  macOS: `brew install openssl@3`. Linux: install your distribution's OpenSSL and zlib
-  development packages. See [BUILDING.md](../BUILDING.md).
+  Linux: install your distribution's OpenSSL and zlib development packages (e.g. `libssl-dev`,
+  `zlib1g-dev`). macOS needs nothing extra: OpenSSL is built automatically. See
+  [BUILDING.md](../BUILDING.md).
 - The Windows installer now also ships `libcrypto-3-x64.dll`, `zlib1.dll` and
   `libwinpthread-1.dll`.
 - Remote file opening requires key-based SSH login (ssh-agent, or an unencrypted default key
