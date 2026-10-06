@@ -10,6 +10,7 @@
 #include "terminal_event.h"
 #include "terminal_view.h"
 
+#include <wx/filename.h>
 #include <wx/frame.h>
 #include <wx/utils.h>
 
@@ -237,9 +238,29 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
 
   if (textLower.StartsWith("http://") || textLower.StartsWith("https://")) {
     ::wxLaunchDefaultBrowser(text);
-  } else if (wxFileName::FileExists(text)) {
-    // Handle file paths - open with default application
-    ::wxLaunchDefaultApplication(text);
+    return;
+  }
+
+  if (m_agent && m_agent->IsRemote()) {
+    // The clicked text refers to a path on the remote host; there's no local
+    // file behind it to open.
+    return;
+  }
+
+  if (text == "~" || text.StartsWith("~/")) {
+    text = wxGetHomeDir() + text.Mid(1);
+  }
+
+  // Terminal output is usually relative to the shell's cwd, not Kennel's own
+  // process cwd, so resolve against the session's launch directory before
+  // checking for existence.
+  wxFileName fn{text};
+  if (!fn.IsAbsolute()) {
+    fn.MakeAbsolute(m_session.workingDir.empty() ? wxGetHomeDir()
+                                                  : m_session.workingDir);
+  }
+  if (fn.FileExists()) {
+    ::wxLaunchDefaultApplication(fn.GetFullPath());
   }
 }
 
