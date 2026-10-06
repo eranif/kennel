@@ -2,6 +2,7 @@
 #include "wx/sizer.h"
 
 #include <algorithm>
+#include <string>
 
 Editor::Editor(wxWindow *parent, EditorLang lang, const wxTerminalTheme &theme)
     : wxPanel(parent), m_lang{lang}, m_theme{theme} {
@@ -34,12 +35,16 @@ void Editor::InitEditor() {
     m_ctrl->StyleSetFont(i, m_theme.font);
   }
 
-  // Line numbers in margin 0; the other margins are unused.
+  // Line numbers in margin 0, followed by a one-pixel separator line (margin 1)
+  // between them and the text; margin 2 is unused.
   AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
   m_ctrl->SetMarginType(0, wxSTC_MARGIN_NUMBER);
-  m_ctrl->SetMarginWidth(1, 0);
+  m_ctrl->SetMarginType(1, wxSTC_MARGIN_COLOUR);
+  m_ctrl->SetMarginBackground(1, m_theme.brightBlack);
+  m_ctrl->SetMarginWidth(1, 1);
   m_ctrl->SetMarginWidth(2, 0);
   m_ctrl->SetMarginLeft(4);
+  m_ctrl->SetMarginRight(4); // Breathing room between the line and the text.
   UpdateLineNumberMargin();
 
   // Indentation
@@ -100,6 +105,21 @@ void Editor::InitEditor() {
   case EditorLang::kXml:
     InitXmlStyle();
     break;
+  case EditorLang::kRuby:
+    InitRubyStyle();
+    break;
+  case EditorLang::kTypeScript:
+    InitTypeScriptStyle();
+    break;
+  case EditorLang::kJavaScript:
+    InitJavaScriptStyle();
+    break;
+  case EditorLang::kPython:
+    InitPythonStyle();
+    break;
+  case EditorLang::kMakefile:
+    InitMakefileStyle();
+    break;
   case EditorLang::kJson:
     InitJsonStyle();
     break;
@@ -137,6 +157,27 @@ void Editor::InitJavaStyle() {
       "package permits private protected public record return sealed short "
       "static strictfp super switch synchronized this throw throws transient "
       "try var void volatile while yield true false null");
+}
+
+namespace {
+const char *kJavaScriptKeywords =
+    "async await break case catch class const continue debugger default "
+    "delete do else export extends false finally for function if import in "
+    "instanceof let new null of return static super switch this throw true "
+    "try typeof undefined var void while with yield";
+} // namespace
+
+void Editor::InitJavaScriptStyle() { InitCppLikeStyle(kJavaScriptKeywords); }
+
+void Editor::InitTypeScriptStyle() {
+  // TypeScript is JavaScript plus these.
+  static const std::string keywords =
+      std::string(kJavaScriptKeywords) +
+      " abstract any as asserts bigint boolean constructor declare enum "
+      "implements infer interface is keyof module namespace never number "
+      "object override private protected public readonly require satisfies "
+      "string symbol type unique unknown";
+  InitCppLikeStyle(keywords.c_str());
 }
 
 void Editor::InitCppLikeStyle(const char *keywords) {
@@ -333,6 +374,110 @@ void Editor::InitXmlStyle() {
   AddProperty(wxSTC_H_XMLSTART, m_theme.bg, m_theme.magenta);
   AddProperty(wxSTC_H_XMLEND, m_theme.bg, m_theme.magenta);
   AddProperty(wxSTC_H_CDATA, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
+}
+
+void Editor::InitRubyStyle() {
+  m_ctrl->SetLexer(wxSTC_LEX_RUBY);
+
+  m_ctrl->SetKeyWords(
+      0, "BEGIN END __FILE__ __LINE__ alias and attr_accessor attr_reader "
+         "attr_writer begin break case class def defined? do else elsif end "
+         "ensure extend false for if in include lambda module next nil not or "
+         "private protected proc public raise redo require require_relative "
+         "rescue retry return self super then true undef unless until when "
+         "while yield");
+
+  AddProperty(wxSTC_RB_DEFAULT, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_RB_ERROR, m_theme.bg, m_theme.red);
+  AddProperty(wxSTC_RB_COMMENTLINE, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_RB_POD, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_RB_DATASECTION, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_RB_NUMBER, m_theme.bg, m_theme.green);
+  AddProperty(wxSTC_RB_WORD, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_RB_WORD_DEMOTED, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_RB_CLASSNAME, m_theme.bg, m_theme.blue);
+  AddProperty(wxSTC_RB_MODULE_NAME, m_theme.bg, m_theme.blue);
+  AddProperty(wxSTC_RB_DEFNAME, m_theme.bg, m_theme.brightBlue);
+  AddProperty(wxSTC_RB_OPERATOR, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_RB_IDENTIFIER, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_RB_GLOBAL, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_RB_SYMBOL, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_RB_INSTANCE_VAR, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_RB_CLASS_VAR, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_RB_STDIN, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_RB_STDOUT, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_RB_STDERR, m_theme.bg, m_theme.cyan);
+  for (int style : {wxSTC_RB_STRING, wxSTC_RB_CHARACTER, wxSTC_RB_REGEX,
+                    wxSTC_RB_BACKTICKS, wxSTC_RB_HERE_DELIM, wxSTC_RB_HERE_Q,
+                    wxSTC_RB_HERE_QQ, wxSTC_RB_HERE_QX, wxSTC_RB_STRING_Q,
+                    wxSTC_RB_STRING_QQ, wxSTC_RB_STRING_QX, wxSTC_RB_STRING_QR,
+                    wxSTC_RB_STRING_QW, wxSTC_RB_STRING_W, wxSTC_RB_STRING_I,
+                    wxSTC_RB_STRING_QI, wxSTC_RB_STRING_QS}) {
+    AddProperty(style, m_theme.bg, m_theme.yellow);
+  }
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
+}
+
+void Editor::InitPythonStyle() {
+  m_ctrl->SetLexer(wxSTC_LEX_PYTHON);
+
+  // 4 spaces is the Python convention (PEP 8).
+  m_ctrl->SetTabWidth(4);
+  m_ctrl->SetIndent(4);
+
+  // 0: keywords, 1: builtins / highlighted identifiers.
+  m_ctrl->SetKeyWords(
+      0, "False None True and as assert async await break class continue def "
+         "del elif else except finally for from global if import in is "
+         "lambda nonlocal not or pass raise return try while with yield "
+         "match case");
+  m_ctrl->SetKeyWords(
+      1, "abs all any bool bytes callable chr dict dir enumerate filter float "
+         "format frozenset getattr hasattr hash id input int isinstance "
+         "issubclass iter len list map max min next object open ord print "
+         "range repr reversed round set setattr sorted str sum super tuple "
+         "type vars zip self cls Exception ValueError TypeError KeyError");
+
+  AddProperty(wxSTC_P_DEFAULT, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_P_COMMENTLINE, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_P_COMMENTBLOCK, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_P_NUMBER, m_theme.bg, m_theme.green);
+  AddProperty(wxSTC_P_WORD, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_P_WORD2, m_theme.bg, m_theme.blue);
+  AddProperty(wxSTC_P_CLASSNAME, m_theme.bg, m_theme.brightBlue);
+  AddProperty(wxSTC_P_DEFNAME, m_theme.bg, m_theme.brightBlue);
+  AddProperty(wxSTC_P_DECORATOR, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_P_ATTRIBUTE, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_P_OPERATOR, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_P_IDENTIFIER, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_P_STRINGEOL, m_theme.bg, m_theme.red);
+  for (int style : {wxSTC_P_STRING, wxSTC_P_CHARACTER, wxSTC_P_TRIPLE,
+                    wxSTC_P_TRIPLEDOUBLE, wxSTC_P_FSTRING, wxSTC_P_FCHARACTER,
+                    wxSTC_P_FTRIPLE, wxSTC_P_FTRIPLEDOUBLE}) {
+    AddProperty(style, m_theme.bg, m_theme.yellow);
+  }
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
+}
+
+void Editor::InitMakefileStyle() {
+  m_ctrl->SetLexer(wxSTC_LEX_MAKEFILE);
+
+  // Recipe lines must start with a tab, so Tab inserts a real one here.
+  m_ctrl->SetUseTabs(true);
+  m_ctrl->SetTabWidth(8);
+  m_ctrl->SetIndent(8);
+
+  AddProperty(wxSTC_MAKE_DEFAULT, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_MAKE_COMMENT, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_MAKE_PREPROCESSOR, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_MAKE_IDENTIFIER, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_MAKE_OPERATOR, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_MAKE_TARGET, m_theme.bg, m_theme.blue);
+  AddProperty(wxSTC_MAKE_IDEOL, m_theme.bg, m_theme.red);
   AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }

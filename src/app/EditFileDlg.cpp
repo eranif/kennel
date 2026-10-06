@@ -76,6 +76,12 @@ EditorLang EditFileDlg::LangFromPath(const wxString &filepath) {
       {".profile", EditorLang::kBash},
       {".zshrc", EditorLang::kBash},
       {".zprofile", EditorLang::kBash},
+      {"makefile", EditorLang::kMakefile},
+      {"gnumakefile", EditorLang::kMakefile},
+      {"rakefile", EditorLang::kRuby},
+      {"gemfile", EditorLang::kRuby},
+      {"guardfile", EditorLang::kRuby},
+      {"vagrantfile", EditorLang::kRuby},
   };
   const wxString lowerName = name.Lower();
   if (auto it = nameMap.find(lowerName); it != nameMap.end()) {
@@ -87,18 +93,27 @@ EditorLang EditFileDlg::LangFromPath(const wxString &filepath) {
     return EditorLang::kText;
   }
   static const std::unordered_map<wxString, EditorLang> extMap{
-      {"cpp", EditorLang::kCxx},     {"c", EditorLang::kCxx},
-      {"cc", EditorLang::kCxx},      {"cxx", EditorLang::kCxx},
-      {"h", EditorLang::kCxx},       {"hpp", EditorLang::kCxx},
-      {"hxx", EditorLang::kCxx},     {"json", EditorLang::kJson},
-      {"java", EditorLang::kJava},   {"cmake", EditorLang::kCMake},
-      {"sh", EditorLang::kBash},     {"bash", EditorLang::kBash},
-      {"zsh", EditorLang::kBash},    {"ksh", EditorLang::kBash},
-      {"md", EditorLang::kMarkdown}, {"markdown", EditorLang::kMarkdown},
-      {"xml", EditorLang::kXml},     {"xsd", EditorLang::kXml},
-      {"xsl", EditorLang::kXml},     {"xslt", EditorLang::kXml},
-      {"svg", EditorLang::kXml},     {"plist", EditorLang::kXml},
-      {"xrc", EditorLang::kXml},     {"pom", EditorLang::kXml},
+      {"cpp", EditorLang::kCxx},        {"c", EditorLang::kCxx},
+      {"cc", EditorLang::kCxx},         {"cxx", EditorLang::kCxx},
+      {"h", EditorLang::kCxx},          {"hpp", EditorLang::kCxx},
+      {"hxx", EditorLang::kCxx},        {"json", EditorLang::kJson},
+      {"java", EditorLang::kJava},      {"cmake", EditorLang::kCMake},
+      {"sh", EditorLang::kBash},        {"bash", EditorLang::kBash},
+      {"zsh", EditorLang::kBash},       {"ksh", EditorLang::kBash},
+      {"md", EditorLang::kMarkdown},    {"markdown", EditorLang::kMarkdown},
+      {"xml", EditorLang::kXml},        {"xsd", EditorLang::kXml},
+      {"xsl", EditorLang::kXml},        {"xslt", EditorLang::kXml},
+      {"svg", EditorLang::kXml},        {"plist", EditorLang::kXml},
+      {"xrc", EditorLang::kXml},        {"pom", EditorLang::kXml},
+      {"rb", EditorLang::kRuby},        {"rake", EditorLang::kRuby},
+      {"gemspec", EditorLang::kRuby},   {"ru", EditorLang::kRuby},
+      {"ts", EditorLang::kTypeScript},  {"tsx", EditorLang::kTypeScript},
+      {"mts", EditorLang::kTypeScript}, {"cts", EditorLang::kTypeScript},
+      {"js", EditorLang::kJavaScript},  {"jsx", EditorLang::kJavaScript},
+      {"mjs", EditorLang::kJavaScript}, {"cjs", EditorLang::kJavaScript},
+      {"py", EditorLang::kPython},      {"pyw", EditorLang::kPython},
+      {"pyi", EditorLang::kPython},     {"mk", EditorLang::kMakefile},
+      {"mak", EditorLang::kMakefile},
   };
   return find_or(extMap, lowerName.AfterLast('.'), EditorLang::kText);
 }
