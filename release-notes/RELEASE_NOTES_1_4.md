@@ -35,12 +35,17 @@ opens as an editor page in the main view instead of a modal dialog.
 - **Navigation and appearance** — theme and font changes apply to file pages too.
 - **Flat page list** — below the session tree, a second list shows every open terminal,
   session and file in one place (icon and name, plus its group), most recently used first.
-  It selects pages and offers the same context menus as the tree. The recent order is saved
-  in `workspace.json`, so after a restart Kennel reopens on the page you used last.
+  It selects pages and offers the same context menus as the tree (right-clicking empty space
+  offers Start Agent and New Terminal). Choosing a page in this list, with the mouse or the
+  keyboard, does not change the recent order, so the list never reshuffles under your hand;
+  anything else (the tree, Ctrl+Tab, opening a file or session) does. The recent order is
+  saved in `workspace.json`, so after a restart Kennel reopens on the page you used last.
 - **Ctrl+Tab page switcher** — Ctrl+Tab / Ctrl+Shift+Tab (the Ctrl key on every platform,
   including macOS) replaces Alt+Left/Right. It pops up a list of every open terminal, session
   and file, most recently used first; keep Ctrl held and press Tab / Shift+Tab to move through
-  it, and release Ctrl to switch. Escape cancels.
+  it, and release Ctrl to switch. Escape cancels. On macOS, which claims Ctrl+Tab for moving
+  the keyboard focus, it is a menu key equivalent (**Search → Select Next Page**) and the popup
+  registers hot keys while it is open.
 
 ### A better built-in editor
 
