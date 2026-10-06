@@ -14,7 +14,7 @@ running between tasks, and jump between conversations without juggling terminal 
 back exactly where it left off, using the agent's native resume flag** (e.g., Claude's
 `--continue` or Kiro's `--resume`).
 
-![Version](https://img.shields.io/badge/version-1.3.0-blue)
+![Version](https://img.shields.io/badge/version-1.4.0-blue)
 ![License](https://img.shields.io/badge/license-BSD--3--Clause-green)
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-informational)
 
@@ -24,8 +24,8 @@ back exactly where it left off, using the agent's native resume flag** (e.g., Cl
 
 | Platform | Download | Notes |
 |---|---|---|
-| **Windows 11** | [kennel-1.3.0-amd64-installer.exe](https://github.com/eranif/kennel/releases/download/1.3.0/kennel-1.3.0-amd64-installer.exe) | Installer for Windows 11 and later |
-| **macOS ARM** | [kennel-macOS_26.5.2_arm64.zip](https://github.com/eranif/kennel/releases/download/1.3.0/kennel-macOS_26.5.2_arm64.zip) | Signed + notarized app bundle for Apple Silicon |
+| **Windows 11** | [kennel-1.4.0-amd64-installer.exe](https://github.com/eranif/kennel/releases/download/1.4.0/kennel-1.4.0-amd64-installer.exe) | Installer for Windows 11 and later |
+| **macOS ARM** | [kennel-macOS_26.5.2_arm64.zip](https://github.com/eranif/kennel/releases/download/1.4.0/kennel-macOS_26.5.2_arm64.zip) | Signed + notarized app bundle for Apple Silicon |
 
 See [Releases](https://github.com/eranif/kennel/releases) for other platforms and versions.
 
@@ -53,28 +53,30 @@ you close a window. Kennel fixes that.
 
 ---
 
-## What's New in 1.3.0
+## What's New in 1.4.0
 
-Version 1.3.0 reworks session navigation around a single tree and adds a full
-scheduled-jobs system:
+Version 1.4.0 makes terminal file links useful and adds more scheduling options:
 
-- **Single Session Tree** — the left pane is now one Groups → Sessions tree with a
-  single detail pane, replacing the old per-group tabs
-- **Scheduled Jobs** — run a shell command or agent prompt on a fixed hourly interval,
-  managed from **Jobs → Manage Jobs...**; jobs can be enabled/disabled and run on demand
-- **Job Run History** — every job run is logged to `~/.kennel/logs/jobs.log`, browsable
-  and filterable from **Jobs → View Job Log...**
-- **Duplicate Session** — clone a session's agent, group, and working directory into a
-  new one via the right-click menu
-- **Multiple Instances** — the new `-d <dir>` flag lets you run several Kennel instances
-  side by side, each with its own data directory
-- **Global Session Cycling** — Alt+Arrow now cycles through *all* open sessions instead
-  of navigating groups first
-- Numerous stability fixes, including a Windows crash when collapsing tree groups and
-  crash-prone group deletion on macOS
+- **Open Files in Kennel** — Ctrl+Click a file path in a terminal to open it in a built-in
+  editor page, listed under a new **Files** container in the session tree. Edit and save
+  with Ctrl+S (Cmd+S on macOS)
+- **Remote Files over SFTP** — in a remote (SSH) session, the same click downloads the file
+  in the background and opens it for editing; saving uploads it back through a temporary
+  file and an atomic rename that preserves permissions
+- **Ctrl+Tab Page Switcher** — Ctrl+Tab / Ctrl+Shift+Tab pops up a list of every open
+  terminal, session and file (most recently used first); release Ctrl to switch. It
+  replaces Alt+Arrow cycling and uses the Ctrl key on macOS too
+- **A Better Editor** — line numbers and syntax highlighting for CMake, bash, Markdown,
+  Java, XML, Ruby, TypeScript, JavaScript, Python and Makefile, on top of C/C++ and JSON
+- **Daily Scheduled Jobs** — run a job every day at a wall-clock time, not just every N
+  hours, and see each job's next run time in the redesigned **Manage Jobs** dialog
+- **Unique Names per Group** — two groups can now hold sessions with the same name
+- Stability fixes, including a macOS crash when closing a session
 
-See [Release Notes](release-notes/RELEASE_NOTES_1.3.0.md) for the complete changelog (previous:
-[1.2.0](release-notes/RELEASE_NOTES_1.2.0.md)).
+New build dependency: OpenSSL (for libssh) — see [BUILDING.md](BUILDING.md).
+
+See [Release Notes](release-notes/RELEASE_NOTES_1_4.md) for the complete changelog (previous:
+[1.3.0](release-notes/RELEASE_NOTES_1.3.0.md)).
 
 ---
 
@@ -248,11 +250,13 @@ Click **Finish** and the new agent appears immediately in the toolbar and the
 | Create New Agent | `Ctrl`/`Cmd` + `N` |
 | Restart Current Session | `F5` |
 | Rename Session | `F2` |
-| Select Next Session (any group) | `Alt` + `→` |
-| Select Previous Session (any group) | `Alt` + `←` |
+| Switch to Next Page (session or file) | `Ctrl` + `Tab` |
+| Switch to Previous Page | `Ctrl` + `Shift` + `Tab` |
+| Save the open file | `Ctrl`/`Cmd` + `S` |
 
-Session cycling moves through every open session in order, regardless of which group
-it belongs to.
+The page switcher lists every open session and file, most recently used first. Keep
+`Ctrl` held and press `Tab` / `Shift`+`Tab` to move through the list, then release
+`Ctrl` to switch (`Esc` cancels). It is the `Ctrl` key on macOS as well, not `Cmd`.
 
 ---
 
