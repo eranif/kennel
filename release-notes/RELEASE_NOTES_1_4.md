@@ -3,25 +3,37 @@
 *Covers changes since tag `1.3.0`.*
 
 Kennel 1.4.0 makes the terminal's file links useful: Ctrl+Click on a file path opens it in
-the built-in editor, including files that live on a remote host. Scheduled jobs gain a
+an editor page inside Kennel, including files that live on a remote host, which can be edited
+and saved back over SFTP. Scheduled jobs gain a
 "daily at a given time" mode, and a large internal cleanup of how workspaces and sessions are
 tracked fixes several crashes and naming limitations.
 
 ## Major Improvements
 
-### Open files straight from the terminal
+### Open and edit files straight from the terminal
 
-- **Local files** — Ctrl+Click on a file path printed in a terminal now opens text files in
-  Kennel's built-in editor (with syntax highlighting and Save / Ctrl+S). Binary or very large
-  files (over 16 MB) still open in the OS default application.
+Ctrl+Click on a file path printed in a terminal opens the file in Kennel itself. Files are
+listed under a new **Files** container in the session tree (like **Terminals**), and each one
+opens as an editor page in the main view instead of a modal dialog.
+
+- **Local files** — text files open in the built-in editor with syntax highlighting. Edit and
+  save with Ctrl+S (Cmd+S on macOS). Binary or very large files (over 16 MB) still open in the
+  OS default application.
 - **Relative paths now work** — paths are resolved against the session's launch directory
   (falling back to your home directory) instead of Kennel's own process directory, and a
   leading `~/` is expanded. Previously, most paths printed by commands such as `ls`,
   `git status` or compiler output failed to open.
-- **Remote files over SFTP** — in a remote (SSH) session, Ctrl+Click on a path now downloads
-  the file over SFTP and shows it in a read-only viewer, with syntax highlighting chosen by file
-  extension. The download runs on a background thread so the UI never freezes. Binary and
-  oversized files are reported with a message rather than displayed.
+- **Remote files over SFTP** — in a remote (SSH) session, Ctrl+Click on a path downloads the
+  file in the background and opens it for editing. Ctrl+S uploads it back in the background,
+  with a "Saving..." indicator, so the UI never freezes. Saves go to a temporary file that is
+  renamed over the original, keeping the file's permissions, so a failed save never leaves a
+  half-written file. A file that is not valid UTF-8 opens read-only, since saving it would
+  corrupt it. Binary and oversized files are reported with a message instead of being shown.
+- **One page per file** — clicking a file that is already open selects its page. Closing a
+  file with unsaved changes asks whether to save. The Files container has a **Close All Files**
+  menu entry, and each file has a **Close** entry.
+- **Navigation and appearance** — Alt+Arrow session cycling includes file pages, and theme and
+  font changes apply to them too.
 
 ### Daily scheduled jobs
 
@@ -86,6 +98,9 @@ The Manage Jobs dialog now uses a multi-column list showing each job's name, typ
 - Remote file opening requires key-based SSH login (ssh-agent, or an unencrypted default key
   in `~/.ssh`). A host not yet in `known_hosts` is trusted and recorded on first connect; a
   changed host key is refused.
+- Remote saves only update files that already exist, and a server without OpenSSH's
+  `posix-rename` extension will refuse the final rename (the original is left untouched).
+- Quitting Kennel does not yet warn about unsaved edits in open files.
 - Remote relative paths are resolved against the session's working directory, then
   `$HOME/.kennel/sessions`, then `$HOME`, since the remote shell's current directory isn't known.
 - The macOS and Linux builds with libssh have not yet been verified.
