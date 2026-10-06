@@ -144,9 +144,10 @@ public:
 
   void SelectSession(const wxString &sessionName);
 
-  // Cycles to the next/previous page (session or file) across all groups, in
-  // tree order.
-  void SelectSession(bool forward);
+  // Shows the Ctrl+Tab page switcher (every open session and file, most
+  // recently used first) and activates the page chosen when Ctrl is released.
+  // If Ctrl is already up, activates the next/previous page directly.
+  void SwitchPage(bool forward);
 
   size_t SessionCount() const;
   size_t GroupCount() const;
@@ -240,6 +241,7 @@ private:
   void AddFilePage(FilePage *page);
   // Makes `page` the one visible page and selects its leaf.
   void SelectFilePage(FilePage *page);
+  void TouchPage(wxWindow *page);
   SessionGroup *GetSessionGroup(const wxString &name) const;
 
   // Name-based tree lookups. The tree is the only source of truth for group
@@ -292,6 +294,10 @@ private:
 
   // Keys (see FileEvent::MakeKey) of remote files currently being fetched.
   std::set<wxString> m_fetchingRemote;
+
+  // Pages in order of activation, most recent last. May hold pages that have
+  // since been closed; SwitchPage() prunes it against the live tree.
+  std::vector<wxWindow *> m_pageMru;
 
   std::array<wxBitmapBundle, kSpinnerFrameCount> m_spinnerFrames;
   int m_pendingIdle{0};

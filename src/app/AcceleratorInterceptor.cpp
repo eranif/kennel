@@ -4,33 +4,27 @@
 #include "wx/xrc/xmlres.h"
 
 AcceleratorInterceptor::AcceleratorInterceptor(wxWindow *win) : m_ctrl{win} {
-#if defined(__WXMSW__) || defined(__WXGTK__)
-  // On Windows / GTK, we need to place another hook for wxEVT_CHAR_HOOK
-  // so we can handle keyboard shortcuts.
+  // On Windows / GTK we need a wxEVT_CHAR_HOOK to handle the keyboard shortcuts
+  // below; on macOS only the page switcher needs it (the rest are menu
+  // accelerators).
   m_ctrl->Bind(wxEVT_CHAR_HOOK, &AcceleratorInterceptor::OnCharHook, this);
-#endif
 }
 
 AcceleratorInterceptor::~AcceleratorInterceptor() {}
 
 void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
-  if ((keyEvent.GetKeyCode() == WXK_LEFT ||
-       keyEvent.GetKeyCode() == WXK_RIGHT) &&
-      (keyEvent.GetModifiers() == wxMOD_ALT)) {
-    switch (keyEvent.GetKeyCode()) {
-    case WXK_LEFT: {
-      wxCommandEvent evtLeft{wxEVT_MENU, wxID_BACKWARD};
-      GetMainFrame()->GetEventHandler()->AddPendingEvent(evtLeft);
-    } break;
-    case WXK_RIGHT: {
-      wxCommandEvent evtRight{wxEVT_MENU, wxID_FORWARD};
-      GetMainFrame()->GetEventHandler()->AddPendingEvent(evtRight);
-    } break;
-    default:
-      break;
-    }
+  // Ctrl+Tab / Ctrl+Shift+Tab opens the page switcher. This is the physical
+  // Ctrl key on every platform, not Cmd on macOS.
+  if (keyEvent.GetKeyCode() == WXK_TAB &&
+      (keyEvent.GetModifiers() & ~wxMOD_SHIFT) == wxMOD_RAW_CONTROL) {
+    wxCommandEvent evtSwitch{wxEVT_MENU, keyEvent.ShiftDown() ? wxID_BACKWARD
+                                                              : wxID_FORWARD};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtSwitch);
     return;
-  } else if (keyEvent.GetKeyCode() == WXK_F2) {
+  }
+
+#if defined(__WXMSW__) || defined(__WXGTK__)
+  if (keyEvent.GetKeyCode() == WXK_F2) {
     // Rename
     wxCommandEvent evtRename{wxEVT_MENU, XRCID("rename-selection")};
     wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(evtRename);
@@ -59,5 +53,6 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(evtStartAgent);
     return;
   }
+#endif
   keyEvent.Skip();
 }

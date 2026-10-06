@@ -64,7 +64,7 @@ private:
   // as long as the thread runs: the destructor joins it.
   std::thread m_saveThread;
   Editor *m_editor{nullptr};
-  // Lets Alt+Left/Right (and the other global shortcuts) work while the
+  // Lets Ctrl+Tab (and the other global shortcuts) work while the
   // editor has focus.
   std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor;
 };

@@ -6,6 +6,7 @@
 #include "ThemeManager.h"
 #include "app/AssetBootstrap.h"
 #include "app/FilePage.hpp"
+#include "app/PageSwitcherDlg.hpp"
 #include "app/SessionGroup.h"
 #include "app/SessionPage.hpp"
 #include "core/AdapterRegistry.h"
@@ -28,6 +29,7 @@
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
 #include <wx/textdlg.h>
+#include <wx/utils.h>
 #include <wx/xrc/xmlres.h>
 
 namespace {
@@ -373,6 +375,13 @@ void MainView::SelectFilePage(FilePage *page) {
   }
   page->CallAfter(&FilePage::FocusEditor);
   wxTheApp->GetTopWindow()->SetLabel(page->GetPath());
+  TouchPage(page);
+}
+
+void MainView::TouchPage(wxWindow *page) {
+  m_pageMru.erase(std::remove(m_pageMru.begin(), m_pageMru.end(), page),
+                  m_pageMru.end());
+  m_pageMru.push_back(page);
 }
 
 void MainView::OpenLocalFile(const wxString &path) {
@@ -601,6 +610,7 @@ void MainView::SelectSessionPage(SessionPage *page) {
   group->SetLastActive(session.name);
   page->CallAfter(&SessionPage::SetFocus);
   page->ApplyTitle();
+  TouchPage(page);
 }
 
 void MainView::RestoreActiveSessionSelection() {
@@ -1514,41 +1524,85 @@ size_t MainView::GroupCount() const {
 
 size_t MainView::SessionCount() const { return GetAllSessions().size(); }
 
-void MainView::SelectSession(bool forward) {
-  // Every page in tree order: sessions and files alike.
-  std::vector<wxWindow *> pages;
+void MainView::SwitchPage(bool forward) {
+  // Every page in tree order, sessions and files alike.
+  struct Entry {
+    wxWindow *page;
+    PageSwitcherItem item;
+  };
+  std::vector<Entry> live;
   const wxDataViewItem root;
   const int groupCount = m_treeSessions->GetChildCount(root);
   for (int g = 0; g < groupCount; ++g) {
     auto group = m_treeSessions->GetNthChild(root, g);
+    const wxString groupName = m_treeSessions->GetItemText(group);
     const int childCount = m_treeSessions->GetChildCount(group);
     for (int i = 0; i < childCount; ++i) {
       auto child = m_treeSessions->GetNthChild(group, i);
+      wxWindow *page = nullptr;
       if (auto *sessionData = GetSessionItemData(child)) {
-        pages.push_back(sessionData->page);
+        page = sessionData->page;
       } else if (auto *fileData = GetFileItemData(child)) {
-        pages.push_back(fileData->page);
+        page = fileData->page;
+      }
+      if (page) {
+        live.push_back(
+            {page,
+             {m_treeSessions->GetItemText(child) + "  -  " + groupName,
+              m_treeSessions->GetItemIcon(child)}});
       }
     }
   }
-  if (pages.size() <= 1) {
+  if (live.size() <= 1) {
     return;
   }
 
-  wxWindow *current = m_sessionsBook->GetCurrentPage();
-  int where = 0;
-  for (size_t i = 0; i < pages.size(); ++i) {
-    if (pages[i] == current) {
-      where = static_cast<int>(i);
-      break;
+  // Current page first, then the rest by recency, then pages never activated.
+  std::vector<Entry> ordered;
+  auto take = [&](wxWindow *page) {
+    auto it = std::find_if(live.begin(), live.end(),
+                           [page](const Entry &e) { return e.page == page; });
+    if (it != live.end()) {
+      ordered.push_back(std::move(*it));
+      live.erase(it);
     }
+  };
+  take(m_sessionsBook->GetCurrentPage());
+  for (auto it = m_pageMru.rbegin(); it != m_pageMru.rend(); ++it) {
+    take(*it);
+  }
+  for (auto &entry : live) {
+    ordered.push_back(std::move(entry));
   }
 
-  const int count = static_cast<int>(pages.size());
-  where = forward ? (where + 1) % count : (where - 1 + count) % count;
-  if (auto *session = dynamic_cast<SessionPage *>(pages[where])) {
+  m_pageMru.clear();
+  for (auto it = ordered.rbegin(); it != ordered.rend(); ++it) {
+    m_pageMru.push_back(it->page);
+  }
+
+  const int count = static_cast<int>(ordered.size());
+  int chosen = forward ? 1 : count - 1;
+  // With Ctrl already released (e.g. picked from the menu) there is nothing to
+  // hold on to, so skip the popup.
+  if (wxGetMouseState().RawControlDown()) {
+    std::vector<PageSwitcherItem> items;
+    for (const auto &entry : ordered) {
+      items.push_back(entry.item);
+    }
+    PageSwitcherDlg dlg(wxGetTopLevelParent(this), items, forward);
+    if (dlg.ShowModal() != wxID_OK) {
+      return;
+    }
+    chosen = dlg.GetSelectedIndex();
+  }
+  if (chosen < 0 || chosen >= count) {
+    return;
+  }
+
+  wxWindow *target = ordered[chosen].page;
+  if (auto *session = dynamic_cast<SessionPage *>(target)) {
     SelectSessionPage(session);
-  } else if (auto *file = dynamic_cast<FilePage *>(pages[where])) {
+  } else if (auto *file = dynamic_cast<FilePage *>(target)) {
     SelectFilePage(file);
   }
 }

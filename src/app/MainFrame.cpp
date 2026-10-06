@@ -258,10 +258,13 @@ void MainFrame::BuildMenuBar() {
 
 void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
   auto *searchMenu = new wxMenu();
-  searchMenu->Append(wxID_FORWARD, _("Select Next Session\tCtrl-RIGHT"),
-                     _("Select the next session"));
-  searchMenu->Append(wxID_BACKWARD, _("Select Previous Session\tCtrl-LEFT"),
-                     _("Select the previous session"));
+  // No accelerator text: Ctrl+Tab / Ctrl+Shift+Tab are handled by
+  // AcceleratorInterceptor (a menu accelerator would map Ctrl to Cmd on macOS
+  // and could not keep the switcher open while Ctrl is held).
+  searchMenu->Append(wxID_FORWARD, _("Select Next Page (Ctrl+Tab)"),
+                     _("Select the next session or file"));
+  searchMenu->Append(wxID_BACKWARD, _("Select Previous Page (Ctrl+Shift+Tab)"),
+                     _("Select the previous session or file"));
 
   // Session movement: cycles through every open session, regardless of
   // which group it belongs to.
@@ -466,12 +469,12 @@ void MainFrame::OnActivate(wxActivateEvent &event) { event.Skip(); }
 
 void MainFrame::OnNextSession(wxCommandEvent &e) {
   wxUnusedVar(e);
-  m_mainView->SelectSession(true);
+  m_mainView->SwitchPage(true);
 }
 
 void MainFrame::OnPrevSession(wxCommandEvent &e) {
   wxUnusedVar(e);
-  m_mainView->SelectSession(false);
+  m_mainView->SwitchPage(false);
 }
 
 void MainFrame::OnPrevSessionUI(wxUpdateUIEvent &e) {

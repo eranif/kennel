@@ -292,6 +292,7 @@ set(KENNEL_APP_SOURCES
     src/app/EditFileDlg.cpp
     src/app/FileEvent.cpp
     src/app/FilePage.cpp
+    src/app/PageSwitcherDlg.cpp
     src/app/EditAgentsDlg.cpp
     src/app/EditAgentDlg.cpp
     src/app/EditJobsDlg.cpp

@@ -32,8 +32,11 @@ opens as an editor page in the main view instead of a modal dialog.
 - **One page per file** — clicking a file that is already open selects its page. Closing a
   file with unsaved changes asks whether to save. The Files container has a **Close All Files**
   menu entry, and each file has a **Close** entry.
-- **Navigation and appearance** — Alt+Arrow session cycling includes file pages, and theme and
-  font changes apply to them too.
+- **Navigation and appearance** — theme and font changes apply to file pages too.
+- **Ctrl+Tab page switcher** — Ctrl+Tab / Ctrl+Shift+Tab (the Ctrl key on every platform,
+  including macOS) replaces Alt+Left/Right. It pops up a list of every open terminal, session
+  and file, most recently used first; keep Ctrl held and press Tab / Shift+Tab to move through
+  it, and release Ctrl to switch. Escape cancels.
 
 ### A better built-in editor
 
