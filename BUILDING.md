@@ -8,7 +8,7 @@ contributing. For what Kennel is and how to use it, see [`README.md`](README.md)
 ### Prerequisites
 
 1. Install **Homebrew** – <https://brew.sh/>
-2. Run `brew install cmake git`
+2. Run `brew install cmake git openssl@3`
 3. Download the latest Xcode from the App Store
 4. In Xcode, open **Preferences → Downloads** and install the Command Line Tools (adds `clang`/`clang++` to `/usr/bin`)
 
@@ -46,6 +46,7 @@ pacman -Sy git                                  \
            mingw-w64-clang-x86_64-llvm-openmp   \
            mingw-w64-clang-x86_64-ntldd         \
            mingw-w64-clang-x86_64-zlib          \
+           mingw-w64-clang-x86_64-openssl       \
            unzip
 ```
 

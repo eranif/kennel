@@ -33,6 +33,57 @@ set(BUILD_WXTERMINAL_DEMO
 FetchContent_MakeAvailable(wxTerminalEmulator)
 
 # ---------------------------------------------------------------------------
+# libssh (SFTP access to remote sessions' files). Built from source on every
+# platform, as a static library, from a pinned release tag. Needs OpenSSL and
+# zlib from the system (MSYS2 package / Homebrew / distro -dev package).
+# ---------------------------------------------------------------------------
+if(APPLE)
+  # Link OpenSSL statically so the app bundle has no Homebrew runtime dependency.
+  set(OPENSSL_USE_STATIC_LIBS ON)
+endif()
+find_package(OpenSSL REQUIRED)
+find_package(ZLIB REQUIRED)
+
+FetchContent_Declare(
+  libssh
+  GIT_REPOSITORY https://github.com/Jarod42/libssh-mirror.git
+  GIT_TAG libssh-0.11.5
+  GIT_SHALLOW ON)
+
+# Scope libssh's options to its own build.
+set(_KENNEL_SAVED_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+set(BUILD_SHARED_LIBS
+    OFF
+    CACHE BOOL "" FORCE)
+foreach(
+  _opt
+  WITH_EXAMPLES
+  WITH_SERVER
+  WITH_GSSAPI
+  WITH_PCAP
+  WITH_SYMBOL_VERSIONING
+  UNIT_TESTING
+  CLIENT_TESTING
+  SERVER_TESTING
+  GSSAPI_TESTING
+  WITH_BENCHMARKS
+  WITH_BLOWFISH_CIPHER
+  BUILD_STATIC_LIB)
+  set(${_opt}
+      OFF
+      CACHE BOOL "" FORCE)
+endforeach()
+set(WITH_SFTP
+    ON
+    CACHE BOOL "" FORCE)
+set(WITH_ZLIB
+    ON
+    CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(libssh)
+set(BUILD_SHARED_LIBS ${_KENNEL_SAVED_BUILD_SHARED_LIBS})
+
+# ---------------------------------------------------------------------------
 # Locate wxWidgets: use WXWIN environment variable to find the installation. If
 # WXWIN is not set, fall back to standard search paths. Automatically finds the
 # latest wxWidgets version in lib/cmake/
@@ -164,9 +215,13 @@ add_library(
   src/core/Process.cpp
   src/core/Helpers.cpp
   src/core/KennelRemote.cpp
+  src/core/SftpClient.cpp
   src/core/CrashHandler.cpp)
 
 target_include_directories(kennel_core PUBLIC src ${wxWidgets_INCLUDE_DIRS})
+# libssh is an implementation detail of SftpClient.cpp; its headers never appear
+# in kennel_core's public headers.
+target_link_libraries(kennel_core PRIVATE ssh)
 target_compile_definitions(kennel_core PUBLIC ${wxWidgets_DEFINITIONS})
 target_compile_features(kennel_core PUBLIC cxx_std_20)
 # kennel_core uses only wxBase types (wxFileName, wxString); link the wx libs so
@@ -446,7 +501,17 @@ add_custom_command(
 # ---------------------------------------------------------------------------
 if(WIN32)
   set(_INSTALLER_DIR "${CMAKE_BINARY_DIR}/installer")
-  list(APPEND SYSTEM_DLLS libc++.dll libomp.dll glew32.dll libunwind.dll)
+  # libcrypto/zlib1/winpthread are runtime dependencies of the static libssh.
+  list(
+    APPEND
+    SYSTEM_DLLS
+    libc++.dll
+    libomp.dll
+    glew32.dll
+    libunwind.dll
+    libcrypto-3-x64.dll
+    zlib1.dll
+    libwinpthread-1.dll)
 
   add_custom_command(
     TARGET kennel
