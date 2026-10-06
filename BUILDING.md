@@ -24,6 +24,8 @@ cd kennel
 
 The first build also downloads and compiles a static OpenSSL (used by libssh) into
 `.build-release/local_builds`; this takes a few minutes and is skipped on later builds.
+The same applies on Linux, where the build additionally needs `perl`, `make`, `patch`,
+`python3` and the zlib development package (e.g. `zlib1g-dev`).
 
 ### Run It
 

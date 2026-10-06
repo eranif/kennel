@@ -34,15 +34,20 @@ FetchContent_MakeAvailable(wxTerminalEmulator)
 
 # ---------------------------------------------------------------------------
 # libssh (SFTP access to remote sessions' files). Built from source on every
-# platform, as a static library, from a pinned release tag. Needs OpenSSL and
-# zlib from the system (MSYS2 package / Homebrew / distro -dev package).
+# platform, as a static library, from a pinned release tag. It needs OpenSSL
+# and zlib: OpenSSL is vendored on macOS/Linux (below) and comes from the MSYS2
+# package on Windows; zlib comes from the system (MSYS2 package / macOS SDK /
+# distro -dev package).
 # ---------------------------------------------------------------------------
-if(APPLE)
-  # macOS: vendor OpenSSL (static) so the app bundle has no Homebrew runtime
-  # dependency. eranif/openssl-cmake is fetched, then built and installed into
-  # <build>/local_builds in a separate configure-time build, so that libssh's
-  # find_package(OpenSSL) below can find it. Skipped once the libs exist.
-  set(_KENNEL_LOCAL_BUILDS "${CMAKE_BINARY_DIR}/local_builds")
+
+# macOS/Linux: vendor OpenSSL (static) so binaries carry no OpenSSL runtime
+# dependency. eranif/openssl-cmake is fetched, then built and installed into
+# <build>/local_builds in a separate configure-time build, so that libssh's
+# find_package(OpenSSL) below can find it. Skipped once the libs exist.
+# Windows keeps using the MSYS2 OpenSSL package: openssl-cmake's Windows
+# support is experimental and does not work with this toolchain.
+set(_KENNEL_LOCAL_BUILDS "${CMAKE_BINARY_DIR}/local_builds")
+if(NOT WIN32)
   if(NOT EXISTS "${_KENNEL_LOCAL_BUILDS}/lib/libssl.a"
      OR NOT EXISTS "${_KENNEL_LOCAL_BUILDS}/lib/libcrypto.a")
     FetchContent_Declare(
@@ -53,23 +58,25 @@ if(APPLE)
       SOURCE_SUBDIR kennel-no-add-subdirectory)
     FetchContent_MakeAvailable(openssl_cmake)
 
+    set(_OPENSSL_ENV "")
+    if(APPLE AND CMAKE_OSX_DEPLOYMENT_TARGET)
+      set(_OPENSSL_ENV MACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET})
+    endif()
+
     set(_OPENSSL_BUILD_DIR "${CMAKE_BINARY_DIR}/openssl-cmake-build")
     file(MAKE_DIRECTORY "${_OPENSSL_BUILD_DIR}")
     message(STATUS "Building OpenSSL (static); this takes a few minutes...")
     execute_process(
       COMMAND
-        ${CMAKE_COMMAND} -E env
-        MACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET} ${CMAKE_COMMAND}
+        ${CMAKE_COMMAND} -E env ${_OPENSSL_ENV} ${CMAKE_COMMAND}
         "${openssl_cmake_SOURCE_DIR}" -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX=${_KENNEL_LOCAL_BUILDS} -DBUILD_OPENSSL=ON
         -DOPENSSL_BUILD_VERSION=3.3.4 -DOPENSSL_USE_STATIC_LIBS=ON
       WORKING_DIRECTORY "${_OPENSSL_BUILD_DIR}"
       COMMAND_ERROR_IS_FATAL ANY)
     execute_process(
-      COMMAND
-        ${CMAKE_COMMAND} -E env
-        MACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET} ${CMAKE_COMMAND}
-        --build . --parallel --target install
+      COMMAND ${CMAKE_COMMAND} -E env ${_OPENSSL_ENV} ${CMAKE_COMMAND} --build .
+              --parallel --target install
       WORKING_DIRECTORY "${_OPENSSL_BUILD_DIR}"
       COMMAND_ERROR_IS_FATAL ANY)
   endif()
