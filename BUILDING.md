@@ -8,7 +8,7 @@ contributing. For what Kennel is and how to use it, see [`README.md`](README.md)
 ### Prerequisites
 
 1. Install **Homebrew** – <https://brew.sh/>
-2. Run `brew install cmake git openssl@3`
+2. Run `brew install cmake git`
 3. Download the latest Xcode from the App Store
 4. In Xcode, open **Preferences → Downloads** and install the Command Line Tools (adds `clang`/`clang++` to `/usr/bin`)
 
@@ -21,6 +21,9 @@ git clone https://github.com/eranif/kennel.git
 cd kennel
 ./build.sh
 ```
+
+The first build also downloads and compiles a static OpenSSL (used by libssh) into
+`.build-release/local_builds`; this takes a few minutes and is skipped on later builds.
 
 ### Run It
 

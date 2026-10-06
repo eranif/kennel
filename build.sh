@@ -168,7 +168,6 @@ function build_kennel_macOS() {
     INFO "Configuring Kennel"
     cmake ${ROOT_DIR} -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOS_DEPLOYMENT_TARGET} \
-      -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
       -DwxWidgets_CONFIG_EXECUTABLE=${wx_config}
   else
     INFO "Kennel already configured; skipping cmake"

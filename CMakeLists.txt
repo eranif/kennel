@@ -38,8 +38,48 @@ FetchContent_MakeAvailable(wxTerminalEmulator)
 # zlib from the system (MSYS2 package / Homebrew / distro -dev package).
 # ---------------------------------------------------------------------------
 if(APPLE)
-  # Link OpenSSL statically so the app bundle has no Homebrew runtime dependency.
-  set(OPENSSL_USE_STATIC_LIBS ON)
+  # macOS: vendor OpenSSL (static) so the app bundle has no Homebrew runtime
+  # dependency. eranif/openssl-cmake is fetched, then built and installed into
+  # <build>/local_builds in a separate configure-time build, so that libssh's
+  # find_package(OpenSSL) below can find it. Skipped once the libs exist.
+  set(_KENNEL_LOCAL_BUILDS "${CMAKE_BINARY_DIR}/local_builds")
+  if(NOT EXISTS "${_KENNEL_LOCAL_BUILDS}/lib/libssl.a"
+     OR NOT EXISTS "${_KENNEL_LOCAL_BUILDS}/lib/libcrypto.a")
+    FetchContent_Declare(
+      openssl_cmake
+      GIT_REPOSITORY https://github.com/eranif/openssl-cmake.git
+      GIT_TAG 7042229f977ca801983116593b2bbd73ae7f2657
+      # Only fetch the sources; it is built below, not added as a subproject.
+      SOURCE_SUBDIR kennel-no-add-subdirectory)
+    FetchContent_MakeAvailable(openssl_cmake)
+
+    set(_OPENSSL_BUILD_DIR "${CMAKE_BINARY_DIR}/openssl-cmake-build")
+    file(MAKE_DIRECTORY "${_OPENSSL_BUILD_DIR}")
+    message(STATUS "Building OpenSSL (static); this takes a few minutes...")
+    execute_process(
+      COMMAND
+        ${CMAKE_COMMAND} -E env
+        MACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET} ${CMAKE_COMMAND}
+        "${openssl_cmake_SOURCE_DIR}" -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX=${_KENNEL_LOCAL_BUILDS} -DBUILD_OPENSSL=ON
+        -DOPENSSL_BUILD_VERSION=3.3.4 -DOPENSSL_USE_STATIC_LIBS=ON
+      WORKING_DIRECTORY "${_OPENSSL_BUILD_DIR}"
+      COMMAND_ERROR_IS_FATAL ANY)
+    execute_process(
+      COMMAND
+        ${CMAKE_COMMAND} -E env
+        MACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET} ${CMAKE_COMMAND}
+        --build . --parallel --target install
+      WORKING_DIRECTORY "${_OPENSSL_BUILD_DIR}"
+      COMMAND_ERROR_IS_FATAL ANY)
+  endif()
+
+  set(OPENSSL_ROOT_DIR
+      "${_KENNEL_LOCAL_BUILDS}"
+      CACHE PATH "" FORCE)
+  set(OPENSSL_USE_STATIC_LIBS
+      ON
+      CACHE BOOL "" FORCE)
 endif()
 find_package(OpenSSL REQUIRED)
 find_package(ZLIB REQUIRED)
