@@ -35,19 +35,21 @@ FetchContent_MakeAvailable(wxTerminalEmulator)
 # ---------------------------------------------------------------------------
 # libssh (SFTP access to remote sessions' files). Built from source on every
 # platform, as a static library, from a pinned release tag. It needs OpenSSL
-# and zlib: OpenSSL is vendored on macOS/Linux (below) and comes from the MSYS2
-# package on Windows; zlib comes from the system (MSYS2 package / macOS SDK /
-# distro -dev package).
+# and zlib: OpenSSL is vendored on macOS (below) and comes from the system on
+# Windows (MSYS2 package) and Linux (-dev package); zlib comes from the system
+# (MSYS2 package / macOS SDK / distro -dev package).
 # ---------------------------------------------------------------------------
 
-# macOS/Linux: vendor OpenSSL (static) so binaries carry no OpenSSL runtime
+# macOS: vendor OpenSSL (static) so the app bundle has no OpenSSL runtime
 # dependency. eranif/openssl-cmake is fetched, then built and installed into
 # <build>/local_builds in a separate configure-time build, so that libssh's
 # find_package(OpenSSL) below can find it. Skipped once the libs exist.
-# Windows keeps using the MSYS2 OpenSSL package: openssl-cmake's Windows
-# support is experimental and does not work with this toolchain.
+# Windows keeps using the MSYS2 OpenSSL package (openssl-cmake's Windows
+# support does not work with this toolchain). Linux must use the system OpenSSL:
+# a second, vendored copy crashes when another library loaded into the process
+# uses the system one.
 set(_KENNEL_LOCAL_BUILDS "${CMAKE_BINARY_DIR}/local_builds")
-if(NOT WIN32)
+if(APPLE)
   if(NOT EXISTS "${_KENNEL_LOCAL_BUILDS}/lib/libssl.a"
      OR NOT EXISTS "${_KENNEL_LOCAL_BUILDS}/lib/libcrypto.a")
     FetchContent_Declare(
