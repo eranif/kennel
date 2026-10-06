@@ -58,17 +58,3 @@ wxDECLARE_EVENT(wxEVT_FILE_SAVE_STARTED, FileEvent);
 // (the file's own state) and Skip()s it, so it propagates up to wxTheApp, where
 // MainView handles the rest.
 wxDECLARE_EVENT(wxEVT_FILE_SAVE_DONE, FileEvent);
-
-// Outcome of a background SFTP read, carried by wxEVT_REMOTE_FILE_READ.
-struct RemoteReadResult {
-  bool ok{false};
-  wxString error;               // Set when !ok
-  RemoteHostDetails remoteHost; // Where it was read from...
-  wxString clickedPath; // ...and the path as it appeared in the terminal
-  wxString path;        // The resolved absolute path; set when ok
-  std::string content;  // The file's bytes; set when ok
-};
-
-// Posted to wxTheApp from a worker thread when an SFTP read finishes; the
-// payload is a RemoteReadResult. MainView handles it on the UI thread.
-wxDECLARE_EVENT(wxEVT_REMOTE_FILE_READ, wxThreadEvent);

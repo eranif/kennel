@@ -114,11 +114,9 @@ MainView::MainView(wxWindow *parent)
   Bind(wxEVT_IDLE, &MainView::OnIdleEvent, this);
   // A FilePage handles its own save events first and then Skip()s them, so
   // they propagate up to wxTheApp, where MainView does its part (activity
-  // indicator, closing after a save). The remote-read worker has no window to
-  // report to, so it posts to wxTheApp, which always outlives it.
+  // indicator, closing after a save).
   wxTheApp->Bind(wxEVT_FILE_SAVE_STARTED, &MainView::OnFileSaveStarted, this);
   wxTheApp->Bind(wxEVT_FILE_SAVE_DONE, &MainView::OnFileSaveDone, this);
-  wxTheApp->Bind(wxEVT_REMOTE_FILE_READ, &MainView::OnRemoteFileRead, this);
 
   // Renaming is only offered via the context menu / F2 (RenameItem), which
   // goes through a proper dialog with validation. Make the tree's
@@ -138,7 +136,6 @@ MainView::~MainView() {
     wxTheApp->Unbind(wxEVT_FILE_SAVE_STARTED, &MainView::OnFileSaveStarted,
                      this);
     wxTheApp->Unbind(wxEVT_FILE_SAVE_DONE, &MainView::OnFileSaveDone, this);
-    wxTheApp->Unbind(wxEVT_REMOTE_FILE_READ, &MainView::OnRemoteFileRead, this);
   }
 }
 
@@ -308,17 +305,16 @@ void MainView::OnFileSaveDone(FileEvent &e) {
 void MainView::OpenRemoteFile(const RemoteHostDetails &remoteHost,
                               const wxString &clickedPath,
                               const std::vector<wxString> &searchDirs) {
-  KLOG_INFO() << "Opening remote file: " << clickedPath;
+  KLOG_DEBUG() << "Opening remote file: " << clickedPath;
   if (!m_fetchingRemote.insert(FileEvent::MakeKey(clickedPath, remoteHost))
            .second) {
     return; // A previous click is still connecting/downloading.
   }
 
-  // The worker gets copies of the data it needs and nothing else (no window),
-  // and it never touches the UI. Its result is posted to `sink` and handled by
+  // The worker gets copies of the data it needs and never touches the UI. It
+  // hands its result back by value through CallAfter(), which runs
   // OnRemoteFileRead() on the UI thread.
-  wxEvtHandler *sink = wxTheApp; // Outlives the worker.
-  std::thread([sink, remoteHost, clickedPath, searchDirs]() {
+  std::thread([this, remoteHost, clickedPath, searchDirs]() {
     auto read = SftpClient::ReadFile(remoteHost.host, remoteHost.user,
                                      clickedPath, searchDirs);
 
@@ -332,17 +328,11 @@ void MainView::OpenRemoteFile(const RemoteHostDetails &remoteHost,
     } else {
       result.error = read.status().message();
     }
-
-    wxThreadEvent event{wxEVT_REMOTE_FILE_READ};
-    event.SetPayload(result);
-    if (sink) {
-      sink->AddPendingEvent(event); // Thread-safe: queues a copy.
-    }
+    CallAfter(&MainView::OnRemoteFileRead, result);
   }).detach();
 }
 
-void MainView::OnRemoteFileRead(wxThreadEvent &e) {
-  const auto result = e.GetPayload<RemoteReadResult>();
+void MainView::OnRemoteFileRead(const RemoteReadResult &result) {
   m_fetchingRemote.erase(
       FileEvent::MakeKey(result.clickedPath, result.remoteHost));
 

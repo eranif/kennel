@@ -46,6 +46,17 @@ public:
   SessionPage *page{nullptr};
 };
 
+// Outcome of a background SFTP read, handed from the worker thread to the UI
+// thread by value.
+struct RemoteReadResult {
+  bool ok{false};
+  wxString error;               // Set when !ok
+  RemoteHostDetails remoteHost; // Where it was read from...
+  wxString clickedPath; // ...and the path as it appeared in the terminal
+  wxString path;        // The resolved absolute path; set when ok
+  std::string content;  // The file's bytes; set when ok
+};
+
 // Client data on each file leaf under the "Files" container. Non-owning: the
 // FilePage window is owned by m_sessionsBook.
 class FileItemData : public wxClientData {
@@ -213,7 +224,7 @@ protected:
   void CloseFileByKey(const wxString &key);
   void OnFileSaveStarted(FileEvent &e);
   void OnFileSaveDone(FileEvent &e);
-  void OnRemoteFileRead(wxThreadEvent &e);
+  void OnRemoteFileRead(const RemoteReadResult &result);
   void CloseAllFiles();
 
 private:
