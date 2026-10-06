@@ -7,6 +7,7 @@
 #include "core/ClientAdapter.h"
 #include "core/Helpers.h"
 #include "core/Logger.h"
+#include "core/SftpClient.h"
 
 #include "terminal_event.h"
 #include "terminal_view.h"
@@ -15,10 +16,12 @@
 #include <wx/filename.h>
 #include <wx/frame.h>
 #include <wx/utils.h>
+#include <wx/weakref.h>
 
 #include <cstring>
 #include <map>
 #include <optional>
+#include <thread>
 #include <wx/choicdlg.h>
 #include <wx/msgdlg.h>
 
@@ -261,8 +264,8 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
   }
 
   if (m_agent && m_agent->IsRemote()) {
-    // The clicked text refers to a path on the remote host; there's no local
-    // file behind it to open.
+    // The path lives on the remote host: fetch it over SFTP.
+    OpenRemoteFile(text);
     return;
   }
 
@@ -296,6 +299,57 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
     dlg.SetLabel(fullPath);
     dlg.ShowModal();
   });
+}
+
+void SessionPage::OpenRemoteFile(const wxString &path) {
+  if (m_fetchingRemoteFile) {
+    return; // A previous click is still connecting/downloading.
+  }
+  m_fetchingRemoteFile = true;
+
+  std::vector<wxString> searchDirs;
+  if (!m_session.workingDir.empty()) {
+    searchDirs.push_back(m_session.workingDir);
+  }
+  searchDirs.push_back("$HOME/.kennel/sessions");
+
+  // Blocking network I/O stays off the UI thread. The result is delivered via
+  // the app's CallAfter, so it is safe even if this page is closed meanwhile.
+  std::thread([host = m_agent->remoteHost, user = m_agent->remoteUser, path,
+               searchDirs = std::move(searchDirs),
+               page = wxWeakRef<SessionPage>(this)]() {
+    auto result = SftpClient::ReadFile(host, user, path, searchDirs);
+    wxTheApp->CallAfter([page, path, result = std::move(result)]() {
+      if (page) {
+        page->m_fetchingRemoteFile = false;
+      }
+      if (!result.ok()) {
+        KLOG_WARN() << "Remote open failed for '" << path
+                    << "': " << result.status().message();
+        ::wxMessageBox(result.status().message(), "Kennel",
+                       wxICON_WARNING | wxOK);
+        return;
+      }
+
+      const auto &file = result.value();
+      if (file.content.find('\0') != std::string::npos) {
+        ::wxMessageBox(wxString::Format(_("%s is a binary file."), file.path),
+                       "Kennel", wxICON_INFORMATION | wxOK);
+        return;
+      }
+      wxString text = wxString::FromUTF8(file.content);
+      if (text.empty() && !file.content.empty()) {
+        text = wxString::From8BitData(file.content.data(), file.content.size());
+      }
+
+      ReadOnlyFileViewer dlg{
+          wxTheApp->GetTopWindow(),
+          ThemeManager::Get().ActiveTheme().value_or(wxTerminalTheme{})};
+      dlg.LoadText(text, EditFileDlg::LangFromPath(file.path));
+      dlg.SetLabel(file.path);
+      dlg.ShowModal();
+    });
+  }).detach();
 }
 
 void SessionPage::ApplyTheme(const wxTerminalTheme &theme) {

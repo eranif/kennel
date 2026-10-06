@@ -9,6 +9,9 @@ public:
   EditFileDlg(wxWindow *parent, const wxTerminalTheme &theme);
   ~EditFileDlg() override;
 
+  // Picks the syntax-highlighting language from a file name's extension.
+  static EditorLang LangFromPath(const wxString &filepath);
+
   void LoadFile(const wxString &filepath);
   void LoadText(const wxString &text, EditorLang lang);
   void SetEditable(bool editable);

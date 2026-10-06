@@ -64,17 +64,20 @@ void EditFileDlg::SetEditable(bool editable) {
   }
 }
 
-void EditFileDlg::LoadFile(const wxString &filepath) {
-  m_editor->LoadFile(filepath);
+EditorLang EditFileDlg::LangFromPath(const wxString &filepath) {
   wxString ext = filepath.AfterLast('.').Lower();
-  EditorLang lang{EditorLang::kText};
   static std::unordered_map<wxString, EditorLang> langMap{
       {"cpp", EditorLang::kCxx}, {"c", EditorLang::kCxx},
       {"cc", EditorLang::kCxx},  {"cxx", EditorLang::kCxx},
       {"h", EditorLang::kCxx},   {"hpp", EditorLang::kCxx},
       {"hxx", EditorLang::kCxx}, {"json", EditorLang::kJson},
   };
-  m_editor->SetEditorLanguage(find_or(langMap, ext, EditorLang::kText));
+  return find_or(langMap, ext, EditorLang::kText);
+}
+
+void EditFileDlg::LoadFile(const wxString &filepath) {
+  m_editor->LoadFile(filepath);
+  m_editor->SetEditorLanguage(LangFromPath(filepath));
 }
 
 void EditFileDlg::LoadText(const wxString &text, EditorLang lang) {
