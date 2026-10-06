@@ -15,7 +15,6 @@
 #include <wx/artprov.h>
 #include <wx/sizer.h>
 #include <wx/splitter.h>
-#include <wx/dataview.h>
 #include <wx/simplebook.h>
 #include <wx/dialog.h>
 #include <wx/iconbndl.h>
@@ -28,6 +27,7 @@
 #include <wx/checkbox.h>
 #include <wx/button.h>
 #include <wx/toolbar.h>
+#include <wx/dataview.h>
 #include <wx/notebook.h>
 #include <wx/imaglist.h>
 #include <wx/statbmp.h>
@@ -56,7 +56,7 @@
 #undef WXC_FROM_DIP
 #endif
 #if wxVERSION_NUMBER >= 3100
-#define WXC_FROM_DIP(x) wxWindow::FromDIP(x, NULL)
+#define WXC_FROM_DIP(x) wxWindow::FromDIP(x, nullptr)
 #else
 #define WXC_FROM_DIP(x) x
 #endif
@@ -79,16 +79,17 @@ protected:
   wxSplitterWindow *m_splitterMain;
   wxPanel *m_splitterPageLeft;
   wxBoxSizer *m_leftPaneMainSizer;
-  wxDataViewTreeCtrl *m_treeSessions;
+  wxSplitterWindow *m_splitterLeftVertical;
+  wxPanel *m_splitterPageLeftTop;
+  wxPanel *m_splitterPageLeftBottom;
   wxPanel *m_splitterPageRight;
   wxSimplebook *m_sessionsBook;
 
 protected:
-  virtual void OnSelectionChanged(wxDataViewEvent &event) { event.Skip(); }
-  virtual void OnContextMenu(wxDataViewEvent &event) { event.Skip(); }
-
 public:
-  wxDataViewTreeCtrl *GetTreeSessions() { return m_treeSessions; }
+  wxPanel *GetSplitterPageLeftTop() { return m_splitterPageLeftTop; }
+  wxPanel *GetSplitterPageLeftBottom() { return m_splitterPageLeftBottom; }
+  wxSplitterWindow *GetSplitterLeftVertical() { return m_splitterLeftVertical; }
   wxPanel *GetSplitterPageLeft() { return m_splitterPageLeft; }
   wxSimplebook *GetSessionsBook() { return m_sessionsBook; }
   wxPanel *GetSplitterPageRight() { return m_splitterPageRight; }
@@ -570,7 +571,7 @@ public:
   wxWizardPageSimple *GetFirstPage() const {
     if (!m_pages.empty())
       return m_pages.at(0);
-    return NULL;
+    return nullptr;
   }
   virtual ~NewAgentWizardBase();
 };

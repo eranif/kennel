@@ -3,6 +3,7 @@
 #include "UI.hpp"
 #include "app/AcceleratorInterceptor.h"
 #include "app/FileEvent.hpp"
+#include "app/PageViewEvent.hpp"
 #include "app/SessionGroup.h"
 #include "app/ThemeManager.h"
 #include "core/AppPaths.h"
@@ -14,6 +15,7 @@
 #include <wx/dataview.h>
 #include <wx/timer.h>
 
+#include <array>
 #include <map>
 #include <memory>
 #include <set>
@@ -21,30 +23,14 @@
 
 class SessionPage;
 class FilePage;
+class TreeView;
+class FlatView;
 
 class AdapterRegistry;
 class WorkspaceStore;
 class UiPrefsStore;
 
 static constexpr int kSpinnerFrameCount = 8;
-
-// Client data on each group's container tree item. Owns the SessionGroup:
-// deleting the tree item (via wxDataViewTreeStore) deletes this, which
-// deletes the group.
-class GroupItemData : public wxClientData {
-public:
-  explicit GroupItemData(std::unique_ptr<SessionGroup> g)
-      : group{std::move(g)} {}
-  std::unique_ptr<SessionGroup> group;
-};
-
-// Client data on each session leaf tree item. Non-owning: the SessionPage
-// window is owned by m_sessionsBook.
-class SessionItemData : public wxClientData {
-public:
-  explicit SessionItemData(SessionPage *p) : page{p} {}
-  SessionPage *page{nullptr};
-};
 
 // Outcome of a background SFTP read, handed from the worker thread to the UI
 // thread by value.
@@ -57,50 +43,11 @@ struct RemoteReadResult {
   std::string content;  // The file's bytes; set when ok
 };
 
-// Client data on each file leaf under the "Files" container. Non-owning: the
-// FilePage window is owned by m_sessionsBook.
-class FileItemData : public wxClientData {
-public:
-  explicit FileItemData(FilePage *p) : page{p} {}
-  FilePage *page{nullptr};
-};
-
-class SpinnerRenderer : public wxEvtHandler {
-public:
-  SpinnerRenderer(wxDataViewTreeCtrl *treeCtrl,
-                  const std::array<wxBitmapBundle, kSpinnerFrameCount> &frames,
-                  const wxDataViewItem &item)
-      : m_treeCtrl{treeCtrl}, m_item{item}, m_frames{frames} {
-    m_timer.SetOwner(this);
-    m_timer.Start(100);
-    Bind(wxEVT_TIMER, &SpinnerRenderer::OnTimer, this, m_timer.GetId());
-  }
-
-  ~SpinnerRenderer() override {
-    m_timer.Stop();
-    Unbind(wxEVT_TIMER, &SpinnerRenderer::OnTimer, this, m_timer.GetId());
-    if (m_item.IsOk()) {
-      m_treeCtrl->SetItemIcon(m_item, wxBitmapBundle{});
-    }
-  }
-
-  void OnTimer(wxTimerEvent &event) {
-    if (!m_item.IsOk() || !m_treeCtrl->GetItemData(m_item)) {
-      m_timer.Stop();
-      return;
-    }
-    m_treeCtrl->SetItemIcon(m_item, m_frames[m_frameIdx]);
-    m_frameIdx = (m_frameIdx + 1) % kSpinnerFrameCount;
-  }
-
-private:
-  wxDataViewTreeCtrl *m_treeCtrl{nullptr};
-  wxDataViewItem m_item;
-  wxTimer m_timer;
-  int m_frameIdx{0};
-  const std::array<wxBitmapBundle, kSpinnerFrameCount> &m_frames;
-};
-
+// The left side shows the open pages twice: as a Groups -> Sessions tree
+// (TreeView, the source of truth for what exists) and as a flat list sorted by
+// recency (FlatView, a projection of the tree). The right side shows the
+// selected page. MainView owns the pages (m_sessionsBook), keeps the two views
+// in sync and acts on what the user does in them.
 class MainView : public MainViewBase {
 public:
   explicit MainView(wxWindow *parent);
@@ -142,14 +89,14 @@ public:
   bool CanRefreshCurrent() const;
   void RefreshCurrentSelection();
 
-  void SelectSession(const wxString &sessionName);
-
   // Shows the Ctrl+Tab page switcher (every open session and file, most
   // recently used first) and activates the page chosen when Ctrl is released.
   // If Ctrl is already up, activates the next/previous page directly.
   void SwitchPage(bool forward);
 
   size_t SessionCount() const;
+  // Sessions and files.
+  size_t PageCount() const;
   size_t GroupCount() const;
 
   // Prompts for confirmation, then closes every session in every group.
@@ -185,20 +132,63 @@ public:
   void ShowRemoteFile(const RemoteHostDetails &remoteHost, const wxString &path,
                       const wxString &text, bool editable);
 
-protected:
-  void DoSelectGroup(const wxDataViewItem &item);
-  void DoSelectGroup(const wxString &name);
-  void OnContextMenu(wxDataViewEvent &event) override;
-  void OnSelectionChanged(wxDataViewEvent &event) override;
-  void OnSessionIdle(wxCommandEvent &e);
-  void OnSessionActive(wxCommandEvent &e);
-  void OnSessionExited(wxCommandEvent &e);
-  void OnIdleEvent(wxIdleEvent &e);
+private:
+  void LoadBitmaps();
+
+  // ---- The two views ----------------------------------------------------
+  void OnPageSelected(PageViewEvent &event);
+  void OnPageMenu(PageViewEvent &event);
+  // Brings the flat list up to date. Coalesced and deferred: it is called
+  // from all over, often from inside a view's own event handler.
+  void RefreshFlatView();
+  void DoRefreshFlatView();
+  // Persists the workspace shortly (coalesced); for changes that only touch
+  // the order of the recent list.
+  void SyncWorkspaceSoon();
+  // Rebuilds a full Workspace snapshot from the current UI state (tree +
+  // recent list) and writes it as the complete contents of workspace.json. No
+  // caller ever incrementally patches the file — every mutation ends here.
+  void SyncWorkspaceToDisk();
+
+  // ---- Context menus (MainViewMenus.cpp) --------------------------------
+  // `on` is the view to pop the menu up on.
+  void ShowGroupMenu(const wxString &groupName, wxWindow *on);
+  void ShowPageMenu(wxWindow *page, wxWindow *on);
+  void ShowSessionMenu(SessionPage *page, wxWindow *on);
+  void ShowFileMenu(FilePage *page, wxWindow *on);
+  void ShowBackgroundMenu(wxWindow *on);
+
+  // ---- Showing pages ----------------------------------------------------
+  // Makes `page` (a SessionPage or a FilePage) the one visible page. It also
+  // becomes the most recently used one, unless `updateRecent` is false (what
+  // choosing a page in the flat list does, so that list doesn't reshuffle
+  // under the user's hand).
+  void ShowPage(wxWindow *page, bool updateRecent = true);
+  void SelectSessionPage(SessionPage *page, bool updateRecent = true);
+  void SelectFilePage(FilePage *page, bool updateRecent = true);
+  // The part of showing a page that sessions and files have in common: the
+  // book, both views and the recent list.
+  void ActivatePage(wxWindow *page, bool updateRecent);
+  // Selects the group node and shows the group's default page, if any.
+  void ActivateGroup(const wxString &groupName);
+  // Shows some page after the active one was removed; see
+  // TreeView::GetFallbackPage().
+  void SelectFallbackPage(const wxString &preferredGroup);
+
+  // ---- Adding / removing pages ------------------------------------------
+  // Attaches an already-constructed SessionPage to the book and the views.
+  SessionPage *AddSession(SessionPage *page);
+  // Creates and adds a terminal/agent page for an existing Session.
+  SessionPage *AddSessionPage(const Session &session, bool resume);
+  // Adds `page` to the book and the views.
+  void AddFilePage(FilePage *page);
+  // Removes `page` from the views and destroys it. If it was the active page,
+  // another one is shown afterwards.
+  void RemovePage(wxWindow *page);
+  void RemoveEmptyGroups();
+
   void DeleteGroupByName(const wxString &name);
   void DeleteAll();
-  void DoGroupMenu(const wxDataViewItem &item);
-  void DoSessionMenu(const wxDataViewItem &item);
-  void DoFileMenu(const wxDataViewItem &item);
   void RenameGroup(SessionGroup *group);
   void RenameSession(SessionPage *page);
   // Opens the Start Agent dialog pre-filled with `page`'s agent and group,
@@ -206,82 +196,40 @@ protected:
   // independent session cloned from it.
   void DuplicateSession(SessionPage *page);
   void RefreshGroup(SessionGroup *group);
-  void CloseSession(SessionGroup *group, const wxString &sessionName);
-  // Re-resolves `sessionName` to its group and closes it. Callers reached
-  // from a menu/native callback must go through this via CallAfter rather
-  // than calling CloseSession directly — deleting the session's tree leaf
-  // (and possibly its now-empty parent group) synchronously from inside such
-  // a callback can crash the native macOS outline view mid-redraw.
-  void CloseSessionByName(const wxString &sessionName);
-  // Shows some session after the active one is removed: prefers a
-  // sibling in `preferredGroup`, else the first session in any group.
-  void SelectFallbackSession(SessionGroup *preferredGroup);
-  std::vector<SessionPage *> GetAllSessions() const;
-  std::vector<SessionGroup *> GetAllGroups() const;
-  void RemoveEmptyGroups();
-
-  // Closes `page` (offering to save unsaved changes) and removes its leaf.
-  void CloseFile(FilePage *page);
-  void CloseFileByKey(const wxString &key);
-  void OnFileSaveStarted(FileEvent &e);
-  void OnFileSaveDone(FileEvent &e);
-  void OnRemoteFileRead(const RemoteReadResult &result);
-  void CloseAllFiles();
-
-private:
-  void LoadBitmaps();
-
-  SessionGroup *EnsureGroup(const wxString &groupName);
-  GroupItemData *GetGroupItemData(const wxDataViewItem &item) const;
-  SessionItemData *GetSessionItemData(const wxDataViewItem &item) const;
-  FileItemData *GetFileItemData(const wxDataViewItem &item) const;
-  wxDataViewItem FindFileLeaf(const wxString &key) const;
-  std::vector<FilePage *> GetFilePages() const;
-  // Adds `page` to the book and as a leaf under the "Files" container.
-  void AddFilePage(FilePage *page);
-  // Makes `page` the one visible page and selects its leaf.
-  void SelectFilePage(FilePage *page);
-  void TouchPage(wxWindow *page);
-  SessionGroup *GetSessionGroup(const wxString &name) const;
-
-  // Name-based tree lookups. The tree is the only source of truth for group
-  // and session membership, so these always walk it fresh rather than
-  // consulting any cached list.
-  wxDataViewItem FindGroupItem(const wxString &groupName) const;
-  wxDataViewItem FindLeafItem(const wxString &groupName,
-                              const wxString &sessionName) const;
-  std::vector<SessionPage *> GetGroupSessions(const wxString &groupName) const;
-
-  // Rebuilds a full Workspace snapshot from the current UI state (tree +
-  // notebook) and writes it as the complete contents of workspace.json. No
-  // caller ever incrementally patches the file — every mutation ends here.
-  void SyncWorkspaceToDisk();
-
-  // Attaches an already-constructed SessionPage to its group: adds
-  // m_sessionsBook, and a new tree leaf.
-  SessionPage *AddSession(SessionPage *page);
-
-  // Makes `page` the one visible session: selects its leaf in the tree,
-  // shows it in m_sessionsBook, and remembers it as its group's last-active.
-  void SelectSessionPage(SessionPage *page);
-
-  // Re-selects the currently active session's leaf in the tree, undoing a
-  // selection change (e.g. after a group node was clicked to expand/collapse
-  // it) without touching m_sessionsBook.
-  void RestoreActiveSessionSelection();
-
   void MoveSessionToGroup(const wxString &sessionName,
                           const wxString &fromGroupName,
                           const wxString &toGroupName);
 
-  void SavePrefs();
+  // Callers reached from a menu/native callback must go through these via
+  // CallAfter rather than removing pages directly — deleting a tree leaf
+  // synchronously from inside such a callback can crash the native macOS
+  // outline view mid-redraw.
+  void CloseSession(const wxString &groupName, const wxString &sessionName);
+  // Closes the first session called `sessionName`, whatever its group.
+  void CloseSessionByName(const wxString &sessionName);
+  // Closes `page` (offering to save unsaved changes) and removes its leaf.
+  void CloseFile(FilePage *page);
+  void CloseFileByKey(const wxString &key);
+  void CloseAllFiles();
 
-  // Creates and adds a terminal/agent page for an existing Session.
-  SessionPage *AddSessionPage(const Session &session, bool resume);
+  void OnSessionIdle(wxCommandEvent &e);
+  void OnSessionActive(wxCommandEvent &e);
+  void OnSessionExited(wxCommandEvent &e);
+  void OnIdleEvent(wxIdleEvent &e);
+  void OnFileSaveStarted(FileEvent &e);
+  void OnFileSaveDone(FileEvent &e);
+  void OnRemoteFileRead(const RemoteReadResult &result);
+
+  void SavePrefs();
 
   const AdapterRegistry *m_registry{nullptr};
   WorkspaceStore *m_workspaceStore{nullptr};
   AppPaths m_paths;
+
+  TreeView *m_treeView{nullptr};
+  FlatView *m_flatView{nullptr};
+  bool m_flatRefreshPending{false};
+  bool m_syncPending{false};
 
   // Per-job run counter (job name -> next sequence number), so consecutive
   // runs of the same job get distinct tab names ("Test Job #1", "#2", ...)
@@ -294,10 +242,6 @@ private:
 
   // Keys (see FileEvent::MakeKey) of remote files currently being fetched.
   std::set<wxString> m_fetchingRemote;
-
-  // Pages in order of activation, most recent last. May hold pages that have
-  // since been closed; SwitchPage() prunes it against the live tree.
-  std::vector<wxWindow *> m_pageMru;
 
   std::array<wxBitmapBundle, kSpinnerFrameCount> m_spinnerFrames;
   int m_pendingIdle{0};

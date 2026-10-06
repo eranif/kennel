@@ -18,7 +18,7 @@ using nlohmann::json;
 json ToJson(const Workspace &ws) {
   json sessions = json::array();
   for (const Session &s : ws.sessions) {
-    if (s.plainTerminal || s.IsJobRun())
+    if (!s.IsPersistent())
       // do not persist terminals or one-shot job runs
       continue;
     sessions.push_back({
@@ -35,9 +35,17 @@ json ToJson(const Workspace &ws) {
         {"icon", ToUtf8(g.icon)},
     });
   }
+  json recent = json::array();
+  for (const SessionRef &r : ws.recentSessions) {
+    recent.push_back({
+        {"groupName", ToUtf8(r.groupName)},
+        {"name", ToUtf8(r.name)},
+    });
+  }
   return json{
       {"version", ws.version},
-      {"workspace", {{"sessions", sessions}, {"groups", groups}}},
+      {"workspace",
+       {{"sessions", sessions}, {"groups", groups}, {"recent", recent}}},
   };
 }
 
@@ -48,6 +56,13 @@ Session ParseSession(const json &j) {
   s.workingDir = GetStr(j, "workingDir");
   s.groupName = GetStr(j, "groupName", _("Default"));
   return s;
+}
+
+SessionRef ParseSessionRef(const json &j) {
+  SessionRef r;
+  r.groupName = GetStr(j, "groupName", _("Default"));
+  r.name = GetStr(j, "name");
+  return r;
 }
 
 GroupMeta ParseGroupMeta(const json &j) {
@@ -75,6 +90,14 @@ Workspace ParseWorkspace(const json &root) {
       for (const auto &g : *gIt) {
         if (g.is_object()) {
           ws.groups.push_back(ParseGroupMeta(g));
+        }
+      }
+    }
+    if (auto rIt = wsIt->find("recent");
+        rIt != wsIt->end() && rIt->is_array()) {
+      for (const auto &r : *rIt) {
+        if (r.is_object()) {
+          ws.recentSessions.push_back(ParseSessionRef(r));
         }
       }
     }

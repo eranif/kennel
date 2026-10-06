@@ -33,6 +33,10 @@ opens as an editor page in the main view instead of a modal dialog.
   file with unsaved changes asks whether to save. The Files container has a **Close All Files**
   menu entry, and each file has a **Close** entry.
 - **Navigation and appearance** — theme and font changes apply to file pages too.
+- **Flat page list** — below the session tree, a second list shows every open terminal,
+  session and file in one place (icon and name, plus its group), most recently used first.
+  It selects pages and offers the same context menus as the tree. The recent order is saved
+  in `workspace.json`, so after a restart Kennel reopens on the page you used last.
 - **Ctrl+Tab page switcher** — Ctrl+Tab / Ctrl+Shift+Tab (the Ctrl key on every platform,
   including macOS) replaces Alt+Left/Right. It pops up a list of every open terminal, session
   and file, most recently used first; keep Ctrl held and press Tab / Shift+Tab to move through
@@ -91,6 +95,9 @@ The Manage Jobs dialog now uses a multi-column list showing each job's name, typ
 
 ## Under the Hood
 
+- `MainView` was split up: the session tree and the new flat list are now `TreeView` and
+  `FlatView` panels that report clicks and context-menu requests to `MainView` as events, and
+  the context menus live in their own source file.
 - The `WorkspaceManager` class was removed; the UI tree is now the single source of truth and
   the workspace is persisted from it through `WorkspaceStore`. `SessionGroup` became a plain
   data holder.

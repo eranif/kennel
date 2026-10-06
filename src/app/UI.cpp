@@ -9,9 +9,21 @@
 // Declare the bitmap loading function
 extern void wxCrafterFiTVkcInitBitmapResources();
 
+#ifdef WXC_MAYBE_UNUSED
+#undef WXC_MAYBE_UNUSED
+#endif
+
+#if __cplusplus >= 201703L
+#define WXC_MAYBE_UNUSED [[maybe_unused]]
+#elif defined(__GNUC__) || defined(__clang__)
+#define WXC_MAYBE_UNUSED __attribute__((unused))
+#else
+#define WXC_MAYBE_UNUSED
+#endif
+
 namespace {
 // return the wxBORDER_SIMPLE that matches the current application theme
-[[maybe_unused]]
+WXC_MAYBE_UNUSED
 wxBorder get_border_simple_theme_aware_bit() {
 #if wxVERSION_NUMBER >= 3300 && defined(__WXMSW__)
   return wxSystemSettings::GetAppearance().IsDark() ? wxBORDER_SIMPLE
@@ -74,12 +86,31 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
   m_leftPaneMainSizer = new wxBoxSizer(wxVERTICAL);
   m_splitterPageLeft->SetSizer(m_leftPaneMainSizer);
 
-  m_treeSessions =
-      new wxDataViewTreeCtrl(m_splitterPageLeft, wxID_ANY, wxDefaultPosition,
-                             wxDLG_UNIT(m_splitterPageLeft, wxSize(-1, -1)),
-                             wxDV_NO_HEADER | wxDV_ROW_LINES | wxDV_SINGLE);
+  m_splitterLeftVertical =
+      new wxSplitterWindow(m_splitterPageLeft, wxID_ANY, wxDefaultPosition,
+                           wxDLG_UNIT(m_splitterPageLeft, wxSize(-1, -1)),
+                           wxSP_LIVE_UPDATE | wxSP_3D);
+  m_splitterLeftVertical->SetSashGravity(0.5);
+  m_splitterLeftVertical->SetMinimumPaneSize(10);
 
-  m_leftPaneMainSizer->Add(m_treeSessions, 1, wxEXPAND, WXC_FROM_DIP(5));
+  m_leftPaneMainSizer->Add(m_splitterLeftVertical, 1, wxALL | wxEXPAND,
+                           WXC_FROM_DIP(5));
+
+  m_splitterPageLeftTop = new wxPanel(
+      m_splitterLeftVertical, wxID_ANY, wxDefaultPosition,
+      wxDLG_UNIT(m_splitterLeftVertical, wxSize(-1, -1)), wxTAB_TRAVERSAL);
+
+  wxBoxSizer *boxSizer555 = new wxBoxSizer(wxVERTICAL);
+  m_splitterPageLeftTop->SetSizer(boxSizer555);
+
+  m_splitterPageLeftBottom = new wxPanel(
+      m_splitterLeftVertical, wxID_ANY, wxDefaultPosition,
+      wxDLG_UNIT(m_splitterLeftVertical, wxSize(-1, -1)), wxTAB_TRAVERSAL);
+  m_splitterLeftVertical->SplitHorizontally(m_splitterPageLeftTop,
+                                            m_splitterPageLeftBottom, 0);
+
+  wxBoxSizer *boxSizer556 = new wxBoxSizer(wxVERTICAL);
+  m_splitterPageLeftBottom->SetSizer(boxSizer556);
 
   m_splitterPageRight =
       new wxPanel(m_splitterMain, wxID_ANY, wxDefaultPosition,
@@ -102,19 +133,9 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
   if (GetSizer()) {
     GetSizer()->Fit(this);
   }
-  // Connect events
-  m_treeSessions->Bind(wxEVT_COMMAND_DATAVIEW_SELECTION_CHANGED,
-                       &MainViewBase::OnSelectionChanged, this);
-  m_treeSessions->Bind(wxEVT_COMMAND_DATAVIEW_ITEM_CONTEXT_MENU,
-                       &MainViewBase::OnContextMenu, this);
 }
 
-MainViewBase::~MainViewBase() {
-  m_treeSessions->Unbind(wxEVT_COMMAND_DATAVIEW_SELECTION_CHANGED,
-                         &MainViewBase::OnSelectionChanged, this);
-  m_treeSessions->Unbind(wxEVT_COMMAND_DATAVIEW_ITEM_CONTEXT_MENU,
-                         &MainViewBase::OnContextMenu, this);
-}
+MainViewBase::~MainViewBase() {}
 
 StartAgentDialogBase::StartAgentDialogBase(wxWindow *parent, wxWindowID id,
                                            const wxString &title,
@@ -1636,7 +1657,7 @@ NewAgentWizardBase::NewAgentWizardBase(wxWindow *parent, wxWindowID id,
   Create(parent, id, title, wxNullBitmap, pos, style);
 
   m_wizardPageLocalOrRemote =
-      new wxWizardPageSimple(this, NULL, NULL, wxNullBitmap);
+      new wxWizardPageSimple(this, nullptr, nullptr, wxNullBitmap);
   m_pages.push_back(m_wizardPageLocalOrRemote);
 
   wxBoxSizer *boxSizer494 = new wxBoxSizer(wxHORIZONTAL);
@@ -1744,7 +1765,7 @@ NewAgentWizardBase::NewAgentWizardBase(wxWindow *parent, wxWindowID id,
   flexGridSizer32829->Add(m_textCtrlUser, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
   m_wizardPageWhatToLaunch =
-      new wxWizardPageSimple(this, NULL, NULL, wxNullBitmap);
+      new wxWizardPageSimple(this, nullptr, nullptr, wxNullBitmap);
   m_pages.push_back(m_wizardPageWhatToLaunch);
 
   wxBoxSizer *boxSizer492 = new wxBoxSizer(wxHORIZONTAL);
@@ -1898,7 +1919,8 @@ NewAgentWizardBase::NewAgentWizardBase(wxWindow *parent, wxWindowID id,
   boxSizer15415->Add(m_button15517, 0, wxALL | wxALIGN_CENTER_VERTICAL,
                      WXC_FROM_DIP(5));
 
-  m_wizardPageAdvanced = new wxWizardPageSimple(this, NULL, NULL, wxNullBitmap);
+  m_wizardPageAdvanced =
+      new wxWizardPageSimple(this, nullptr, nullptr, wxNullBitmap);
   m_pages.push_back(m_wizardPageAdvanced);
   if (m_pages.size() > 1) {
     for (size_t i = 1; i < m_pages.size(); i++) {

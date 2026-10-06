@@ -24,6 +24,15 @@ struct Session {
   // session name is "<jobName> #N", but the name alone isn't parsed back).
   wxString jobName;
   inline bool IsJobRun() const { return !jobCommands.empty(); }
+  // Whether the session is written to workspace.json: plain terminals and
+  // one-shot job runs are not.
+  inline bool IsPersistent() const { return !plainTerminal && !IsJobRun(); }
+};
+
+// Names a session: names are only unique within a group.
+struct SessionRef {
+  wxString groupName;
+  wxString name;
 };
 
 // Persisted per-group metadata not tied to any single session (e.g. the
@@ -38,6 +47,8 @@ struct Workspace {
   int version = 1;
   std::vector<Session> sessions;
   std::vector<GroupMeta> groups;
+  // Persistent sessions, most recently used first.
+  std::vector<SessionRef> recentSessions;
 };
 
 // Inputs for creating a new session.

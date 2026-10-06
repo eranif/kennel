@@ -6,9 +6,11 @@
 #include "ThemeManager.h"
 #include "app/AssetBootstrap.h"
 #include "app/FilePage.hpp"
+#include "app/FlatView.hpp"
 #include "app/PageSwitcherDlg.hpp"
 #include "app/SessionGroup.h"
 #include "app/SessionPage.hpp"
+#include "app/TreeView.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/ClientAdapter.h"
@@ -22,7 +24,6 @@
 
 #include "core/Helpers.h"
 #include <algorithm>
-#include <random>
 #include <thread>
 #include <wx/dir.h>
 #include <wx/fontdlg.h>
@@ -33,31 +34,6 @@
 #include <wx/xrc/xmlres.h>
 
 namespace {
-static wxString kTerminalsGroupName = _("Terminals");
-static wxString kFilesGroupName = _("Files");
-constexpr int kLineHeightSpacer = 2;
-
-// Icon aliases for freshly created groups; one is picked at random and
-// persisted so the group keeps its color across restarts.
-constexpr const char *kGroupIconAliases[] = {
-    "group-red",  "group-orange", "group-lime",   "group-green",  "group-teal",
-    "group-cyan", "group-blue",   "group-indigo", "group-purple", "group-pink",
-};
-
-// Hands out icons from a shuffled bag so every colour is used once before
-// any colour repeats; the bag is reshuffled once it runs dry.
-wxString PickRandomGroupIcon() {
-  static std::mt19937 rng{std::random_device{}()};
-  static std::vector<wxString> bag;
-  if (bag.empty()) {
-    bag.assign(std::begin(kGroupIconAliases), std::end(kGroupIconAliases));
-    std::shuffle(bag.begin(), bag.end(), rng);
-  }
-  wxString icon = bag.back();
-  bag.pop_back();
-  return icon;
-}
-
 void PushRecent(std::vector<wxString> &list, const wxString &value,
                 size_t maxSize = 10) {
   if (value.empty()) {
@@ -75,10 +51,6 @@ MainView::MainView(wxWindow *parent)
     : MainViewBase(parent), m_registry(&AppManager::Get().Adapters()),
       m_workspaceStore(&AppManager::Get().Workspace()),
       m_paths(AppManager::Get().Paths()) {
-
-  // Does nothing on native impl (macOS & Linux).
-  m_treeSessions->SetAlternateRowColour(
-      wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW).ChangeLightness(105));
 
   const auto &prefs = AppManager::Get().GetPrefs();
   auto &themeMgr = ThemeManager::Get();
@@ -101,6 +73,12 @@ MainView::MainView(wxWindow *parent)
 
   LoadBitmaps();
 
+  // The views need the bitmaps (group icons) loaded first.
+  m_treeView = new TreeView(GetSplitterPageLeftTop());
+  FillPanel(GetSplitterPageLeftTop(), m_treeView);
+  m_flatView = new FlatView(GetSplitterPageLeftBottom());
+  FillPanel(GetSplitterPageLeftBottom(), m_flatView);
+
   for (int i = 0; i < kSpinnerFrameCount; ++i) {
     wxString name;
     name.Printf("spinner-%d.svg", i);
@@ -110,6 +88,8 @@ MainView::MainView(wxWindow *parent)
     }
   }
 
+  Bind(wxEVT_PAGEVIEW_SELECTED, &MainView::OnPageSelected, this);
+  Bind(wxEVT_PAGEVIEW_MENU, &MainView::OnPageMenu, this);
   Bind(wxEVT_SESSION_IDLE, &MainView::OnSessionIdle, this);
   Bind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
   Bind(wxEVT_SESSION_EXITED, &MainView::OnSessionExited, this);
@@ -119,17 +99,11 @@ MainView::MainView(wxWindow *parent)
   // indicator, closing after a save).
   wxTheApp->Bind(wxEVT_FILE_SAVE_STARTED, &MainView::OnFileSaveStarted, this);
   wxTheApp->Bind(wxEVT_FILE_SAVE_DONE, &MainView::OnFileSaveDone, this);
-
-  // Renaming is only offered via the context menu / F2 (RenameItem), which
-  // goes through a proper dialog with validation. Make the tree's
-  // auto-created text column inert so it can't fall into in-place label
-  // editing (F2/slow double-click) as a second, unvalidated path.
-  if (wxDataViewColumn *column = m_treeSessions->GetColumn(0)) {
-    column->GetRenderer()->SetMode(wxDATAVIEW_CELL_INERT);
-  }
 }
 
 MainView::~MainView() {
+  Unbind(wxEVT_PAGEVIEW_SELECTED, &MainView::OnPageSelected, this);
+  Unbind(wxEVT_PAGEVIEW_MENU, &MainView::OnPageMenu, this);
   Unbind(wxEVT_SESSION_IDLE, &MainView::OnSessionIdle, this);
   Unbind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
   Unbind(wxEVT_SESSION_EXITED, &MainView::OnSessionExited, this);
@@ -141,153 +115,249 @@ MainView::~MainView() {
   }
 }
 
-namespace {
-// Icon shown on a session leaf: the agent's icon, or none for a plain
-// terminal / an agent with no resolvable icon.
-wxBitmapBundle SessionIconFor(const Session &session) {
-  if (session.plainTerminal) {
-    return wxBitmapBundle{};
-  }
-  const auto *agentDef =
-      AppManager::Get().Adapters().FindAgent(session.agentName);
-  if (agentDef == nullptr) {
-    return wxBitmapBundle{};
-  }
-  const wxString path = ResolveIconPath(agentDef->iconPath);
-  if (path.empty() || !wxFileExists(path)) {
-    return wxBitmapBundle{};
-  }
-  return wxBitmapBundle::FromSVGFile(path, wxSize(16, 16));
+// ---------------------------------------------------------------------------
+// The two views
+// ---------------------------------------------------------------------------
+
+void MainView::OnPageSelected(PageViewEvent &event) {
+  // Picking a page in the flat list (mouse or keyboard) must not move it, or
+  // anything else, in that list: leave the recent order alone.
+  ShowPage(event.GetPage(), event.GetEventObject() != m_flatView);
 }
-} // namespace
 
-namespace {
-// Icon alias this group was assigned the last time workspace.json was
-// written, or empty if `groupName` wasn't a persisted group at startup.
-wxString LookupPersistedGroupIcon(const wxString &groupName) {
-  for (const GroupMeta &g : AppManager::Get().InitialWorkspace().groups) {
-    if (g.name == groupName) {
-      return g.icon;
-    }
-  }
-  return wxEmptyString;
-}
-} // namespace
-
-SessionGroup *MainView::EnsureGroup(const wxString &groupName) {
-  if (auto *existing = GetSessionGroup(groupName)) {
-    return existing;
-  }
-
-  auto ownedGroup = std::make_unique<SessionGroup>(
-      groupName, groupName == kTerminalsGroupName,
-      groupName == kFilesGroupName);
-  auto *sessionGroup = ownedGroup.get();
-
-  wxString iconAlias;
-  if (sessionGroup->IsTerminalsGroup()) {
-    iconAlias = "terminal";
-  } else if (sessionGroup->IsFilesGroup()) {
-    iconAlias = "folder";
-  } else if (sessionGroup->IsDefaultGroup()) {
-    iconAlias = "group-default";
+void MainView::OnPageMenu(PageViewEvent &event) {
+  auto *on = dynamic_cast<wxWindow *>(event.GetEventObject());
+  CHECK_NOT_NULL_RETURN(on);
+  if (event.GetPage() != nullptr) {
+    ShowPageMenu(event.GetPage(), on);
+  } else if (!event.GetGroupName().empty()) {
+    ShowGroupMenu(event.GetGroupName(), on);
   } else {
-    iconAlias = LookupPersistedGroupIcon(groupName);
-    if (iconAlias.empty()) {
-      iconAlias = PickRandomGroupIcon();
+    ShowBackgroundMenu(on);
+  }
+}
+
+void MainView::RefreshFlatView() {
+  if (m_flatRefreshPending) {
+    return;
+  }
+  m_flatRefreshPending = true;
+  CallAfter(&MainView::DoRefreshFlatView);
+}
+
+void MainView::DoRefreshFlatView() {
+  m_flatRefreshPending = false;
+  wxWindow *current = m_sessionsBook->GetCurrentPage();
+  // Purely by recency: the current page is not forced to the top, since it may
+  // have been picked in this very list without touching the recent order.
+  m_flatView->SetPages(m_flatView->Order(m_treeView->GetPages()), current);
+}
+
+void MainView::SyncWorkspaceSoon() {
+  if (m_syncPending) {
+    return;
+  }
+  m_syncPending = true;
+  CallAfter([this] {
+    m_syncPending = false;
+    SyncWorkspaceToDisk();
+  });
+}
+
+void MainView::SyncWorkspaceToDisk() {
+  Workspace ws;
+  ws.version = 1;
+  for (auto *group : m_treeView->GetGroups()) {
+    if (!group->IsTerminalsGroup() && !group->IsDefaultGroup() &&
+        !group->GetIcon().empty()) {
+      ws.groups.push_back(GroupMeta{group->GetGroupName(), group->GetIcon()});
     }
-    sessionGroup->SetIcon(iconAlias);
-  }
-
-  auto *itemData = new GroupItemData(std::move(ownedGroup));
-  wxDataViewItem containerItem;
-  if (sessionGroup->IsDefaultGroup()) {
-    containerItem = m_treeSessions->PrependContainer(
-        wxDataViewItem(), groupName, wxDataViewTreeCtrl::NO_IMAGE,
-        wxDataViewTreeCtrl::NO_IMAGE, itemData);
-  } else {
-    containerItem = m_treeSessions->AppendContainer(
-        wxDataViewItem(), groupName, wxDataViewTreeCtrl::NO_IMAGE,
-        wxDataViewTreeCtrl::NO_IMAGE, itemData);
-  }
-
-  auto &bmps = AppManager::Get().GetBitmaps();
-  m_treeSessions->SetItemIcon(containerItem, bmps.GetByAlias(iconAlias, false));
-  m_treeSessions->Expand(containerItem);
-
-  return sessionGroup;
-}
-
-GroupItemData *MainView::GetGroupItemData(const wxDataViewItem &item) const {
-  if (!item.IsOk()) {
-    return nullptr;
-  }
-  return dynamic_cast<GroupItemData *>(m_treeSessions->GetItemData(item));
-}
-
-SessionItemData *
-MainView::GetSessionItemData(const wxDataViewItem &item) const {
-  if (!item.IsOk()) {
-    return nullptr;
-  }
-  return dynamic_cast<SessionItemData *>(m_treeSessions->GetItemData(item));
-}
-
-FileItemData *MainView::GetFileItemData(const wxDataViewItem &item) const {
-  if (!item.IsOk()) {
-    return nullptr;
-  }
-  return dynamic_cast<FileItemData *>(m_treeSessions->GetItemData(item));
-}
-
-wxDataViewItem MainView::FindFileLeaf(const wxString &key) const {
-  const auto container = FindGroupItem(kFilesGroupName);
-  if (!container.IsOk()) {
-    return wxDataViewItem{};
-  }
-  const int count = m_treeSessions->GetChildCount(container);
-  for (int i = 0; i < count; ++i) {
-    auto item = m_treeSessions->GetNthChild(container, i);
-    auto *data = GetFileItemData(item);
-    if (data && data->page->GetKey() == key) {
-      return item;
+    for (auto *page : m_treeView->GetGroupSessions(group->GetGroupName())) {
+      ws.sessions.push_back(page->GetSession());
     }
   }
-  return wxDataViewItem{};
-}
 
-std::vector<FilePage *> MainView::GetFilePages() const {
-  std::vector<FilePage *> result;
-  const auto container = FindGroupItem(kFilesGroupName);
-  if (!container.IsOk()) {
-    return result;
-  }
-  const int count = m_treeSessions->GetChildCount(container);
-  for (int i = 0; i < count; ++i) {
-    if (auto *data =
-            GetFileItemData(m_treeSessions->GetNthChild(container, i))) {
-      result.push_back(data->page);
+  for (const auto &info : m_flatView->Order(m_treeView->GetPages())) {
+    auto *session = dynamic_cast<SessionPage *>(info.page);
+    if (session && session->GetSession().IsPersistent()) {
+      ws.recentSessions.push_back(SessionRef{session->GetSession().groupName,
+                                             session->GetSession().name});
     }
   }
-  return result;
+
+  if (Status st = m_workspaceStore->Save(ws); !st.ok()) {
+    KLOG_WARN() << "Could not persist workspace.json: " << st.message();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Showing pages
+// ---------------------------------------------------------------------------
+
+void MainView::ShowPage(wxWindow *page, bool updateRecent) {
+  if (auto *session = dynamic_cast<SessionPage *>(page)) {
+    SelectSessionPage(session, updateRecent);
+  } else if (auto *file = dynamic_cast<FilePage *>(page)) {
+    SelectFilePage(file, updateRecent);
+  }
+}
+
+void MainView::ActivatePage(wxWindow *page, bool updateRecent) {
+  m_treeView->SelectPage(page);
+
+  int where = m_sessionsBook->FindPage(page);
+  if (where != wxNOT_FOUND) {
+    m_sessionsBook->SetSelection(where);
+  }
+
+  if (updateRecent && m_flatView->Touch(page)) {
+    RefreshFlatView();
+    SyncWorkspaceSoon();
+  }
+}
+
+void MainView::SelectSessionPage(SessionPage *page, bool updateRecent) {
+  CHECK_NOT_NULL_RETURN(page);
+  ActivatePage(page, updateRecent);
+  page->CallAfter(&SessionPage::SetFocus);
+  page->ApplyTitle();
+}
+
+void MainView::SelectFilePage(FilePage *page, bool updateRecent) {
+  CHECK_NOT_NULL_RETURN(page);
+  ActivatePage(page, updateRecent);
+  page->CallAfter(&FilePage::FocusEditor);
+  wxTheApp->GetTopWindow()->SetLabel(page->GetPath());
+}
+
+void MainView::ActivateGroup(const wxString &groupName) {
+  if (!m_treeView->SelectGroup(groupName)) {
+    return;
+  }
+  ShowPage(m_treeView->GetGroupDefaultPage(groupName));
+}
+
+void MainView::SelectFallbackPage(const wxString &preferredGroup) {
+  ShowPage(m_treeView->GetFallbackPage(preferredGroup));
+}
+
+void MainView::SwitchPage(bool forward) {
+  wxWindow *current = m_sessionsBook->GetCurrentPage();
+  const auto ordered = m_flatView->Order(m_treeView->GetPages(), current);
+  if (ordered.size() <= 1) {
+    return;
+  }
+
+  const int count = static_cast<int>(ordered.size());
+  int chosen = forward ? 1 : count - 1;
+  // With Ctrl already released (e.g. picked from the menu) there is nothing to
+  // hold on to, so skip the popup.
+  if (wxGetMouseState().RawControlDown()) {
+    std::vector<PageSwitcherItem> items;
+    for (const auto &info : ordered) {
+      items.push_back({info.name + "  -  " + info.group, info.icon});
+    }
+    PageSwitcherDlg dlg(wxGetTopLevelParent(this), items, forward);
+    if (dlg.ShowModal() != wxID_OK) {
+      return;
+    }
+    chosen = dlg.GetSelectedIndex();
+  }
+  if (chosen < 0 || chosen >= count) {
+    return;
+  }
+  ShowPage(ordered[chosen].page);
+}
+
+// ---------------------------------------------------------------------------
+// Adding / removing pages
+// ---------------------------------------------------------------------------
+
+SessionPage *MainView::AddSession(SessionPage *page) {
+  if (!m_treeView->AddSession(page)) {
+    return nullptr;
+  }
+  m_sessionsBook->AddPage(page, page->GetSession().name, false);
+  RefreshFlatView();
+  return page;
+}
+
+SessionPage *MainView::AddSessionPage(const Session &session, bool resume) {
+  auto *group = m_treeView->EnsureGroup(session.groupName);
+  if (group == nullptr) {
+    return nullptr;
+  }
+
+  std::optional<AgentDef> agent{std::nullopt};
+  if (group->IsSessionGroup() && !session.agentName.empty()) {
+    auto &registry = AppManager::Get().Adapters();
+    const AgentDef *pagent = registry.FindAgent(session.agentName);
+    if (pagent == nullptr) {
+      KLOG_ERROR() << wxString::Format("No such agent: %s", session.agentName);
+      return nullptr;
+    }
+    agent = *pagent;
+  }
+
+  auto *page = new SessionPage(m_sessionsBook, agent, session, resume);
+  if (page->Status() == SessionStatus::Starting) {
+    // Could not start the session
+    wxDELETE(page);
+    return nullptr;
+  }
+
+  if (AddSession(page) == nullptr) {
+    wxDELETE(page);
+    return nullptr;
+  }
+  return page;
 }
 
 void MainView::AddFilePage(FilePage *page) {
-  EnsureGroup(kFilesGroupName);
   m_sessionsBook->AddPage(page, page->GetDisplayName(), false);
-
-  auto leafItem = m_treeSessions->AppendItem(
-      FindGroupItem(kFilesGroupName), page->GetDisplayName(),
-      wxDataViewTreeCtrl::NO_IMAGE, new FileItemData(page));
-  auto bmp = AppManager::Get().GetBitmaps().GetByAlias("file", false);
-  if (bmp.IsOk()) {
-    m_treeSessions->SetItemIcon(leafItem, bmp);
-  }
+  m_treeView->AddFile(page);
+  RefreshFlatView();
 }
 
+void MainView::RemovePage(wxWindow *page) {
+  const bool wasActive = (m_sessionsBook->GetCurrentPage() == page);
+
+  // Prefer a sibling of a closed session. Sessions are looked at by group
+  // name since the group itself may disappear with its last session.
+  wxString preferredGroup;
+  if (auto *session = dynamic_cast<SessionPage *>(page)) {
+    const wxString &groupName = session->GetSession().groupName;
+    if (m_treeView->GetGroupSessions(groupName).size() > 1) {
+      preferredGroup = groupName;
+    }
+  }
+
+  m_treeView->RemovePage(page);
+  int where = m_sessionsBook->FindPage(page);
+  if (where != wxNOT_FOUND) {
+    m_sessionsBook->DeletePage(where); // destroys the page window
+  }
+  RefreshFlatView();
+
+  // Deferred: selecting a fallback page touches the tree control right after
+  // DeleteItem() above, which can crash the native macOS outline view
+  // mid-redraw (see OnSessionExited for the same issue).
+  if (wasActive) {
+    CallAfter(&MainView::SelectFallbackPage, preferredGroup);
+  }
+  // Cleanup the tree from empty groups
+  CallAfter(&MainView::RemoveEmptyGroups);
+}
+
+void MainView::RemoveEmptyGroups() { m_treeView->RemoveEmptyGroups(); }
+
+// ---------------------------------------------------------------------------
+// Files
+// ---------------------------------------------------------------------------
+
 void MainView::OnFileSaveStarted(FileEvent &e) {
-  auto *data = GetFileItemData(FindFileLeaf(e.GetKey()));
-  const wxString name = data ? data->page->GetDisplayName() : e.GetFilePath();
+  auto *page = m_treeView->FindFile(e.GetKey());
+  const wxString name = page ? page->GetDisplayName() : e.GetFilePath();
   GetMainFrame()->SetActivityText(wxString::Format(_("Saving %s"), name));
   GetMainFrame()->StartActivityIndicator();
 }
@@ -363,31 +433,10 @@ void MainView::OnRemoteFileRead(const RemoteReadResult &result) {
   ShowRemoteFile(result.remoteHost, path, text, editable);
 }
 
-void MainView::SelectFilePage(FilePage *page) {
-  CHECK_NOT_NULL_RETURN(page);
-  auto leafItem = FindFileLeaf(page->GetKey());
-  if (leafItem.IsOk()) {
-    m_treeSessions->Select(leafItem);
-  }
-  int where = m_sessionsBook->FindPage(page);
-  if (where != wxNOT_FOUND) {
-    m_sessionsBook->SetSelection(where);
-  }
-  page->CallAfter(&FilePage::FocusEditor);
-  wxTheApp->GetTopWindow()->SetLabel(page->GetPath());
-  TouchPage(page);
-}
-
-void MainView::TouchPage(wxWindow *page) {
-  m_pageMru.erase(std::remove(m_pageMru.begin(), m_pageMru.end(), page),
-                  m_pageMru.end());
-  m_pageMru.push_back(page);
-}
-
 void MainView::OpenLocalFile(const wxString &path) {
   const wxString key = wxFileName(path).GetFullPath();
-  if (auto *data = GetFileItemData(FindFileLeaf(key))) {
-    SelectFilePage(data->page);
+  if (auto *existing = m_treeView->FindFile(key)) {
+    SelectFilePage(existing);
     return;
   }
 
@@ -408,12 +457,12 @@ void MainView::ShowRemoteFile(const RemoteHostDetails &remoteHost,
                               const wxString &path, const wxString &text,
                               bool editable) {
   const wxString key = FileEvent::MakeKey(path, remoteHost);
-  if (auto *data = GetFileItemData(FindFileLeaf(key))) {
+  if (auto *existing = m_treeView->FindFile(key)) {
     // The remote copy may have changed, but never clobber unsaved edits.
-    if (!data->page->IsModified()) {
-      data->page->LoadRemote(text, editable);
+    if (!existing->IsModified()) {
+      existing->LoadRemote(text, editable);
     }
-    SelectFilePage(data->page);
+    SelectFilePage(existing);
     return;
   }
 
@@ -453,34 +502,19 @@ void MainView::CloseFile(FilePage *page) {
     }
   }
 
-  const bool wasActive = (m_sessionsBook->GetCurrentPage() == page);
   m_closeAfterSave.erase(page->GetKey());
-  auto leafItem = FindFileLeaf(page->GetKey());
-  if (leafItem.IsOk()) {
-    m_treeSessions->DeleteItem(leafItem);
-  }
-  int where = m_sessionsBook->FindPage(page);
-  if (where != wxNOT_FOUND) {
-    m_sessionsBook->DeletePage(where); // destroys the FilePage window
-  }
-
-  // Deferred, as for sessions: touching the tree right after DeleteItem() can
-  // crash the native macOS outline view mid-redraw.
-  if (wasActive) {
-    CallAfter(&MainView::SelectFallbackSession, nullptr);
-  }
-  CallAfter(&MainView::RemoveEmptyGroups);
+  RemovePage(page);
 }
 
 void MainView::CloseFileByKey(const wxString &key) {
-  if (auto *data = GetFileItemData(FindFileLeaf(key))) {
-    CloseFile(data->page);
+  if (auto *page = m_treeView->FindFile(key)) {
+    CloseFile(page);
   }
 }
 
 void MainView::CloseAllFiles() {
   std::vector<wxString> keys;
-  for (auto *page : GetFilePages()) {
+  for (auto *page : m_treeView->GetFilePages()) {
     keys.push_back(page->GetKey());
   }
   for (const wxString &key : keys) {
@@ -488,149 +522,9 @@ void MainView::CloseAllFiles() {
   }
 }
 
-SessionGroup *MainView::GetSessionGroup(const wxString &groupName) const {
-  for (auto *group : GetAllGroups()) {
-    if (group->GetGroupName() == groupName) {
-      return group;
-    }
-  }
-  return nullptr;
-}
-
-wxDataViewItem MainView::FindGroupItem(const wxString &groupName) const {
-  const wxDataViewItem root;
-  const int count = m_treeSessions->GetChildCount(root);
-  for (int i = 0; i < count; ++i) {
-    auto item = m_treeSessions->GetNthChild(root, i);
-    auto *data = GetGroupItemData(item);
-    if (data && data->group->GetGroupName() == groupName) {
-      return item;
-    }
-  }
-  return wxDataViewItem{};
-}
-
-wxDataViewItem MainView::FindLeafItem(const wxString &groupName,
-                                      const wxString &sessionName) const {
-  auto containerItem = FindGroupItem(groupName);
-  if (!containerItem.IsOk()) {
-    return wxDataViewItem{};
-  }
-  const int count = m_treeSessions->GetChildCount(containerItem);
-  for (int i = 0; i < count; ++i) {
-    auto item = m_treeSessions->GetNthChild(containerItem, i);
-    auto *data = GetSessionItemData(item);
-    if (data && data->page->GetSession().name == sessionName) {
-      return item;
-    }
-  }
-  return wxDataViewItem{};
-}
-
-std::vector<SessionPage *>
-MainView::GetGroupSessions(const wxString &groupName) const {
-  std::vector<SessionPage *> result;
-  auto containerItem = FindGroupItem(groupName);
-  if (!containerItem.IsOk()) {
-    return result;
-  }
-  const int count = m_treeSessions->GetChildCount(containerItem);
-  for (int i = 0; i < count; ++i) {
-    if (auto *data =
-            GetSessionItemData(m_treeSessions->GetNthChild(containerItem, i))) {
-      result.push_back(data->page);
-    }
-  }
-  return result;
-}
-
-void MainView::SyncWorkspaceToDisk() {
-  Workspace ws;
-  ws.version = 1;
-  for (auto *group : GetAllGroups()) {
-    if (!group->IsTerminalsGroup() && !group->IsDefaultGroup() &&
-        !group->GetIcon().empty()) {
-      ws.groups.push_back(GroupMeta{group->GetGroupName(), group->GetIcon()});
-    }
-    for (auto *page : GetGroupSessions(group->GetGroupName())) {
-      ws.sessions.push_back(page->GetSession());
-    }
-  }
-
-  if (Status st = m_workspaceStore->Save(ws); !st.ok()) {
-    KLOG_WARN() << "Could not persist workspace.json: " << st.message();
-  }
-}
-
-SessionPage *MainView::AddSession(SessionPage *page) {
-  const wxString &groupName = page->GetSession().groupName;
-  const wxString &sessionName = page->GetSession().name;
-
-  auto *group = EnsureGroup(groupName);
-  if (group == nullptr) {
-    KLOG_ERROR() << "No agent group for '" << groupName
-                 << "'; session leaf not added";
-    return nullptr;
-  }
-
-  if (FindLeafItem(groupName, sessionName).IsOk()) {
-    KLOG_WARN() << "A session named '" << sessionName
-                << "' already exists in group '" << groupName << "'";
-    return nullptr;
-  }
-
-  m_sessionsBook->AddPage(page, sessionName, false);
-
-  auto leafItem = m_treeSessions->AppendItem(
-      FindGroupItem(groupName), sessionName, wxDataViewTreeCtrl::NO_IMAGE,
-      new SessionItemData(page));
-  auto bmp = SessionIconFor(page->GetSession());
-  if (bmp.IsOk()) {
-    m_treeSessions->SetItemIcon(leafItem, bmp);
-  }
-  return page;
-}
-
-void MainView::SelectSessionPage(SessionPage *page) {
-  CHECK_NOT_NULL_RETURN(page);
-  const auto &session = page->GetSession();
-  auto *group = GetSessionGroup(session.groupName);
-  CHECK_NOT_NULL_RETURN(group);
-
-  auto leafItem = FindLeafItem(session.groupName, session.name);
-  if (leafItem.IsOk()) {
-    m_treeSessions->Select(leafItem);
-  }
-
-  int where = m_sessionsBook->FindPage(page);
-  if (where != wxNOT_FOUND) {
-    m_sessionsBook->SetSelection(where);
-  }
-
-  group->SetLastActive(session.name);
-  page->CallAfter(&SessionPage::SetFocus);
-  page->ApplyTitle();
-  TouchPage(page);
-}
-
-void MainView::RestoreActiveSessionSelection() {
-  auto *activePage = GetActiveSessionPage();
-  if (activePage == nullptr) {
-    if (auto *filePage =
-            dynamic_cast<FilePage *>(m_sessionsBook->GetCurrentPage())) {
-      auto fileLeaf = FindFileLeaf(filePage->GetKey());
-      if (fileLeaf.IsOk()) {
-        m_treeSessions->Select(fileLeaf);
-      }
-    }
-    return;
-  }
-  const auto &session = activePage->GetSession();
-  auto leafItem = FindLeafItem(session.groupName, session.name);
-  if (leafItem.IsOk()) {
-    m_treeSessions->Select(leafItem);
-  }
-}
+// ---------------------------------------------------------------------------
+// Launching sessions
+// ---------------------------------------------------------------------------
 
 void MainView::StartTerminal() {
   static int terminalId{0};
@@ -727,37 +621,6 @@ void MainView::StartAgent(const wxString &agentName,
   LaunchSession(dlg.GetRequest());
 }
 
-SessionPage *MainView::AddSessionPage(const Session &session, bool resume) {
-  auto *group = EnsureGroup(session.groupName);
-  if (group == nullptr) {
-    return nullptr;
-  }
-
-  std::optional<AgentDef> agent{std::nullopt};
-  if (group->IsSessionGroup() && !session.agentName.empty()) {
-    auto &registry = AppManager::Get().Adapters();
-    const AgentDef *pagent = registry.FindAgent(session.agentName);
-    if (pagent == nullptr) {
-      KLOG_ERROR() << wxString::Format("No such agent: %s", session.agentName);
-      return nullptr;
-    }
-    agent = *pagent;
-  }
-
-  auto *page = new SessionPage(m_sessionsBook, agent, session, resume);
-  if (page->Status() == SessionStatus::Starting) {
-    // Could not start the session
-    wxDELETE(page);
-    return nullptr;
-  }
-
-  if (AddSession(page) == nullptr) {
-    wxDELETE(page);
-    return nullptr;
-  }
-  return page;
-}
-
 bool MainView::LaunchSession(const NewSessionRequest &req,
                              bool selectAfterLaunch) {
   if (req.name.empty()) {
@@ -804,23 +667,35 @@ bool MainView::LaunchSession(const NewSessionRequest &req,
 }
 
 void MainView::RestoreSessions() {
-  const auto &sessions = AppManager::Get().InitialWorkspace().sessions;
-  if (sessions.empty()) {
+  const auto &initial = AppManager::Get().InitialWorkspace();
+  if (initial.sessions.empty()) {
     return;
   }
 
   int restored = 0;
-  for (const Session &s : sessions) {
+  for (const Session &s : initial.sessions) {
     auto *page = AddSessionPage(s, true);
     if (page) {
       page->GetTerminal()->EnsureStarted();
       ++restored;
     }
   }
-
   KLOG_INFO() << "Restored " << restored << " session(s)";
-  if (GroupCount() > 0) {
-    DoSelectGroup(m_treeSessions->GetNthChild(wxDataViewItem(), 0));
+
+  // Bring back the recent order (the list is most recent first, Touch() puts
+  // a page in front) and show the page used last.
+  SessionPage *lastUsed = nullptr;
+  for (auto it = initial.recentSessions.rbegin();
+       it != initial.recentSessions.rend(); ++it) {
+    if (auto *page = m_treeView->FindSession(it->groupName, it->name)) {
+      m_flatView->Touch(page);
+      lastUsed = page;
+    }
+  }
+  if (lastUsed != nullptr) {
+    SelectSessionPage(lastUsed);
+  } else if (m_treeView->GroupCount() > 0) {
+    ActivateGroup(m_treeView->GetFirstGroupName());
   }
 
   // Anything that failed to restore into the UI (e.g. its agent no longer
@@ -828,78 +703,9 @@ void MainView::RestoreSessions() {
   SyncWorkspaceToDisk();
 }
 
-void MainView::DoSelectGroup(const wxString &name) {
-  auto item = FindGroupItem(name);
-  CHECK_ITEM_RETURN(item);
-  DoSelectGroup(item);
-}
-
-void MainView::DoSelectGroup(const wxDataViewItem &item) {
-  CHECK_ITEM_RETURN(item);
-  auto *data = GetGroupItemData(item);
-  CHECK_NOT_NULL_RETURN(data);
-  auto *group = data->group.get();
-
-  m_treeSessions->Select(item);
-  if (m_treeSessions->GetChildCount(item) == 0) {
-    return;
-  }
-  if (group->IsFilesGroup()) {
-    if (auto *fileData =
-            GetFileItemData(m_treeSessions->GetNthChild(item, 0))) {
-      SelectFilePage(fileData->page);
-    }
-    return;
-  }
-
-  SessionPage *target = nullptr;
-  const wxString &lastActive = group->GetLastActive();
-  if (!lastActive.empty()) {
-    if (auto *data = GetSessionItemData(
-            FindLeafItem(group->GetGroupName(), lastActive))) {
-      target = data->page;
-    }
-  }
-  if (target == nullptr) {
-    if (auto *sessionData =
-            GetSessionItemData(m_treeSessions->GetNthChild(item, 0))) {
-      target = sessionData->page;
-    }
-  }
-  if (target) {
-    SelectSessionPage(target);
-  }
-}
-
-void MainView::OnSelectionChanged(wxDataViewEvent &event) {
-  auto item = event.GetItem();
-  CHECK_ITEM_RETURN(item);
-
-  if (auto *sessionData = GetSessionItemData(item)) {
-    SelectSessionPage(sessionData->page);
-    return;
-  }
-  if (auto *fileData = GetFileItemData(item)) {
-    SelectFilePage(fileData->page);
-    return;
-  }
-
-  // Clicking a group node only toggles its expand/collapse state; it must
-  // not change which session is selected/shown. Defer the toggle: calling
-  // Collapse()/Expand() synchronously from within the selection-changed
-  // handler mutates the tree while wxDataViewCtrl's generic (Windows)
-  // implementation is still processing the click that triggered this
-  // event, which crashes the app.
-  bool expanded = m_treeSessions->IsExpanded(item);
-  CallAfter([this, item, expanded] {
-    if (expanded) {
-      m_treeSessions->Collapse(item);
-    } else {
-      m_treeSessions->Expand(item);
-    }
-    RestoreActiveSessionSelection();
-  });
-}
+// ---------------------------------------------------------------------------
+// Theme, font, prefs
+// ---------------------------------------------------------------------------
 
 void MainView::ApplyFont(const wxFont &f) {
   auto &themeMgr = ThemeManager::Get();
@@ -907,11 +713,11 @@ void MainView::ApplyFont(const wxFont &f) {
   if (!active) {
     return;
   }
-  for (auto *page : GetAllSessions()) {
+  for (auto *page : m_treeView->GetAllSessions()) {
     page->ApplyTheme(*active);
     page->GetTerminal()->SendSizeEvent();
   }
-  for (auto *filePage : GetFilePages()) {
+  for (auto *filePage : m_treeView->GetFilePages()) {
     filePage->ApplyTheme(*active);
   }
   m_sessionsBook->SendSizeEvent();
@@ -922,7 +728,7 @@ void MainView::ApplyFont(const wxFont &f) {
 
 void MainView::ApplyOptimizedDrawing() {
   bool optimized = AppManager::Get().GetPrefs().terminalOptimizedDrawing;
-  for (auto *page : GetAllSessions()) {
+  for (auto *page : m_treeView->GetAllSessions()) {
     page->GetTerminal()->EnableSafeDrawing(!optimized);
     page->GetTerminal()->Refresh();
   }
@@ -936,7 +742,7 @@ void MainView::ApplyPrefs() {
   ApplyFont(font);
   ApplyOptimizedDrawing();
 
-  for (auto *page : GetAllSessions()) {
+  for (auto *page : m_treeView->GetAllSessions()) {
     page->GetTerminal()->SetBufferSize(prefs.scrollbackLines);
   }
 }
@@ -947,11 +753,11 @@ void MainView::ApplyTheme(const wxString &themeName) {
   if (!active) {
     return;
   }
-  for (auto *page : GetAllSessions()) {
+  for (auto *page : m_treeView->GetAllSessions()) {
     page->ApplyTheme(*active);
     page->GetTerminal()->SendSizeEvent();
   }
-  for (auto *filePage : GetFilePages()) {
+  for (auto *filePage : m_treeView->GetFilePages()) {
     filePage->ApplyTheme(*active);
   }
   if (themeMgr.ActiveTheme()) {
@@ -975,34 +781,34 @@ void MainView::SavePrefs() {
   }
 }
 
-SessionGroup *MainView::GetSelectedGroup() const {
-  auto item = m_treeSessions->GetSelection();
-  if (!item.IsOk()) {
-    return nullptr;
-  }
+// ---------------------------------------------------------------------------
+// Queries
+// ---------------------------------------------------------------------------
 
-  if (auto *groupData = GetGroupItemData(item)) {
-    return groupData->group.get();
-  }
-  if (GetSessionItemData(item)) {
-    auto *parentData = GetGroupItemData(m_treeSessions->GetItemParent(item));
-    return parentData ? parentData->group.get() : nullptr;
-  }
-  return nullptr;
+SessionGroup *MainView::GetSelectedGroup() const {
+  return m_treeView->GetSelectedGroup();
 }
 
 SessionPage *MainView::GetActiveSessionPage() const {
   return dynamic_cast<SessionPage *>(m_sessionsBook->GetCurrentPage());
 }
 
-void MainView::RefreshCurrentSelection() {
-  auto *group = GetSelectedGroup();
-  CHECK_NOT_NULL_RETURN(group);
-  auto *page = GetActiveSessionPage();
-  if (group->IsSessionGroup() && page != nullptr) {
-    page->Restart();
-  }
+wxArrayString MainView::GetGroupNames() const {
+  return m_treeView->GetSessionGroupNames();
 }
+
+bool MainView::IsNameExist(const wxString &name,
+                           const wxString &groupName) const {
+  return m_treeView->FindSession(groupName, name) != nullptr;
+}
+
+size_t MainView::GroupCount() const { return m_treeView->GroupCount(); }
+
+size_t MainView::SessionCount() const {
+  return m_treeView->GetAllSessions().size();
+}
+
+size_t MainView::PageCount() const { return m_treeView->GetPages().size(); }
 
 bool MainView::CanRefreshCurrent() const {
   auto *group = GetSelectedGroup();
@@ -1019,23 +825,26 @@ bool MainView::IsSelectionTerminalGroup() const {
   return group && group->IsTerminalsGroup();
 }
 
-wxArrayString MainView::GetGroupNames() const {
-  wxArrayString names;
-  for (auto *group : GetAllGroups()) {
-    if (group->IsSessionGroup()) {
-      names.Add(group->GetGroupName());
-    }
+// ---------------------------------------------------------------------------
+// Session / group actions
+// ---------------------------------------------------------------------------
+
+void MainView::RefreshCurrentSelection() {
+  auto *group = GetSelectedGroup();
+  CHECK_NOT_NULL_RETURN(group);
+  auto *page = GetActiveSessionPage();
+  if (group->IsSessionGroup() && page != nullptr) {
+    page->Restart();
   }
-  return names;
 }
 
-void MainView::RefreshSelectedGroup() {
-  auto *group = GetSelectedGroup();
+void MainView::RefreshSelectedGroup() { RefreshGroup(GetSelectedGroup()); }
+
+void MainView::RefreshGroup(SessionGroup *group) {
   if (group == nullptr || !group->IsSessionGroup()) {
     return;
   }
-
-  for (auto *page : GetGroupSessions(group->GetGroupName())) {
+  for (auto *page : m_treeView->GetGroupSessions(group->GetGroupName())) {
     page->CallAfter(&SessionPage::Restart);
     m_pendingIdle++;
   }
@@ -1063,7 +872,8 @@ void MainView::CloseAllSessions() {
 void MainView::DeleteAll() {
   m_closeAfterSave.clear();
   m_sessionsBook->DeleteAllPages();
-  m_treeSessions->DeleteAllItems();
+  m_treeView->Clear();
+  m_flatView->Clear();
   // A page destroyed mid-save never delivers wxEVT_FILE_SAVE_DONE.
   GetMainFrame()->StopActivityIndicator();
   GetMainFrame()->ClearActivityText();
@@ -1071,10 +881,10 @@ void MainView::DeleteAll() {
 }
 
 void MainView::DeleteGroupByName(const wxString &name) {
-  auto *group = GetSessionGroup(name);
+  auto *group = m_treeView->GetGroup(name);
   CHECK_NOT_NULL_RETURN(group);
 
-  auto sessions = GetGroupSessions(name);
+  auto sessions = m_treeView->GetGroupSessions(name);
   if (!sessions.empty()) {
     wxString msg;
     msg << _("This will close ") << sessions.size()
@@ -1092,16 +902,13 @@ void MainView::DeleteGroupByName(const wxString &name) {
       m_sessionsBook->DeletePage(where);
     }
   }
-
-  auto containerItem = FindGroupItem(name);
-  if (containerItem.IsOk()) {
-    m_treeSessions->DeleteItem(containerItem); // deletes GroupItemData -> group
-  }
+  m_treeView->RemoveGroup(name); // deletes the group with its container
+  RefreshFlatView();
 
   SyncWorkspaceToDisk();
 
-  if (GroupCount() > 0) {
-    DoSelectGroup(m_treeSessions->GetNthChild(wxDataViewItem(), 0));
+  if (m_treeView->GroupCount() > 0) {
+    ActivateGroup(m_treeView->GetFirstGroupName());
   } else {
     wxTheApp->GetTopWindow()->SetLabel(_("Kennel"));
   }
@@ -1120,22 +927,15 @@ void MainView::RenameGroup(SessionGroup *group) {
     return;
   }
 
-  if (GetSessionGroup(newName) != nullptr) {
+  if (m_treeView->GetGroup(newName) != nullptr) {
     wxMessageBox(
         wxString::Format(_("A group named '%s' already exists"), newName),
         "Kennel", wxOK | wxICON_ERROR, this);
     return;
   }
 
-  auto containerItem = FindGroupItem(oldName);
-  for (auto *page : GetGroupSessions(oldName)) {
-    page->GetSession().groupName = newName;
-  }
-  group->SetGroupName(newName);
-  if (containerItem.IsOk()) {
-    m_treeSessions->SetItemText(containerItem, newName);
-  }
-
+  m_treeView->RenameGroup(group, newName);
+  RefreshFlatView();
   SyncWorkspaceToDisk();
 }
 
@@ -1169,442 +969,46 @@ void MainView::RenameSession(SessionPage *page) {
     return;
   }
 
-  const wxString groupName = page->GetSession().groupName;
-  if (IsNameExist(newName, groupName)) {
+  if (IsNameExist(newName, page->GetSession().groupName)) {
     wxMessageBox(_("A session with this name already exists in this group"),
                  "Kennel", wxICON_WARNING | wxOK | wxCENTER, this);
     return;
   }
 
-  auto leafItem = FindLeafItem(groupName, oldName);
-
   page->GetSession().name = newName;
   page->SetDefaultSessionName(newName);
-
-  if (leafItem.IsOk()) {
-    m_treeSessions->SetItemText(leafItem, newName);
-  }
-
+  m_treeView->UpdateLabel(page);
+  RefreshFlatView();
   SyncWorkspaceToDisk();
 }
 
 void MainView::RenameItem() {
-  auto item = m_treeSessions->GetSelection();
-  CHECK_ITEM_RETURN(item);
-
-  if (auto *sessionData = GetSessionItemData(item)) {
-    RenameSession(sessionData->page);
+  if (auto *page = m_treeView->GetSelectedPage()) {
+    if (auto *session = dynamic_cast<SessionPage *>(page)) {
+      RenameSession(session);
+    }
     return;
   }
-  if (auto *groupData = GetGroupItemData(item)) {
-    RenameGroup(groupData->group.get());
-  }
-}
-
-void MainView::SelectFallbackSession(SessionGroup *preferredGroup) {
-  if (preferredGroup) {
-    auto sessions = GetGroupSessions(preferredGroup->GetGroupName());
-    if (!sessions.empty()) {
-      SelectSessionPage(sessions.front());
-      return;
-    }
-  }
-  for (auto *group : GetAllGroups()) {
-    auto sessions = GetGroupSessions(group->GetGroupName());
-    if (!sessions.empty()) {
-      SelectSessionPage(sessions.front());
-      return;
-    }
-  }
-  auto filePages = GetFilePages();
-  if (!filePages.empty()) {
-    SelectFilePage(filePages.front());
+  if (auto *group = m_treeView->GetSelectedGroupNode()) {
+    RenameGroup(group);
   }
 }
 
 void MainView::CloseSessionByName(const wxString &sessionName) {
-  for (auto *group : GetAllGroups()) {
-    if (FindLeafItem(group->GetGroupName(), sessionName).IsOk()) {
-      CloseSession(group, sessionName);
+  for (auto *group : m_treeView->GetGroups()) {
+    if (m_treeView->FindSession(group->GetGroupName(), sessionName)) {
+      CloseSession(group->GetGroupName(), sessionName);
       return;
     }
   }
 }
 
-void MainView::CloseSession(SessionGroup *group, const wxString &sessionName) {
-  CHECK_NOT_NULL_RETURN(group);
-  auto leafItem = FindLeafItem(group->GetGroupName(), sessionName);
-  auto *sessionItemData = GetSessionItemData(leafItem);
-  auto *page = sessionItemData ? sessionItemData->page : nullptr;
+void MainView::CloseSession(const wxString &groupName,
+                            const wxString &sessionName) {
+  auto *page = m_treeView->FindSession(groupName, sessionName);
   CHECK_NOT_NULL_RETURN(page);
-
-  bool wasActive = (GetActiveSessionPage() == page);
-  // If this is the group's last session (and it's not the "Default" group,
-  // which must always exist), delete the container in one shot while its
-  // leaf is still attached, instead of deleting the leaf and then the
-  // now-empty container as two separate calls. Doing those as two calls can
-  // crash the native macOS outline view mid-redraw.
-  bool willEmptyGroup = GetGroupSessions(group->GetGroupName()).size() == 1 &&
-                        !group->IsDefaultGroup();
-  if (leafItem.IsOk())
-    m_treeSessions->DeleteItem(leafItem);
-
-  int where = m_sessionsBook->FindPage(page);
-  if (where != wxNOT_FOUND) {
-    m_sessionsBook->DeletePage(where); // destroys the SessionPage window
-  }
-
+  RemovePage(page);
   SyncWorkspaceToDisk();
-
-  // `group` may now be dangling: willEmptyGroup deleted its owning
-  // container (and thus the GroupItemData that owns the SessionGroup) above.
-  // Deferred: selecting a fallback session touches the tree control right
-  // after DeleteItem() above, which can crash the native macOS outline view
-  // mid-redraw (see OnSessionExited for the same issue).
-  if (wasActive) {
-    CallAfter(&MainView::SelectFallbackSession,
-              willEmptyGroup ? nullptr : group);
-  }
-
-  // Cleanup the tree from empty groups
-  CallAfter(&MainView::RemoveEmptyGroups);
-}
-
-void MainView::RefreshGroup(SessionGroup *group) {
-  CHECK_NOT_NULL_RETURN(group);
-  if (!group->IsSessionGroup()) {
-    return;
-  }
-  for (auto *page : GetGroupSessions(group->GetGroupName())) {
-    page->CallAfter(&SessionPage::Restart);
-    m_pendingIdle++;
-  }
-  if (m_pendingIdle > 0) {
-    GetMainFrame()->SetActivityText(
-        wxString::Format(_("Refreshing %d sessions"), m_pendingIdle));
-    GetMainFrame()->StartActivityIndicator();
-  }
-}
-
-void MainView::DoGroupMenu(const wxDataViewItem &item) {
-  auto *data = GetGroupItemData(item);
-  CHECK_NOT_NULL_RETURN(data);
-
-  auto *group = data->group.get();
-  if (group->IsFilesGroup()) {
-    wxMenu menu;
-    menu.Append(wxID_CLOSE_ALL, _("Close All Files"));
-    menu.Bind(
-        wxEVT_MENU,
-        [this](wxCommandEvent &) { CallAfter(&MainView::CloseAllFiles); },
-        wxID_CLOSE_ALL);
-    m_treeSessions->PopupMenu(&menu);
-  } else if (group->IsTerminalsGroup()) {
-    wxMenu menu;
-    menu.Append(wxID_ADD, _("New Terminal..."));
-    menu.Bind(
-        wxEVT_MENU, [this](wxCommandEvent &) { StartTerminal(); }, wxID_ADD);
-    m_treeSessions->PopupMenu(&menu);
-  } else {
-    wxMenu menu;
-    menu.Append(wxID_ADD, _("Start Agent..."));
-    menu.AppendSeparator();
-    menu.Append(XRCID("rename-group"), _("Rename Group..."));
-    menu.AppendSeparator();
-    menu.Append(wxID_CLOSE_ALL, _("Close Group"));
-    menu.AppendSeparator();
-    menu.Append(XRCID("refresh-sessions"), _("Refresh"));
-
-    // The "Default" group must always exist and cannot be renamed.
-    if (group->IsDefaultGroup()) {
-      menu.Enable(XRCID("rename-group"), false);
-    }
-
-    menu.Bind(
-        wxEVT_MENU,
-        [group, this](wxCommandEvent &) {
-          StartAgent(wxEmptyString, group->GetGroupName());
-        },
-        wxID_ADD);
-
-    menu.Bind(
-        wxEVT_MENU, [group, this](wxCommandEvent &) { RenameGroup(group); },
-        XRCID("rename-group"));
-
-    menu.Bind(
-        wxEVT_MENU,
-        [group, this](wxCommandEvent &) {
-          CallAfter(&MainView::DeleteGroupByName, group->GetGroupName());
-        },
-        wxID_CLOSE_ALL);
-
-    menu.Bind(
-        wxEVT_MENU, [group, this](wxCommandEvent &) { RefreshGroup(group); },
-        XRCID("refresh-sessions"));
-    m_treeSessions->PopupMenu(&menu);
-  }
-}
-
-void MainView::DoFileMenu(const wxDataViewItem &item) {
-  auto *fileData = GetFileItemData(item);
-  CHECK_NOT_NULL_RETURN(fileData);
-  const wxString key = fileData->page->GetKey();
-
-  wxMenu menu;
-  menu.Append(wxID_CLOSE, _("Close"));
-  menu.Bind(
-      wxEVT_MENU,
-      [key, this](wxCommandEvent &) {
-        // Deferred: see CloseFile.
-        CallAfter(&MainView::CloseFileByKey, key);
-      },
-      wxID_CLOSE);
-  m_treeSessions->PopupMenu(&menu);
-}
-
-void MainView::DoSessionMenu(const wxDataViewItem &item) {
-  auto *sessionData = GetSessionItemData(item);
-  CHECK_NOT_NULL_RETURN(sessionData);
-  auto *page = sessionData->page;
-
-  auto parentItem = m_treeSessions->GetItemParent(item);
-  auto *groupData = GetGroupItemData(parentItem);
-  CHECK_NOT_NULL_RETURN(groupData);
-  auto *group = groupData->group.get();
-
-  wxString sessionName = page->GetSession().name;
-  wxMenu menu;
-  menu.Append(XRCID("session-group-close-session"), _("Close"),
-              _("Close Session"));
-  menu.Bind(
-      wxEVT_MENU,
-      [sessionName, this](wxCommandEvent &) {
-        // Deferred: see OnSessionExited for why.
-        CallAfter(&MainView::CloseSessionByName, sessionName);
-      },
-      XRCID("session-group-close-session"));
-
-  menu.AppendSeparator();
-  if (page->IsPlainTerminal()) {
-    menu.Append(XRCID("rename-terminal"), _("Rename Terminal"),
-                _("Rename Terminal"));
-    menu.Bind(
-        wxEVT_MENU, [page, this](wxCommandEvent &) { RenameSession(page); },
-        XRCID("rename-terminal"));
-  } else {
-    menu.Append(XRCID("rename-session"), _("Rename..."), _("Rename Session"));
-    menu.Bind(
-        wxEVT_MENU, [page, this](wxCommandEvent &) { RenameSession(page); },
-        XRCID("rename-session"));
-
-    menu.Append(XRCID("duplicate-session"), _("Duplicate..."),
-                _("Duplicate Session"));
-    menu.Bind(
-        wxEVT_MENU, [page, this](wxCommandEvent &) { DuplicateSession(page); },
-        XRCID("duplicate-session"));
-    menu.AppendSeparator();
-
-    wxMenu *moveMenu = new wxMenu;
-    wxString currentGroupName = group->GetGroupName();
-    wxArrayString groups;
-    for (const wxString &name : GetGroupNames()) {
-      if (name != currentGroupName) {
-        groups.Add(name);
-      }
-    }
-
-    if (!groups.empty()) {
-      for (const wxString &groupName : groups) {
-        int id = wxXmlResource::GetXRCID(
-            wxString::Format("move-to-group-%s", groupName));
-        moveMenu->Append(id, groupName,
-                         wxString::Format(_("Move to group: %s"), groupName));
-        moveMenu->Bind(
-            wxEVT_MENU,
-            [groupName, sessionName, currentGroupName, this](wxCommandEvent &) {
-              // Deferred: see OnSessionExited for why.
-              CallAfter([this, sessionName, currentGroupName, groupName] {
-                MoveSessionToGroup(sessionName, currentGroupName, groupName);
-              });
-            },
-            id);
-      }
-      moveMenu->AppendSeparator();
-    }
-    moveMenu->Append(XRCID("create-new-group"), _("New Group..."));
-    moveMenu->Bind(
-        wxEVT_MENU,
-        [sessionName, currentGroupName, this](wxCommandEvent &) {
-          wxString newGroup = ::wxGetTextFromUser(_("New Group Name"), "Kennel",
-                                                  wxEmptyString, this);
-          if (newGroup.empty() || newGroup == currentGroupName)
-            return;
-          // Deferred: see OnSessionExited for why.
-          CallAfter([this, sessionName, currentGroupName, newGroup] {
-            MoveSessionToGroup(sessionName, currentGroupName, newGroup);
-          });
-        },
-        XRCID("create-new-group"));
-    menu.AppendSubMenu(moveMenu, _("Move To Group"));
-  }
-  m_treeSessions->PopupMenu(&menu);
-}
-
-std::vector<SessionPage *> MainView::GetAllSessions() const {
-  std::vector<SessionPage *> result;
-  for (auto *group : GetAllGroups()) {
-    auto sessions = GetGroupSessions(group->GetGroupName());
-    result.insert(result.end(), sessions.begin(), sessions.end());
-  }
-  return result;
-}
-
-std::vector<SessionGroup *> MainView::GetAllGroups() const {
-  std::vector<SessionGroup *> result;
-  const wxDataViewItem root;
-  const int count = m_treeSessions->GetChildCount(root);
-  for (int i = 0; i < count; ++i) {
-    auto *data = GetGroupItemData(m_treeSessions->GetNthChild(root, i));
-    if (data) {
-      result.push_back(data->group.get());
-    }
-  }
-  return result;
-}
-
-bool MainView::IsNameExist(const wxString &name,
-                           const wxString &groupName) const {
-  return FindLeafItem(groupName, name).IsOk();
-}
-
-void MainView::RemoveEmptyGroups() {
-  const wxDataViewItem root{nullptr};
-  std::vector<wxDataViewItem> groupItems;
-  const int count = m_treeSessions->GetChildCount(root);
-  for (int i = 0; i < count; ++i) {
-    auto child = m_treeSessions->GetNthChild(root, i);
-    if (!child.IsOk())
-      continue;
-    auto *groupData = GetGroupItemData(child);
-    if (groupData == nullptr)
-      continue;
-    if (!groupData->group->IsDefaultGroup() &&
-        m_treeSessions->GetChildCount(child) == 0)
-      groupItems.push_back(child);
-  }
-
-  for (const auto item : groupItems)
-    m_treeSessions->DeleteItem(item);
-}
-
-void MainView::OnContextMenu(wxDataViewEvent &event) {
-  auto item = event.GetItem();
-  CHECK_ITEM_RETURN(item);
-  if (m_treeSessions->IsContainer(item)) {
-    DoGroupMenu(item);
-  } else if (GetFileItemData(item)) {
-    DoFileMenu(item);
-  } else {
-    DoSessionMenu(item);
-  }
-}
-
-void MainView::SelectSession(const wxString &sessionName) {
-  auto *group = GetSelectedGroup();
-  CHECK_NOT_NULL_RETURN(group);
-  auto leafItem = FindLeafItem(group->GetGroupName(), sessionName);
-  auto *data = GetSessionItemData(leafItem);
-  CHECK_NOT_NULL_RETURN(data);
-  SelectSessionPage(data->page);
-}
-
-size_t MainView::GroupCount() const {
-  return static_cast<size_t>(m_treeSessions->GetChildCount(wxDataViewItem()));
-}
-
-size_t MainView::SessionCount() const { return GetAllSessions().size(); }
-
-void MainView::SwitchPage(bool forward) {
-  // Every page in tree order, sessions and files alike.
-  struct Entry {
-    wxWindow *page;
-    PageSwitcherItem item;
-  };
-  std::vector<Entry> live;
-  const wxDataViewItem root;
-  const int groupCount = m_treeSessions->GetChildCount(root);
-  for (int g = 0; g < groupCount; ++g) {
-    auto group = m_treeSessions->GetNthChild(root, g);
-    const wxString groupName = m_treeSessions->GetItemText(group);
-    const int childCount = m_treeSessions->GetChildCount(group);
-    for (int i = 0; i < childCount; ++i) {
-      auto child = m_treeSessions->GetNthChild(group, i);
-      wxWindow *page = nullptr;
-      if (auto *sessionData = GetSessionItemData(child)) {
-        page = sessionData->page;
-      } else if (auto *fileData = GetFileItemData(child)) {
-        page = fileData->page;
-      }
-      if (page) {
-        live.push_back(
-            {page,
-             {m_treeSessions->GetItemText(child) + "  -  " + groupName,
-              m_treeSessions->GetItemIcon(child)}});
-      }
-    }
-  }
-  if (live.size() <= 1) {
-    return;
-  }
-
-  // Current page first, then the rest by recency, then pages never activated.
-  std::vector<Entry> ordered;
-  auto take = [&](wxWindow *page) {
-    auto it = std::find_if(live.begin(), live.end(),
-                           [page](const Entry &e) { return e.page == page; });
-    if (it != live.end()) {
-      ordered.push_back(std::move(*it));
-      live.erase(it);
-    }
-  };
-  take(m_sessionsBook->GetCurrentPage());
-  for (auto it = m_pageMru.rbegin(); it != m_pageMru.rend(); ++it) {
-    take(*it);
-  }
-  for (auto &entry : live) {
-    ordered.push_back(std::move(entry));
-  }
-
-  m_pageMru.clear();
-  for (auto it = ordered.rbegin(); it != ordered.rend(); ++it) {
-    m_pageMru.push_back(it->page);
-  }
-
-  const int count = static_cast<int>(ordered.size());
-  int chosen = forward ? 1 : count - 1;
-  // With Ctrl already released (e.g. picked from the menu) there is nothing to
-  // hold on to, so skip the popup.
-  if (wxGetMouseState().RawControlDown()) {
-    std::vector<PageSwitcherItem> items;
-    for (const auto &entry : ordered) {
-      items.push_back(entry.item);
-    }
-    PageSwitcherDlg dlg(wxGetTopLevelParent(this), items, forward);
-    if (dlg.ShowModal() != wxID_OK) {
-      return;
-    }
-    chosen = dlg.GetSelectedIndex();
-  }
-  if (chosen < 0 || chosen >= count) {
-    return;
-  }
-
-  wxWindow *target = ordered[chosen].page;
-  if (auto *session = dynamic_cast<SessionPage *>(target)) {
-    SelectSessionPage(session);
-  } else if (auto *file = dynamic_cast<FilePage *>(target)) {
-    SelectFilePage(file);
-  }
 }
 
 void MainView::MoveSessionToGroup(const wxString &sessionName,
@@ -1613,12 +1017,7 @@ void MainView::MoveSessionToGroup(const wxString &sessionName,
   KLOG_DEBUG() << "Moving session: " << sessionName
                << " from: " << fromGroupName << "->" << toGroupName;
 
-  auto *oldGroup = GetSessionGroup(fromGroupName);
-  CHECK_NOT_NULL_RETURN(oldGroup);
-
-  auto oldLeafItem = FindLeafItem(fromGroupName, sessionName);
-  auto *oldSessionData = GetSessionItemData(oldLeafItem);
-  auto *page = oldSessionData ? oldSessionData->page : nullptr;
+  auto *page = m_treeView->FindSession(fromGroupName, sessionName);
   CHECK_NOT_NULL_RETURN(page);
 
   if (IsNameExist(sessionName, toGroupName)) {
@@ -1630,34 +1029,12 @@ void MainView::MoveSessionToGroup(const wxString &sessionName,
     return;
   }
 
-  bool wasActive = (GetActiveSessionPage() == page);
-  // If this is the old group's last session (and it's not the "Default"
-  // group, which must always exist), delete its container in one shot while
-  // the leaf is still attached, instead of deleting the leaf and then the
-  // now-empty container as two separate calls — see CloseSession for why.
-  bool willEmptyOldGroup = GetGroupSessions(fromGroupName).size() == 1 &&
-                           !oldGroup->IsDefaultGroup();
-  if (oldLeafItem.IsOk()) {
-    m_treeSessions->DeleteItem(oldLeafItem);
-  }
-  if (willEmptyOldGroup) {
-    CallAfter(&MainView::RemoveEmptyGroups);
-    oldGroup = nullptr; // will be deleted by deferred RemoveEmptyGroups
-  }
+  const bool wasActive = (GetActiveSessionPage() == page);
+  m_treeView->MoveSession(page, toGroupName);
+  // The old group may be empty now. Deferred, see RemovePage().
+  CallAfter(&MainView::RemoveEmptyGroups);
 
-  auto *newGroup = EnsureGroup(toGroupName);
-  CHECK_NOT_NULL_RETURN(newGroup);
-
-  page->GetSession().groupName = toGroupName;
-
-  auto leafItem = m_treeSessions->AppendItem(
-      FindGroupItem(toGroupName), sessionName, wxDataViewTreeCtrl::NO_IMAGE,
-      new SessionItemData(page));
-  auto bmp = SessionIconFor(page->GetSession());
-  if (bmp.IsOk()) {
-    m_treeSessions->SetItemIcon(leafItem, bmp);
-  }
-
+  RefreshFlatView();
   SyncWorkspaceToDisk();
 
   if (wasActive) {
@@ -1684,10 +1061,9 @@ void MainView::OnSessionActive(wxCommandEvent &e) { e.Skip(); }
 
 void MainView::OnSessionExited(wxCommandEvent &e) {
   const wxString &sessionName = e.GetString();
-  for (auto *group : GetAllGroups()) {
-    auto *data =
-        GetSessionItemData(FindLeafItem(group->GetGroupName(), sessionName));
-    if (auto *page = data ? data->page : nullptr) {
+  for (auto *group : m_treeView->GetGroups()) {
+    if (auto *page =
+            m_treeView->FindSession(group->GetGroupName(), sessionName)) {
       const Session &session = page->GetSession();
       if (session.IsJobRun()) {
         AppendJobLogEntry(JobLogEntry{

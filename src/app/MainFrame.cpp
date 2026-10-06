@@ -489,11 +489,11 @@ void MainFrame::OnPrevSession(wxCommandEvent &e) {
 }
 
 void MainFrame::OnPrevSessionUI(wxUpdateUIEvent &e) {
-  e.Enable(m_mainView->SessionCount() > 1);
+  e.Enable(m_mainView->PageCount() > 1);
 }
 
 void MainFrame::OnNextSessionUI(wxUpdateUIEvent &e) {
-  e.Enable(m_mainView->SessionCount() > 1);
+  e.Enable(m_mainView->PageCount() > 1);
 }
 
 void MainFrame::OnEditAgents(wxCommandEvent &evt) {
