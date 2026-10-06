@@ -44,9 +44,6 @@ private:
   void OnTerminated(wxTerminalEvent &evt);
   void OnTitleChanged(wxTerminalEvent &evt);
   void OnTerminalLink(wxTerminalEvent &evt);
-  // Fetches `path` from the remote host over SFTP on a worker thread and
-  // shows it in a read-only viewer.
-  void OpenRemoteFile(const wxString &path);
   wxBookCtrlBase *GetBook() const {
     return dynamic_cast<wxBookCtrlBase *>(GetParent());
   }
@@ -55,7 +52,6 @@ private:
   std::optional<AgentDef> m_agent{std::nullopt};
   Session m_session;
   bool m_resume = false;
-  bool m_fetchingRemoteFile = false;
 
   wxTerminalViewCtrl *m_terminal{nullptr};
   std::unique_ptr<ActivityMonitor> m_monitor;

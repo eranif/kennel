@@ -3,13 +3,15 @@
 #include <wx/string.h>
 #include <wx/translation.h>
 
-// Data-only representation of a session group: a name, a "kind" flag, and
-// its persisted icon. Holds no session list and no reference to the UI
-// (tree item, notebook page, ...) — MainView owns the tree/notebook and is
-// the only source of truth for which sessions belong to this group.
+// Data-only representation of a group: a name, a "kind" (agent sessions, the
+// "Terminals" container, or the "Files" container), and its persisted icon.
+// Holds no session list and no reference to the UI (tree item, notebook page,
+// ...) — MainView owns the tree/notebook and is the only source of truth for
+// which sessions belong to this group.
 class SessionGroup {
 public:
-  SessionGroup(const wxString &groupName, bool terminalsGroup);
+  SessionGroup(const wxString &groupName, bool terminalsGroup,
+               bool filesGroup = false);
 
   inline const wxString &GetGroupName() const { return m_groupName; }
   inline void SetGroupName(const wxString &groupName) {
@@ -17,7 +19,10 @@ public:
   }
 
   inline bool IsTerminalsGroup() const { return m_terminalsGroup; }
-  inline bool IsSessionGroup() const { return !IsTerminalsGroup(); }
+  inline bool IsFilesGroup() const { return m_filesGroup; }
+  inline bool IsSessionGroup() const {
+    return !IsTerminalsGroup() && !IsFilesGroup();
+  }
   inline bool IsDefaultGroup() const { return GetGroupName() == _("Default"); }
 
   // Name of the most recently shown session in this group; used when the
@@ -37,6 +42,7 @@ public:
 private:
   wxString m_groupName;
   bool m_terminalsGroup{false};
+  bool m_filesGroup{false};
   wxString m_lastActive;
   wxString m_icon;
 };

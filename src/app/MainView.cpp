@@ -5,6 +5,7 @@
 #include "ThemeLoader.h"
 #include "ThemeManager.h"
 #include "app/AssetBootstrap.h"
+#include "app/FilePage.hpp"
 #include "app/SessionGroup.h"
 #include "app/SessionPage.hpp"
 #include "core/AdapterRegistry.h"
@@ -12,6 +13,7 @@
 #include "core/ClientAdapter.h"
 #include "core/JobLog.h"
 #include "core/Logger.h"
+#include "core/SftpClient.h"
 #include "core/Workspace.h"
 #include "core/WorkspaceStore.h"
 
@@ -20,6 +22,7 @@
 #include "core/Helpers.h"
 #include <algorithm>
 #include <random>
+#include <thread>
 #include <wx/dir.h>
 #include <wx/fontdlg.h>
 #include <wx/menu.h>
@@ -29,6 +32,7 @@
 
 namespace {
 static wxString kTerminalsGroupName = _("Terminals");
+static wxString kFilesGroupName = _("Files");
 constexpr int kLineHeightSpacer = 2;
 
 // Icon aliases for freshly created groups; one is picked at random and
@@ -108,6 +112,13 @@ MainView::MainView(wxWindow *parent)
   Bind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
   Bind(wxEVT_SESSION_EXITED, &MainView::OnSessionExited, this);
   Bind(wxEVT_IDLE, &MainView::OnIdleEvent, this);
+  // A FilePage handles its own save events first and then Skip()s them, so
+  // they propagate up to wxTheApp, where MainView does its part (activity
+  // indicator, closing after a save). The remote-read worker has no window to
+  // report to, so it posts to wxTheApp, which always outlives it.
+  wxTheApp->Bind(wxEVT_FILE_SAVE_STARTED, &MainView::OnFileSaveStarted, this);
+  wxTheApp->Bind(wxEVT_FILE_SAVE_DONE, &MainView::OnFileSaveDone, this);
+  wxTheApp->Bind(wxEVT_REMOTE_FILE_READ, &MainView::OnRemoteFileRead, this);
 
   // Renaming is only offered via the context menu / F2 (RenameItem), which
   // goes through a proper dialog with validation. Make the tree's
@@ -123,6 +134,12 @@ MainView::~MainView() {
   Unbind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
   Unbind(wxEVT_SESSION_EXITED, &MainView::OnSessionExited, this);
   Unbind(wxEVT_IDLE, &MainView::OnIdleEvent, this);
+  if (wxTheApp) {
+    wxTheApp->Unbind(wxEVT_FILE_SAVE_STARTED, &MainView::OnFileSaveStarted,
+                     this);
+    wxTheApp->Unbind(wxEVT_FILE_SAVE_DONE, &MainView::OnFileSaveDone, this);
+    wxTheApp->Unbind(wxEVT_REMOTE_FILE_READ, &MainView::OnRemoteFileRead, this);
+  }
 }
 
 namespace {
@@ -164,12 +181,15 @@ SessionGroup *MainView::EnsureGroup(const wxString &groupName) {
   }
 
   auto ownedGroup = std::make_unique<SessionGroup>(
-      groupName, groupName == kTerminalsGroupName);
+      groupName, groupName == kTerminalsGroupName,
+      groupName == kFilesGroupName);
   auto *sessionGroup = ownedGroup.get();
 
   wxString iconAlias;
   if (sessionGroup->IsTerminalsGroup()) {
     iconAlias = "terminal";
+  } else if (sessionGroup->IsFilesGroup()) {
+    iconAlias = "folder";
   } else if (sessionGroup->IsDefaultGroup()) {
     iconAlias = "group-default";
   } else {
@@ -212,6 +232,261 @@ MainView::GetSessionItemData(const wxDataViewItem &item) const {
     return nullptr;
   }
   return dynamic_cast<SessionItemData *>(m_treeSessions->GetItemData(item));
+}
+
+FileItemData *MainView::GetFileItemData(const wxDataViewItem &item) const {
+  if (!item.IsOk()) {
+    return nullptr;
+  }
+  return dynamic_cast<FileItemData *>(m_treeSessions->GetItemData(item));
+}
+
+wxDataViewItem MainView::FindFileLeaf(const wxString &key) const {
+  const auto container = FindGroupItem(kFilesGroupName);
+  if (!container.IsOk()) {
+    return wxDataViewItem{};
+  }
+  const int count = m_treeSessions->GetChildCount(container);
+  for (int i = 0; i < count; ++i) {
+    auto item = m_treeSessions->GetNthChild(container, i);
+    auto *data = GetFileItemData(item);
+    if (data && data->page->GetKey() == key) {
+      return item;
+    }
+  }
+  return wxDataViewItem{};
+}
+
+std::vector<FilePage *> MainView::GetFilePages() const {
+  std::vector<FilePage *> result;
+  const auto container = FindGroupItem(kFilesGroupName);
+  if (!container.IsOk()) {
+    return result;
+  }
+  const int count = m_treeSessions->GetChildCount(container);
+  for (int i = 0; i < count; ++i) {
+    if (auto *data =
+            GetFileItemData(m_treeSessions->GetNthChild(container, i))) {
+      result.push_back(data->page);
+    }
+  }
+  return result;
+}
+
+void MainView::AddFilePage(FilePage *page) {
+  EnsureGroup(kFilesGroupName);
+  m_sessionsBook->AddPage(page, page->GetDisplayName(), false);
+
+  auto leafItem = m_treeSessions->AppendItem(
+      FindGroupItem(kFilesGroupName), page->GetDisplayName(),
+      wxDataViewTreeCtrl::NO_IMAGE, new FileItemData(page));
+  auto bmp = AppManager::Get().GetBitmaps().GetByAlias("file", false);
+  if (bmp.IsOk()) {
+    m_treeSessions->SetItemIcon(leafItem, bmp);
+  }
+}
+
+void MainView::OnFileSaveStarted(FileEvent &e) {
+  auto *data = GetFileItemData(FindFileLeaf(e.GetKey()));
+  const wxString name = data ? data->page->GetDisplayName() : e.GetFilePath();
+  GetMainFrame()->SetActivityText(wxString::Format(_("Saving %s"), name));
+  GetMainFrame()->StartActivityIndicator();
+}
+
+void MainView::OnFileSaveDone(FileEvent &e) {
+  GetMainFrame()->StopActivityIndicator();
+  GetMainFrame()->ClearActivityText();
+
+  const wxString key = e.GetKey();
+  if (m_closeAfterSave.erase(key) > 0 && e.GetStatusCode().ok()) {
+    // Deferred: this event is still being dispatched by the very page that is
+    // about to be destroyed.
+    CallAfter(&MainView::CloseFileByKey, key);
+  }
+}
+
+void MainView::OpenRemoteFile(const RemoteHostDetails &remoteHost,
+                              const wxString &clickedPath,
+                              const std::vector<wxString> &searchDirs) {
+  KLOG_INFO() << "Opening remote file: " << clickedPath;
+  if (!m_fetchingRemote.insert(FileEvent::MakeKey(clickedPath, remoteHost))
+           .second) {
+    return; // A previous click is still connecting/downloading.
+  }
+
+  // The worker gets copies of the data it needs and nothing else (no window),
+  // and it never touches the UI. Its result is posted to `sink` and handled by
+  // OnRemoteFileRead() on the UI thread.
+  wxEvtHandler *sink = wxTheApp; // Outlives the worker.
+  std::thread([sink, remoteHost, clickedPath, searchDirs]() {
+    auto read = SftpClient::ReadFile(remoteHost.host, remoteHost.user,
+                                     clickedPath, searchDirs);
+
+    RemoteReadResult result;
+    result.remoteHost = remoteHost;
+    result.clickedPath = clickedPath;
+    result.ok = read.ok();
+    if (read.ok()) {
+      result.path = read.value().path;
+      result.content = std::move(read.value().content);
+    } else {
+      result.error = read.status().message();
+    }
+
+    wxThreadEvent event{wxEVT_REMOTE_FILE_READ};
+    event.SetPayload(result);
+    if (sink) {
+      sink->AddPendingEvent(event); // Thread-safe: queues a copy.
+    }
+  }).detach();
+}
+
+void MainView::OnRemoteFileRead(wxThreadEvent &e) {
+  const auto result = e.GetPayload<RemoteReadResult>();
+  m_fetchingRemote.erase(
+      FileEvent::MakeKey(result.clickedPath, result.remoteHost));
+
+  if (!result.ok) {
+    KLOG_WARN() << "Remote open failed for '" << result.clickedPath
+                << "': " << result.error;
+    ::wxMessageBox(result.error, "Kennel", wxICON_WARNING | wxOK, this);
+    return;
+  }
+
+  const wxString &path = result.path;
+  if (result.content.find('\0') != std::string::npos) {
+    ::wxMessageBox(wxString::Format(_("%s is a binary file."), path), "Kennel",
+                   wxICON_INFORMATION | wxOK, this);
+    return;
+  }
+
+  // Only a file that decodes as UTF-8 is editable: re-encoding anything else
+  // on save would corrupt it, so show that read-only.
+  bool editable = true;
+  wxString text = wxString::FromUTF8(result.content);
+  if (text.empty() && !result.content.empty()) {
+    text = wxString::From8BitData(result.content.data(), result.content.size());
+    editable = false;
+  }
+  ShowRemoteFile(result.remoteHost, path, text, editable);
+}
+
+void MainView::SelectFilePage(FilePage *page) {
+  CHECK_NOT_NULL_RETURN(page);
+  auto leafItem = FindFileLeaf(page->GetKey());
+  if (leafItem.IsOk()) {
+    m_treeSessions->Select(leafItem);
+  }
+  int where = m_sessionsBook->FindPage(page);
+  if (where != wxNOT_FOUND) {
+    m_sessionsBook->SetSelection(where);
+  }
+  page->CallAfter(&FilePage::FocusEditor);
+  wxTheApp->GetTopWindow()->SetLabel(page->GetPath());
+}
+
+void MainView::OpenLocalFile(const wxString &path) {
+  const wxString key = wxFileName(path).GetFullPath();
+  if (auto *data = GetFileItemData(FindFileLeaf(key))) {
+    SelectFilePage(data->page);
+    return;
+  }
+
+  auto *page = new FilePage(
+      m_sessionsBook, key,
+      ThemeManager::Get().ActiveTheme().value_or(wxTerminalTheme{}));
+  if (!page->LoadLocal()) {
+    page->Destroy();
+    wxMessageBox(wxString::Format(_("Could not open %s"), key), "Kennel",
+                 wxOK | wxICON_ERROR, this);
+    return;
+  }
+  AddFilePage(page);
+  SelectFilePage(page);
+}
+
+void MainView::ShowRemoteFile(const RemoteHostDetails &remoteHost,
+                              const wxString &path, const wxString &text,
+                              bool editable) {
+  const wxString key = FileEvent::MakeKey(path, remoteHost);
+  if (auto *data = GetFileItemData(FindFileLeaf(key))) {
+    // The remote copy may have changed, but never clobber unsaved edits.
+    if (!data->page->IsModified()) {
+      data->page->LoadRemote(text, editable);
+    }
+    SelectFilePage(data->page);
+    return;
+  }
+
+  auto *page = new FilePage(
+      m_sessionsBook, path,
+      ThemeManager::Get().ActiveTheme().value_or(wxTerminalTheme{}),
+      remoteHost);
+  page->LoadRemote(text, editable);
+  AddFilePage(page);
+  SelectFilePage(page);
+}
+
+void MainView::CloseFile(FilePage *page) {
+  CHECK_NOT_NULL_RETURN(page);
+  if (page->IsSaving()) {
+    return; // Let the upload finish first; closing now would lose the result.
+  }
+  if (page->IsModified() && page->CanSave()) {
+    const int answer = wxMessageBox(
+        wxString::Format(_("Save changes to %s?"), page->GetDisplayName()),
+        "Kennel", wxYES_NO | wxCANCEL | wxICON_QUESTION, this);
+    if (answer == wxCANCEL) {
+      return;
+    }
+    if (answer == wxYES) {
+      if (page->IsRemote()) {
+        // Uploads in the background; OnFileSaveDone closes it once it has
+        // gone through.
+        if (page->SaveAsync()) {
+          m_closeAfterSave.insert(page->GetKey());
+        }
+        return;
+      }
+      if (!page->Save()) {
+        return;
+      }
+    }
+  }
+
+  const bool wasActive = (m_sessionsBook->GetCurrentPage() == page);
+  m_closeAfterSave.erase(page->GetKey());
+  auto leafItem = FindFileLeaf(page->GetKey());
+  if (leafItem.IsOk()) {
+    m_treeSessions->DeleteItem(leafItem);
+  }
+  int where = m_sessionsBook->FindPage(page);
+  if (where != wxNOT_FOUND) {
+    m_sessionsBook->DeletePage(where); // destroys the FilePage window
+  }
+
+  // Deferred, as for sessions: touching the tree right after DeleteItem() can
+  // crash the native macOS outline view mid-redraw.
+  if (wasActive) {
+    CallAfter(&MainView::SelectFallbackSession, nullptr);
+  }
+  CallAfter(&MainView::RemoveEmptyGroups);
+}
+
+void MainView::CloseFileByKey(const wxString &key) {
+  if (auto *data = GetFileItemData(FindFileLeaf(key))) {
+    CloseFile(data->page);
+  }
+}
+
+void MainView::CloseAllFiles() {
+  std::vector<wxString> keys;
+  for (auto *page : GetFilePages()) {
+    keys.push_back(page->GetKey());
+  }
+  for (const wxString &key : keys) {
+    CloseFileByKey(key);
+  }
 }
 
 SessionGroup *MainView::GetSessionGroup(const wxString &groupName) const {
@@ -341,6 +616,13 @@ void MainView::SelectSessionPage(SessionPage *page) {
 void MainView::RestoreActiveSessionSelection() {
   auto *activePage = GetActiveSessionPage();
   if (activePage == nullptr) {
+    if (auto *filePage =
+            dynamic_cast<FilePage *>(m_sessionsBook->GetCurrentPage())) {
+      auto fileLeaf = FindFileLeaf(filePage->GetKey());
+      if (fileLeaf.IsOk()) {
+        m_treeSessions->Select(fileLeaf);
+      }
+    }
     return;
   }
   const auto &session = activePage->GetSession();
@@ -562,6 +844,13 @@ void MainView::DoSelectGroup(const wxDataViewItem &item) {
   if (m_treeSessions->GetChildCount(item) == 0) {
     return;
   }
+  if (group->IsFilesGroup()) {
+    if (auto *fileData =
+            GetFileItemData(m_treeSessions->GetNthChild(item, 0))) {
+      SelectFilePage(fileData->page);
+    }
+    return;
+  }
 
   SessionPage *target = nullptr;
   const wxString &lastActive = group->GetLastActive();
@@ -588,6 +877,10 @@ void MainView::OnSelectionChanged(wxDataViewEvent &event) {
 
   if (auto *sessionData = GetSessionItemData(item)) {
     SelectSessionPage(sessionData->page);
+    return;
+  }
+  if (auto *fileData = GetFileItemData(item)) {
+    SelectFilePage(fileData->page);
     return;
   }
 
@@ -617,6 +910,9 @@ void MainView::ApplyFont(const wxFont &f) {
   for (auto *page : GetAllSessions()) {
     page->ApplyTheme(*active);
     page->GetTerminal()->SendSizeEvent();
+  }
+  for (auto *filePage : GetFilePages()) {
+    filePage->ApplyTheme(*active);
   }
   m_sessionsBook->SendSizeEvent();
   KLOG_INFO() << "Applied terminal font '" << f.GetFaceName() << "' to "
@@ -654,6 +950,9 @@ void MainView::ApplyTheme(const wxString &themeName) {
   for (auto *page : GetAllSessions()) {
     page->ApplyTheme(*active);
     page->GetTerminal()->SendSizeEvent();
+  }
+  for (auto *filePage : GetFilePages()) {
+    filePage->ApplyTheme(*active);
   }
   if (themeMgr.ActiveTheme()) {
     m_sessionsBook->SetBackgroundColour(themeMgr.ActiveTheme()->bg);
@@ -723,7 +1022,7 @@ bool MainView::IsSelectionTerminalGroup() const {
 wxArrayString MainView::GetGroupNames() const {
   wxArrayString names;
   for (auto *group : GetAllGroups()) {
-    if (!group->IsTerminalsGroup()) {
+    if (group->IsSessionGroup()) {
       names.Add(group->GetGroupName());
     }
   }
@@ -732,7 +1031,7 @@ wxArrayString MainView::GetGroupNames() const {
 
 void MainView::RefreshSelectedGroup() {
   auto *group = GetSelectedGroup();
-  if (group == nullptr || group->IsTerminalsGroup()) {
+  if (group == nullptr || !group->IsSessionGroup()) {
     return;
   }
 
@@ -762,8 +1061,12 @@ void MainView::CloseAllSessions() {
 }
 
 void MainView::DeleteAll() {
+  m_closeAfterSave.clear();
   m_sessionsBook->DeleteAllPages();
   m_treeSessions->DeleteAllItems();
+  // A page destroyed mid-save never delivers wxEVT_FILE_SAVE_DONE.
+  GetMainFrame()->StopActivityIndicator();
+  GetMainFrame()->ClearActivityText();
   SyncWorkspaceToDisk();
 }
 
@@ -913,6 +1216,10 @@ void MainView::SelectFallbackSession(SessionGroup *preferredGroup) {
       return;
     }
   }
+  auto filePages = GetFilePages();
+  if (!filePages.empty()) {
+    SelectFilePage(filePages.front());
+  }
 }
 
 void MainView::CloseSessionByName(const wxString &sessionName) {
@@ -965,7 +1272,7 @@ void MainView::CloseSession(SessionGroup *group, const wxString &sessionName) {
 
 void MainView::RefreshGroup(SessionGroup *group) {
   CHECK_NOT_NULL_RETURN(group);
-  if (group->IsTerminalsGroup()) {
+  if (!group->IsSessionGroup()) {
     return;
   }
   for (auto *page : GetGroupSessions(group->GetGroupName())) {
@@ -984,7 +1291,15 @@ void MainView::DoGroupMenu(const wxDataViewItem &item) {
   CHECK_NOT_NULL_RETURN(data);
 
   auto *group = data->group.get();
-  if (group->IsTerminalsGroup()) {
+  if (group->IsFilesGroup()) {
+    wxMenu menu;
+    menu.Append(wxID_CLOSE_ALL, _("Close All Files"));
+    menu.Bind(
+        wxEVT_MENU,
+        [this](wxCommandEvent &) { CallAfter(&MainView::CloseAllFiles); },
+        wxID_CLOSE_ALL);
+    m_treeSessions->PopupMenu(&menu);
+  } else if (group->IsTerminalsGroup()) {
     wxMenu menu;
     menu.Append(wxID_ADD, _("New Terminal..."));
     menu.Bind(
@@ -1028,6 +1343,23 @@ void MainView::DoGroupMenu(const wxDataViewItem &item) {
         XRCID("refresh-sessions"));
     m_treeSessions->PopupMenu(&menu);
   }
+}
+
+void MainView::DoFileMenu(const wxDataViewItem &item) {
+  auto *fileData = GetFileItemData(item);
+  CHECK_NOT_NULL_RETURN(fileData);
+  const wxString key = fileData->page->GetKey();
+
+  wxMenu menu;
+  menu.Append(wxID_CLOSE, _("Close"));
+  menu.Bind(
+      wxEVT_MENU,
+      [key, this](wxCommandEvent &) {
+        // Deferred: see CloseFile.
+        CallAfter(&MainView::CloseFileByKey, key);
+      },
+      wxID_CLOSE);
+  m_treeSessions->PopupMenu(&menu);
 }
 
 void MainView::DoSessionMenu(const wxDataViewItem &item) {
@@ -1170,6 +1502,8 @@ void MainView::OnContextMenu(wxDataViewEvent &event) {
   CHECK_ITEM_RETURN(item);
   if (m_treeSessions->IsContainer(item)) {
     DoGroupMenu(item);
+  } else if (GetFileItemData(item)) {
+    DoFileMenu(item);
   } else {
     DoSessionMenu(item);
   }
@@ -1191,26 +1525,42 @@ size_t MainView::GroupCount() const {
 size_t MainView::SessionCount() const { return GetAllSessions().size(); }
 
 void MainView::SelectSession(bool forward) {
-  auto sessions = GetAllSessions();
-  if (sessions.size() <= 1) {
+  // Every page in tree order: sessions and files alike.
+  std::vector<wxWindow *> pages;
+  const wxDataViewItem root;
+  const int groupCount = m_treeSessions->GetChildCount(root);
+  for (int g = 0; g < groupCount; ++g) {
+    auto group = m_treeSessions->GetNthChild(root, g);
+    const int childCount = m_treeSessions->GetChildCount(group);
+    for (int i = 0; i < childCount; ++i) {
+      auto child = m_treeSessions->GetNthChild(group, i);
+      if (auto *sessionData = GetSessionItemData(child)) {
+        pages.push_back(sessionData->page);
+      } else if (auto *fileData = GetFileItemData(child)) {
+        pages.push_back(fileData->page);
+      }
+    }
+  }
+  if (pages.size() <= 1) {
     return;
   }
 
-  auto *current = GetActiveSessionPage();
-  int where = -1;
-  for (size_t i = 0; i < sessions.size(); ++i) {
-    if (sessions[i] == current) {
+  wxWindow *current = m_sessionsBook->GetCurrentPage();
+  int where = 0;
+  for (size_t i = 0; i < pages.size(); ++i) {
+    if (pages[i] == current) {
       where = static_cast<int>(i);
       break;
     }
   }
-  if (where == -1) {
-    where = 0;
-  }
 
-  const int count = static_cast<int>(sessions.size());
+  const int count = static_cast<int>(pages.size());
   where = forward ? (where + 1) % count : (where - 1 + count) % count;
-  SelectSessionPage(sessions[where]);
+  if (auto *session = dynamic_cast<SessionPage *>(pages[where])) {
+    SelectSessionPage(session);
+  } else if (auto *file = dynamic_cast<FilePage *>(pages[where])) {
+    SelectFilePage(file);
+  }
 }
 
 void MainView::MoveSessionToGroup(const wxString &sessionName,

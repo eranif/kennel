@@ -2,6 +2,7 @@
 
 #include "UI.hpp"
 #include "app/AcceleratorInterceptor.h"
+#include "app/FileEvent.hpp"
 #include "app/SessionGroup.h"
 #include "app/ThemeManager.h"
 #include "core/AppPaths.h"
@@ -15,9 +16,11 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 class SessionPage;
+class FilePage;
 
 class AdapterRegistry;
 class WorkspaceStore;
@@ -41,6 +44,14 @@ class SessionItemData : public wxClientData {
 public:
   explicit SessionItemData(SessionPage *p) : page{p} {}
   SessionPage *page{nullptr};
+};
+
+// Client data on each file leaf under the "Files" container. Non-owning: the
+// FilePage window is owned by m_sessionsBook.
+class FileItemData : public wxClientData {
+public:
+  explicit FileItemData(FilePage *p) : page{p} {}
+  FilePage *page{nullptr};
 };
 
 class SpinnerRenderer : public wxEvtHandler {
@@ -122,7 +133,8 @@ public:
 
   void SelectSession(const wxString &sessionName);
 
-  // Cycles to the next/previous session across all groups, in tree order.
+  // Cycles to the next/previous page (session or file) across all groups, in
+  // tree order.
   void SelectSession(bool forward);
 
   size_t SessionCount() const;
@@ -144,6 +156,23 @@ public:
   // The single SessionPage currently shown on the right, or nullptr.
   SessionPage *GetActiveSessionPage() const;
 
+  // Opens a local file in an editor page under the "Files" container (or
+  // reselects it if it is already open).
+  void OpenLocalFile(const wxString &path);
+
+  // Reads `clickedPath` (resolved against `searchDirs`) from `remoteHost` on
+  // a worker thread, then shows it via ShowRemoteFile(). Ignored while the same
+  // file is already being fetched.
+  void OpenRemoteFile(const RemoteHostDetails &remoteHost,
+                      const wxString &clickedPath,
+                      const std::vector<wxString> &searchDirs);
+
+  // Shows `text`, fetched from `path` on `remoteHost`, in an editor page under
+  // the "Files" container. Saving writes it back over SFTP. An already-open
+  // page is refreshed, unless it has unsaved changes.
+  void ShowRemoteFile(const RemoteHostDetails &remoteHost, const wxString &path,
+                      const wxString &text, bool editable);
+
 protected:
   void DoSelectGroup(const wxDataViewItem &item);
   void DoSelectGroup(const wxString &name);
@@ -157,6 +186,7 @@ protected:
   void DeleteAll();
   void DoGroupMenu(const wxDataViewItem &item);
   void DoSessionMenu(const wxDataViewItem &item);
+  void DoFileMenu(const wxDataViewItem &item);
   void RenameGroup(SessionGroup *group);
   void RenameSession(SessionPage *page);
   // Opens the Start Agent dialog pre-filled with `page`'s agent and group,
@@ -178,12 +208,27 @@ protected:
   std::vector<SessionGroup *> GetAllGroups() const;
   void RemoveEmptyGroups();
 
+  // Closes `page` (offering to save unsaved changes) and removes its leaf.
+  void CloseFile(FilePage *page);
+  void CloseFileByKey(const wxString &key);
+  void OnFileSaveStarted(FileEvent &e);
+  void OnFileSaveDone(FileEvent &e);
+  void OnRemoteFileRead(wxThreadEvent &e);
+  void CloseAllFiles();
+
 private:
   void LoadBitmaps();
 
   SessionGroup *EnsureGroup(const wxString &groupName);
   GroupItemData *GetGroupItemData(const wxDataViewItem &item) const;
   SessionItemData *GetSessionItemData(const wxDataViewItem &item) const;
+  FileItemData *GetFileItemData(const wxDataViewItem &item) const;
+  wxDataViewItem FindFileLeaf(const wxString &key) const;
+  std::vector<FilePage *> GetFilePages() const;
+  // Adds `page` to the book and as a leaf under the "Files" container.
+  void AddFilePage(FilePage *page);
+  // Makes `page` the one visible page and selects its leaf.
+  void SelectFilePage(FilePage *page);
   SessionGroup *GetSessionGroup(const wxString &name) const;
 
   // Name-based tree lookups. The tree is the only source of truth for group
@@ -229,6 +274,13 @@ private:
   // runs of the same job get distinct tab names ("Test Job #1", "#2", ...)
   // instead of colliding with a still-open previous run's tab.
   std::map<wxString, int> m_jobRunCounters;
+
+  // Keys of remote files whose page should close once the save that was
+  // started for them succeeds (the user chose "Save" when closing).
+  std::set<wxString> m_closeAfterSave;
+
+  // Keys (see FileEvent::MakeKey) of remote files currently being fetched.
+  std::set<wxString> m_fetchingRemote;
 
   std::array<wxBitmapBundle, kSpinnerFrameCount> m_spinnerFrames;
   int m_pendingIdle{0};

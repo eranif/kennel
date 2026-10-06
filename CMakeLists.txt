@@ -290,6 +290,8 @@ set(KENNEL_APP_SOURCES
     src/app/AssetBootstrap.cpp
     src/app/AboutDialog.cpp
     src/app/EditFileDlg.cpp
+    src/app/FileEvent.cpp
+    src/app/FilePage.cpp
     src/app/EditAgentsDlg.cpp
     src/app/EditAgentDlg.cpp
     src/app/EditJobsDlg.cpp
