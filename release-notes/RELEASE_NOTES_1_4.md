@@ -35,6 +35,19 @@ opens as an editor page in the main view instead of a modal dialog.
 - **Navigation and appearance** — Alt+Arrow session cycling includes file pages, and theme and
   font changes apply to them too.
 
+### A better built-in editor
+
+The editor used for opened files (and the job log viewer) gained:
+
+- **Line numbers** — a margin that resizes with the file, separated from the text by a thin
+  line, in the active theme's colors.
+- **Syntax highlighting for many more languages** — CMake, bash/shell, Markdown, Java, XML,
+  Ruby, TypeScript, JavaScript, Python and Makefile, in addition to C/C++ and JSON. The
+  language is chosen from the file name or extension, including `CMakeLists.txt`, `Makefile`,
+  `Rakefile`, `Gemfile` and shell dotfiles such as `.bashrc` and `.zshrc`.
+- **Language-appropriate indentation** — Makefiles use real tab characters (recipe lines
+  require them) and Python uses 4-space indentation.
+
 ### Daily scheduled jobs
 
 Jobs can now run once a day at a wall-clock time (for example every day at 10:00) as an
