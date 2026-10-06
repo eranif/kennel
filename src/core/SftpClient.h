@@ -26,8 +26,17 @@ public:
   // Authentication is key-based only (ssh-agent, then the default keys in
   // ~/.ssh), the same requirement as Kennel's other remote features. Files
   // larger than `maxBytes` are rejected.
-  static StatusOr<RemoteFile>
-  ReadFile(const wxString &host, const wxString &user, const wxString &path,
-           const std::vector<wxString> &searchDirs,
-           size_t maxBytes = 16 * 1024 * 1024);
+  static StatusOr<RemoteFile> ReadFile(const wxString &host,
+                                       const wxString &user,
+                                       const wxString &path,
+                                       const std::vector<wxString> &searchDirs,
+                                       size_t maxBytes = 16 * 1024 * 1024);
+
+  // Replaces the existing remote file at the absolute path `path` with
+  // `content`. The data is written to a temporary file next to it, given the
+  // original's permissions, and then renamed over it, so a failure part-way
+  // never leaves the original truncated. A symlink is followed (its target is
+  // replaced). Blocking, like ReadFile.
+  static Status WriteFile(const wxString &host, const wxString &user,
+                          const wxString &path, const std::string &content);
 };
