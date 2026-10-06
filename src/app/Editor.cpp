@@ -1,6 +1,8 @@
 #include "app/Editor.h"
 #include "wx/sizer.h"
 
+#include <algorithm>
+
 Editor::Editor(wxWindow *parent, EditorLang lang, const wxTerminalTheme &theme)
     : wxPanel(parent), m_lang{lang}, m_theme{theme} {
   SetSizer(new wxBoxSizer(wxVERTICAL));
@@ -8,6 +10,7 @@ Editor::Editor(wxWindow *parent, EditorLang lang, const wxTerminalTheme &theme)
   GetSizer()->Add(m_ctrl, wxSizerFlags(1).Expand());
   GetSizer()->Fit(this);
   Layout();
+  m_ctrl->Bind(wxEVT_STC_MODIFIED, &Editor::OnModified, this);
   InitEditor();
 }
 
@@ -30,6 +33,14 @@ void Editor::InitEditor() {
     m_ctrl->StyleSetForeground(i, m_theme.fg);
     m_ctrl->StyleSetFont(i, m_theme.font);
   }
+
+  // Line numbers in margin 0; the other margins are unused.
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  m_ctrl->SetMarginType(0, wxSTC_MARGIN_NUMBER);
+  m_ctrl->SetMarginWidth(1, 0);
+  m_ctrl->SetMarginWidth(2, 0);
+  m_ctrl->SetMarginLeft(4);
+  UpdateLineNumberMargin();
 
   // Indentation
   m_ctrl->SetUseTabs(false);
@@ -74,6 +85,21 @@ void Editor::InitEditor() {
   case EditorLang::kCxx:
     InitCxxStyle();
     break;
+  case EditorLang::kJava:
+    InitJavaStyle();
+    break;
+  case EditorLang::kCMake:
+    InitCMakeStyle();
+    break;
+  case EditorLang::kBash:
+    InitBashStyle();
+    break;
+  case EditorLang::kMarkdown:
+    InitMarkdownStyle();
+    break;
+  case EditorLang::kXml:
+    InitXmlStyle();
+    break;
   case EditorLang::kJson:
     InitJsonStyle();
     break;
@@ -89,11 +115,7 @@ void Editor::InitTextStyle() {
 }
 
 void Editor::InitCxxStyle() {
-  m_ctrl->SetLexer(wxSTC_LEX_CPP);
-
-  // Primary C/C++ keywords.
-  m_ctrl->SetKeyWords(
-      0,
+  InitCppLikeStyle(
       "alignas alignof and and_eq asm auto bitand bitor bool break case "
       "catch char char8_t char16_t char32_t class compl concept const "
       "consteval constexpr constinit const_cast continue co_await co_return "
@@ -105,6 +127,23 @@ void Editor::InitCxxStyle() {
       "template this thread_local throw true try typedef typeid typename "
       "union unsigned using virtual void volatile wchar_t while xor xor_eq "
       "override final");
+}
+
+void Editor::InitJavaStyle() {
+  InitCppLikeStyle(
+      "abstract assert boolean break byte case catch char class const "
+      "continue default do double else enum extends final finally float for "
+      "goto if implements import instanceof int interface long native new "
+      "package permits private protected public record return sealed short "
+      "static strictfp super switch synchronized this throw throws transient "
+      "try var void volatile while yield true false null");
+}
+
+void Editor::InitCppLikeStyle(const char *keywords) {
+  m_ctrl->SetLexer(wxSTC_LEX_CPP);
+
+  // Primary keywords.
+  m_ctrl->SetKeyWords(0, keywords);
 
   AddProperty(wxSTC_C_DEFAULT, m_theme.bg, m_theme.fg);
   AddProperty(wxSTC_C_COMMENT, m_theme.bg, m_theme.brightBlack);
@@ -158,6 +197,162 @@ void Editor::InitJsonStyle() {
   AddProperty(wxSTC_JSON_ERROR, m_theme.bg, m_theme.red);
   AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
+}
+
+void Editor::InitCMakeStyle() {
+  m_ctrl->SetLexer(wxSTC_LEX_CMAKE);
+
+  // 0: commands, 1: parameters, 2: user-defined commands.
+  m_ctrl->SetKeyWords(
+      0, "add_compile_definitions add_compile_options add_custom_command "
+         "add_custom_target add_definitions add_dependencies add_executable "
+         "add_library add_link_options add_subdirectory add_test "
+         "cmake_minimum_required cmake_parse_arguments cmake_policy "
+         "configure_file define_property enable_language enable_testing "
+         "execute_process export file find_file find_library find_package "
+         "find_path find_program function endfunction get_cmake_property "
+         "get_directory_property get_filename_component get_property "
+         "get_target_property include include_directories include_guard "
+         "install link_directories link_libraries list macro endmacro "
+         "mark_as_advanced math message option project return "
+         "separate_arguments set set_directory_properties set_property "
+         "set_target_properties set_tests_properties source_group string "
+         "target_compile_definitions target_compile_features "
+         "target_compile_options target_include_directories "
+         "target_link_directories target_link_libraries target_link_options "
+         "target_precompile_headers target_sources try_compile try_run unset");
+  m_ctrl->SetKeyWords(
+      1, "PUBLIC PRIVATE INTERFACE REQUIRED COMPONENTS OPTIONAL QUIET EXACT "
+         "STATIC SHARED MODULE OBJECT ALIAS IMPORTED GLOBAL FORCE CACHE "
+         "STRING BOOL PATH FILEPATH INTERNAL ON OFF TRUE FALSE YES NO NOT AND "
+         "OR STREQUAL EQUAL LESS GREATER MATCHES DEFINED EXISTS COMMAND "
+         "TARGET POLICY IN_LIST VERSION_LESS VERSION_GREATER VERSION_EQUAL "
+         "APPEND PREPEND REMOVE_ITEM REMOVE_DUPLICATES GLOB GLOB_RECURSE "
+         "REPLACE REGEX SUBSTRING TOLOWER TOUPPER LENGTH FIND PROPERTY "
+         "PROPERTIES DESTINATION TARGETS FILES DIRECTORY RUNTIME LIBRARY "
+         "ARCHIVE WORKING_DIRECTORY DEPENDS COMMENT VERBATIM");
+
+  AddProperty(wxSTC_CMAKE_DEFAULT, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_CMAKE_COMMENT, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_CMAKE_STRINGDQ, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_CMAKE_STRINGLQ, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_CMAKE_STRINGRQ, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_CMAKE_COMMANDS, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_CMAKE_PARAMETERS, m_theme.bg, m_theme.blue);
+  AddProperty(wxSTC_CMAKE_VARIABLE, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_CMAKE_USERDEFINED, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_CMAKE_WHILEDEF, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_CMAKE_FOREACHDEF, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_CMAKE_IFDEFINEDEF, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_CMAKE_MACRODEF, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_CMAKE_STRINGVAR, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_CMAKE_NUMBER, m_theme.bg, m_theme.green);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
+}
+
+void Editor::InitBashStyle() {
+  m_ctrl->SetLexer(wxSTC_LEX_BASH);
+
+  m_ctrl->SetKeyWords(
+      0, "if then elif else fi for while until do done case esac in function "
+         "select time return exit break continue local export readonly "
+         "declare typeset unset shift source alias unalias echo printf read "
+         "cd pwd test eval exec set trap wait kill true false let getopts "
+         "umask ulimit type command builtin");
+
+  AddProperty(wxSTC_SH_DEFAULT, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_SH_ERROR, m_theme.bg, m_theme.red);
+  AddProperty(wxSTC_SH_COMMENTLINE, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_SH_NUMBER, m_theme.bg, m_theme.green);
+  AddProperty(wxSTC_SH_WORD, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_SH_STRING, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_SH_CHARACTER, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_SH_OPERATOR, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_SH_IDENTIFIER, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_SH_SCALAR, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_SH_PARAM, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_SH_BACKTICKS, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_SH_HERE_DELIM, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_SH_HERE_Q, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
+}
+
+void Editor::InitMarkdownStyle() {
+  m_ctrl->SetLexer(wxSTC_LEX_MARKDOWN);
+
+  AddProperty(wxSTC_MARKDOWN_DEFAULT, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_MARKDOWN_LINE_BEGIN, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_MARKDOWN_PRECHAR, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_MARKDOWN_STRONG1, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_MARKDOWN_STRONG2, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_MARKDOWN_EM1, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_MARKDOWN_EM2, m_theme.bg, m_theme.fg);
+  for (int style : {wxSTC_MARKDOWN_HEADER1, wxSTC_MARKDOWN_HEADER2,
+                    wxSTC_MARKDOWN_HEADER3, wxSTC_MARKDOWN_HEADER4,
+                    wxSTC_MARKDOWN_HEADER5, wxSTC_MARKDOWN_HEADER6}) {
+    AddProperty(style, m_theme.bg, m_theme.brightBlue);
+    m_ctrl->StyleSetBold(style, true);
+  }
+  m_ctrl->StyleSetBold(wxSTC_MARKDOWN_STRONG1, true);
+  m_ctrl->StyleSetBold(wxSTC_MARKDOWN_STRONG2, true);
+  m_ctrl->StyleSetItalic(wxSTC_MARKDOWN_EM1, true);
+  m_ctrl->StyleSetItalic(wxSTC_MARKDOWN_EM2, true);
+  AddProperty(wxSTC_MARKDOWN_ULIST_ITEM, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_MARKDOWN_OLIST_ITEM, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_MARKDOWN_BLOCKQUOTE, m_theme.bg, m_theme.green);
+  AddProperty(wxSTC_MARKDOWN_STRIKEOUT, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_MARKDOWN_HRULE, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_MARKDOWN_LINK, m_theme.bg, m_theme.blue);
+  m_ctrl->StyleSetUnderline(wxSTC_MARKDOWN_LINK, true);
+  AddProperty(wxSTC_MARKDOWN_CODE, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_MARKDOWN_CODE2, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_MARKDOWN_CODEBK, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
+}
+
+void Editor::InitXmlStyle() {
+  m_ctrl->SetLexer(wxSTC_LEX_XML);
+
+  AddProperty(wxSTC_H_DEFAULT, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_H_TAG, m_theme.bg, m_theme.blue);
+  AddProperty(wxSTC_H_TAGEND, m_theme.bg, m_theme.blue);
+  AddProperty(wxSTC_H_TAGUNKNOWN, m_theme.bg, m_theme.red);
+  AddProperty(wxSTC_H_ATTRIBUTE, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_H_ATTRIBUTEUNKNOWN, m_theme.bg, m_theme.red);
+  AddProperty(wxSTC_H_NUMBER, m_theme.bg, m_theme.green);
+  AddProperty(wxSTC_H_DOUBLESTRING, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_H_SINGLESTRING, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_H_VALUE, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_H_OTHER, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_H_COMMENT, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_H_ENTITY, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_H_QUESTION, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_H_XMLSTART, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_H_XMLEND, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_H_CDATA, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
+}
+
+void Editor::UpdateLineNumberMargin() {
+  // Wide enough for the largest line number, with a minimum so the margin does
+  // not jitter while a small file is edited.
+  const int digits = std::max<int>(
+      3, static_cast<int>(std::to_string(m_ctrl->GetLineCount()).length()));
+  m_ctrl->SetMarginWidth(
+      0, m_ctrl->TextWidth(wxSTC_STYLE_LINENUMBER,
+                           wxString(wxUniChar('9'), digits + 1)));
+}
+
+void Editor::OnModified(wxStyledTextEvent &event) {
+  event.Skip();
+  // Only a change in the number of lines can change the margin width.
+  if (event.GetLinesAdded() != 0) {
+    UpdateLineNumberMargin();
+  }
 }
 
 void Editor::SetTheme(const wxTerminalTheme &theme) {

@@ -9,6 +9,11 @@ enum class EditorLang {
   kText,
   kJson,
   kCxx,
+  kJava,
+  kCMake,
+  kBash,
+  kMarkdown,
+  kXml,
 };
 
 struct EditableLocker {
@@ -78,7 +83,16 @@ private:
   void InitEditor();
   void InitJsonStyle();
   void InitTextStyle();
+  void InitCppLikeStyle(const char *keywords);
   void InitCxxStyle();
+  void InitJavaStyle();
+  void InitCMakeStyle();
+  void InitBashStyle();
+  void InitMarkdownStyle();
+  void InitXmlStyle();
+  // Sizes the line-number margin to fit the current number of lines.
+  void UpdateLineNumberMargin();
+  void OnModified(wxStyledTextEvent &event);
 
   wxStyledTextCtrl *m_ctrl{nullptr};
   EditorLang m_lang = EditorLang::kText;

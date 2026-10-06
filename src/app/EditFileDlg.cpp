@@ -65,14 +65,42 @@ void EditFileDlg::SetEditable(bool editable) {
 }
 
 EditorLang EditFileDlg::LangFromPath(const wxString &filepath) {
-  wxString ext = filepath.AfterLast('.').Lower();
-  static std::unordered_map<wxString, EditorLang> langMap{
-      {"cpp", EditorLang::kCxx}, {"c", EditorLang::kCxx},
-      {"cc", EditorLang::kCxx},  {"cxx", EditorLang::kCxx},
-      {"h", EditorLang::kCxx},   {"hpp", EditorLang::kCxx},
-      {"hxx", EditorLang::kCxx}, {"json", EditorLang::kJson},
+  // Works for local (either separator) and remote (POSIX) paths alike.
+  const wxString name = filepath.AfterLast('/').AfterLast('\\');
+
+  static const std::unordered_map<wxString, EditorLang> nameMap{
+      {"cmakelists.txt", EditorLang::kCMake},
+      {".bashrc", EditorLang::kBash},
+      {".bash_profile", EditorLang::kBash},
+      {".bash_aliases", EditorLang::kBash},
+      {".profile", EditorLang::kBash},
+      {".zshrc", EditorLang::kBash},
+      {".zprofile", EditorLang::kBash},
   };
-  return find_or(langMap, ext, EditorLang::kText);
+  const wxString lowerName = name.Lower();
+  if (auto it = nameMap.find(lowerName); it != nameMap.end()) {
+    return it->second;
+  }
+
+  // A name with no dot has no extension (AfterLast would return it whole).
+  if (!lowerName.Contains(".")) {
+    return EditorLang::kText;
+  }
+  static const std::unordered_map<wxString, EditorLang> extMap{
+      {"cpp", EditorLang::kCxx},     {"c", EditorLang::kCxx},
+      {"cc", EditorLang::kCxx},      {"cxx", EditorLang::kCxx},
+      {"h", EditorLang::kCxx},       {"hpp", EditorLang::kCxx},
+      {"hxx", EditorLang::kCxx},     {"json", EditorLang::kJson},
+      {"java", EditorLang::kJava},   {"cmake", EditorLang::kCMake},
+      {"sh", EditorLang::kBash},     {"bash", EditorLang::kBash},
+      {"zsh", EditorLang::kBash},    {"ksh", EditorLang::kBash},
+      {"md", EditorLang::kMarkdown}, {"markdown", EditorLang::kMarkdown},
+      {"xml", EditorLang::kXml},     {"xsd", EditorLang::kXml},
+      {"xsl", EditorLang::kXml},     {"xslt", EditorLang::kXml},
+      {"svg", EditorLang::kXml},     {"plist", EditorLang::kXml},
+      {"xrc", EditorLang::kXml},     {"pom", EditorLang::kXml},
+  };
+  return find_or(extMap, lowerName.AfterLast('.'), EditorLang::kText);
 }
 
 void EditFileDlg::LoadFile(const wxString &filepath) {
