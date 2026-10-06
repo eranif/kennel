@@ -258,13 +258,24 @@ void MainFrame::BuildMenuBar() {
 
 void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
   auto *searchMenu = new wxMenu();
+#ifdef __WXOSX__
+  // macOS uses Ctrl+Tab to move the keyboard focus before the focused view
+  // gets the key, so it never reaches AcceleratorInterceptor. A menu key
+  // equivalent is checked before that. "RawCtrl" is the physical Ctrl key,
+  // not Cmd.
+  searchMenu->Append(wxID_FORWARD, _("Select Next Page\tRawCtrl+Tab"),
+                     _("Select the next session or file"));
+  searchMenu->Append(wxID_BACKWARD,
+                     _("Select Previous Page\tRawCtrl+Shift+Tab"),
+                     _("Select the previous session or file"));
+#else
   // No accelerator text: Ctrl+Tab / Ctrl+Shift+Tab are handled by
-  // AcceleratorInterceptor (a menu accelerator would map Ctrl to Cmd on macOS
-  // and could not keep the switcher open while Ctrl is held).
+  // AcceleratorInterceptor.
   searchMenu->Append(wxID_FORWARD, _("Select Next Page (Ctrl+Tab)"),
                      _("Select the next session or file"));
   searchMenu->Append(wxID_BACKWARD, _("Select Previous Page (Ctrl+Shift+Tab)"),
                      _("Select the previous session or file"));
+#endif
 
   // Session movement: cycles through every open session, regardless of
   // which group it belongs to.

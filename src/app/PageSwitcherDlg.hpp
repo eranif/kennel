@@ -23,6 +23,7 @@ public:
   // row after the first one (forward) or the last one (backward).
   PageSwitcherDlg(wxWindow *parent, const std::vector<PageSwitcherItem> &items,
                   bool forward);
+  ~PageSwitcherDlg() override;
 
   // The chosen row, or wxNOT_FOUND.
   int GetSelectedIndex() const;

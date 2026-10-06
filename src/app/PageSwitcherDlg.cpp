@@ -13,6 +13,10 @@ constexpr int kMinHeight = 300;
 constexpr int kMaxWidth = 700;
 constexpr int kPollMs = 30;
 constexpr int kIconSize = 16;
+#ifdef __WXOSX__
+constexpr int kHotKeyNext = 1;
+constexpr int kHotKeyPrev = 2;
+#endif
 } // namespace
 
 PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent,
@@ -58,11 +62,27 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent,
     m_list->SelectRow(static_cast<unsigned int>(initial));
     m_list->EnsureVisible(m_list->RowToItem(initial));
   }
+#ifdef __WXOSX__
+  // macOS uses Ctrl+Tab to move the keyboard focus before the list gets the
+  // key, so wxEVT_CHAR_HOOK never sees it. A hot key is caught before that.
+  // It is unregistered in the destructor.
+  RegisterHotKey(kHotKeyNext, wxMOD_RAW_CONTROL, WXK_TAB);
+  RegisterHotKey(kHotKeyPrev, wxMOD_RAW_CONTROL | wxMOD_SHIFT, WXK_TAB);
+  Bind(wxEVT_HOTKEY, [this](wxKeyEvent &) { Advance(true); }, kHotKeyNext);
+  Bind(wxEVT_HOTKEY, [this](wxKeyEvent &) { Advance(false); }, kHotKeyPrev);
+#endif
   m_list->SetFocus();
   CentreOnParent();
   // Releasing Ctrl normally arrives as a key-up on the list, but poll the
   // modifier state too in case the release happened before we had focus.
   m_timer.Start(kPollMs);
+}
+
+PageSwitcherDlg::~PageSwitcherDlg() {
+#ifdef __WXOSX__
+  UnregisterHotKey(kHotKeyNext);
+  UnregisterHotKey(kHotKeyPrev);
+#endif
 }
 
 int PageSwitcherDlg::GetSelectedIndex() const {
