@@ -73,8 +73,8 @@ scheduled-jobs system:
 - Numerous stability fixes, including a Windows crash when collapsing tree groups and
   crash-prone group deletion on macOS
 
-See [Release Notes](RELEASE_NOTES_1.3.0.md) for the complete changelog (previous:
-[1.2.0](RELEASE_NOTES_1.2.0.md)).
+See [Release Notes](release-notes/RELEASE_NOTES_1.3.0.md) for the complete changelog (previous:
+[1.2.0](release-notes/RELEASE_NOTES_1.2.0.md)).
 
 ---
 
