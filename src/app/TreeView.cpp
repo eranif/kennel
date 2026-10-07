@@ -82,6 +82,13 @@ TreeView::TreeView(wxWindow *parent) : wxPanel(parent) {
                this);
   m_tree->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &TreeView::OnContextMenu,
                this);
+  EventNotifier::Get()->Bind(wxEVT_PAGEVIEW_SELECTED, &TreeView::OnPageSelected,
+                             this);
+}
+
+TreeView::~TreeView() {
+  EventNotifier::Get()->Unbind(wxEVT_PAGEVIEW_SELECTED,
+                               &TreeView::OnPageSelected, this);
 }
 
 // ---------------------------------------------------------------------------
@@ -112,6 +119,17 @@ wxWindow *TreeView::PageOf(const wxDataViewItem &item) const {
     return file->page;
   }
   return nullptr;
+}
+
+std::optional<GroupAndName> TreeView::RefOf(const wxDataViewItem &item) const {
+  if (auto *session = GetSessionData(item)) {
+    const Session &s = session->page->GetSession();
+    return GroupAndName{s.name, s.groupName};
+  }
+  if (auto *file = GetFileData(item)) {
+    return GroupAndName{file->page->GetKey(), kFilesGroupName};
+  }
+  return std::nullopt;
 }
 
 std::vector<wxDataViewItem>
@@ -297,6 +315,9 @@ SessionGroup *TreeView::GetSelectedGroup() const {
 bool TreeView::SelectGroup(const wxString &name) {
   auto item = FindGroupItem(name);
   CHECK_ITEM_RETURN_FALSE(item);
+  // On macOS a programmatic selection sends the event too; it must not look
+  // like a click on the group.
+  wxEventBlocker blocker(m_tree, wxEVT_DATAVIEW_SELECTION_CHANGED);
   m_tree->Select(item);
   return true;
 }
@@ -388,6 +409,13 @@ SessionPage *TreeView::FindSession(const wxString &group,
   return nullptr;
 }
 
+wxWindow *TreeView::FindPage(const GroupAndName &ref) const {
+  if (ref.group == kFilesGroupName) {
+    return FindFile(ref.name);
+  }
+  return FindSession(ref.group, ref.name);
+}
+
 FilePage *TreeView::FindFile(const wxString &key) const {
   for (auto *page : GetFilePages()) {
     if (page->GetKey() == key) {
@@ -432,8 +460,8 @@ std::vector<PageInfo> TreeView::GetPages() const {
   for (const auto &group : Children(wxDataViewItem{})) {
     const wxString groupName = m_tree->GetItemText(group);
     for (const auto &leaf : Children(group)) {
-      if (auto *page = PageOf(leaf)) {
-        result.push_back({page, m_tree->GetItemText(leaf), groupName,
+      if (auto ref = RefOf(leaf)) {
+        result.push_back({m_tree->GetItemText(leaf), groupName, ref->name,
                           m_tree->GetItemIcon(leaf)});
       }
     }
@@ -458,17 +486,16 @@ wxWindow *TreeView::GetFallbackPage(const wxString &preferredGroup) const {
   return files.empty() ? nullptr : files.front();
 }
 
-void TreeView::SelectPage(wxWindow *page) {
-  CHECK_NOT_NULL_RETURN(page);
-  auto leaf = FindPageItem(page);
-  if (leaf.IsOk()) {
-    m_tree->Select(leaf);
+void TreeView::SelectPage(const GroupAndName &ref) {
+  auto leaf = FindPageItem(FindPage(ref));
+  if (!leaf.IsOk() || m_tree->GetSelection() == leaf) {
+    return;
   }
-  if (auto *session = dynamic_cast<SessionPage *>(page)) {
-    if (auto *group = GetGroup(session->GetSession().groupName)) {
-      group->SetLastActive(session->GetSession().name);
-    }
-  }
+  // On macOS a programmatic selection sends the event too; it must not look
+  // like the user's pick.
+  wxEventBlocker blocker(m_tree, wxEVT_DATAVIEW_SELECTION_CHANGED);
+  m_tree->Select(leaf);
+  m_tree->EnsureVisible(leaf);
 }
 
 wxWindow *TreeView::GetSelectedPage() const {
@@ -485,12 +512,11 @@ void TreeView::OnSelectionChanged(wxDataViewEvent &event) {
   auto item = event.GetItem();
   CHECK_ITEM_RETURN(item);
 
-  if (auto *sessionData = GetSessionData(item)) {
+  if (auto ref = RefOf(item)) {
     PageViewEvent evtSelected(wxEVT_PAGEVIEW_SELECTED);
     evtSelected.SetEventObject(this);
     evtSelected.SetUpdateRecent(true);
-    evtSelected.SetGroupName(sessionData->page->GetSession().groupName);
-    evtSelected.SetSessionName(sessionData->page->GetSession().name);
+    evtSelected.SetRef(*ref);
     EventNotifier::Get()->AddPendingEvent(evtSelected);
     return;
   }
@@ -508,25 +534,38 @@ void TreeView::OnSelectionChanged(wxDataViewEvent &event) {
     } else {
       m_tree->Expand(item);
     }
+    // Go back to the page that is still showing.
+    if (auto shown = GetMainView()->GetActivePageRef()) {
+      SelectPage(*shown);
+    }
   });
 }
 
 void TreeView::OnContextMenu(wxDataViewEvent &event) {
   auto item = event.GetItem();
-  if (!item.IsOk()) {
-    SendMenuEvent(nullptr, wxEmptyString);
-    return;
-  }
   if (auto *group = GetGroupData(item)) {
-    SendMenuEvent(nullptr, group->group->GetGroupName());
+    SendMenuEvent(std::nullopt, group->group->GetGroupName());
     return;
   }
-  SendMenuEvent(PageOf(item), wxEmptyString);
+  SendMenuEvent(RefOf(item), wxEmptyString);
 }
 
-void TreeView::SendMenuEvent(wxWindow *page, const wxString &groupName) {
+void TreeView::SendMenuEvent(const std::optional<GroupAndName> &page,
+                             const wxString &groupName) {
   PageViewEvent menu(wxEVT_PAGEVIEW_MENU);
   menu.SetEventObject(this);
-  menu.SetGroupName(groupName);
+  if (page) {
+    menu.SetRef(*page);
+  } else {
+    menu.SetGroupName(groupName);
+  }
   ProcessWindowEvent(menu);
+}
+
+void TreeView::OnPageSelected(PageViewEvent &event) {
+  event.Skip();
+  if (event.GetEventObject() == this) {
+    return;
+  }
+  SelectPage(event.GetRef());
 }

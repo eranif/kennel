@@ -14,6 +14,7 @@
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/ClientAdapter.h"
+#include "core/EventNotifier.hpp"
 #include "core/JobLog.h"
 #include "core/Logger.h"
 #include "core/SftpClient.h"
@@ -44,6 +45,18 @@ void PushRecent(std::vector<wxString> &list, const wxString &value,
   if (list.size() > maxSize) {
     list.resize(maxSize);
   }
+}
+
+// The name of `page` (a SessionPage or a FilePage), see GroupAndName.
+std::optional<GroupAndName> RefOf(wxWindow *page) {
+  if (auto *session = dynamic_cast<SessionPage *>(page)) {
+    return GroupAndName{session->GetSession().name,
+                        session->GetSession().groupName};
+  }
+  if (auto *file = dynamic_cast<FilePage *>(page)) {
+    return GroupAndName{file->GetKey(), kFilesGroupName};
+  }
+  return std::nullopt;
 }
 } // namespace
 
@@ -88,6 +101,8 @@ MainView::MainView(wxWindow *parent)
     }
   }
 
+  EventNotifier::Get()->Bind(wxEVT_PAGEVIEW_SELECTED, &MainView::OnPageSelected,
+                             this);
   Bind(wxEVT_PAGEVIEW_MENU, &MainView::OnPageMenu, this);
   Bind(wxEVT_SESSION_IDLE, &MainView::OnSessionIdle, this);
   Bind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
@@ -101,7 +116,8 @@ MainView::MainView(wxWindow *parent)
 }
 
 MainView::~MainView() {
-  Unbind(wxEVT_PAGEVIEW_SELECTED, &MainView::OnPageSelected, this);
+  EventNotifier::Get()->Unbind(wxEVT_PAGEVIEW_SELECTED,
+                               &MainView::OnPageSelected, this);
   Unbind(wxEVT_PAGEVIEW_MENU, &MainView::OnPageMenu, this);
   Unbind(wxEVT_SESSION_IDLE, &MainView::OnSessionIdle, this);
   Unbind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
@@ -119,16 +135,27 @@ MainView::~MainView() {
 // ---------------------------------------------------------------------------
 
 void MainView::OnPageSelected(PageViewEvent &event) {
-  // Picking a page in the flat list (mouse or keyboard) must not move it, or
-  // anything else, in that list: leave the recent order alone.
-  ShowPage(event.GetPage(), event.UpdateRecent());
+  event.Skip();
+  if (event.GetEventObject() == this) {
+    return; // Sent by ActivatePage(), the page is already showing.
+  }
+  // The page may have been closed while the event was pending.
+  auto *page = m_treeView->FindPage(event.GetRef());
+  if (page == nullptr || page == m_sessionsBook->GetCurrentPage()) {
+    return;
+  }
+  // The sender has selected it already, and the other views follow the same
+  // event: no need to tell them.
+  ShowPage(page, event.UpdateRecent(), false);
 }
 
 void MainView::OnPageMenu(PageViewEvent &event) {
   auto *on = dynamic_cast<wxWindow *>(event.GetEventObject());
   CHECK_NOT_NULL_RETURN(on);
-  if (event.GetPage() != nullptr) {
-    ShowPageMenu(event.GetPage(), on);
+  if (!event.GetSessionName().empty()) {
+    if (auto *page = m_treeView->FindPage(event.GetRef())) {
+      ShowPageMenu(page, on);
+    }
   } else if (!event.GetGroupName().empty()) {
     ShowGroupMenu(event.GetGroupName(), on);
   } else {
@@ -146,10 +173,49 @@ void MainView::RefreshFlatView() {
 
 void MainView::DoRefreshFlatView() {
   m_flatRefreshPending = false;
-  wxWindow *current = m_sessionsBook->GetCurrentPage();
-  // Purely by recency: the current page is not forced to the top, since it may
-  // have been picked in this very list without touching the recent order.
-  m_flatView->SetPages(m_flatView->Order(m_treeView->GetPages()), current);
+  // Tree order, never sorted.
+  m_flatView->SetPages(m_treeView->GetPages(), GetActivePageRef());
+}
+
+std::vector<PageInfo>
+MainView::GetPagesByRecency(const std::optional<GroupAndName> &first) const {
+  std::vector<PageInfo> remaining = m_treeView->GetPages();
+  std::vector<PageInfo> ordered;
+  auto take = [&](const GroupAndName &ref) {
+    auto it = std::find_if(
+        remaining.begin(), remaining.end(),
+        [&ref](const PageInfo &info) { return info.Ref() == ref; });
+    if (it != remaining.end()) {
+      ordered.push_back(std::move(*it));
+      remaining.erase(it);
+    }
+  };
+
+  if (first) {
+    take(*first);
+  }
+  for (const auto &ref : m_recent) {
+    take(ref);
+  }
+  ordered.insert(ordered.end(), std::make_move_iterator(remaining.begin()),
+                 std::make_move_iterator(remaining.end()));
+  return ordered;
+}
+
+void MainView::TouchRecent(const GroupAndName &ref) {
+  if (!m_recent.empty() && m_recent.front() == ref) {
+    return;
+  }
+  // Drop the closed pages while at it, so the list cannot grow forever.
+  std::erase_if(m_recent, [&](const GroupAndName &r) {
+    return r == ref || m_treeView->FindPage(r) == nullptr;
+  });
+  m_recent.insert(m_recent.begin(), ref);
+  SyncWorkspaceSoon();
+}
+
+void MainView::RenameRecent(const GroupAndName &from, const GroupAndName &to) {
+  std::replace(m_recent.begin(), m_recent.end(), from, to);
 }
 
 void MainView::SyncWorkspaceSoon() {
@@ -176,8 +242,9 @@ void MainView::SyncWorkspaceToDisk() {
     }
   }
 
-  for (const auto &info : m_flatView->Order(m_treeView->GetPages())) {
-    auto *session = dynamic_cast<SessionPage *>(info.page);
+  for (const auto &info : GetPagesByRecency(std::nullopt)) {
+    auto *session =
+        dynamic_cast<SessionPage *>(m_treeView->FindPage(info.Ref()));
     if (session && session->GetSession().IsPersistent()) {
       ws.recentSessions.push_back(SessionRef{session->GetSession().groupName,
                                              session->GetSession().name});
@@ -193,38 +260,55 @@ void MainView::SyncWorkspaceToDisk() {
 // Showing pages
 // ---------------------------------------------------------------------------
 
-void MainView::ShowPage(wxWindow *page, bool updateRecent) {
+void MainView::ShowPage(wxWindow *page, bool updateRecent, bool notifyViews) {
   if (auto *session = dynamic_cast<SessionPage *>(page)) {
-    SelectSessionPage(session, updateRecent);
+    SelectSessionPage(session, updateRecent, notifyViews);
   } else if (auto *file = dynamic_cast<FilePage *>(page)) {
-    SelectFilePage(file, updateRecent);
+    SelectFilePage(file, updateRecent, notifyViews);
   }
 }
 
-void MainView::ActivatePage(wxWindow *page, bool updateRecent) {
-  m_treeView->SelectPage(page);
+void MainView::ActivatePage(wxWindow *page, bool updateRecent,
+                            bool notifyViews) {
+  auto ref = RefOf(page);
+  if (!ref) {
+    return;
+  }
 
   int where = m_sessionsBook->FindPage(page);
   if (where != wxNOT_FOUND) {
     m_sessionsBook->SetSelection(where);
   }
+  if (auto *session = dynamic_cast<SessionPage *>(page)) {
+    if (auto *group = m_treeView->GetGroup(session->GetSession().groupName)) {
+      group->SetLastActive(session->GetSession().name);
+    }
+  }
 
-  if (updateRecent && m_flatView->Touch(page)) {
-    RefreshFlatView();
-    SyncWorkspaceSoon();
+  if (notifyViews) {
+    PageViewEvent evtSelected(wxEVT_PAGEVIEW_SELECTED);
+    evtSelected.SetEventObject(this);
+    evtSelected.SetUpdateRecent(updateRecent);
+    evtSelected.SetRef(*ref);
+    EventNotifier::Get()->AddPendingEvent(evtSelected);
+  }
+  if (updateRecent) {
+    TouchRecent(*ref);
   }
 }
 
-void MainView::SelectSessionPage(SessionPage *page, bool updateRecent) {
+void MainView::SelectSessionPage(SessionPage *page, bool updateRecent,
+                                 bool notifyViews) {
   CHECK_NOT_NULL_RETURN(page);
-  ActivatePage(page, updateRecent);
+  ActivatePage(page, updateRecent, notifyViews);
   page->CallAfter(&SessionPage::SetFocus);
   page->ApplyTitle();
 }
 
-void MainView::SelectFilePage(FilePage *page, bool updateRecent) {
+void MainView::SelectFilePage(FilePage *page, bool updateRecent,
+                              bool notifyViews) {
   CHECK_NOT_NULL_RETURN(page);
-  ActivatePage(page, updateRecent);
+  ActivatePage(page, updateRecent, notifyViews);
   page->CallAfter(&FilePage::FocusEditor);
   wxTheApp->GetTopWindow()->SetLabel(page->GetPath());
 }
@@ -241,8 +325,7 @@ void MainView::SelectFallbackPage(const wxString &preferredGroup) {
 }
 
 void MainView::SwitchPage(bool forward) {
-  wxWindow *current = m_sessionsBook->GetCurrentPage();
-  const auto ordered = m_flatView->Order(m_treeView->GetPages(), current);
+  const auto ordered = GetPagesByRecency(GetActivePageRef());
   if (ordered.size() <= 1) {
     return;
   }
@@ -254,7 +337,7 @@ void MainView::SwitchPage(bool forward) {
   if (wxGetMouseState().RawControlDown()) {
     std::vector<PageSwitcherItem> items;
     for (const auto &info : ordered) {
-      items.push_back({info.name + "  -  " + info.group, info.icon});
+      items.push_back({info.label + "  -  " + info.group, info.icon});
     }
     PageSwitcherDlg dlg(wxGetTopLevelParent(this), items, forward);
     if (dlg.ShowModal() != wxID_OK) {
@@ -265,7 +348,7 @@ void MainView::SwitchPage(bool forward) {
   if (chosen < 0 || chosen >= count) {
     return;
   }
-  ShowPage(ordered[chosen].page);
+  ShowPage(m_treeView->FindPage(ordered[chosen].Ref()));
 }
 
 // ---------------------------------------------------------------------------
@@ -681,14 +764,15 @@ void MainView::RestoreSessions() {
   }
   KLOG_INFO() << "Restored " << restored << " session(s)";
 
-  // Bring back the recent order (the list is most recent first, Touch() puts
-  // a page in front) and show the page used last.
+  // Bring back the recent order and show the page used last.
+  m_recent.clear();
   SessionPage *lastUsed = nullptr;
-  for (auto it = initial.recentSessions.rbegin();
-       it != initial.recentSessions.rend(); ++it) {
-    if (auto *page = m_treeView->FindSession(it->groupName, it->name)) {
-      m_flatView->Touch(page);
-      lastUsed = page;
+  for (const SessionRef &r : initial.recentSessions) {
+    if (auto *page = m_treeView->FindSession(r.groupName, r.name)) {
+      m_recent.push_back(GroupAndName{r.name, r.groupName});
+      if (lastUsed == nullptr) {
+        lastUsed = page;
+      }
     }
   }
   if (lastUsed != nullptr) {
@@ -792,6 +876,10 @@ SessionPage *MainView::GetActiveSessionPage() const {
   return dynamic_cast<SessionPage *>(m_sessionsBook->GetCurrentPage());
 }
 
+std::optional<GroupAndName> MainView::GetActivePageRef() const {
+  return RefOf(m_sessionsBook->GetCurrentPage());
+}
+
 wxArrayString MainView::GetGroupNames() const {
   return m_treeView->GetSessionGroupNames();
 }
@@ -873,6 +961,7 @@ void MainView::DeleteAll() {
   m_sessionsBook->DeleteAllPages();
   m_treeView->Clear();
   m_flatView->Clear();
+  m_recent.clear();
   // A page destroyed mid-save never delivers wxEVT_FILE_SAVE_DONE.
   GetMainFrame()->StopActivityIndicator();
   GetMainFrame()->ClearActivityText();
@@ -933,6 +1022,10 @@ void MainView::RenameGroup(SessionGroup *group) {
     return;
   }
 
+  for (auto *page : m_treeView->GetGroupSessions(oldName)) {
+    RenameRecent(GroupAndName{page->GetSession().name, oldName},
+                 GroupAndName{page->GetSession().name, newName});
+  }
   m_treeView->RenameGroup(group, newName);
   RefreshFlatView();
   SyncWorkspaceToDisk();
@@ -974,6 +1067,8 @@ void MainView::RenameSession(SessionPage *page) {
     return;
   }
 
+  RenameRecent(GroupAndName{oldName, page->GetSession().groupName},
+               GroupAndName{newName, page->GetSession().groupName});
   page->GetSession().name = newName;
   page->SetDefaultSessionName(newName);
   m_treeView->UpdateLabel(page);
@@ -1029,6 +1124,8 @@ void MainView::MoveSessionToGroup(const wxString &sessionName,
   }
 
   const bool wasActive = (GetActiveSessionPage() == page);
+  RenameRecent(GroupAndName{sessionName, fromGroupName},
+               GroupAndName{sessionName, toGroupName});
   m_treeView->MoveSession(page, toGroupName);
   // The old group may be empty now. Deferred, see RemovePage().
   CallAfter(&MainView::RemoveEmptyGroups);

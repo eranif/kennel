@@ -18,6 +18,7 @@
 #include <array>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <vector>
 
@@ -44,10 +45,11 @@ struct RemoteReadResult {
 };
 
 // The left side shows the open pages twice: as a Groups -> Sessions tree
-// (TreeView, the source of truth for what exists) and as a flat list sorted by
-// recency (FlatView, a projection of the tree). The right side shows the
-// selected page. MainView owns the pages (m_sessionsBook), keeps the two views
-// in sync and acts on what the user does in them.
+// (TreeView, the source of truth for what exists) and as a flat list
+// (FlatView, a projection of the tree). The right side shows the selected
+// page. MainView owns the pages (m_sessionsBook) and acts on what the user
+// does in the views. The views keep their selections in sync themselves,
+// through wxEVT_PAGEVIEW_SELECTED on EventNotifier.
 class MainView : public MainViewBase {
 public:
   explicit MainView(wxWindow *parent);
@@ -114,6 +116,8 @@ public:
 
   // The single SessionPage currently shown on the right, or nullptr.
   SessionPage *GetActiveSessionPage() const;
+  // The name of the page (session or file) shown on the right, if any.
+  std::optional<GroupAndName> GetActivePageRef() const;
 
   // Opens a local file in an editor page under the "Files" container (or
   // reselects it if it is already open).
@@ -142,6 +146,14 @@ private:
   // from all over, often from inside a view's own event handler.
   void RefreshFlatView();
   void DoRefreshFlatView();
+  // Every page, most recently used first: `first` (if given), then m_recent,
+  // then the pages never used, in tree order.
+  std::vector<PageInfo>
+  GetPagesByRecency(const std::optional<GroupAndName> &first) const;
+  // Makes `ref` the most recently used page.
+  void TouchRecent(const GroupAndName &ref);
+  // Renames the entries of m_recent that are `from` (a page) to `to`.
+  void RenameRecent(const GroupAndName &from, const GroupAndName &to);
   // Persists the workspace shortly (coalesced); for changes that only touch
   // the order of the recent list.
   void SyncWorkspaceSoon();
@@ -161,14 +173,18 @@ private:
   // ---- Showing pages ----------------------------------------------------
   // Makes `page` (a SessionPage or a FilePage) the one visible page. It also
   // becomes the most recently used one, unless `updateRecent` is false (what
-  // choosing a page in the flat list does, so that list doesn't reshuffle
-  // under the user's hand).
-  void ShowPage(wxWindow *page, bool updateRecent = true);
-  void SelectSessionPage(SessionPage *page, bool updateRecent = true);
-  void SelectFilePage(FilePage *page, bool updateRecent = true);
+  // choosing a page in the flat list does). `notifyViews` sends
+  // wxEVT_PAGEVIEW_SELECTED so the views select it; false when a view's own
+  // event got us here.
+  void ShowPage(wxWindow *page, bool updateRecent = true,
+                bool notifyViews = true);
+  void SelectSessionPage(SessionPage *page, bool updateRecent = true,
+                         bool notifyViews = true);
+  void SelectFilePage(FilePage *page, bool updateRecent = true,
+                      bool notifyViews = true);
   // The part of showing a page that sessions and files have in common: the
-  // book, both views and the recent list.
-  void ActivatePage(wxWindow *page, bool updateRecent);
+  // book, the views and the recent list.
+  void ActivatePage(wxWindow *page, bool updateRecent, bool notifyViews);
   // Selects the group node and shows the group's default page, if any.
   void ActivateGroup(const wxString &groupName);
   // Shows some page after the active one was removed; see
@@ -229,6 +245,10 @@ private:
   TreeView *m_treeView{nullptr};
   FlatView *m_flatView{nullptr};
   bool m_flatRefreshPending{false};
+  // Pages by name, most recently used first: the Ctrl+Tab order, persisted
+  // in workspace.json. May name pages that were closed since; the users skip
+  // those.
+  std::vector<GroupAndName> m_recent;
   bool m_syncPending{false};
 
   // Per-job run counter (job name -> next sequence number), so consecutive

@@ -265,7 +265,8 @@ add_library(
   src/core/Helpers.cpp
   src/core/KennelRemote.cpp
   src/core/SftpClient.cpp
-  src/core/CrashHandler.cpp)
+  src/core/CrashHandler.cpp
+  src/core/EventNotifier.cpp)
 
 target_include_directories(kennel_core PUBLIC src ${wxWidgets_INCLUDE_DIRS})
 # libssh is an implementation detail of SftpClient.cpp; its headers never appear

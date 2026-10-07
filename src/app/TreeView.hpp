@@ -10,6 +10,7 @@
 #include <wx/panel.h>
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 class SessionPage;
@@ -56,12 +57,15 @@ public:
 // It is the only source of truth for which groups and pages exist; MainView
 // owns the pages themselves and tells this view about them.
 //
-// Sends wxEVT_PAGEVIEW_SELECTED / wxEVT_PAGEVIEW_MENU to its parent chain
-// when the user clicks a page or asks for a context menu. Programmatic changes
-// (SelectPage() and friends) never send them.
+// Sends wxEVT_PAGEVIEW_SELECTED (through EventNotifier) when the user clicks a
+// page, and wxEVT_PAGEVIEW_MENU to its parent chain when the user asks for a
+// context menu. Follows the selection made anywhere else. Programmatic changes
+// (SelectPage() and friends) never send events. It keeps no selection state:
+// the selected page is the tree's selection.
 class TreeView : public wxPanel {
 public:
   explicit TreeView(wxWindow *parent);
+  ~TreeView() override;
 
   // ---- Groups ----------------------------------------------------------
   // Returns the group, creating its container first if needed.
@@ -102,6 +106,8 @@ public:
   void UpdateLabel(SessionPage *page);
 
   SessionPage *FindSession(const wxString &group, const wxString &name) const;
+  // The session or file `ref` names, or nullptr.
+  wxWindow *FindPage(const GroupAndName &ref) const;
   FilePage *FindFile(const wxString &key) const;
   std::vector<SessionPage *> GetGroupSessions(const wxString &group) const;
   std::vector<SessionPage *> GetAllSessions() const;
@@ -112,7 +118,8 @@ public:
   // `preferredGroup`, else any session, else any file.
   wxWindow *GetFallbackPage(const wxString &preferredGroup) const;
 
-  void SelectPage(wxWindow *page);
+  // Selects the leaf of `ref`. Never sends events.
+  void SelectPage(const GroupAndName &ref);
   // The page of the selected leaf, or nullptr.
   wxWindow *GetSelectedPage() const;
 
@@ -121,12 +128,18 @@ public:
 private:
   void OnSelectionChanged(wxDataViewEvent &event);
   void OnContextMenu(wxDataViewEvent &event);
-  void SendMenuEvent(wxWindow *page, const wxString &groupName);
+  void OnPageSelected(PageViewEvent &event);
+  // `page` set: a menu for that page. Otherwise a menu for `groupName`, or
+  // for empty space if that is empty too.
+  void SendMenuEvent(const std::optional<GroupAndName> &page,
+                     const wxString &groupName);
 
   GroupItemData *GetGroupData(const wxDataViewItem &item) const;
   SessionItemData *GetSessionData(const wxDataViewItem &item) const;
   FileItemData *GetFileData(const wxDataViewItem &item) const;
   wxWindow *PageOf(const wxDataViewItem &item) const;
+  // The name of the page of a leaf; nullopt for a group or no item.
+  std::optional<GroupAndName> RefOf(const wxDataViewItem &item) const;
 
   std::vector<wxDataViewItem> Children(const wxDataViewItem &parent) const;
   // The leaves of the group called `group` (none if there is no such group).

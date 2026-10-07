@@ -1,34 +1,29 @@
 #pragma once
 
 #include "app/PageViewEvent.hpp"
-#include "core/Workspace.h"
 
 #include <optional>
 #include <vector>
 #include <wx/dataview.h>
 #include <wx/panel.h>
 
-// Every open page (session, terminal, file) in one list, most recently used
-// first: "icon + name | group". It is a projection of what TreeView holds, so
-// it never owns anything; MainView feeds it with SetPages().
+// Every open page (session, terminal, file) in one list: "icon + name |
+// group". It is a projection of what TreeView holds, so it never owns
+// anything; MainView feeds it with SetPages(). It keeps no state of its own:
+// each row carries its page's name in a hidden column, and the selection is
+// the list's selection.
 //
-// Sends wxEVT_PAGEVIEW_SELECTED / wxEVT_PAGEVIEW_MENU like TreeView does.
+// Sends wxEVT_PAGEVIEW_SELECTED (through EventNotifier) / wxEVT_PAGEVIEW_MENU
+// like TreeView does, and follows the selection made anywhere else.
 class FlatView : public wxPanel {
 public:
   explicit FlatView(wxWindow *parent);
+  ~FlatView() override;
 
-  // Marks `page` as the most recently used one. False if it already was.
-  bool Touch(wxWindow *page);
-
-  // `pages` sorted by recency: `first` (if given) first, then the touched
-  // pages, most recent first, then the rest in the order they came in.
-  std::vector<PageInfo> Order(const std::vector<PageInfo> &pages,
-                              wxWindow *first = nullptr) const;
-
-  // Replaces the rows with `pages` (as given: pass Order()'s result) and
-  // selects the one for `current`. Never sends events. Forgets touched pages
-  // that are no longer in `pages`.
-  void SetPages(const std::vector<PageInfo> &pages, wxWindow *current);
+  // Replaces the rows with `pages`, in the given order, and selects
+  // `selected` (if given and present). Never sends events.
+  void SetPages(const std::vector<PageInfo> &pages,
+                const std::optional<GroupAndName> &selected);
 
   void Clear();
 
@@ -36,14 +31,10 @@ private:
   void OnSelectionChanged(wxDataViewEvent &event);
   void OnPageSelected(PageViewEvent &event);
   void OnContextMenu(wxDataViewEvent &event);
-  void SendMenuEvent(wxWindow *page);
-  std::optional<wxDataViewItem> FindByNameAndGroup(const wxString &name,
-                                                   const wxString &group);
-  std::optional<SessionRef>
-  GetNameAndGroupFromItem(const wxDataViewItem &item) const;
-  std::optional<SessionRef> GetNameAndGroupFromItem(int row) const;
+  // Selects the row of `ref`, without sending events.
+  void SelectPage(const GroupAndName &ref);
+  std::optional<wxDataViewItem> FindRow(const GroupAndName &ref) const;
+  std::optional<GroupAndName> RefOf(const wxDataViewItem &item) const;
+
   wxDataViewListCtrl *m_list{nullptr};
-  std::vector<wxWindow *> m_recent; // Most recently touched first
-  std::vector<wxWindow *> m_rows;   // The page behind each row
-  bool m_updating{false};
 };
