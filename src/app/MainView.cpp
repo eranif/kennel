@@ -88,7 +88,6 @@ MainView::MainView(wxWindow *parent)
     }
   }
 
-  Bind(wxEVT_PAGEVIEW_SELECTED, &MainView::OnPageSelected, this);
   Bind(wxEVT_PAGEVIEW_MENU, &MainView::OnPageMenu, this);
   Bind(wxEVT_SESSION_IDLE, &MainView::OnSessionIdle, this);
   Bind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
@@ -122,7 +121,7 @@ MainView::~MainView() {
 void MainView::OnPageSelected(PageViewEvent &event) {
   // Picking a page in the flat list (mouse or keyboard) must not move it, or
   // anything else, in that list: leave the recent order alone.
-  ShowPage(event.GetPage(), event.GetEventObject() != m_flatView);
+  ShowPage(event.GetPage(), event.UpdateRecent());
 }
 
 void MainView::OnPageMenu(PageViewEvent &event) {

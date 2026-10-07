@@ -138,7 +138,4 @@ private:
                   wxClientData *data, const wxBitmapBundle &icon);
 
   wxDataViewTreeCtrl *m_tree{nullptr};
-  // The page last picked, so the tree can go back to it after a group node
-  // was clicked.
-  wxWindow *m_currentPage{nullptr};
 };

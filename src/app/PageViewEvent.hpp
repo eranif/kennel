@@ -31,15 +31,21 @@ public:
 
   wxEvent *Clone() const override { return new PageViewEvent(*this); }
 
-  wxWindow *GetPage() const { return m_page; }
-  void SetPage(wxWindow *page) { m_page = page; }
-
   const wxString &GetGroupName() const { return m_groupName; }
   void SetGroupName(const wxString &name) { m_groupName = name; }
 
+  bool UpdateRecent() const { return m_updateRecent; }
+  void SetUpdateRecent(bool b) { m_updateRecent = b; }
+
+  void SetSessionName(const wxString &sessionName) {
+    this->m_sessionName = sessionName;
+  }
+  const wxString &GetSessionName() const { return m_sessionName; }
+
 private:
-  wxWindow *m_page{nullptr};
   wxString m_groupName;
+  wxString m_sessionName;
+  bool m_updateRecent{false};
 };
 
 wxDECLARE_EVENT(wxEVT_PAGEVIEW_SELECTED, PageViewEvent);

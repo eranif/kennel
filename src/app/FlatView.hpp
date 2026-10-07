@@ -1,11 +1,12 @@
 #pragma once
 
 #include "app/PageViewEvent.hpp"
+#include "core/Workspace.h"
 
+#include <optional>
+#include <vector>
 #include <wx/dataview.h>
 #include <wx/panel.h>
-
-#include <vector>
 
 // Every open page (session, terminal, file) in one list, most recently used
 // first: "icon + name | group". It is a projection of what TreeView holds, so
@@ -33,9 +34,14 @@ public:
 
 private:
   void OnSelectionChanged(wxDataViewEvent &event);
+  void OnPageSelected(PageViewEvent &event);
   void OnContextMenu(wxDataViewEvent &event);
   void SendMenuEvent(wxWindow *page);
-
+  std::optional<wxDataViewItem> FindByNameAndGroup(const wxString &name,
+                                                   const wxString &group);
+  std::optional<SessionRef>
+  GetNameAndGroupFromItem(const wxDataViewItem &item) const;
+  std::optional<SessionRef> GetNameAndGroupFromItem(int row) const;
   wxDataViewListCtrl *m_list{nullptr};
   std::vector<wxWindow *> m_recent; // Most recently touched first
   std::vector<wxWindow *> m_rows;   // The page behind each row

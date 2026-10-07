@@ -556,6 +556,10 @@ void MainFrame::OnRenameItem(wxCommandEvent &event) {
 }
 
 MainFrame *GetMainFrame() { return mainFrame; }
+MainView *GetMainView() { return GetMainFrame()->GetMainView(); }
+wxEvtHandler *GetMainViewEventHandler() {
+  return GetMainView()->GetEventHandler();
+}
 
 bool MainFrame::IsWindowActive(const SessionPage *win) const {
   CHECK_NOT_NULL_RETURN_FALSE(win);

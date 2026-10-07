@@ -1,4 +1,6 @@
 #include "app/FlatView.hpp"
+#include "core/EventNotifier.hpp"
+#include "wx/app.h"
 
 #include <wx/sizer.h>
 
@@ -19,6 +21,9 @@ FlatView::FlatView(wxWindow *parent) : wxPanel(parent) {
                this);
   m_list->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &FlatView::OnContextMenu,
                this);
+
+  EventNotifier::Get()->Bind(wxEVT_PAGEVIEW_SELECTED, &FlatView::OnPageSelected,
+                             this);
 }
 
 bool FlatView::Touch(wxWindow *page) {
@@ -95,6 +100,20 @@ void FlatView::Clear() {
   m_updating = false;
 }
 
+void FlatView::OnPageSelected(PageViewEvent &event) {
+  event.Skip();
+  if (event.GetEventObject() == this) {
+    return;
+  }
+
+  // Update our selection
+  auto result =
+      FindByNameAndGroup(event.GetSessionName(), event.GetGroupName());
+  if (!result)
+    return;
+  m_list->Select(*result);
+}
+
 void FlatView::OnSelectionChanged(wxDataViewEvent &event) {
   if (m_updating) {
     return;
@@ -103,10 +122,25 @@ void FlatView::OnSelectionChanged(wxDataViewEvent &event) {
   if (row < 0 || row >= static_cast<int>(m_rows.size())) {
     return;
   }
-  PageViewEvent selected(wxEVT_PAGEVIEW_SELECTED);
-  selected.SetEventObject(this);
-  selected.SetPage(m_rows[row]);
-  ProcessWindowEvent(selected);
+
+  PageViewEvent evtSelected(wxEVT_PAGEVIEW_SELECTED);
+  evtSelected.SetEventObject(this);
+  evtSelected.SetUpdateRecent(true);
+  evtSelected.SetSessionName(m_list->GetTextValue(row, 0));
+  evtSelected.SetGroupName(m_list->GetTextValue(row, 1));
+  EventNotifier::Get()->AddPendingEvent(evtSelected);
+}
+
+std::optional<wxDataViewItem>
+FlatView::FindByNameAndGroup(const wxString &name, const wxString &group) {
+  for (auto row = 0; row < m_list->GetItemCount(); ++row) {
+    auto result = GetNameAndGroupFromItem(row);
+    if (!result)
+      continue;
+    if (result->name == name && result->groupName == group)
+      return m_list->RowToItem(row);
+  }
+  return std::nullopt;
 }
 
 void FlatView::OnContextMenu(wxDataViewEvent &event) {
@@ -118,6 +152,23 @@ void FlatView::OnContextMenu(wxDataViewEvent &event) {
 void FlatView::SendMenuEvent(wxWindow *page) {
   PageViewEvent menu(wxEVT_PAGEVIEW_MENU);
   menu.SetEventObject(this);
-  menu.SetPage(page);
   ProcessWindowEvent(menu);
+}
+
+std::optional<SessionRef>
+FlatView::GetNameAndGroupFromItem(const wxDataViewItem &item) const {
+  if (!item.IsOk()) {
+    return std::nullopt;
+  }
+  return GetNameAndGroupFromItem(m_list->ItemToRow(item));
+}
+
+std::optional<SessionRef> FlatView::GetNameAndGroupFromItem(int row) const {
+  if (m_list->GetItemCount() == 0 || row < 0 || row >= m_list->GetItemCount())
+    return std::nullopt;
+
+  return SessionRef{
+      .groupName = m_list->GetTextValue(row, 1),
+      .name = m_list->GetTextValue(row, 0),
+  };
 }

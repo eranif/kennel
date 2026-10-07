@@ -134,3 +134,5 @@ private:
 
 // Helper methods
 MainFrame *GetMainFrame();
+MainView *GetMainView();
+wxEvtHandler *GetMainViewEventHandler();

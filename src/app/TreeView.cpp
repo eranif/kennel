@@ -1,13 +1,14 @@
 #include "app/TreeView.hpp"
 
+#include "MainFrame.h"
 #include "app/AssetBootstrap.h"
 #include "app/FilePage.hpp"
 #include "app/SessionPage.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
+#include "core/EventNotifier.hpp"
 #include "core/Helpers.h"
 #include "core/Logger.h"
-
 #include <wx/filename.h>
 #include <wx/sizer.h>
 
@@ -356,9 +357,6 @@ void TreeView::RemovePage(wxWindow *page) {
   if (leaf.IsOk()) {
     m_tree->DeleteItem(leaf);
   }
-  if (m_currentPage == page) {
-    m_currentPage = nullptr;
-  }
 }
 
 void TreeView::MoveSession(SessionPage *page, const wxString &toGroup) {
@@ -462,7 +460,6 @@ wxWindow *TreeView::GetFallbackPage(const wxString &preferredGroup) const {
 
 void TreeView::SelectPage(wxWindow *page) {
   CHECK_NOT_NULL_RETURN(page);
-  m_currentPage = page;
   auto leaf = FindPageItem(page);
   if (leaf.IsOk()) {
     m_tree->Select(leaf);
@@ -478,10 +475,7 @@ wxWindow *TreeView::GetSelectedPage() const {
   return PageOf(m_tree->GetSelection());
 }
 
-void TreeView::Clear() {
-  m_tree->DeleteAllItems();
-  m_currentPage = nullptr;
-}
+void TreeView::Clear() { m_tree->DeleteAllItems(); }
 
 // ---------------------------------------------------------------------------
 // User interaction
@@ -491,12 +485,13 @@ void TreeView::OnSelectionChanged(wxDataViewEvent &event) {
   auto item = event.GetItem();
   CHECK_ITEM_RETURN(item);
 
-  if (auto *page = PageOf(item)) {
-    m_currentPage = page;
-    PageViewEvent selected(wxEVT_PAGEVIEW_SELECTED);
-    selected.SetEventObject(this);
-    selected.SetPage(page);
-    ProcessWindowEvent(selected);
+  if (auto *sessionData = GetSessionData(item)) {
+    PageViewEvent evtSelected(wxEVT_PAGEVIEW_SELECTED);
+    evtSelected.SetEventObject(this);
+    evtSelected.SetUpdateRecent(true);
+    evtSelected.SetGroupName(sessionData->page->GetSession().groupName);
+    evtSelected.SetSessionName(sessionData->page->GetSession().name);
+    EventNotifier::Get()->AddPendingEvent(evtSelected);
     return;
   }
 
@@ -512,10 +507,6 @@ void TreeView::OnSelectionChanged(wxDataViewEvent &event) {
       m_tree->Collapse(item);
     } else {
       m_tree->Expand(item);
-    }
-    // Undo the selection change: go back to the page that is still showing.
-    if (m_currentPage != nullptr) {
-      SelectPage(m_currentPage);
     }
   });
 }
@@ -536,7 +527,6 @@ void TreeView::OnContextMenu(wxDataViewEvent &event) {
 void TreeView::SendMenuEvent(wxWindow *page, const wxString &groupName) {
   PageViewEvent menu(wxEVT_PAGEVIEW_MENU);
   menu.SetEventObject(this);
-  menu.SetPage(page);
   menu.SetGroupName(groupName);
   ProcessWindowEvent(menu);
 }
