@@ -107,7 +107,7 @@ public:
 
   SessionPage *FindSession(const wxString &group, const wxString &name) const;
   // The session or file `ref` names, or nullptr.
-  wxWindow *FindPage(const GroupAndName &ref) const;
+  wxWindow *FindPage(const SessionRef &ref) const;
   FilePage *FindFile(const wxString &key) const;
   std::vector<SessionPage *> GetGroupSessions(const wxString &group) const;
   std::vector<SessionPage *> GetAllSessions() const;
@@ -119,7 +119,7 @@ public:
   wxWindow *GetFallbackPage(const wxString &preferredGroup) const;
 
   // Selects the leaf of `ref`. Never sends events.
-  void SelectPage(const GroupAndName &ref);
+  void SelectPage(const SessionRef &ref);
   // The page of the selected leaf, or nullptr.
   wxWindow *GetSelectedPage() const;
 
@@ -131,7 +131,7 @@ private:
   void OnPageSelected(PageViewEvent &event);
   // `page` set: a menu for that page. Otherwise a menu for `groupName`, or
   // for empty space if that is empty too.
-  void SendMenuEvent(const std::optional<GroupAndName> &page,
+  void SendMenuEvent(const std::optional<SessionRef> &page,
                      const wxString &groupName);
 
   GroupItemData *GetGroupData(const wxDataViewItem &item) const;
@@ -139,7 +139,7 @@ private:
   FileItemData *GetFileData(const wxDataViewItem &item) const;
   wxWindow *PageOf(const wxDataViewItem &item) const;
   // The name of the page of a leaf; nullopt for a group or no item.
-  std::optional<GroupAndName> RefOf(const wxDataViewItem &item) const;
+  std::optional<SessionRef> RefOf(const wxDataViewItem &item) const;
 
   std::vector<wxDataViewItem> Children(const wxDataViewItem &parent) const;
   // The leaves of the group called `group` (none if there is no such group).

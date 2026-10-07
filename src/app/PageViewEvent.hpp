@@ -5,17 +5,7 @@
 #include <wx/icon.h>
 #include <wx/string.h>
 
-// Names one page of the main view. Pages are never named by pointer.
-//   A session (or a plain terminal): `name` is the session name, `group` its
-//   group.
-//   A file: `name` is the file key (FilePage::GetKey()), `group` is the Files
-//   container.
-struct GroupAndName {
-  wxString name;
-  wxString group;
-
-  bool operator==(const GroupAndName &) const = default;
-};
+#include "core/Workspace.h"
 
 // What a view (TreeView / FlatView) shows for one page of the main view: a
 // terminal / agent session (SessionPage) or an open file (FilePage).
@@ -25,12 +15,12 @@ struct PageInfo {
   wxString key;   // The session name, or the file key for a file
   wxIcon icon;
 
-  GroupAndName Ref() const { return GroupAndName{key, group}; }
+  SessionRef Ref() const { return SessionRef{group, key}; }
 };
 
 // Sent when the user interacts with a view. The page is named by
-// GetGroupName() + GetSessionName() (see GroupAndName); the event object is the
-// sender.
+// GetGroupName() + GetSessionName() (see SessionRef in core/Workspace.h); the
+// event object is the sender.
 //   wxEVT_PAGEVIEW_SELECTED: the user picked a page. Sent through
 //                            EventNotifier; MainView shows the page and every
 //                            view other than the sender selects it too.
@@ -62,12 +52,10 @@ public:
   }
   const wxString &GetSessionName() const { return m_sessionName; }
 
-  GroupAndName GetRef() const {
-    return GroupAndName{m_sessionName, m_groupName};
-  }
-  void SetRef(const GroupAndName &ref) {
+  SessionRef GetRef() const { return SessionRef{m_groupName, m_sessionName}; }
+  void SetRef(const SessionRef &ref) {
     m_sessionName = ref.name;
-    m_groupName = ref.group;
+    m_groupName = ref.groupName;
   }
 
 private:

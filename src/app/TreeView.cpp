@@ -121,13 +121,13 @@ wxWindow *TreeView::PageOf(const wxDataViewItem &item) const {
   return nullptr;
 }
 
-std::optional<GroupAndName> TreeView::RefOf(const wxDataViewItem &item) const {
+std::optional<SessionRef> TreeView::RefOf(const wxDataViewItem &item) const {
   if (auto *session = GetSessionData(item)) {
     const Session &s = session->page->GetSession();
-    return GroupAndName{s.name, s.groupName};
+    return SessionRef{s.groupName, s.name};
   }
   if (auto *file = GetFileData(item)) {
-    return GroupAndName{file->page->GetKey(), kFilesGroupName};
+    return SessionRef{kFilesGroupName, file->page->GetKey()};
   }
   return std::nullopt;
 }
@@ -409,11 +409,11 @@ SessionPage *TreeView::FindSession(const wxString &group,
   return nullptr;
 }
 
-wxWindow *TreeView::FindPage(const GroupAndName &ref) const {
-  if (ref.group == kFilesGroupName) {
+wxWindow *TreeView::FindPage(const SessionRef &ref) const {
+  if (ref.groupName == kFilesGroupName) {
     return FindFile(ref.name);
   }
-  return FindSession(ref.group, ref.name);
+  return FindSession(ref.groupName, ref.name);
 }
 
 FilePage *TreeView::FindFile(const wxString &key) const {
@@ -486,7 +486,7 @@ wxWindow *TreeView::GetFallbackPage(const wxString &preferredGroup) const {
   return files.empty() ? nullptr : files.front();
 }
 
-void TreeView::SelectPage(const GroupAndName &ref) {
+void TreeView::SelectPage(const SessionRef &ref) {
   auto leaf = FindPageItem(FindPage(ref));
   if (!leaf.IsOk() || m_tree->GetSelection() == leaf) {
     return;
@@ -550,7 +550,7 @@ void TreeView::OnContextMenu(wxDataViewEvent &event) {
   SendMenuEvent(RefOf(item), wxEmptyString);
 }
 
-void TreeView::SendMenuEvent(const std::optional<GroupAndName> &page,
+void TreeView::SendMenuEvent(const std::optional<SessionRef> &page,
                              const wxString &groupName) {
   PageViewEvent menu(wxEVT_PAGEVIEW_MENU);
   menu.SetEventObject(this);

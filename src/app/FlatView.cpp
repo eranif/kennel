@@ -37,7 +37,7 @@ FlatView::~FlatView() {
 }
 
 void FlatView::SetPages(const std::vector<PageInfo> &pages,
-                        const std::optional<GroupAndName> &selected) {
+                        const std::optional<SessionRef> &selected) {
   // Rebuilding (and selecting below) must not look like a user's pick. On
   // macOS a programmatic selection does send the event.
   wxEventBlocker blocker(m_list, wxEVT_DATAVIEW_SELECTION_CHANGED);
@@ -59,7 +59,7 @@ void FlatView::Clear() {
   m_list->DeleteAllItems();
 }
 
-void FlatView::SelectPage(const GroupAndName &ref) {
+void FlatView::SelectPage(const SessionRef &ref) {
   auto item = FindRow(ref);
   if (!item || m_list->GetSelection() == *item) {
     return;
@@ -100,7 +100,7 @@ void FlatView::OnContextMenu(wxDataViewEvent &event) {
   ProcessWindowEvent(menu);
 }
 
-std::optional<wxDataViewItem> FlatView::FindRow(const GroupAndName &ref) const {
+std::optional<wxDataViewItem> FlatView::FindRow(const SessionRef &ref) const {
   const int count = static_cast<int>(m_list->GetItemCount());
   for (int row = 0; row < count; ++row) {
     auto item = m_list->RowToItem(row);
@@ -111,7 +111,7 @@ std::optional<wxDataViewItem> FlatView::FindRow(const GroupAndName &ref) const {
   return std::nullopt;
 }
 
-std::optional<GroupAndName> FlatView::RefOf(const wxDataViewItem &item) const {
+std::optional<SessionRef> FlatView::RefOf(const wxDataViewItem &item) const {
   if (!item.IsOk()) {
     return std::nullopt;
   }
@@ -119,6 +119,6 @@ std::optional<GroupAndName> FlatView::RefOf(const wxDataViewItem &item) const {
   if (row < 0 || row >= static_cast<int>(m_list->GetItemCount())) {
     return std::nullopt;
   }
-  return GroupAndName{m_list->GetTextValue(row, kColumnKey),
-                      m_list->GetTextValue(row, kColumnGroup)};
+  return SessionRef{m_list->GetTextValue(row, kColumnGroup),
+                    m_list->GetTextValue(row, kColumnKey)};
 }

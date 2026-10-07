@@ -117,7 +117,7 @@ public:
   // The single SessionPage currently shown on the right, or nullptr.
   SessionPage *GetActiveSessionPage() const;
   // The name of the page (session or file) shown on the right, if any.
-  std::optional<GroupAndName> GetActivePageRef() const;
+  std::optional<SessionRef> GetActivePageRef() const;
 
   // Opens a local file in an editor page under the "Files" container (or
   // reselects it if it is already open).
@@ -149,11 +149,11 @@ private:
   // Every page, most recently used first: `first` (if given), then m_recent,
   // then the pages never used, in tree order.
   std::vector<PageInfo>
-  GetPagesByRecency(const std::optional<GroupAndName> &first) const;
+  GetPagesByRecency(const std::optional<SessionRef> &first) const;
   // Makes `ref` the most recently used page.
-  void TouchRecent(const GroupAndName &ref);
+  void TouchRecent(const SessionRef &ref);
   // Renames the entries of m_recent that are `from` (a page) to `to`.
-  void RenameRecent(const GroupAndName &from, const GroupAndName &to);
+  void RenameRecent(const SessionRef &from, const SessionRef &to);
   // Persists the workspace shortly (coalesced); for changes that only touch
   // the order of the recent list.
   void SyncWorkspaceSoon();
@@ -248,7 +248,7 @@ private:
   // Pages by name, most recently used first: the Ctrl+Tab order, persisted
   // in workspace.json. May name pages that were closed since; the users skip
   // those.
-  std::vector<GroupAndName> m_recent;
+  std::vector<SessionRef> m_recent;
   bool m_syncPending{false};
 
   // Per-job run counter (job name -> next sequence number), so consecutive

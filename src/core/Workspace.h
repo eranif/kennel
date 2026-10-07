@@ -29,10 +29,15 @@ struct Session {
   inline bool IsPersistent() const { return !plainTerminal && !IsJobRun(); }
 };
 
-// Names a session: names are only unique within a group.
+// Names a page of the main view by strings, never by pointer. A session:
+// `name` is the session name, `groupName` its group (names are only unique
+// within a group). A file: `name` is the file key, `groupName` the Files
+// container.
 struct SessionRef {
   wxString groupName;
   wxString name;
+
+  bool operator==(const SessionRef &) const = default;
 };
 
 // Persisted per-group metadata not tied to any single session (e.g. the

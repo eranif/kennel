@@ -47,14 +47,14 @@ void PushRecent(std::vector<wxString> &list, const wxString &value,
   }
 }
 
-// The name of `page` (a SessionPage or a FilePage), see GroupAndName.
-std::optional<GroupAndName> RefOf(wxWindow *page) {
+// The name of `page` (a SessionPage or a FilePage), see SessionRef.
+std::optional<SessionRef> RefOf(wxWindow *page) {
   if (auto *session = dynamic_cast<SessionPage *>(page)) {
-    return GroupAndName{session->GetSession().name,
-                        session->GetSession().groupName};
+    return SessionRef{session->GetSession().groupName,
+                      session->GetSession().name};
   }
   if (auto *file = dynamic_cast<FilePage *>(page)) {
-    return GroupAndName{file->GetKey(), kFilesGroupName};
+    return SessionRef{kFilesGroupName, file->GetKey()};
   }
   return std::nullopt;
 }
@@ -178,10 +178,10 @@ void MainView::DoRefreshFlatView() {
 }
 
 std::vector<PageInfo>
-MainView::GetPagesByRecency(const std::optional<GroupAndName> &first) const {
+MainView::GetPagesByRecency(const std::optional<SessionRef> &first) const {
   std::vector<PageInfo> remaining = m_treeView->GetPages();
   std::vector<PageInfo> ordered;
-  auto take = [&](const GroupAndName &ref) {
+  auto take = [&](const SessionRef &ref) {
     auto it = std::find_if(
         remaining.begin(), remaining.end(),
         [&ref](const PageInfo &info) { return info.Ref() == ref; });
@@ -202,19 +202,19 @@ MainView::GetPagesByRecency(const std::optional<GroupAndName> &first) const {
   return ordered;
 }
 
-void MainView::TouchRecent(const GroupAndName &ref) {
+void MainView::TouchRecent(const SessionRef &ref) {
   if (!m_recent.empty() && m_recent.front() == ref) {
     return;
   }
   // Drop the closed pages while at it, so the list cannot grow forever.
-  std::erase_if(m_recent, [&](const GroupAndName &r) {
+  std::erase_if(m_recent, [&](const SessionRef &r) {
     return r == ref || m_treeView->FindPage(r) == nullptr;
   });
   m_recent.insert(m_recent.begin(), ref);
   SyncWorkspaceSoon();
 }
 
-void MainView::RenameRecent(const GroupAndName &from, const GroupAndName &to) {
+void MainView::RenameRecent(const SessionRef &from, const SessionRef &to) {
   std::replace(m_recent.begin(), m_recent.end(), from, to);
 }
 
@@ -769,7 +769,7 @@ void MainView::RestoreSessions() {
   SessionPage *lastUsed = nullptr;
   for (const SessionRef &r : initial.recentSessions) {
     if (auto *page = m_treeView->FindSession(r.groupName, r.name)) {
-      m_recent.push_back(GroupAndName{r.name, r.groupName});
+      m_recent.push_back(r);
       if (lastUsed == nullptr) {
         lastUsed = page;
       }
@@ -876,7 +876,7 @@ SessionPage *MainView::GetActiveSessionPage() const {
   return dynamic_cast<SessionPage *>(m_sessionsBook->GetCurrentPage());
 }
 
-std::optional<GroupAndName> MainView::GetActivePageRef() const {
+std::optional<SessionRef> MainView::GetActivePageRef() const {
   return RefOf(m_sessionsBook->GetCurrentPage());
 }
 
@@ -1023,8 +1023,8 @@ void MainView::RenameGroup(SessionGroup *group) {
   }
 
   for (auto *page : m_treeView->GetGroupSessions(oldName)) {
-    RenameRecent(GroupAndName{page->GetSession().name, oldName},
-                 GroupAndName{page->GetSession().name, newName});
+    RenameRecent(SessionRef{oldName, page->GetSession().name},
+                 SessionRef{newName, page->GetSession().name});
   }
   m_treeView->RenameGroup(group, newName);
   RefreshFlatView();
@@ -1067,8 +1067,8 @@ void MainView::RenameSession(SessionPage *page) {
     return;
   }
 
-  RenameRecent(GroupAndName{oldName, page->GetSession().groupName},
-               GroupAndName{newName, page->GetSession().groupName});
+  RenameRecent(SessionRef{page->GetSession().groupName, oldName},
+               SessionRef{page->GetSession().groupName, newName});
   page->GetSession().name = newName;
   page->SetDefaultSessionName(newName);
   m_treeView->UpdateLabel(page);
@@ -1124,8 +1124,8 @@ void MainView::MoveSessionToGroup(const wxString &sessionName,
   }
 
   const bool wasActive = (GetActiveSessionPage() == page);
-  RenameRecent(GroupAndName{sessionName, fromGroupName},
-               GroupAndName{sessionName, toGroupName});
+  RenameRecent(SessionRef{fromGroupName, sessionName},
+               SessionRef{toGroupName, sessionName});
   m_treeView->MoveSession(page, toGroupName);
   // The old group may be empty now. Deferred, see RemovePage().
   CallAfter(&MainView::RemoveEmptyGroups);
