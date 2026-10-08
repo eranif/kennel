@@ -18,7 +18,10 @@ struct WindowGeometry {
 struct UiPrefs {
   int version = 1;
   WindowGeometry window;
-  int sidebarWidth{280};
+  // Splitter positions, in device-independent pixels (so they survive a change
+  // of display scaling). <= 0 => keep the default layout.
+  int sidebarWidth{0};   // Width of the left pane (sessions) vs the terminal
+  int treePaneHeight{0}; // Height of the session tree above the flat list
   wxString lastSelectedSession; // empty => no prior selection
   wxString terminalTheme;       // name of the last-applied terminal theme
   wxString terminalFontDesc;    // wxFont native info desc (empty => default)

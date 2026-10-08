@@ -99,6 +99,7 @@ MainFrame::MainFrame()
   if (g.maximized) {
     Maximize(true);
   }
+  m_mainView->RestoreLayout();
 
   Bind(wxEVT_CLOSE_WINDOW, &MainFrame::OnClose, this);
   Bind(wxEVT_ACTIVATE, &MainFrame::OnActivate, this);
@@ -135,6 +136,10 @@ void MainFrame::OnClose(wxCloseEvent &evt) {
     prefs.window.y = r.y;
     prefs.window.width = r.width;
     prefs.window.height = r.height;
+  }
+  // A minimized window reports a collapsed layout, which is not the user's.
+  if (!IsIconized()) {
+    m_mainView->SaveLayout();
   }
   if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
     KLOG_WARN() << "Could not persist window geometry: " << st.message();

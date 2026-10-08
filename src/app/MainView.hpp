@@ -79,6 +79,13 @@ public:
   // Rebuilds UI from sessions persisted in workspace.json.
   void RestoreSessions();
 
+  // The two splitters (left pane | terminal, and session tree / flat list)
+  // are remembered between runs in the UI prefs. RestoreLayout() applies the
+  // saved positions once the window has its final size; SaveLayout() records
+  // the current ones into the prefs (the caller saves the prefs).
+  void RestoreLayout();
+  void SaveLayout();
+
   const std::vector<LoadedTheme> &Themes() const {
     return ThemeManager::Get().Themes();
   }
@@ -250,6 +257,7 @@ private:
   // those.
   std::vector<SessionRef> m_recent;
   bool m_syncPending{false};
+  bool m_layoutRestored{false};
 
   // Per-job run counter (job name -> next sequence number), so consecutive
   // runs of the same job get distinct tab names ("Test Job #1", "#2", ...)

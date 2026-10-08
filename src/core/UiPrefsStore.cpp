@@ -31,6 +31,7 @@ json ToJson(const UiPrefs &p) {
         {"height", p.window.height},
         {"maximized", p.window.maximized}}},
       {"sidebarWidth", p.sidebarWidth},
+      {"treePaneHeight", p.treePaneHeight},
       {"scrollbackLines", p.scrollbackLines},
       {"lastSelectedSession", ToUtf8(p.lastSelectedSession)},
       {"terminalTheme", ToUtf8(p.terminalTheme)},
@@ -55,6 +56,7 @@ void ParsePrefs(const json &root, UiPrefs &p) {
     p.window.maximized = GetBool(*it, "maximized", p.window.maximized);
   }
   p.sidebarWidth = GetInt(root, "sidebarWidth", p.sidebarWidth);
+  p.treePaneHeight = GetInt(root, "treePaneHeight", p.treePaneHeight);
   p.scrollbackLines = GetSizeT(root, "scrollbackLines", p.scrollbackLines);
   p.lastSelectedSession =
       GetStr(root, "lastSelectedSession", p.lastSelectedSession);

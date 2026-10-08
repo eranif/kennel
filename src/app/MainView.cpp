@@ -35,6 +35,14 @@
 #include <wx/xrc/xmlres.h>
 
 namespace {
+// Moves `splitter`'s sash to `dip` device-independent pixels, if there is a
+// saved one.
+void ApplySashPosition(wxSplitterWindow *splitter, int dip) {
+  if (dip > 0 && splitter->IsSplit()) {
+    splitter->SetSashPosition(splitter->FromDIP(dip));
+  }
+}
+
 void PushRecent(std::vector<wxString> &list, const wxString &value,
                 size_t maxSize = 10) {
   if (value.empty()) {
@@ -746,6 +754,35 @@ bool MainView::LaunchSession(const NewSessionRequest &req,
     KLOG_WARN() << "Could not persist recent working dirs: " << st.message();
   }
   return true;
+}
+
+void MainView::RestoreLayout() {
+  // Deferred: the sash can only be moved to where the window is big enough
+  // for it, and the window is not at its final size (e.g. maximized) before
+  // the first pass of the event loop.
+  CallAfter([this] {
+    const auto &prefs = AppManager::Get().GetPrefs();
+    ApplySashPosition(GetSplitterMain(), prefs.sidebarWidth);
+    ApplySashPosition(GetSplitterLeftVertical(), prefs.treePaneHeight);
+    m_layoutRestored = true;
+  });
+}
+
+void MainView::SaveLayout() {
+  // Before the saved layout was applied the splitters still hold their
+  // defaults, which must not replace what was saved.
+  if (!m_layoutRestored) {
+    return;
+  }
+  auto &prefs = AppManager::Get().GetPrefs();
+  if (GetSplitterMain()->IsSplit()) {
+    prefs.sidebarWidth =
+        GetSplitterMain()->ToDIP(GetSplitterMain()->GetSashPosition());
+  }
+  if (GetSplitterLeftVertical()->IsSplit()) {
+    prefs.treePaneHeight = GetSplitterLeftVertical()->ToDIP(
+        GetSplitterLeftVertical()->GetSashPosition());
+  }
 }
 
 void MainView::RestoreSessions() {
