@@ -255,8 +255,7 @@ void SessionPage::AddToPane(wxPanel *pane, wxTerminalViewCtrl *terminal) {
     event.Skip();
     terminal->SetFocus();
   });
-  pane->GetSizer()->Add(terminal, wxSizerFlags(1).Expand().Border(
-                                      wxLEFT | wxRIGHT, pane->FromDIP(5)));
+  pane->GetSizer()->Add(terminal, wxSizerFlags(1).Expand());
 }
 
 void SessionPage::ConfigureTerminal(wxTerminalViewCtrl *terminal) {
