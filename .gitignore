@@ -45,6 +45,8 @@ Build/
 build-*/
 .build-debug/
 .build-release/
+# Windows installer staging directory created by the build
+/installer/
 
 # CMake generated files
 CMakeFiles/
