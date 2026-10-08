@@ -34,15 +34,19 @@ opens as an editor page in the main view instead of a modal dialog.
   menu entry, and each file has a **Close** entry.
 - **Navigation and appearance** — theme and font changes apply to file pages too.
 - **Flat page list** — below the session tree, a second list shows every open terminal,
-  session and file in one place (icon and name, plus its group), most recently used first.
-  It selects pages and offers the same context menus as the tree (right-clicking empty space
-  offers Start Agent and New Terminal). Choosing a page in this list, with the mouse or the
-  keyboard, does not change the recent order, so the list never reshuffles under your hand;
-  anything else (the tree, Ctrl+Tab, opening a file or session) does. The recent order is
-  saved in `workspace.json`, so after a restart Kennel reopens on the page you used last.
+  session and file in one place (icon and name, plus its group), in the same order as the
+  tree. Picking a page in either view selects it in the other. The list offers the same
+  context menus as the tree (right-clicking empty space offers Start Agent and New Terminal).
+  Picking a page in the flat list does not change the Ctrl+Tab order; anything else (the
+  tree, Ctrl+Tab, opening a file or session) does. That order is saved in `workspace.json`,
+  so after a restart Kennel reopens on the page you used last.
+- **Remembered layout** — the two splitters (session panes | terminal, and session tree |
+  flat list) keep their positions between runs. They are saved in the UI preferences when the
+  window closes and are not saved while the window is minimized.
 - **Ctrl+Tab page switcher** — Ctrl+Tab / Ctrl+Shift+Tab (the Ctrl key on every platform,
   including macOS) replaces Alt+Left/Right. It pops up a list of every open terminal, session
-  and file, most recently used first; keep Ctrl held and press Tab / Shift+Tab to move through
+  and file, most recently used first (the flat list does not reorder, so this is the place for
+  that order); keep Ctrl held and press Tab / Shift+Tab to move through
   it, and release Ctrl to switch. Escape cancels. On macOS, which claims Ctrl+Tab for moving
   the keyboard focus, it is a menu key equivalent (**Search → Select Next Page**) and the popup
   registers hot keys while it is open.
@@ -79,6 +83,12 @@ After 20 minutes without an answer, Kennel notifies you the same way but keeps w
 
 The entry needs a `.git` folder (or file) in the session's working directory, and only offers
 agents that run on the same host as the session.
+
+When the loop types a request into a terminal, that terminal takes the keyboard focus (and the
+reviewer's pane opens focused), so you can answer a permission prompt right away. This only
+happens while you are working in that session: not when another page is showing, not when the
+focus is elsewhere in the application, and not within 3 seconds of a key you pressed in the
+session's other terminal. Clicking a terminal or its border also focuses it.
 
 - **New terminal context menu** — the terminal's right-click menu is now Kennel's own (Copy,
   Paste, Clear buffer, and the review entries).
@@ -139,8 +149,9 @@ The Manage Jobs dialog now uses a multi-column list showing each job's name, typ
 ## Under the Hood
 
 - `MainView` was split up: the session tree and the new flat list are now `TreeView` and
-  `FlatView` panels that report clicks and context-menu requests to `MainView` as events, and
-  the context menus live in their own source file.
+  `FlatView` panels that name pages by (group, name) and report picks through the event
+  notifier and context-menu requests to `MainView` as events, and the context menus live in
+  their own source file.
 - The `WorkspaceManager` class was removed; the UI tree is now the single source of truth and
   the workspace is persisted from it through `WorkspaceStore`. `SessionGroup` became a plain
   data holder.
