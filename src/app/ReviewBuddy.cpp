@@ -12,6 +12,7 @@
 #include <wx/filename.h>
 #include <wx/notifmsg.h>
 #include <wx/toplevel.h>
+#include <wx/utils.h>
 
 #include <thread>
 
@@ -24,6 +25,43 @@ constexpr int kEnterDelayMs = 400;
 constexpr auto kStallTimeout = std::chrono::minutes(20);
 constexpr int kMaxRemoteErrors = 5;
 
+#ifdef __WXOSX__
+// `text` as an AppleScript string literal (in double quotes).
+wxString AppleScriptString(const wxString &text) {
+  wxString quoted = "\"";
+  for (const wxUniChar c : text) {
+    if (c == '"' || c == '\\') {
+      quoted << '\\';
+      quoted << c;
+    } else if (c == '\n' || c == '\r') {
+      quoted << ' ';
+    } else {
+      quoted << c;
+    }
+  }
+  quoted << '"';
+  return quoted;
+}
+
+// wxNotificationMessage uses NSUserNotification here, which macOS has
+// deprecated for years, and the notification never showed up. This one goes
+// through osascript. The arguments are passed as a list, not through a shell.
+//
+// Its limits: macOS shows it as coming from "Script Editor", it does not show
+// if the user turned notifications off for that app, and a click on it does not
+// bring Kennel to the front. The message in the session and the status bar
+// still tell the user. A native UNUserNotificationCenter call would fix this,
+// but it needs Objective-C++ and a signed app.
+void ShowMacNotification(const wxString &title, const wxString &text) {
+  const std::string script =
+      ("display notification " + AppleScriptString(text) + " with title " +
+       AppleScriptString(title))
+          .utf8_string();
+  const char *argv[] = {"osascript", "-e", script.c_str(), nullptr};
+  wxExecute(argv, wxEXEC_ASYNC | wxEXEC_NODISABLE);
+}
+#endif
+
 wxString JoinPath(const wxString &dir, const wxString &name) {
   return dir.EndsWith("/") || dir.EndsWith("\\") ? dir + name
                                                  : dir + "/" + name;
@@ -31,10 +69,12 @@ wxString JoinPath(const wxString &dir, const wxString &name) {
 } // namespace
 
 ReviewBuddy::ReviewBuddy(const Target &target, wxTerminalViewCtrl *main,
-                         LaunchFn launchReviewer, std::function<bool()> isShown)
+                         LaunchFn launchReviewer, std::function<bool()> isShown,
+                         NoticeFn showNotice)
     : m_target(target), m_remote(!target.remoteHost.empty()), m_main(main),
       m_launchReviewer(std::move(launchReviewer)),
-      m_isShown(std::move(isShown)), m_pollTimer(this), m_enterTimer(this) {
+      m_isShown(std::move(isShown)), m_showNotice(std::move(showNotice)),
+      m_pollTimer(this), m_enterTimer(this) {
   Bind(wxEVT_TIMER, &ReviewBuddy::OnPoll, this, m_pollTimer.GetId());
   Bind(wxEVT_TIMER, &ReviewBuddy::OnEnterTimer, this, m_enterTimer.GetId());
 }
@@ -199,7 +239,7 @@ void ReviewBuddy::Execute(Actions actions, size_t from) {
       break;
     case ReviewLoop::Action::Kind::Notify:
       KLOG_INFO() << "Review buddy: " << action.text;
-      NotifyUser(_("Review needs your attention"), action.text);
+      NotifyUser(_("Review needs your attention"), action.text, true);
       break;
     case ReviewLoop::Action::Kind::Finished:
       Finished();
@@ -262,10 +302,11 @@ void ReviewBuddy::Finished() {
   KLOG_INFO() << "Review buddy ended: " << m_loop->Message();
   const bool done = m_loop->GetState() == ReviewLoop::State::Done;
   NotifyUser(done ? _("Review finished") : _("Review needs your attention"),
-             m_loop->Message());
+             m_loop->Message(), !done);
 }
 
-void ReviewBuddy::NotifyUser(const wxString &title, const wxString &message) {
+void ReviewBuddy::NotifyUser(const wxString &title, const wxString &message,
+                             bool problem) {
   if (wxTheApp == nullptr) {
     return;
   }
@@ -273,16 +314,26 @@ void ReviewBuddy::NotifyUser(const wxString &title, const wxString &message) {
                             ? message
                             : m_target.sessionName + ": " + message;
 
-  // Always: the status bar, which is visible whatever page is showing.
+  // In the session, until the user closes it. This cannot get lost. It leaves
+  // out the session name (in `text`) on purpose: it is shown inside that
+  // session.
+  if (m_showNotice) {
+    m_showNotice(title + " - " + message, problem);
+  }
+  // The status bar. Other activity may overwrite it soon.
   if (auto *frame = GetMainFrame()) {
     frame->SetActivityText(title + " - " + text);
   }
 
-  // A system notification, unless the user is looking at this very session.
+  // Outside the session the user is looking at: a system notification.
   const bool looking = wxTheApp->IsActive() && m_isShown && m_isShown();
   if (!looking) {
+#ifdef __WXOSX__
+    ShowMacNotification(title, text);
+#else
     wxNotificationMessage notification(title, text, wxTheApp->GetTopWindow());
     notification.Show();
+#endif
   }
 
   // Kennel is in the background: the Dock icon bounces on macOS, the taskbar

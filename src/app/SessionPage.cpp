@@ -17,6 +17,7 @@
 #include <wx/file.h>
 #include <wx/filename.h>
 #include <wx/frame.h>
+#include <wx/infobar.h>
 #include <wx/menu.h>
 #include <wx/splitter.h>
 #include <wx/utils.h>
@@ -88,6 +89,8 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
       m_agent(std::move(agent)), m_session(std::move(session)),
       m_resume(resume) {
   SetDefaultSessionName(m_session.name);
+  m_infoBar = new wxInfoBar(this);
+  GetSizer()->Add(m_infoBar, wxSizerFlags().Expand());
   CreateTerminal();
 }
 
@@ -570,6 +573,7 @@ void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
 
   // The reviewer's pane opens when the first request is ready (it is written
   // first, possibly over SSH): the agent reads it as soon as it starts.
+  DismissNotice(); // The message about an earlier review
   m_review = std::make_unique<ReviewBuddy>(
       ReviewBuddy::Target{m_session.workingDir, m_agent->remoteHost,
                           m_agent->remoteUser, m_session.name},
@@ -578,7 +582,11 @@ void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
         return StartReviewer(reviewer, prompt);
       },
       // Whether the user is looking at this session right now.
-      [this] { return IsActive() && IsShownOnScreen(); });
+      [this] { return IsActive() && IsShownOnScreen(); },
+      [this](const wxString &message, bool problem) {
+        m_infoBar->ShowMessage(message,
+                               problem ? wxICON_WARNING : wxICON_INFORMATION);
+      });
   m_review->Begin();
 }
 
@@ -625,8 +633,15 @@ wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
   return m_reviewTerminal;
 }
 
+void SessionPage::DismissNotice() {
+  if (m_infoBar != nullptr && m_infoBar->IsShown()) {
+    m_infoBar->Dismiss();
+  }
+}
+
 void SessionPage::CloseReviewBuddy() {
   m_review.reset(); // stops its timers
+  DismissNotice();
   if (m_reviewTerminal == nullptr) {
     return;
   }

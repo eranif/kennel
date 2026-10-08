@@ -16,6 +16,8 @@
 #include <memory>
 #include <vector>
 
+#include <wx/infobar.h>
+
 class wxTerminalViewCtrl;
 class wxTerminalEvent;
 class wxSplitterWindow;
@@ -84,6 +86,8 @@ private:
   wxTerminalViewCtrl *StartReviewer(const AgentDef &reviewer,
                                     const wxString &prompt);
   void CloseReviewBuddy();
+  // Hides the message about the last review, if it is showing.
+  void DismissNotice();
   void OpenLatestReview();
   wxBookCtrlBase *GetBook() const {
     return dynamic_cast<wxBookCtrlBase *>(GetParent());
@@ -95,6 +99,9 @@ private:
   bool m_resume = false;
 
   enum class GitState { Unknown, Yes, No };
+
+  // Tells the user how a review ended; on top of the terminals.
+  wxInfoBar *m_infoBar{nullptr};
 
   // The agent's pane is the only child of the splitter until a review buddy
   // opens its pane next to it. Each pane holds one terminal with a border.

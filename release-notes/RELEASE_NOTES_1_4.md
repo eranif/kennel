@@ -59,8 +59,10 @@ Kennel then runs this cycle, with no more input from you:
 3. When your agent is done, the reviewer reviews again. This repeats until the reviewer says
    `STATUS: CLEAN`, up to 5 rounds.
 
-The agents tell Kennel that they are done by writing marker files under
-`.agents/reviews/<id>/round-N/` in the session's folder. This works the same for every agent
+The agents tell Kennel that they are done by writing marker files in
+`.agents/reviews/<id>/` in the session's folder (for example `review-completed-2.marker`, where
+the number is the round). All rounds use that one folder, because some tools ask for
+permission each time they write into a new folder. This works the same for every agent
 and over SSH, and it does not matter what you do in the terminals (switching agents,
 scrolling, ...). Kennel types a single line into each terminal that points to a request file
 with the details. The reviewer may only
@@ -68,11 +70,12 @@ write under `.agents/reviews/`. On a local repository, Kennel adds that folder t
 `.git/info/exclude`.
 
 When the loop ends (the review is clean, the round limit is reached, or something fails),
-Kennel writes the result in the status bar, shows a system notification unless you are looking
-at that session, and, when Kennel is in the background, bounces the Dock icon (macOS) or flashes
-the taskbar button (Windows). The context menu shows the state and offers **Send the Request
-Again**, **Stop the Review**, **Open the Latest Review** and **Close Review Buddy**. After 20
-minutes without an answer, Kennel notifies you the same way but keeps waiting.
+Kennel tells you in four ways: a message bar at the top of the session that stays until you
+close it; the result in the status bar; a system notification when you are not looking at
+that session; and, when Kennel is in the background, a bouncing Dock icon (macOS) or
+a flashing taskbar button (Windows). The context menu shows the state and offers **Send the
+Request Again**, **Stop the Review**, **Open the Latest Review** and **Close Review Buddy**.
+After 20 minutes without an answer, Kennel notifies you the same way but keeps waiting.
 
 The entry needs a `.git` folder (or file) in the session's working directory, and only offers
 agents that run on the same host as the session.

@@ -34,10 +34,15 @@ public:
   // its terminal (nullptr if that failed).
   using LaunchFn = std::function<wxTerminalViewCtrl *(const wxString &prompt)>;
 
+  // Shows `message` in the main agent's session until the user closes it.
+  // `problem` is true when the loop needs the user, false when it is finished.
+  using NoticeFn = std::function<void(const wxString &message, bool problem)>;
+
   // `isShown` tells whether the user is looking at the main agent's session
-  // right now; it decides whether a notification is worth showing.
+  // right now; it decides whether a system notification is worth showing.
   ReviewBuddy(const Target &target, wxTerminalViewCtrl *main,
-              LaunchFn launchReviewer, std::function<bool()> isShown);
+              LaunchFn launchReviewer, std::function<bool()> isShown,
+              NoticeFn showNotice);
   ~ReviewBuddy() override;
 
   // Writes the first request and starts the reviewer with it.
@@ -65,10 +70,11 @@ private:
   void Execute(Actions actions, size_t from = 0);
   void PasteLine(wxTerminalViewCtrl *terminal, const wxString &line);
   void Finished();
-  // Tells the user about the loop: the status bar, a system notification when
-  // they are not looking at this session, and the Dock icon / taskbar button
-  // when Kennel is in the background.
-  void NotifyUser(const wxString &title, const wxString &message);
+  // Tells the user about the loop: a notice in the session (it stays until
+  // closed), the status bar, and, when they are not looking at this session, a
+  // system notification. The Dock icon / taskbar button also asks for
+  // attention when Kennel is in the background.
+  void NotifyUser(const wxString &title, const wxString &message, bool problem);
 
   bool WriteLocal(const wxString &relPath, const wxString &text);
   wxString ReadLocal(const wxString &relPath) const;
@@ -86,6 +92,7 @@ private:
   wxTerminalViewCtrl *m_reviewer{nullptr}; // Null until the reviewer started
   LaunchFn m_launchReviewer;
   std::function<bool()> m_isShown;
+  NoticeFn m_showNotice;
 
   std::unique_ptr<ReviewLoop> m_loop;
   wxTimer m_pollTimer;

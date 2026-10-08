@@ -6,11 +6,15 @@
 
 // The "review buddy" cycle between two agents that work in the same folder:
 //
-//   reviewer: reviews the unpushed work, writes round-N/review-comments.md and
-//             then round-N/review-completed.marker
+//   reviewer: reviews the unpushed work, writes review-comments-N.md and then
+//             review-completed-N.marker
 //   main:     reads the comments, fixes them, then writes
-//             round-N/comments-addressed.marker
+//             comments-addressed-N.marker
 //   ...and again, until the reviewer says "STATUS: CLEAN".
+//
+// All files of a loop are in one folder, .agents/reviews/<id>/, and a round is
+// told apart by the number in the file name. One folder, because some tools ask
+// for permission to write into each new folder.
 //
 // This class is the pure state machine: no I/O, no GUI. The owner polls for the
 // file named by WatchedMarker(), reports it with OnMarkerFound(), and carries
@@ -75,21 +79,22 @@ public:
   // Something the owner needs failed (writing a file, ...).
   std::vector<Action> Fail(const wxString &why);
   // Asks again for what the loop waits for (also leaves Stalled). A review that
-  // is asked for again goes to a new folder (same round), so an old marker
+  // is asked for again gets new file names (same round), so an old marker
   // cannot answer it.
   std::vector<Action> Resend();
   void Stop();
 
-  // The folder number `n`, e.g. ".agents/reviews/<id>/round-2". It is the round
-  // number, except after a review was asked for again: that gets the next
-  // number, so "Round 3 of 5" can live in round-4.
-  wxString RoundDir(int n) const;
+  // The folder of the loop: ".agents/reviews/<id>".
+  wxString Folder() const;
   // Where the reviewer writes the comments of the current round.
   wxString CommentsPath() const;
 
   static Verdict ParseVerdict(const wxString &comments);
-  static wxString BuildReviewRequest(const wxString &dir, int round);
-  static wxString BuildFixRequest(const wxString &dir, int round);
+  // `n` is the number in the file names, `round` the round shown to the user.
+  // They differ after a review was asked for again: "Round 3 of 5" can be
+  // review-request-4.md.
+  static wxString BuildReviewRequest(const wxString &folder, int n, int round);
+  static wxString BuildFixRequest(const wxString &folder, int n, int round);
   // A random UUID-like text, e.g. "3f2c1d9e-...".
   static wxString NewId();
 
@@ -103,7 +108,7 @@ private:
   State m_state{State::Idle};
   State m_stalledFrom{State::Idle};
   int m_round{0};
-  int m_dir{0}; // Number of the current round folder, see RoundDir()
+  int m_dir{0}; // The number in the current file names, see Build...Request()
   bool m_slow{false};
   wxString m_message;
 };

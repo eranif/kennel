@@ -15,17 +15,23 @@ constexpr const char *kReviewsDir = ".agents/reviews";
 wxString FollowLine(const wxString &file) {
   return "Follow the instructions in " + file;
 }
+
+// "<folder>/<stem>-<n>.<ext>", e.g. ".agents/reviews/<id>/review-request-2.md".
+wxString NumberedPath(const wxString &folder, const char *stem, int n,
+                      const char *ext) {
+  return wxString::Format("%s/%s-%d.%s", folder, stem, n, ext);
+}
 } // namespace
 
 ReviewLoop::ReviewLoop(wxString id, int maxRounds)
     : m_id(std::move(id)), m_maxRounds(maxRounds) {}
 
-wxString ReviewLoop::RoundDir(int round) const {
-  return wxString::Format("%s/%s/round-%d", kReviewsDir, m_id, round);
+wxString ReviewLoop::Folder() const {
+  return wxString::Format("%s/%s", kReviewsDir, m_id);
 }
 
 wxString ReviewLoop::CommentsPath() const {
-  return RoundDir(m_dir) + "/review-comments.md";
+  return NumberedPath(Folder(), "review-comments", m_dir, "md");
 }
 
 wxString ReviewLoop::Describe() const {
@@ -52,9 +58,9 @@ wxString ReviewLoop::Describe() const {
 wxString ReviewLoop::WatchedMarker() const {
   switch (m_state) {
   case State::Reviewing:
-    return RoundDir(m_dir) + "/review-completed.marker";
+    return NumberedPath(Folder(), "review-completed", m_dir, "marker");
   case State::Fixing:
-    return RoundDir(m_dir) + "/comments-addressed.marker";
+    return NumberedPath(Folder(), "comments-addressed", m_dir, "marker");
   default:
     return wxEmptyString;
   }
@@ -73,22 +79,20 @@ std::vector<ReviewLoop::Action> ReviewLoop::Start() {
 }
 
 std::vector<ReviewLoop::Action> ReviewLoop::AskForReview() {
-  const wxString dir = RoundDir(m_dir);
+  const wxString file = NumberedPath(Folder(), "review-request", m_dir, "md");
   return {
-      {Action::Kind::WriteFile, dir + "/review-request.md",
-       BuildReviewRequest(dir, m_round)},
-      {Action::Kind::PasteToReviewer, wxEmptyString,
-       FollowLine(dir + "/review-request.md")},
+      {Action::Kind::WriteFile, file,
+       BuildReviewRequest(Folder(), m_dir, m_round)},
+      {Action::Kind::PasteToReviewer, wxEmptyString, FollowLine(file)},
   };
 }
 
 std::vector<ReviewLoop::Action> ReviewLoop::AskForFix() {
-  const wxString dir = RoundDir(m_dir);
+  const wxString file = NumberedPath(Folder(), "fix-request", m_dir, "md");
   return {
-      {Action::Kind::WriteFile, dir + "/fix-request.md",
-       BuildFixRequest(dir, m_round)},
-      {Action::Kind::PasteToMain, wxEmptyString,
-       FollowLine(dir + "/fix-request.md")},
+      {Action::Kind::WriteFile, file,
+       BuildFixRequest(Folder(), m_dir, m_round)},
+      {Action::Kind::PasteToMain, wxEmptyString, FollowLine(file)},
   };
 }
 
@@ -169,7 +173,7 @@ std::vector<ReviewLoop::Action> ReviewLoop::Resend() {
   if (state == State::Fixing) {
     return AskForFix();
   }
-  // A new folder, same round: the old folder may hold a marker already.
+  // New file names, same round: the old ones may include a marker already.
   ++m_dir;
   return AskForReview();
 }
@@ -204,8 +208,8 @@ ReviewLoop::Verdict ReviewLoop::ParseVerdict(const wxString &comments) {
   return Verdict::Unknown;
 }
 
-wxString ReviewLoop::BuildReviewRequest(const wxString &dir, int round) {
-  const wxString loopDir = dir.BeforeLast('/'); // .agents/reviews/<id>
+wxString ReviewLoop::BuildReviewRequest(const wxString &folder, int n,
+                                        int round) {
   wxString text;
   text << "# Code review request (round " << round << ")\n\n"
        << "You are a code reviewer. Another agent wrote the code in this "
@@ -220,20 +224,20 @@ wxString ReviewLoop::BuildReviewRequest(const wxString &dir, int round) {
   if (round > 1) {
     text << "\nThis is not the first round. First read the comments of the "
             "earlier rounds (`"
-         << loopDir
-         << "/round-*/review-comments.md`) and the answers of the other "
-            "agent (`"
-         << loopDir
-         << "/round-*/response.md`, if any), and check that each finding was "
-            "really addressed.\n";
+         << folder
+         << "/review-comments-*.md`) and the answers of the other agent (`"
+         << folder
+         << "/response-*.md`, if any), and check that each finding was really "
+            "addressed.\n";
   }
   text << "\n## Rules\n\n"
-       << "- Do **not** change any file except the ones under `" << dir
+       << "- Do **not** change any file except the ones in `" << folder
        << "/`.\n"
        << "- Do not run git commands that change anything (no add, commit, "
           "push, checkout, stash, reset).\n\n"
        << "## What to write\n\n"
-       << "1. Write your review to `" << dir << "/review-comments.md`.\n"
+       << "1. Write your review to `"
+       << NumberedPath(folder, "review-comments", n, "md") << "`.\n"
        << "   - The first line must be exactly `STATUS: FINDINGS` or "
           "`STATUS: CLEAN`.\n"
        << "   - If there are findings, list them: file and line, severity "
@@ -241,23 +245,23 @@ wxString ReviewLoop::BuildReviewRequest(const wxString &dir, int round) {
        << "   - Use `STATUS: CLEAN` only if nothing needs to change anymore.\n"
        << "2. **Only after** the file is completely written, create the "
           "empty file `"
-       << dir << "/review-completed.marker`.\n\n"
+       << NumberedPath(folder, "review-completed", n, "marker") << "`.\n\n"
        << "Do these two steps in this order. Then stop and wait.\n";
   return text;
 }
 
-wxString ReviewLoop::BuildFixRequest(const wxString &dir, int round) {
+wxString ReviewLoop::BuildFixRequest(const wxString &folder, int n, int round) {
   wxString text;
   text << "# Address the review comments (round " << round << ")\n\n"
-       << "Another agent reviewed your work. Read `" << dir
-       << "/review-comments.md`.\n\n"
+       << "Another agent reviewed your work. Read `"
+       << NumberedPath(folder, "review-comments", n, "md") << "`.\n\n"
        << "- Address every finding. If you disagree with one, do not change "
           "the code for it; explain why in `"
-       << dir << "/response.md`.\n"
-       << "- Do not edit anything under `.agents/reviews/` except "
-          "`response.md`.\n"
-       << "- When you are done, create the empty file `" << dir
-       << "/comments-addressed.marker`.\n\n"
+       << NumberedPath(folder, "response", n, "md") << "`.\n"
+       << "- Do not edit anything under `.agents/reviews/` except that "
+          "response file.\n"
+       << "- When you are done, create the empty file `"
+       << NumberedPath(folder, "comments-addressed", n, "marker") << "`.\n\n"
        << "Then stop and wait.\n";
   return text;
 }
