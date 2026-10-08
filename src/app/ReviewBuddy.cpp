@@ -70,11 +70,12 @@ wxString JoinPath(const wxString &dir, const wxString &name) {
 
 ReviewBuddy::ReviewBuddy(const Target &target, wxTerminalViewCtrl *main,
                          LaunchFn launchReviewer, std::function<bool()> isShown,
-                         NoticeFn showNotice)
+                         NoticeFn showNotice, FocusFn focusTerminal)
     : m_target(target), m_remote(!target.remoteHost.empty()), m_main(main),
       m_launchReviewer(std::move(launchReviewer)),
-      m_isShown(std::move(isShown)), m_showNotice(std::move(showNotice)),
-      m_pollTimer(this), m_enterTimer(this) {
+      m_isShown(std::move(isShown)), m_focusTerminal(std::move(focusTerminal)),
+      m_showNotice(std::move(showNotice)), m_pollTimer(this),
+      m_enterTimer(this) {
   Bind(wxEVT_TIMER, &ReviewBuddy::OnPoll, this, m_pollTimer.GetId());
   Bind(wxEVT_TIMER, &ReviewBuddy::OnEnterTimer, this, m_enterTimer.GetId());
 }
@@ -288,6 +289,10 @@ void ReviewBuddy::PasteLine(wxTerminalViewCtrl *terminal,
   terminal->SendInput(line.ToStdString(wxConvUTF8));
   m_enterTarget = terminal;
   m_enterTimer.StartOnce(kEnterDelayMs);
+  // This agent is the active one now.
+  if (m_focusTerminal) {
+    m_focusTerminal(terminal);
+  }
 }
 
 void ReviewBuddy::OnEnterTimer(wxTimerEvent &) {

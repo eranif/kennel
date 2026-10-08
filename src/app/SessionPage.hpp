@@ -57,6 +57,11 @@ private:
   // Everything both terminals need once they exist: theme, scrollback, links,
   // the context menu.
   void ConfigureTerminal(wxTerminalViewCtrl *terminal);
+  // Gives `terminal` the keyboard focus, but only when the user is working in
+  // this session: not when another page is showing, not when the focus is
+  // elsewhere in the application (the tree, a dialog, ...), and not while the
+  // user is typing in the session's other terminal.
+  void FocusTerminal(wxTerminalViewCtrl *terminal);
   // A panel for the splitter that gives a terminal a border in the theme's
   // background color. Create the terminal with the pane as its parent, then
   // AddToPane() it.
@@ -111,6 +116,9 @@ private:
   wxTerminalViewCtrl *m_terminal{nullptr};
   wxTerminalViewCtrl *m_reviewTerminal{nullptr};
   wxTerminalViewCtrl *m_lastFocused{nullptr};
+  // The terminal the user typed in last, and when (see FocusTerminal()).
+  wxTerminalViewCtrl *m_lastKeyTerminal{nullptr};
+  std::chrono::steady_clock::time_point m_lastKeyTime;
   std::unique_ptr<AcceleratorInterceptor> m_reviewAcceleratorInterceptor;
   std::unique_ptr<ReviewBuddy> m_review;
   GitState m_gitState{GitState::Unknown};

@@ -226,9 +226,36 @@ wxPanel *SessionPage::NewTerminalPane() {
   return pane;
 }
 
+void SessionPage::FocusTerminal(wxTerminalViewCtrl *terminal) {
+  if (terminal == nullptr || !IsActive() || !IsShownOnScreen()) {
+    return;
+  }
+  wxWindow *focused = wxWindow::FindFocus();
+  if (focused != nullptr && focused != this && !IsDescendant(focused)) {
+    return;
+  }
+  // The user is typing in the other terminal of this page: moving the focus
+  // would send their next keys to the other agent. The request was typed into
+  // `terminal` anyway; the user switches when they are ready.
+  constexpr auto kTypingPause = std::chrono::seconds(3);
+  if (m_lastKeyTerminal != nullptr && m_lastKeyTerminal != terminal &&
+      std::chrono::steady_clock::now() - m_lastKeyTime < kTypingPause) {
+    return;
+  }
+  // Also when the application window is not active: the focus is restored to
+  // this terminal when it is.
+  m_lastFocused = terminal;
+  terminal->SetFocus();
+}
+
 void SessionPage::AddToPane(wxPanel *pane, wxTerminalViewCtrl *terminal) {
-  pane->GetSizer()->Add(
-      terminal, wxSizerFlags(1).Expand().Border(wxALL, pane->FromDIP(5)));
+  // A click on the border around a terminal focuses it too.
+  pane->Bind(wxEVT_LEFT_DOWN, [terminal](wxMouseEvent &event) {
+    event.Skip();
+    terminal->SetFocus();
+  });
+  pane->GetSizer()->Add(terminal, wxSizerFlags(1).Expand().Border(
+                                      wxLEFT | wxRIGHT, pane->FromDIP(5)));
 }
 
 void SessionPage::ConfigureTerminal(wxTerminalViewCtrl *terminal) {
@@ -242,6 +269,20 @@ void SessionPage::ConfigureTerminal(wxTerminalViewCtrl *terminal) {
   // Bound after the terminal's own handler, so it runs first; it does not call
   // Skip(), which keeps the terminal's Copy / Paste / Clear menu from showing.
   terminal->Bind(wxEVT_CONTEXT_MENU, &SessionPage::OnTerminalContextMenu, this);
+  // The terminal takes the focus when the mouse goes down in it (it does so
+  // on release too), so the one the user clicks is the one that gets the keys.
+  terminal->Bind(wxEVT_LEFT_DOWN, [terminal](wxMouseEvent &event) {
+    event.Skip();
+    if (!terminal->HasFocus()) {
+      terminal->SetFocus();
+    }
+  });
+  // Remember who is typing; this runs before the terminal's own handler.
+  terminal->Bind(wxEVT_CHAR_HOOK, [this, terminal](wxKeyEvent &event) {
+    m_lastKeyTerminal = terminal;
+    m_lastKeyTime = std::chrono::steady_clock::now();
+    event.Skip();
+  });
   terminal->Bind(wxEVT_SET_FOCUS, [this, terminal](wxFocusEvent &event) {
     m_lastFocused = terminal;
     event.Skip();
@@ -281,6 +322,7 @@ void SessionPage::Restart() {
     m_mainPane = nullptr;
     m_terminal = nullptr;
     m_lastFocused = nullptr;
+    m_lastKeyTerminal = nullptr;
     m_acceleratorInterceptor.reset();
   }
   m_status = SessionStatus::Starting;
@@ -583,7 +625,8 @@ void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
       [this](const wxString &message, bool problem) {
         m_infoBar->ShowMessage(message,
                                problem ? wxICON_WARNING : wxICON_INFORMATION);
-      });
+      },
+      [this](wxTerminalViewCtrl *terminal) { FocusTerminal(terminal); });
   m_review->Begin();
 }
 
@@ -626,7 +669,8 @@ wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
 
   m_splitter->SplitVertically(m_mainPane, m_reviewPane);
   m_reviewTerminal->EnsureStarted();
-  m_terminal->SetFocus();
+  // The reviewer is the active agent now; it may ask for a permission.
+  FocusTerminal(m_reviewTerminal);
   return m_reviewTerminal;
 }
 
@@ -644,6 +688,9 @@ void SessionPage::CloseReviewBuddy() {
   }
   if (m_lastFocused == m_reviewTerminal) {
     m_lastFocused = m_terminal;
+  }
+  if (m_lastKeyTerminal == m_reviewTerminal) {
+    m_lastKeyTerminal = nullptr;
   }
   if (m_splitter != nullptr) {
     m_splitter->Unsplit(m_reviewPane);

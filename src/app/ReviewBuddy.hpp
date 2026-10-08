@@ -38,11 +38,16 @@ public:
   // `problem` is true when the loop needs the user, false when it is finished.
   using NoticeFn = std::function<void(const wxString &message, bool problem)>;
 
+  // Gives the keyboard focus to a terminal, if the user is working in this
+  // session. Called when a request is typed into a terminal: that agent is the
+  // active one now, and it may need an answer (a permission prompt).
+  using FocusFn = std::function<void(wxTerminalViewCtrl *terminal)>;
+
   // `isShown` tells whether the user is looking at the main agent's session
   // right now; it decides whether a system notification is worth showing.
   ReviewBuddy(const Target &target, wxTerminalViewCtrl *main,
               LaunchFn launchReviewer, std::function<bool()> isShown,
-              NoticeFn showNotice);
+              NoticeFn showNotice, FocusFn focusTerminal);
   ~ReviewBuddy() override;
 
   // Writes the first request and starts the reviewer with it.
@@ -92,6 +97,7 @@ private:
   wxTerminalViewCtrl *m_reviewer{nullptr}; // Null until the reviewer started
   LaunchFn m_launchReviewer;
   std::function<bool()> m_isShown;
+  FocusFn m_focusTerminal;
   NoticeFn m_showNotice;
 
   std::unique_ptr<ReviewLoop> m_loop;
