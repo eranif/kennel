@@ -9,6 +9,7 @@
 #include "core/Helpers.h"
 #include "core/Logger.h"
 #include "core/SftpClient.h"
+#include "core/WslPath.h"
 
 #include "terminal_event.h"
 #include "terminal_view.h"
@@ -392,17 +393,30 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
     return;
   }
 
-  if (text == "~" || text.StartsWith("~/")) {
-    text = wxGetHomeDir() + text.Mid(1);
-  }
+  wxFileName fn;
+  if (m_agent && m_agent->IsWSL()) {
+    // The path is a Linux path inside the distro: reach it through the
+    // distro's file share.
+    const wxString distro = wsl::DistroOf(m_agent->loginShell);
+    const wxString linuxPath =
+        wsl::ResolveLinuxPath(distro, text, m_session.workingDir);
+    if (linuxPath.empty()) {
+      return;
+    }
+    fn = wxFileName(wsl::ToWindowsPath(distro, linuxPath));
+  } else {
+    if (text == "~" || text.StartsWith("~/")) {
+      text = wxGetHomeDir() + text.Mid(1);
+    }
 
-  // Terminal output is usually relative to the shell's cwd, not Kennel's own
-  // process cwd, so resolve against the session's launch directory before
-  // checking for existence.
-  wxFileName fn{text};
-  if (!fn.IsAbsolute()) {
-    fn.MakeAbsolute(m_session.workingDir.empty() ? wxGetHomeDir()
-                                                 : m_session.workingDir);
+    // Terminal output is usually relative to the shell's cwd, not Kennel's own
+    // process cwd, so resolve against the session's launch directory before
+    // checking for existence.
+    fn = wxFileName{text};
+    if (!fn.IsAbsolute()) {
+      fn.MakeAbsolute(m_session.workingDir.empty() ? wxGetHomeDir()
+                                                   : m_session.workingDir);
+    }
   }
   if (!fn.FileExists()) {
     return;
@@ -528,10 +542,13 @@ std::vector<AgentDef> SessionPage::GetReviewerCandidates() const {
   if (!m_agent) {
     return result;
   }
-  // Both agents must see the same folder, so they must run on the same host.
+  // Both agents must see the same folder, so they must run on the same host,
+  // and in the same WSL distro if that is where the agent runs.
+  const wxString distro = wsl::DistroOf(m_agent->loginShell);
   for (const AgentDef &agent : AppManager::Get().Adapters().Agents()) {
     if (agent.remoteHost == m_agent->remoteHost &&
-        agent.remoteUser == m_agent->remoteUser) {
+        agent.remoteUser == m_agent->remoteUser &&
+        wsl::DistroOf(agent.loginShell) == distro) {
       result.push_back(agent);
     }
   }
@@ -577,6 +594,10 @@ void SessionPage::CheckGitRepo() {
   }
   m_lastGitCheck = std::chrono::steady_clock::now();
   const wxString dir = m_session.workingDir;
+  if (m_agent->IsWSL()) {
+    CheckWslGitRepo();
+    return;
+  }
   if (!m_agent->IsRemote()) {
     // A worktree or a submodule has a .git file instead of a folder.
     const wxString git = dir + "/.git";
@@ -602,6 +623,42 @@ void SessionPage::CheckGitRepo() {
   }).detach();
 }
 
+void SessionPage::CheckWslGitRepo() {
+  if (m_session.workingDir.empty()) {
+    m_gitState = GitState::No;
+    return;
+  }
+  // The distro's file share can be slow to answer (or have to start the
+  // distro), so look in the background, like for a remote host.
+  m_gitCheckBusy = true;
+  const wxString distro = wsl::DistroOf(m_agent->loginShell);
+  const wxString dir = m_session.workingDir;
+  std::thread([this, alive = m_alive, distro, dir] {
+    const wxString linuxDir = wsl::ResolveLinuxPath(distro, dir, wxEmptyString);
+    GitState state = GitState::Unknown;
+    if (!linuxDir.empty() && wxDir::Exists(wsl::ToWindowsPath(distro, "/"))) {
+      // A worktree or a submodule has a .git file instead of a folder.
+      const wxString git = wsl::ToWindowsPath(distro, linuxDir + "/.git");
+      state = wxDir::Exists(git) || wxFile::Exists(git) ? GitState::Yes
+                                                        : GitState::No;
+    }
+    CallAfterIfAlive(alive, [this, state] {
+      m_gitCheckBusy = false;
+      m_gitState = state;
+    });
+  }).detach();
+}
+
+wxString SessionPage::HostWorkingDir() const {
+  if (m_agent && m_agent->IsWSL()) {
+    const wxString distro = wsl::DistroOf(m_agent->loginShell);
+    const wxString linuxDir =
+        wsl::ResolveLinuxPath(distro, m_session.workingDir, wxEmptyString);
+    return linuxDir.empty() ? wxString{} : wsl::ToWindowsPath(distro, linuxDir);
+  }
+  return m_session.workingDir;
+}
+
 void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
   if (m_review || m_reviewTerminal != nullptr || m_terminal == nullptr ||
       !m_agent) {
@@ -610,12 +667,20 @@ void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
   KLOG_INFO() << "Launching review buddy '" << reviewer.name << "' for '"
               << m_session.name << "'";
 
+  // The folder as Kennel reaches it (it reads and writes the review files).
+  const wxString hostDir = HostWorkingDir();
+  if (hostDir.empty() && !m_agent->IsRemote()) {
+    m_infoBar->ShowMessage(_("Cannot find the session's working directory"),
+                           wxICON_WARNING);
+    return;
+  }
+
   // The reviewer's pane opens when the first request is ready (it is written
   // first, possibly over SSH): the agent reads it as soon as it starts.
   DismissNotice(); // The message about an earlier review
   m_review = std::make_unique<ReviewBuddy>(
-      ReviewBuddy::Target{m_session.workingDir, m_agent->remoteHost,
-                          m_agent->remoteUser, m_session.name},
+      ReviewBuddy::Target{hostDir, m_agent->remoteHost, m_agent->remoteUser,
+                          m_session.name},
       m_terminal,
       [this, reviewer](const wxString &prompt) {
         return StartReviewer(reviewer, prompt);
@@ -641,8 +706,13 @@ wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
   if (!reviewer.loginShell.empty()) {
     shellCommand = reviewer.loginShell;
   }
+  // A WSL agent's directory is a Linux path: the shell command takes it.
+  shellCommand.Replace(
+      "%WORKING_DIRECTORY%",
+      (m_session.workingDir.empty() ? "~" : m_session.workingDir));
   std::optional<wxString> cwd;
-  if (!reviewer.IsRemote() && !m_session.workingDir.empty()) {
+  if (!reviewer.IsRemote() && !reviewer.IsWSL() &&
+      !m_session.workingDir.empty()) {
     cwd = m_session.workingDir;
   }
 
@@ -721,5 +791,7 @@ void SessionPage::OpenLatestReview() {
         searchDirs);
     return;
   }
-  mainView->OpenLocalFile(wxFileName(dir, relative).GetFullPath());
+  const wxString hostDir = HostWorkingDir();
+  CHECK_NOT_EMPTY_OR_RETURN(hostDir);
+  mainView->OpenLocalFile(wxFileName(hostDir, relative).GetFullPath());
 }

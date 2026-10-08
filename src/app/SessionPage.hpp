@@ -83,6 +83,12 @@ private:
   bool CanHaveReviewBuddy(wxString &whyNot);
   // Looks for a .git in the working directory (over SFTP for a remote one).
   void CheckGitRepo();
+  void CheckWslGitRepo();
+  // The session's working directory as Kennel itself can reach it: the same
+  // for a local agent, the distro's file share (or the Windows drive) for a WSL
+  // agent, whose directory is a Linux path. Empty if it cannot be worked out.
+  // For a remote agent it is the path on the remote host.
+  wxString HostWorkingDir() const;
   // Looks again when the answer may have changed; see the definition.
   void RefreshGitState();
   void LaunchReviewBuddy(const AgentDef &reviewer);
