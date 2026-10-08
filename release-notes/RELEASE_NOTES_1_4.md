@@ -47,6 +47,41 @@ opens as an editor page in the main view instead of a modal dialog.
   the keyboard focus, it is a menu key equivalent (**Search → Select Next Page**) and the popup
   registers hot keys while it is open.
 
+### Review Buddy: a second agent that reviews the first
+
+Right-click in an agent's terminal and choose **Launch Review Buddy** and an agent (Kiro,
+Claude, ...). The session splits in two: your agent on the left, the reviewer on the right.
+Kennel then runs this cycle, with no more input from you:
+
+1. The reviewer reviews all **unpushed** work: uncommitted and staged changes, new files, and
+   commits that are not on the upstream branch.
+2. When it is done, your agent is told to read the review and fix it.
+3. When your agent is done, the reviewer reviews again. This repeats until the reviewer says
+   `STATUS: CLEAN`, up to 5 rounds.
+
+The agents tell Kennel that they are done by writing marker files under
+`.agents/reviews/<id>/round-N/` in the session's folder. This works the same for every agent
+and over SSH, and it does not matter what you do in the terminals (switching agents,
+scrolling, ...). Kennel types a single line into each terminal that points to a request file
+with the details. The reviewer may only
+write under `.agents/reviews/`. On a local repository, Kennel adds that folder to
+`.git/info/exclude`.
+
+When the loop ends (the review is clean, the round limit is reached, or something fails),
+Kennel writes the result in the status bar, shows a system notification unless you are looking
+at that session, and, when Kennel is in the background, bounces the Dock icon (macOS) or flashes
+the taskbar button (Windows). The context menu shows the state and offers **Send the Request
+Again**, **Stop the Review**, **Open the Latest Review** and **Close Review Buddy**. After 20
+minutes without an answer, Kennel notifies you the same way but keeps waiting.
+
+The entry needs a `.git` folder (or file) in the session's working directory, and only offers
+agents that run on the same host as the session.
+
+- **New terminal context menu** — the terminal's right-click menu is now Kennel's own (Copy,
+  Paste, Clear buffer, and the review entries).
+- **Border around terminals** — every terminal has a 5 pixel border in the theme's background
+  color.
+
 ### A better built-in editor
 
 The editor used for opened files (and the job log viewer) gained:

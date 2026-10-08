@@ -39,4 +39,15 @@ public:
   // replaced). Blocking, like ReadFile.
   static Status WriteFile(const wxString &host, const wxString &user,
                           const wxString &path, const std::string &content);
+
+  // Whether `path` exists on the remote host (a file or a folder). `~/` and
+  // `$HOME/` expand to the remote home. Blocking, like ReadFile.
+  static StatusOr<bool> Exists(const wxString &host, const wxString &user,
+                               const wxString &path);
+
+  // Creates the file at `path`, or replaces it, with `content`; missing parent
+  // folders are created. `~/` and `$HOME/` expand to the remote home. Unlike
+  // WriteFile this is not atomic, it is meant for small new files. Blocking.
+  static Status PutFile(const wxString &host, const wxString &user,
+                        const wxString &path, const std::string &content);
 };

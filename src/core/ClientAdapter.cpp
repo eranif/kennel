@@ -32,11 +32,25 @@ std::vector<wxString> WrapCommand(const AgentDef &agent,
   return commands;
 }
 
+// `text` in double quotes, for a POSIX shell (also over ssh and in WSL): the
+// four characters that stay special inside double quotes get a backslash.
+wxString QuoteForShell(const wxString &text) {
+  wxString quoted = "\"";
+  for (const wxUniChar c : text) {
+    if (c == '"' || c == '$' || c == '`' || c == '\\') {
+      quoted << '\\';
+    }
+    quoted << c;
+  }
+  quoted << '"';
+  return quoted;
+}
+
 } // namespace
 
 std::vector<wxString> BuildCommandLine(const AgentDef &agent,
-                                       const wxString &workingDir,
-                                       bool resume) {
+                                       const wxString &workingDir, bool resume,
+                                       const wxString &initialPrompt) {
   std::vector<wxString> args = agent.baseArgs;
 
   if (resume && !agent.resumeArg.empty()) {
@@ -50,6 +64,9 @@ std::vector<wxString> BuildCommandLine(const AgentDef &agent,
   wxString cmd = wxString::Format(R"("%s")", agent.executable);
   for (const wxString &arg : args) {
     cmd << " " << arg;
+  }
+  if (!initialPrompt.empty()) {
+    cmd << " " << QuoteForShell(initialPrompt);
   }
 
   return WrapCommand(agent, workingDir, cmd);

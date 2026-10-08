@@ -266,7 +266,8 @@ add_library(
   src/core/KennelRemote.cpp
   src/core/SftpClient.cpp
   src/core/CrashHandler.cpp
-  src/core/EventNotifier.cpp)
+  src/core/EventNotifier.cpp
+  src/core/ReviewLoop.cpp)
 
 target_include_directories(kennel_core PUBLIC src ${wxWidgets_INCLUDE_DIRS})
 # libssh is an implementation detail of SftpClient.cpp; its headers never appear
@@ -295,6 +296,7 @@ set(KENNEL_APP_SOURCES
     src/app/FilePage.cpp
     src/app/PageSwitcherDlg.cpp
     src/app/PageViewEvent.cpp
+    src/app/ReviewBuddy.cpp
     src/app/TreeView.cpp
     src/app/FlatView.cpp
     src/app/MainViewMenus.cpp

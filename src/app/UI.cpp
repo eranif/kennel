@@ -93,7 +93,7 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
   m_splitterLeftVertical->SetSashGravity(0.5);
   m_splitterLeftVertical->SetMinimumPaneSize(10);
 
-  m_leftPaneMainSizer->Add(m_splitterLeftVertical, 1, wxALL | wxEXPAND,
+  m_leftPaneMainSizer->Add(m_splitterLeftVertical, 1, wxEXPAND,
                            WXC_FROM_DIP(5));
 
   m_splitterPageLeftTop = new wxPanel(

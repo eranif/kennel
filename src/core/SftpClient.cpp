@@ -298,3 +298,96 @@ Status SftpClient::WriteFile(const wxString &host, const wxString &user,
   }
   return Status::Ok();
 }
+
+StatusOr<bool> SftpClient::Exists(const wxString &host, const wxString &user,
+                                  const wxString &path) {
+  auto session = Connect(host, user);
+  if (!session.ok()) {
+    return session.status();
+  }
+
+  SftpSessionPtr sftp{sftp_new(session.value().get())};
+  if (!sftp || sftp_init(sftp.get()) != SSH_OK) {
+    return SshError("Could not start the SFTP subsystem",
+                    session.value().get());
+  }
+
+  wxString home;
+  if (char *real = sftp_canonicalize_path(sftp.get(), ".")) {
+    home = wxString::FromUTF8(real);
+    ssh_string_free_char(real);
+  }
+
+  SftpAttrPtr attrs{sftp_stat(
+      sftp.get(), ExpandHome(path, home).ToStdString(wxConvUTF8).c_str())};
+  if (attrs) {
+    return true;
+  }
+  // Only "no such file" means no. Anything else (permission denied, ...) is an
+  // error the caller must not take for an answer.
+  const int code = sftp_get_error(sftp.get());
+  if (code == SSH_FX_NO_SUCH_FILE || code == SSH_FX_NO_SUCH_PATH) {
+    return false;
+  }
+  return SshError(
+      wxString::Format("Could not check %s (SFTP error %d)", path, code),
+      session.value().get());
+}
+
+Status SftpClient::PutFile(const wxString &host, const wxString &user,
+                           const wxString &path, const std::string &content) {
+  auto session = Connect(host, user);
+  if (!session.ok()) {
+    return session.status();
+  }
+
+  SftpSessionPtr sftp{sftp_new(session.value().get())};
+  if (!sftp || sftp_init(sftp.get()) != SSH_OK) {
+    return SshError("Could not start the SFTP subsystem",
+                    session.value().get());
+  }
+
+  wxString home;
+  if (char *real = sftp_canonicalize_path(sftp.get(), ".")) {
+    home = wxString::FromUTF8(real);
+    ssh_string_free_char(real);
+  }
+  const std::string target = ExpandHome(path, home).ToStdString(wxConvUTF8);
+
+  // Create the missing parent folders, one level at a time.
+  for (size_t slash = target.find('/', 1); slash != std::string::npos;
+       slash = target.find('/', slash + 1)) {
+    const std::string dir = target.substr(0, slash);
+    SftpAttrPtr attrs{sftp_stat(sftp.get(), dir.c_str())};
+    if (!attrs && sftp_mkdir(sftp.get(), dir.c_str(), 0755) != SSH_OK) {
+      // Somebody may have created it in the meantime; servers do not agree on
+      // the error code for that, so look again.
+      attrs.reset(sftp_stat(sftp.get(), dir.c_str()));
+      if (!attrs) {
+        return SshError(wxString::Format("Could not create %s", dir),
+                        session.value().get());
+      }
+    }
+    if (attrs && attrs->type != SSH_FILEXFER_TYPE_DIRECTORY) {
+      return Status::Error(wxString::Format("%s is not a folder", dir));
+    }
+  }
+
+  SftpFilePtr file{sftp_open(sftp.get(), target.c_str(),
+                             O_WRONLY | O_CREAT | O_TRUNC, 0644)};
+  if (!file) {
+    return SshError(wxString::Format("Could not create %s", path),
+                    session.value().get());
+  }
+  size_t offset = 0;
+  while (offset < content.size()) {
+    const size_t chunk = std::min<size_t>(32 * 1024, content.size() - offset);
+    const ssize_t n = sftp_write(file.get(), content.data() + offset, chunk);
+    if (n < 0) {
+      return SshError(wxString::Format("Could not write %s", path),
+                      session.value().get());
+    }
+    offset += static_cast<size_t>(n);
+  }
+  return Status::Ok();
+}

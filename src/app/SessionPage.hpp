@@ -2,6 +2,7 @@
 #define SESSIONPAGE_HPP
 #include "UI.hpp"
 #include "app/AcceleratorInterceptor.h"
+#include "app/AsyncGuard.hpp"
 #include "core/ActivityMonitor.h"
 #include "core/AppPaths.h"
 #include "core/Config.h"
@@ -10,11 +11,17 @@
 
 #include "terminal_theme.h"
 
+#include <chrono>
 #include <functional>
 #include <memory>
+#include <vector>
 
 class wxTerminalViewCtrl;
 class wxTerminalEvent;
+class wxSplitterWindow;
+class wxPanel;
+class wxContextMenuEvent;
+class ReviewBuddy;
 
 enum class SessionStatus { Starting, Running, Idle, Exited, Error };
 
@@ -31,8 +38,13 @@ public:
   Session &GetSession() { return m_session; }
   inline bool IsPlainTerminal() const { return !m_agent.has_value(); }
   void Restart();
+  // The agent's own terminal.
   wxTerminalViewCtrl *GetTerminal() { return m_terminal; }
+  // The agent's terminal, plus the review buddy's while it is open.
+  std::vector<wxTerminalViewCtrl *> GetTerminals() const;
   void ApplyTheme(const wxTerminalTheme &theme);
+  // Focuses the terminal that had the focus last (the agent's by default).
+  void SetFocus() override;
 
   bool IsActive() const;
   void SetDefaultSessionName(const wxString &name);
@@ -40,10 +52,39 @@ public:
 
 private:
   void CreateTerminal();
+  // Everything both terminals need once they exist: theme, scrollback, links,
+  // the context menu.
+  void ConfigureTerminal(wxTerminalViewCtrl *terminal);
+  // A panel for the splitter that gives a terminal a border in the theme's
+  // background color. Create the terminal with the pane as its parent, then
+  // AddToPane() it.
+  wxPanel *NewTerminalPane();
+  void AddToPane(wxPanel *pane, wxTerminalViewCtrl *terminal);
   void SetStatus(SessionStatus status);
   void OnTerminated(wxTerminalEvent &evt);
   void OnTitleChanged(wxTerminalEvent &evt);
   void OnTerminalLink(wxTerminalEvent &evt);
+
+  // ---- Context menu and review buddy -----------------------------------
+  // Replaces the terminal's own Copy / Paste / Clear menu.
+  void OnTerminalContextMenu(wxContextMenuEvent &evt);
+  void ShowTerminalMenu(wxTerminalViewCtrl *terminal);
+  // Agents the review buddy can be: the ones on the same host as this session.
+  std::vector<AgentDef> GetReviewerCandidates() const;
+  // Whether this session can have a review buddy at all, and if not, why. May
+  // start the git check again when an earlier one failed.
+  bool CanHaveReviewBuddy(wxString &whyNot);
+  // Looks for a .git in the working directory (over SFTP for a remote one).
+  void CheckGitRepo();
+  // Looks again when the answer may have changed; see the definition.
+  void RefreshGitState();
+  void LaunchReviewBuddy(const AgentDef &reviewer);
+  // Opens the reviewer's pane and starts its agent with `prompt` as the first
+  // message. Called by ReviewBuddy once the request file is written.
+  wxTerminalViewCtrl *StartReviewer(const AgentDef &reviewer,
+                                    const wxString &prompt);
+  void CloseReviewBuddy();
+  void OpenLatestReview();
   wxBookCtrlBase *GetBook() const {
     return dynamic_cast<wxBookCtrlBase *>(GetParent());
   }
@@ -53,7 +94,23 @@ private:
   Session m_session;
   bool m_resume = false;
 
+  enum class GitState { Unknown, Yes, No };
+
+  // The agent's pane is the only child of the splitter until a review buddy
+  // opens its pane next to it. Each pane holds one terminal with a border.
+  wxSplitterWindow *m_splitter{nullptr};
+  wxPanel *m_mainPane{nullptr};
+  wxPanel *m_reviewPane{nullptr};
   wxTerminalViewCtrl *m_terminal{nullptr};
+  wxTerminalViewCtrl *m_reviewTerminal{nullptr};
+  wxTerminalViewCtrl *m_lastFocused{nullptr};
+  std::unique_ptr<AcceleratorInterceptor> m_reviewAcceleratorInterceptor;
+  std::unique_ptr<ReviewBuddy> m_review;
+  GitState m_gitState{GitState::Unknown};
+  bool m_gitCheckBusy{false};
+  std::chrono::steady_clock::time_point m_lastGitCheck;
+  // For the worker threads, see AsyncGuard.hpp.
+  AliveFlag m_alive{MakeAliveFlag()};
   std::unique_ptr<ActivityMonitor> m_monitor;
   SessionStatus m_status = SessionStatus::Starting;
   wxString m_defaultTitle;

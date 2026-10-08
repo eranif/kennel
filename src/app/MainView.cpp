@@ -798,7 +798,9 @@ void MainView::ApplyFont(const wxFont &f) {
   }
   for (auto *page : m_treeView->GetAllSessions()) {
     page->ApplyTheme(*active);
-    page->GetTerminal()->SendSizeEvent();
+    for (auto *terminal : page->GetTerminals()) {
+      terminal->SendSizeEvent();
+    }
   }
   for (auto *filePage : m_treeView->GetFilePages()) {
     filePage->ApplyTheme(*active);
@@ -812,8 +814,10 @@ void MainView::ApplyFont(const wxFont &f) {
 void MainView::ApplyOptimizedDrawing() {
   bool optimized = AppManager::Get().GetPrefs().terminalOptimizedDrawing;
   for (auto *page : m_treeView->GetAllSessions()) {
-    page->GetTerminal()->EnableSafeDrawing(!optimized);
-    page->GetTerminal()->Refresh();
+    for (auto *terminal : page->GetTerminals()) {
+      terminal->EnableSafeDrawing(!optimized);
+      terminal->Refresh();
+    }
   }
 }
 
@@ -826,7 +830,9 @@ void MainView::ApplyPrefs() {
   ApplyOptimizedDrawing();
 
   for (auto *page : m_treeView->GetAllSessions()) {
-    page->GetTerminal()->SetBufferSize(prefs.scrollbackLines);
+    for (auto *terminal : page->GetTerminals()) {
+      terminal->SetBufferSize(prefs.scrollbackLines);
+    }
   }
 }
 
@@ -838,7 +844,9 @@ void MainView::ApplyTheme(const wxString &themeName) {
   }
   for (auto *page : m_treeView->GetAllSessions()) {
     page->ApplyTheme(*active);
-    page->GetTerminal()->SendSizeEvent();
+    for (auto *terminal : page->GetTerminals()) {
+      terminal->SendSizeEvent();
+    }
   }
   for (auto *filePage : m_treeView->GetFilePages()) {
     filePage->ApplyTheme(*active);

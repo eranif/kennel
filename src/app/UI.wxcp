@@ -616,11 +616,6 @@
                             "wxSP_3D"
                           ],
                           "m_sizerFlags": [
-                            "wxALL",
-                            "wxLEFT",
-                            "wxRIGHT",
-                            "wxTOP",
-                            "wxBOTTOM",
                             "wxEXPAND"
                           ],
                           "m_properties": [
