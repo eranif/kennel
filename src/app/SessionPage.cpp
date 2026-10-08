@@ -223,9 +223,6 @@ wxPanel *SessionPage::NewTerminalPane() {
   auto *pane = new wxPanel(m_splitter, wxID_ANY, wxDefaultPosition,
                            wxDefaultSize, wxBORDER_NONE);
   pane->SetSizer(new wxBoxSizer(wxVERTICAL));
-  if (auto theme = ThemeManager::Get().ActiveTheme()) {
-    pane->SetBackgroundColour(theme->bg);
-  }
   return pane;
 }
 
