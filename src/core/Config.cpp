@@ -13,7 +13,16 @@ constexpr int kDefaultFontSize = 20;
 constexpr int kDefaultFontSize = 14;
 #endif
 
+namespace {
+wxString g_bundledFontFace;
+} // namespace
+
+void SetBundledFontFace(const wxString &face) { g_bundledFontFace = face; }
+
 wxString GetDefaultFontFamily() {
+  if (!g_bundledFontFace.empty()) {
+    return g_bundledFontFace;
+  }
 #ifdef __WXMAC__
   return "Menlo";
 #elif defined(__WXMSW__)

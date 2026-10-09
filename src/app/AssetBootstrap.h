@@ -18,6 +18,12 @@ wxFileName ShippedAssetsDir();
 // is NOT checked — the caller decides on a fallback when the file is missing.
 wxString ResolveIconPath(const wxString &iconPath);
 
+// Makes the fonts in <shipped assets>/fonts available to this process and makes
+// the bundled terminal font (Iosevka Term) the default font family. Call it
+// before any window is created. A failure is only logged: the system font
+// stays the default then.
+void LoadBundledFonts();
+
 // Locates the LICENSE file shipped with the installed app. Resolution order:
 //   1. macOS: <bundle>/Contents/Resources/LICENSE
 //   2. Windows/Linux: <executable-path>/LICENSE

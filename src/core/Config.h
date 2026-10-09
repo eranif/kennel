@@ -10,6 +10,9 @@
 #include "core/Job.h"
 
 wxString GetDefaultFontFamily();
+// The face name of the font shipped with Kennel, once it is loaded. It then is
+// the default font family. Empty (the default) means: use the system font.
+void SetBundledFontFace(const wxString &face);
 int GetDefaultFontSize();
 
 template <typename Container>

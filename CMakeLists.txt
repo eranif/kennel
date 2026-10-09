@@ -333,6 +333,9 @@ file(GLOB KENNEL_ASSET_FILES "${CMAKE_SOURCE_DIR}/assets/*.svg")
 
 file(GLOB KENNEL_THEME_FILES "${CMAKE_SOURCE_DIR}/assets/themes/*.toml")
 
+# Fonts (Iosevka Term for the terminal) and their license
+file(GLOB KENNEL_FONT_FILES "${CMAKE_SOURCE_DIR}/assets/fonts/*")
+
 # Include LICENSE file in the bundle
 list(APPEND KENNEL_ASSET_FILES "${CMAKE_SOURCE_DIR}/LICENSE")
 
@@ -347,6 +350,10 @@ if(APPLE)
                                      "Resources/assets/themes")
   set_source_files_properties("${CMAKE_SOURCE_DIR}/LICENSE"
                               PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+  # Bundled fonts: wxFont::AddPrivateFont() accepts only fonts in
+  # Kennel.app/Contents/Resources/Fonts (see ATSApplicationFontsPath below).
+  set_source_files_properties(
+    ${KENNEL_FONT_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/Fonts")
 
   # App icon: a pre-generated .icns committed in assets/ (regenerate from the
   # SVG with assets/regen-icns.sh when the icon changes). Bundle it into
@@ -361,7 +368,7 @@ if(APPLE)
 
   add_executable(
     kennel MACOSX_BUNDLE ${KENNEL_APP_SOURCES} ${KENNEL_ASSET_FILES}
-                         ${KENNEL_THEME_FILES})
+                         ${KENNEL_THEME_FILES} ${KENNEL_FONT_FILES})
   set_target_properties(
     kennel
     PROPERTIES MACOSX_BUNDLE_GUI_IDENTIFIER "com.eranif.kennel"
@@ -369,6 +376,17 @@ if(APPLE)
                MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
                MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
                MACOSX_BUNDLE_COPYRIGHT "Copyright © Eran Ifrah")
+  # Tell macOS where the private fonts are (relative to Resources).
+  add_custom_command(
+    TARGET kennel
+    POST_BUILD
+    COMMAND /usr/libexec/PlistBuddy -c "Delete :ATSApplicationFontsPath"
+            "$<TARGET_BUNDLE_CONTENT_DIR:kennel>/Info.plist" || true
+    COMMAND
+      /usr/libexec/PlistBuddy -c "Add :ATSApplicationFontsPath string Fonts"
+      "$<TARGET_BUNDLE_CONTENT_DIR:kennel>/Info.plist"
+    COMMENT "Adding ATSApplicationFontsPath to Info.plist"
+    VERBATIM)
 elseif(WIN32)
   # Include Windows resource file for version info and icon
   set(KENNEL_RC_FILE "${CMAKE_SOURCE_DIR}/src/app/kennel.rc")
@@ -401,6 +419,10 @@ if(NOT APPLE)
     COMMAND
       ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_ASSET_TOML_FILES_ONLY}
       "$<TARGET_FILE_DIR:kennel>/assets/themes"
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:kennel>/assets/fonts"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_FONT_FILES}
+            "$<TARGET_FILE_DIR:kennel>/assets/fonts"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/LICENSE"
             "$<TARGET_FILE_DIR:kennel>/LICENSE"
     COMMENT "Staging assets and license next to the kennel executable"
@@ -434,6 +456,8 @@ else()
           DESTINATION ${CMAKE_INSTALL_DATADIR}/kennel/assets)
   install(FILES ${KENNEL_ASSET_FILES_ONLY}
           DESTINATION ${CMAKE_INSTALL_DATADIR}/kennel/assets/themes)
+  install(FILES ${KENNEL_FONT_FILES}
+          DESTINATION ${CMAKE_INSTALL_DATADIR}/kennel/assets/fonts)
   # License
   install(FILES "${CMAKE_SOURCE_DIR}/LICENSE"
           DESTINATION ${CMAKE_INSTALL_DATADIR}/kennel)

@@ -2,6 +2,7 @@
 #include <wx/cmdline.h>
 #include <wx/log.h>
 
+#include "app/AssetBootstrap.h"
 #include "app/MainFrame.h"
 #include "core/AppManager.h"
 #include "core/AppPaths.h"
@@ -58,6 +59,9 @@ public:
     // Install crash handler before any further initialization so that even
     // early failures produce a backtrace in ~/.kennel/logs/crash_<epoch>.log.
     CrashHandler::Install(paths.LogsDir().GetPath());
+
+    // Before any window or font is created.
+    LoadBundledFonts();
 
     // Load config, workspace, and UI prefs into the process-wide AppManager.
     // UI code reaches all of these via AppManager::Get().

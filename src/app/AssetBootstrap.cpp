@@ -1,6 +1,12 @@
 #include "app/AssetBootstrap.h"
 
+#include "core/Config.h"
+#include "core/Logger.h"
+
+#include <wx/dir.h>
 #include <wx/filename.h>
+#include <wx/font.h>
+#include <wx/fontenum.h>
 #include <wx/stdpaths.h>
 
 namespace {
@@ -107,4 +113,49 @@ wxString GetLicensePath() {
     }
   }
   return wxString();
+}
+
+void LoadBundledFonts() {
+#if wxUSE_PRIVATE_FONTS
+  // The font file and the family name it registers.
+  const wxString kDefaultFontFile = "IosevkaTerm-Regular.ttf";
+  const wxString kDefaultFontFace = "Iosevka Term";
+
+#ifdef __WXMAC__
+  // AddPrivateFont() accepts only Contents/Resources/Fonts here.
+  wxFileName fontsDir(wxStandardPaths::Get().GetResourcesDir(), "");
+  fontsDir.AppendDir("Fonts");
+#else
+  const wxFileName assets = ShippedAssetsDir();
+  if (!assets.IsOk()) {
+    return;
+  }
+  wxFileName fontsDir = assets;
+  fontsDir.AppendDir("fonts");
+#endif
+  if (!fontsDir.DirExists()) {
+    KLOG_WARN() << "Bundled fonts folder not found: " << fontsDir.GetPath();
+    return;
+  }
+
+  wxArrayString files;
+  wxDir::GetAllFiles(fontsDir.GetPath(), &files, "*.?tf", wxDIR_FILES);
+  for (const wxString &file : files) {
+    if (!wxFont::AddPrivateFont(file)) {
+      KLOG_WARN() << "Could not load the bundled font: " << file;
+      continue;
+    }
+    KLOG_INFO() << "Loaded the bundled font: " << file;
+    if (wxFileName(file).GetFullName() == kDefaultFontFile) {
+#if wxUSE_FONTENUM
+      if (!wxFontEnumerator::IsValidFacename(kDefaultFontFace)) {
+        KLOG_WARN() << "The system does not know the font '" << kDefaultFontFace
+                    << "' after loading " << file;
+        continue;
+      }
+#endif
+      SetBundledFontFace(kDefaultFontFace);
+    }
+  }
+#endif // wxUSE_PRIVATE_FONTS
 }
