@@ -912,6 +912,9 @@ void MainView::SavePrefs() {
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
+bool MainView::IsEmpty() const {
+  return !m_flatView || m_flatView->GetItemCount() == 0;
+}
 
 SessionGroup *MainView::GetSelectedGroup() const {
   return m_treeView->GetSelectedGroup();
@@ -1263,6 +1266,9 @@ void MainView::LoadBitmaps() {
 
   bmps.Load("terminal.svg");
   bmps.AddAlias("terminal.svg", "terminal");
+
+  bmps.Load("terminals.svg");
+  bmps.AddAlias("terminals.svg", "terminals");
 
   bmps.Load("restart.svg");
   bmps.AddAlias("restart.svg", "restart");

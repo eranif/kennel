@@ -41,11 +41,11 @@ wxString LookupPersistedGroupIcon(const wxString &groupName) {
   return wxEmptyString;
 }
 
-// Icon shown on a session leaf: the agent's icon, or none for a plain
-// terminal / an agent with no resolvable icon.
+// Icon shown on a session leaf: terminal.svg for a plain terminal, else the
+// agent's icon, or none for an agent with no resolvable icon.
 wxBitmapBundle SessionIconFor(const Session &session) {
   if (session.plainTerminal) {
-    return wxBitmapBundle{};
+    return AppManager::Get().GetBitmaps().Get("terminal", false);
   }
   const auto *agentDef =
       AppManager::Get().Adapters().FindAgent(session.agentName);
@@ -193,7 +193,7 @@ SessionGroup *TreeView::EnsureGroup(const wxString &name) {
 
   wxString iconAlias;
   if (group->IsTerminalsGroup()) {
-    iconAlias = "terminal";
+    iconAlias = "terminals";
   } else if (group->IsFilesGroup()) {
     iconAlias = "folder";
   } else if (group->IsDefaultGroup()) {

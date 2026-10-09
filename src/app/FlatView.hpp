@@ -26,6 +26,7 @@ public:
                 const std::optional<SessionRef> &selected);
 
   void Clear();
+  size_t GetItemCount() const { return m_list->GetItemCount(); }
 
 private:
   void OnSelectionChanged(wxDataViewEvent &event);

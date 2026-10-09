@@ -110,6 +110,7 @@ private:
   void OnCloseAllSessionsUI(wxUpdateUIEvent &evt);
   void OnStartAgent(wxCommandEvent &evt);
   void OnRenameItem(wxCommandEvent &event);
+  void OnRenameItemUI(wxUpdateUIEvent &event);
   void BuildLaunchTools();
 
   MainView *m_mainView{nullptr};

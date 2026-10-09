@@ -118,6 +118,8 @@ public:
   bool IsNameExist(const wxString &name, const wxString &groupName) const;
   SessionGroup *GetSelectedGroup() const;
 
+  bool IsEmpty() const;
+
   // Logical group names currently in use, excluding the "Terminals" group.
   wxArrayString GetGroupNames() const;
 

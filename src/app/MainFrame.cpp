@@ -297,13 +297,8 @@ void MainFrame::BuildEditMenu(wxMenuBar *menuBar) {
                    _("Rename the selected session"));
   menuBar->Append(editMenu, "&Edit");
   Bind(wxEVT_MENU, &MainFrame::OnRenameItem, this, XRCID("rename-selection"));
-  Bind(
-      wxEVT_UPDATE_UI,
-      [this](wxUpdateUIEvent &e) {
-        auto *group = m_mainView->GetSelectedGroup();
-        e.Enable(group && group->IsSessionGroup() && !group->IsDefaultGroup());
-      },
-      XRCID("rename-selection"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnRenameItemUI, this,
+       XRCID("rename-selection"));
 }
 
 void MainFrame::BuildJobsMenu(wxMenuBar *menuBar) {
@@ -555,8 +550,14 @@ void MainFrame::CheckForUpdates(bool silent) {
       });
 }
 
+void MainFrame::OnRenameItemUI(wxUpdateUIEvent &event) {
+  bool enable = m_mainView != nullptr && !m_mainView->IsEmpty();
+  event.Enable(enable);
+}
+
 void MainFrame::OnRenameItem(wxCommandEvent &event) {
   wxUnusedVar(event);
+  CHECK_NOT_NULL_RETURN(m_mainView);
   m_mainView->RenameItem();
 }
 
