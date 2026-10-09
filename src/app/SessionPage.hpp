@@ -3,7 +3,7 @@
 #include "UI.hpp"
 #include "app/AcceleratorInterceptor.h"
 #include "app/AsyncGuard.hpp"
-#include "app/wxCustomStatusBar.h"
+#include "app/SessionStatusEvent.hpp"
 #include "core/ActivityMonitor.h"
 #include "core/AppPaths.h"
 #include "core/Config.h"
@@ -19,7 +19,6 @@
 
 #include <wx/timer.h>
 
-class wxActivityIndicator;
 class wxTerminalViewCtrl;
 class wxTerminalEvent;
 class wxSplitterWindow;
@@ -53,6 +52,9 @@ public:
   bool IsActive() const;
   void SetDefaultSessionName(const wxString &name);
   void ApplyTitle();
+  // Sends what the status bar of the main window should show (only when this
+  // page is showing). Also called when the page is selected.
+  void PublishStatus();
 
 private:
   void CreateTerminal();
@@ -70,25 +72,21 @@ private:
   wxPanel *NewTerminalPane();
   void AddToPane(wxPanel *pane, wxTerminalViewCtrl *terminal);
   void SetStatus(SessionStatus status);
-  // The bar at the top of the page: session + agent (with the agent's icon),
-  // where the agent runs. The main text area, first, shows the review state.
-  void CreateStatusBar();
-  void UpdateSessionField();
-  // Sets the widths of the fields from the width of the page (cheap).
-  void LayoutStatusBar();
-  // Fills the main text area, and starts / stops the activity indicator:
+  // ---- Status (shown in the status bar of the main window) --------------
+  // Works out where the agent runs and the session label.
+  void InitStatus();
+  void UpdateSessionLabel();
+  // Fills the main text and the busy flag, then publishes:
   //   - while a review is in progress: the review state (the terminal title is
   //     not shown, but is remembered);
   //   - for a while after it ended, or after a problem: the notice;
   //   - otherwise: the terminal title.
   void UpdateMainText();
-  // Shows `text` in the main text area for a while (see UpdateMainText()).
+  // Shows `text` in the main text for a while (see UpdateMainText()).
   void ShowNotice(const wxString &text);
   void ClearNotice();
-  void SetBusy(bool busy);
   void OnReviewChanged(wxCommandEvent &) { UpdateMainText(); }
   void OnNoticeTimer(wxTimerEvent &) { UpdateMainText(); }
-  void OnSize(wxSizeEvent &event);
   void OnTerminated(wxTerminalEvent &evt);
   void OnTitleChanged(wxTerminalEvent &evt);
   void OnTerminalLink(wxTerminalEvent &evt);
@@ -130,13 +128,12 @@ private:
 
   enum class GitState { Unknown, Yes, No };
 
-  wxCustomStatusBar *m_statusBar{nullptr};
-  std::shared_ptr<wxCustomStatusBarBitmapField> m_sessionField;
-  int m_sessionFieldBestWidth{0};            // in pixels
-  wxActivityIndicator *m_indicator{nullptr}; // While a review is in progress
-  std::shared_ptr<wxCustomStatusBarControlField> m_indicatorField;
-  // What the main text area shows when there is no review in progress: the
-  // notice while its timer runs, then the terminal title.
+  // What the status bar of the main window shows while this page is showing.
+  wxString m_statusText;   // The main text, see UpdateMainText()
+  wxString m_host;         // Where the agent runs
+  wxString m_sessionLabel; // "session - agent"
+  wxBitmapBundle m_sessionIcon;
+  bool m_busy{false}; // A review is working
   wxString m_notice;
   wxTimer m_noticeTimer{this};
   bool m_endNoticeShown{false}; // For the review that ended

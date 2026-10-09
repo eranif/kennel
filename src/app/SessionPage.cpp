@@ -15,7 +15,6 @@
 #include "terminal_event.h"
 #include "terminal_view.h"
 
-#include <wx/activityindicator.h>
 #include <wx/dir.h>
 #include <wx/file.h>
 #include <wx/filename.h>
@@ -41,10 +40,6 @@ wxDEFINE_EVENT(wxEVT_SESSION_EXITED, wxCommandEvent);
 
 namespace {
 
-// Status bar: the host field's width, and the least width the main text area
-// keeps (both in DIP).
-constexpr int kStatusHostWidth = 160;
-constexpr int kStatusMinMainWidth = 150;
 // How long the main text area shows how a review ended.
 constexpr int kNoticeMs = 60 * 1000;
 
@@ -100,93 +95,57 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
       m_agent(std::move(agent)), m_session(std::move(session)),
       m_resume(resume) {
   SetDefaultSessionName(m_session.name);
-  // From top to bottom: the status bar, the terminals.
-  CreateStatusBar();
+  InitStatus();
   Bind(wxEVT_TIMER, &SessionPage::OnNoticeTimer, this, m_noticeTimer.GetId());
   Bind(wxEVT_REVIEW_CHANGED, &SessionPage::OnReviewChanged, this);
-  Bind(wxEVT_SIZE, &SessionPage::OnSize, this);
   CreateTerminal();
 }
 
-void SessionPage::CreateStatusBar() {
-  m_statusBar = new wxCustomStatusBar(this);
-  m_statusBar->SetMinSize(wxSize(-1, FromDIP(24)));
-
+void SessionPage::InitStatus() {
   // Where the agent runs: this machine, a WSL distro or a remote host.
-  auto hostField = std::make_shared<wxCustomStatusBarFieldText>(
-      m_statusBar, FromDIP(kStatusHostWidth));
-  wxString host = _("Local");
+  m_host = _("Local");
   if (m_agent && m_agent->IsRemote()) {
-    host = m_agent->remoteUser.empty()
-               ? m_agent->remoteHost
-               : m_agent->remoteUser + "@" + m_agent->remoteHost;
+    m_host = m_agent->remoteUser.empty()
+                 ? m_agent->remoteHost
+                 : m_agent->remoteUser + "@" + m_agent->remoteHost;
   } else if (m_agent && m_agent->IsWSL()) {
-    host = wxString::Format(_("WSL: %s"), wsl::DistroOf(m_agent->loginShell));
+    m_host = wxString::Format(_("WSL: %s"), wsl::DistroOf(m_agent->loginShell));
   }
-  hostField->SetText(host);
-  // Shown while a review is in progress; it has no width while hidden.
-  m_indicator = new wxActivityIndicator(
-      m_statusBar, wxID_ANY, wxDefaultPosition, FromDIP(wxSize(18, 18)));
-  m_indicator->Hide();
-  m_indicatorField =
-      std::make_shared<wxCustomStatusBarControlField>(m_statusBar, m_indicator);
-  m_statusBar->AddField(m_indicatorField);
-
-  hostField->SetTooltip(
-      m_session.workingDir.empty() ? host : host + ": " + m_session.workingDir);
-  m_statusBar->AddField(hostField);
-
-  m_sessionField =
-      std::make_shared<wxCustomStatusBarBitmapField>(m_statusBar, 0);
-  m_statusBar->AddField(m_sessionField);
-
-  UpdateSessionField();
-  GetSizer()->Add(m_statusBar, wxSizerFlags().Expand());
+  UpdateSessionLabel();
 }
 
-void SessionPage::UpdateSessionField() {
-  if (m_sessionField == nullptr) {
-    return;
-  }
-  // Only when the session changes (it reads the icon from disk), not on every
-  // resize: see LayoutStatusBar().
+void SessionPage::UpdateSessionLabel() {
   const wxString agent = m_session.plainTerminal || m_session.agentName.empty()
                              ? wxString(_("Terminal"))
                              : m_session.agentName;
-  const wxString label = m_session.name + " - " + agent;
-  const wxBitmapBundle icon = SessionIconFor(m_session, 16);
-  m_sessionField->SetBitmap(icon.IsOk() ? icon.GetBitmapFor(this) : wxBitmap());
-  m_sessionField->SetLabel(label);
-  m_sessionField->SetTooltip(label);
-  m_sessionFieldBestWidth =
-      m_sessionField->GetBestWidth(m_statusBar->GetTextWidth(label));
-  LayoutStatusBar();
+  m_sessionLabel = m_session.name + " - " + agent;
+  // Reads the icon from disk: only when the session changes.
+  m_sessionIcon = SessionIconFor(m_session, 16);
+  PublishStatus();
 }
 
-void SessionPage::LayoutStatusBar() {
-  if (m_sessionField == nullptr) {
+void SessionPage::PublishStatus() {
+  // Only the page that is showing owns the status bar of the window.
+  if (!IsActive() || !IsShown()) {
     return;
   }
-  // The session field gets what it needs, but the main text area (the review
-  // state) keeps a minimum width; the label is cut with "..." if it must.
-  const int available = GetClientSize().GetWidth() -
-                        FromDIP(kStatusMinMainWidth + kStatusHostWidth) -
-                        static_cast<int>(m_indicatorField->GetWidth());
-  m_sessionField->SetWidth(
-      std::max(0, std::min(m_sessionFieldBestWidth, available)));
-  m_statusBar->Refresh();
-}
-
-void SessionPage::OnSize(wxSizeEvent &event) {
-  event.Skip();
-  // The width of the session field depends on the width of the page.
-  LayoutStatusBar();
+  SessionStatusEvent event(wxEVT_SESSION_STATUS);
+  event.SetEventObject(this);
+  event.SetString(m_statusText);
+  event.SetHost(m_host);
+  event.SetSessionLabel(m_sessionLabel);
+  event.SetIcon(m_sessionIcon);
+  event.SetBusy(m_busy);
+  wxString tooltip = m_sessionLabel + wxT("\n") + m_host;
+  if (!m_session.workingDir.empty()) {
+    tooltip += ": " + m_session.workingDir;
+  }
+  event.SetTooltip(tooltip);
+  // No handler here: it goes up to MainFrame.
+  GetEventHandler()->ProcessEvent(event);
 }
 
 void SessionPage::UpdateMainText() {
-  if (m_statusBar == nullptr) {
-    return;
-  }
   const bool inProgress = m_review && m_review->IsInProgress();
   const bool ended = m_review && !inProgress;
   if (!ended) {
@@ -199,14 +158,15 @@ void SessionPage::UpdateMainText() {
   }
 
   if (inProgress) {
-    m_statusBar->SetText(m_review->StatusText());
+    m_statusText = m_review->StatusText();
   } else if (m_noticeTimer.IsRunning()) {
-    m_statusBar->SetText(m_notice);
+    m_statusText = m_notice;
   } else {
-    m_statusBar->SetText(m_terminalTitle);
+    m_statusText = m_terminalTitle;
   }
   // Waiting for the user (stalled) is not busy.
-  SetBusy(inProgress && !m_review->HasStalled());
+  m_busy = inProgress && !m_review->HasStalled();
+  PublishStatus();
 }
 
 void SessionPage::ShowNotice(const wxString &text) {
@@ -222,22 +182,6 @@ void SessionPage::ClearNotice() {
   UpdateMainText();
 }
 
-void SessionPage::SetBusy(bool busy) {
-  if (m_indicatorField == nullptr ||
-      (m_indicatorField->GetWidth() > 0) == busy) {
-    return;
-  }
-  // The field shows the indicator when the bar paints (it is in place by then).
-  m_indicatorField->SetShown(busy);
-  if (busy) {
-    m_indicator->Start();
-  } else {
-    m_indicator->Stop();
-  }
-  // The indicator takes room from the main text area and the session field.
-  LayoutStatusBar();
-}
-
 SessionPage::~SessionPage() { m_alive->store(false); }
 
 bool SessionPage::IsActive() const {
@@ -247,7 +191,7 @@ bool SessionPage::IsActive() const {
 void SessionPage::SetDefaultSessionName(const wxString &name) {
   m_defaultTitle = MakeAppTitle(name, m_session.agentName);
   m_session.name = name;
-  UpdateSessionField();
+  UpdateSessionLabel();
   ApplyTitle();
 }
 
@@ -339,8 +283,7 @@ void SessionPage::CreateTerminal() {
                              wxSP_LIVE_UPDATE | wxSP_3DSASH);
     m_splitter->SetSashGravity(0.5);
     m_splitter->SetMinimumPaneSize(150);
-    // Below the status bar (also after a restart).
-    GetSizer()->Insert(1, m_splitter, wxSizerFlags(1).Expand());
+    GetSizer()->Add(m_splitter, wxSizerFlags(1).Expand());
   }
   m_mainPane = NewTerminalPane();
   m_terminal = new wxTerminalViewCtrl(m_mainPane, shellCommand, env, cwd);

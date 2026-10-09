@@ -42,18 +42,7 @@ static MainFrame *mainFrame{nullptr};
 MainFrame::MainFrame()
     : wxFrame(nullptr, wxID_ANY, kAppName, wxDefaultPosition,
               wxSize(1280, 800)) {
-  CreateStatusBar(2);
-  int widths[] = {-1, 50};
-  SetStatusWidths(2, widths);
-  SetStatusText(wxString::Format("%s %s", kAppName, kAppVersion), 0);
-
-  m_statusIndicator = new wxActivityIndicator(GetStatusBar());
-  wxRect fieldRect;
-  GetStatusBar()->GetFieldRect(1, fieldRect);
-  m_statusIndicator->SetSize(fieldRect.GetWidth() - 4,
-                             fieldRect.GetHeight() - 4);
-  m_statusIndicator->Move(fieldRect.x + 2, fieldRect.y + 2);
-  m_statusIndicator->Hide();
+  CreateStatusFields();
 
   KLOG_INFO() << "Creating main frame";
   // Window/taskbar icon: render the app SVG at a few common sizes so the
@@ -103,6 +92,7 @@ MainFrame::MainFrame()
 
   Bind(wxEVT_CLOSE_WINDOW, &MainFrame::OnClose, this);
   Bind(wxEVT_ACTIVATE, &MainFrame::OnActivate, this);
+  Bind(wxEVT_SESSION_STATUS, &MainFrame::OnSessionStatus, this);
   mainFrame = this;
 
   // Rebuild any sessions persisted in workspace.json (resuming where possible).
@@ -118,6 +108,91 @@ MainFrame::MainFrame()
   if (AppManager::Get().GetPrefs().checkForUpdatesOnStartup) {
     CheckForUpdates(/*silent=*/true);
   }
+}
+
+void MainFrame::CreateStatusFields() {
+  CreateStatusBar(kFieldCount);
+  const int widths[kFieldCount] = {-1, FromDIP(160), FromDIP(26), FromDIP(220),
+                                   FromDIP(50)};
+  SetStatusWidths(kFieldCount, widths);
+  m_baseText = wxString::Format("%s %s", kAppName, kAppVersion);
+  SetStatusText(m_baseText, kFieldText);
+
+  wxStatusBar *bar = GetStatusBar();
+  m_sessionIcon = new wxStaticBitmap(bar, wxID_ANY, wxBitmapBundle());
+  m_sessionIcon->Hide();
+  m_statusIndicator = new wxActivityIndicator(bar);
+  m_statusIndicator->Hide();
+  bar->Bind(wxEVT_SIZE, &MainFrame::OnStatusBarSize, this);
+  LayoutStatusChildren();
+}
+
+void MainFrame::OnStatusBarSize(wxSizeEvent &event) {
+  event.Skip();
+  LayoutStatusChildren();
+}
+
+void MainFrame::LayoutStatusChildren() {
+  wxStatusBar *bar = GetStatusBar();
+  CHECK_NOT_NULL_RETURN(bar);
+  wxRect rect;
+  if (m_statusIndicator != nullptr &&
+      bar->GetFieldRect(kFieldIndicator, rect)) {
+    m_statusIndicator->SetSize(rect.x + 2, rect.y + 2, rect.GetWidth() - 4,
+                               rect.GetHeight() - 4);
+  }
+  if (m_sessionIcon != nullptr && bar->GetFieldRect(kFieldIcon, rect)) {
+    m_sessionIcon->Move(
+        wxRect(m_sessionIcon->GetSize()).CenterIn(rect).GetTopLeft());
+  }
+}
+
+void MainFrame::UpdateIndicator() {
+  CHECK_NOT_NULL_RETURN(m_statusIndicator);
+  if (m_activityBusy || m_sessionBusy) {
+    m_statusIndicator->Show();
+    m_statusIndicator->Start();
+  } else {
+    m_statusIndicator->Stop();
+    m_statusIndicator->Hide();
+  }
+}
+
+void MainFrame::OnSessionStatus(SessionStatusEvent &event) {
+  CHECK_NOT_NULL_RETURN(m_sessionIcon);
+  m_baseText = event.GetString();
+  // A message of an activity stays until it is cleared.
+  if (m_activityText.empty()) {
+    SetStatusText(m_baseText, kFieldText);
+  }
+  SetStatusText(event.GetHost(), kFieldHost);
+  SetStatusText(event.GetSessionLabel(), kFieldSession);
+  // The fields cut long texts: all of it is in the tooltip of the bar.
+  GetStatusBar()->SetToolTip(event.GetTooltip());
+  if (event.GetIcon().IsOk()) {
+    m_sessionIcon->SetBitmap(event.GetIcon());
+    m_sessionIcon->SetSize(m_sessionIcon->GetBestSize());
+    LayoutStatusChildren();
+    m_sessionIcon->Show();
+  } else {
+    m_sessionIcon->Hide();
+  }
+  m_sessionBusy = event.IsBusy();
+  UpdateIndicator();
+}
+
+void MainFrame::ClearSessionStatus() {
+  CHECK_NOT_NULL_RETURN(m_sessionIcon);
+  m_baseText = wxString::Format("%s %s", kAppName, kAppVersion);
+  if (m_activityText.empty()) {
+    SetStatusText(m_baseText, kFieldText);
+  }
+  GetStatusBar()->SetToolTip(wxEmptyString);
+  SetStatusText(wxEmptyString, kFieldHost);
+  SetStatusText(wxEmptyString, kFieldSession);
+  m_sessionIcon->Hide();
+  m_sessionBusy = false;
+  UpdateIndicator();
 }
 
 MainFrame::~MainFrame() {

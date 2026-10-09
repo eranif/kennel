@@ -1,12 +1,14 @@
 #pragma once
 
 #include "MainView.hpp"
+#include "app/SessionStatusEvent.hpp"
 #include "core/JobScheduler.h"
 #include "core/UpdateChecker.h"
 
 #include <wx/activityindicator.h>
 #include <wx/aui/auibar.h>
 #include <wx/frame.h>
+#include <wx/statbmp.h>
 
 #include <memory>
 #include <vector>
@@ -26,23 +28,31 @@ public:
 
   JobScheduler *GetJobScheduler() { return m_jobScheduler.get(); }
 
-  void SetActivityText(const wxString &text) { SetStatusText(text, 0); }
+  // A message in the main text of the status bar, until something else is
+  // shown there. ClearActivityText() brings back the text of the session.
+  void SetActivityText(const wxString &text) {
+    m_activityText = text;
+    SetStatusText(text, kFieldText);
+  }
 
-  void ClearActivityText() { SetStatusText(wxEmptyString, 0); }
+  void ClearActivityText() {
+    m_activityText.clear();
+    SetStatusText(m_baseText, kFieldText);
+  }
 
   void StartActivityIndicator() {
-    if (m_statusIndicator) {
-      m_statusIndicator->Show();
-      m_statusIndicator->Start();
-    }
+    m_activityBusy = true;
+    UpdateIndicator();
   }
 
   void StopActivityIndicator() {
-    if (m_statusIndicator) {
-      m_statusIndicator->Stop();
-      m_statusIndicator->Hide();
-    }
+    m_activityBusy = false;
+    UpdateIndicator();
   }
+
+  // The session page that is showing is not showing a session any more (a file
+  // is): empties the fields of the session.
+  void ClearSessionStatus();
 
   bool IsWindowActive(const SessionPage *win) const;
 
@@ -54,6 +64,24 @@ private:
   void BuildMenuBar();
 
   void OnActivate(wxActivateEvent &event);
+
+  // The status bar: the main text, where the agent runs, the icon and the name
+  // of the session, and the activity indicator.
+  enum StatusField {
+    kFieldText,
+    kFieldHost,
+    kFieldIcon,
+    kFieldSession,
+    kFieldIndicator,
+    kFieldCount
+  };
+  void CreateStatusFields();
+  void OnSessionStatus(SessionStatusEvent &event);
+  void OnStatusBarSize(wxSizeEvent &event);
+  // Puts the icon and the indicator, which are windows, over their fields.
+  void LayoutStatusChildren();
+  // Runs while an activity (saving a file, ...) or a review buddy is working.
+  void UpdateIndicator();
 
   bool CheckIfCanStartAgent();
 
@@ -115,6 +143,11 @@ private:
 
   MainView *m_mainView{nullptr};
   wxActivityIndicator *m_statusIndicator{nullptr};
+  wxStaticBitmap *m_sessionIcon{nullptr};
+  wxString m_baseText; // The main text of the status bar without an activity
+  wxString m_activityText; // A message that is showing, empty if none
+  bool m_activityBusy{false};
+  bool m_sessionBusy{false};
   std::unique_ptr<UpdateChecker> m_updateChecker;
   std::unique_ptr<JobScheduler> m_jobScheduler;
 

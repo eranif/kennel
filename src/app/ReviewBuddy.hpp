@@ -83,10 +83,10 @@ private:
   void PasteLine(wxTerminalViewCtrl *terminal, const wxString &line);
   void Finished();
   void NotifyChanged();
-  // Tells the user about the loop: the status text of the window and, when they
-  // are not looking at this session, a system notification. The Dock icon /
-  // taskbar button also asks for attention when Kennel is in the background.
-  // (The status bar of the session follows wxEVT_REVIEW_CHANGED instead.)
+  // Tells the user about the loop: when they are not looking at this session, a
+  // system notification. The Dock icon / taskbar button also asks for attention
+  // when Kennel is in the background. (The status bar follows the state of the
+  // loop through wxEVT_REVIEW_CHANGED, see SessionPage.)
   void NotifyUser(const wxString &title, const wxString &message);
 
   bool WriteLocal(const wxString &relPath, const wxString &text);

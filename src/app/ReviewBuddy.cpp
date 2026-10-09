@@ -437,12 +437,6 @@ void ReviewBuddy::NotifyUser(const wxString &title, const wxString &message) {
                             ? message
                             : m_target.sessionName + ": " + message;
 
-  // The status bar of the window. Other activity may overwrite it soon. (The
-  // session shows the state of the review in its own status bar.)
-  if (auto *frame = GetMainFrame()) {
-    frame->SetActivityText(title + " - " + text);
-  }
-
   // Outside the session the user is looking at: a system notification.
   const bool looking = wxTheApp->IsActive() && m_isShown && m_isShown();
   if (!looking) {

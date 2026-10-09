@@ -311,6 +311,7 @@ void MainView::SelectSessionPage(SessionPage *page, bool updateRecent,
   ActivatePage(page, updateRecent, notifyViews);
   page->CallAfter(&SessionPage::SetFocus);
   page->ApplyTitle();
+  page->PublishStatus();
 }
 
 void MainView::SelectFilePage(FilePage *page, bool updateRecent,
@@ -319,6 +320,7 @@ void MainView::SelectFilePage(FilePage *page, bool updateRecent,
   ActivatePage(page, updateRecent, notifyViews);
   page->CallAfter(&FilePage::FocusEditor);
   wxTheApp->GetTopWindow()->SetLabel(page->GetPath());
+  GetMainFrame()->ClearSessionStatus();
 }
 
 void MainView::ActivateGroup(const wxString &groupName) {
@@ -426,6 +428,11 @@ void MainView::RemovePage(wxWindow *page) {
   int where = m_sessionsBook->FindPage(page);
   if (where != wxNOT_FOUND) {
     m_sessionsBook->DeletePage(where); // destroys the page window
+  }
+  // The status bar showed this page: it keeps showing nothing if no other page
+  // takes over (the fallback below publishes its own status).
+  if (wasActive) {
+    GetMainFrame()->ClearSessionStatus();
   }
   RefreshFlatView();
 
@@ -1010,6 +1017,7 @@ void MainView::DeleteAll() {
   m_treeView->Clear();
   m_flatView->Clear();
   m_recent.clear();
+  GetMainFrame()->ClearSessionStatus();
   // A page destroyed mid-save never delivers wxEVT_FILE_SAVE_DONE.
   GetMainFrame()->StopActivityIndicator();
   GetMainFrame()->ClearActivityText();
@@ -1040,6 +1048,7 @@ void MainView::DeleteGroupByName(const wxString &name) {
   }
   m_treeView->RemoveGroup(name); // deletes the group with its container
   RefreshFlatView();
+  GetMainFrame()->ClearSessionStatus(); // The active page may have been in it
 
   SyncWorkspaceToDisk();
 
