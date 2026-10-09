@@ -1,6 +1,9 @@
 #pragma once
 
 #include "core/AppPaths.h"
+#include "core/Workspace.h"
+
+#include <wx/bmpbndl.h>
 
 // Locates the directory holding the assets shipped with the installed app
 // (built-in client SVG icons, etc.). Resolution order:
@@ -17,6 +20,12 @@ wxFileName ShippedAssetsDir();
 // in ShippedAssetsDir(). An empty iconPath returns an empty string. Existence
 // is NOT checked — the caller decides on a fallback when the file is missing.
 wxString ResolveIconPath(const wxString &iconPath);
+
+// The icon of a session: terminal.svg for a plain terminal, else its agent's
+// icon (rendered at `size` DIP), or an empty bundle for an agent with no
+// resolvable icon. The terminal icon comes from the bitmap manager and keeps
+// its own size: `size` does not apply to it.
+wxBitmapBundle SessionIconFor(const Session &session, int size = 16);
 
 // Makes the fonts in <shipped assets>/fonts available to this process and makes
 // the bundled terminal font (Iosevka Term) the default font family. Call it

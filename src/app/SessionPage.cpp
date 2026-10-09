@@ -2,6 +2,7 @@
 
 #include "MainFrame.h"
 #include "ThemeManager.h"
+#include "app/AssetBootstrap.h"
 #include "app/ReviewBuddy.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
@@ -24,6 +25,7 @@
 #include <wx/utils.h>
 #include <wx/xrc/xmlres.h>
 
+#include <algorithm>
 #include <thread>
 
 #include <cstring>
@@ -37,6 +39,11 @@ wxDEFINE_EVENT(wxEVT_SESSION_ACTIVE, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_EXITED, wxCommandEvent);
 
 namespace {
+
+// Status bar: the host field's width, and the least width the main text area
+// keeps (both in DIP).
+constexpr int kStatusHostWidth = 160;
+constexpr int kStatusMinMainWidth = 150;
 
 // Menu ids of the review buddy entries. Fixed, because ids from
 // wxWindow::NewControlId() would run out after enough right-clicks.
@@ -90,9 +97,87 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
       m_agent(std::move(agent)), m_session(std::move(session)),
       m_resume(resume) {
   SetDefaultSessionName(m_session.name);
+  // From top to bottom: the status bar, the info bar, the terminals.
+  CreateStatusBar();
   m_infoBar = new wxInfoBar(this);
   GetSizer()->Add(m_infoBar, wxSizerFlags().Expand());
+  Bind(wxEVT_REVIEW_CHANGED, &SessionPage::OnReviewChanged, this);
+  Bind(wxEVT_SIZE, &SessionPage::OnSize, this);
   CreateTerminal();
+}
+
+void SessionPage::CreateStatusBar() {
+  m_statusBar = new wxCustomStatusBar(this);
+  m_statusBar->SetMinSize(wxSize(-1, FromDIP(24)));
+
+  // Where the agent runs: this machine, a WSL distro or a remote host.
+  auto hostField = std::make_shared<wxCustomStatusBarFieldText>(
+      m_statusBar, FromDIP(kStatusHostWidth));
+  wxString host = _("Local");
+  if (m_agent && m_agent->IsRemote()) {
+    host = m_agent->remoteUser.empty()
+               ? m_agent->remoteHost
+               : m_agent->remoteUser + "@" + m_agent->remoteHost;
+  } else if (m_agent && m_agent->IsWSL()) {
+    host = wxString::Format(_("WSL: %s"), wsl::DistroOf(m_agent->loginShell));
+  }
+  hostField->SetText(host);
+  hostField->SetTooltip(
+      m_session.workingDir.empty() ? host : host + ": " + m_session.workingDir);
+  m_statusBar->AddField(hostField);
+
+  m_sessionField =
+      std::make_shared<wxCustomStatusBarBitmapField>(m_statusBar, 0);
+  m_statusBar->AddField(m_sessionField);
+
+  UpdateSessionField();
+  GetSizer()->Add(m_statusBar, wxSizerFlags().Expand());
+}
+
+void SessionPage::UpdateSessionField() {
+  if (m_sessionField == nullptr) {
+    return;
+  }
+  // Only when the session changes (it reads the icon from disk), not on every
+  // resize: see LayoutStatusBar().
+  const wxString agent = m_session.plainTerminal || m_session.agentName.empty()
+                             ? wxString(_("Terminal"))
+                             : m_session.agentName;
+  const wxString label = m_session.name + " - " + agent;
+  const wxBitmapBundle icon = SessionIconFor(m_session, 16);
+  m_sessionField->SetBitmap(icon.IsOk() ? icon.GetBitmapFor(this) : wxBitmap());
+  m_sessionField->SetLabel(label);
+  m_sessionField->SetTooltip(label);
+  m_sessionFieldBestWidth =
+      m_sessionField->GetBestWidth(m_statusBar->GetTextWidth(label));
+  LayoutStatusBar();
+}
+
+void SessionPage::LayoutStatusBar() {
+  if (m_sessionField == nullptr) {
+    return;
+  }
+  // The session field gets what it needs, but the main text area (the review
+  // state) keeps a minimum width; the label is cut with "..." if it must.
+  const int available = GetClientSize().GetWidth() -
+                        FromDIP(kStatusMinMainWidth + kStatusHostWidth);
+  m_sessionField->SetWidth(
+      std::max(0, std::min(m_sessionFieldBestWidth, available)));
+  m_statusBar->Refresh();
+}
+
+void SessionPage::OnSize(wxSizeEvent &event) {
+  event.Skip();
+  // The width of the session field depends on the width of the page.
+  LayoutStatusBar();
+}
+
+void SessionPage::UpdateReviewField() {
+  if (m_statusBar == nullptr) {
+    return;
+  }
+  // The main text area shows the review state, and all of it in the tooltip.
+  m_statusBar->SetText(m_review ? m_review->StatusText() : wxString{});
 }
 
 SessionPage::~SessionPage() { m_alive->store(false); }
@@ -104,6 +189,7 @@ bool SessionPage::IsActive() const {
 void SessionPage::SetDefaultSessionName(const wxString &name) {
   m_defaultTitle = MakeAppTitle(name, m_session.agentName);
   m_session.name = name;
+  UpdateSessionField();
   ApplyTitle();
 }
 
@@ -195,7 +281,8 @@ void SessionPage::CreateTerminal() {
                              wxSP_LIVE_UPDATE | wxSP_3DSASH);
     m_splitter->SetSashGravity(0.5);
     m_splitter->SetMinimumPaneSize(150);
-    GetSizer()->Add(m_splitter, wxSizerFlags(1).Expand());
+    // Below the status bar and the info bar (also after a restart).
+    GetSizer()->Insert(2, m_splitter, wxSizerFlags(1).Expand());
   }
   m_mainPane = NewTerminalPane();
   m_terminal = new wxTerminalViewCtrl(m_mainPane, shellCommand, env, cwd);
@@ -692,6 +779,7 @@ void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
                                problem ? wxICON_WARNING : wxICON_INFORMATION);
       },
       [this](wxTerminalViewCtrl *terminal) { FocusTerminal(terminal); });
+  m_review->SetEventTarget(this);
   m_review->Begin();
 }
 
@@ -752,6 +840,7 @@ void SessionPage::DismissNotice() {
 
 void SessionPage::CloseReviewBuddy() {
   m_review.reset(); // stops its timers
+  UpdateReviewField();
   DismissNotice();
   if (m_reviewTerminal == nullptr) {
     return;

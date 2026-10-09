@@ -15,6 +15,8 @@
 
 class wxTerminalViewCtrl;
 
+wxDECLARE_EVENT(wxEVT_REVIEW_CHANGED, wxCommandEvent);
+
 // Runs a ReviewLoop for one SessionPage: the main agent's terminal plus the
 // reviewer's terminal next to it. It writes the request files and checks every
 // second (every few seconds over SSH) for the marker the loop waits for. The
@@ -59,6 +61,12 @@ public:
   // A file is being written or checked over SSH; Resend() waits for that.
   bool IsBusy() const { return m_ioBusy; }
   wxString Describe() const;
+  // A short state for the status bar, e.g. "Waiting for review (round 1/5)" or
+  // "Addressing comments (round 1/5)".
+  wxString StatusText() const;
+  // Where wxEVT_REVIEW_CHANGED is sent whenever the state may have changed
+  // (StatusText() is up to date). The event object is this ReviewBuddy.
+  void SetEventTarget(wxEvtHandler *target) { m_eventTarget = target; }
   void Resend();
   void Stop();
   // The comments file of the current round, relative to the working dir; empty
@@ -75,6 +83,7 @@ private:
   void Execute(Actions actions, size_t from = 0);
   void PasteLine(wxTerminalViewCtrl *terminal, const wxString &line);
   void Finished();
+  void NotifyChanged();
   // Tells the user about the loop: a notice in the session (it stays until
   // closed), the status bar, and, when they are not looking at this session, a
   // system notification. The Dock icon / taskbar button also asks for
@@ -103,6 +112,7 @@ private:
   std::function<bool()> m_isShown;
   FocusFn m_focusTerminal;
   NoticeFn m_showNotice;
+  wxEvtHandler *m_eventTarget{nullptr};
 
   std::unique_ptr<ReviewLoop> m_loop;
   wxTimer m_pollTimer;

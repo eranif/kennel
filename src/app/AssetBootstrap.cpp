@@ -1,5 +1,7 @@
 #include "app/AssetBootstrap.h"
 
+#include "core/AdapterRegistry.h"
+#include "core/AppManager.h"
 #include "core/Config.h"
 #include "core/Logger.h"
 
@@ -80,6 +82,22 @@ wxString ResolveIconPath(const wxString &iconPath) {
     return wxString();
   }
   return wxFileName(shipped.GetFullPath(), iconPath).GetFullPath();
+}
+
+wxBitmapBundle SessionIconFor(const Session &session, int size) {
+  if (session.plainTerminal) {
+    return AppManager::Get().GetBitmaps().Get("terminal", false);
+  }
+  const auto *agentDef =
+      AppManager::Get().Adapters().FindAgent(session.agentName);
+  if (agentDef == nullptr) {
+    return wxBitmapBundle{};
+  }
+  const wxString path = ResolveIconPath(agentDef->iconPath);
+  if (path.empty() || !wxFileExists(path)) {
+    return wxBitmapBundle{};
+  }
+  return wxBitmapBundle::FromSVGFile(path, wxSize(size, size));
 }
 
 wxString GetLicensePath() {

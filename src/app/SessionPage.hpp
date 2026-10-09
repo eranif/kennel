@@ -3,6 +3,7 @@
 #include "UI.hpp"
 #include "app/AcceleratorInterceptor.h"
 #include "app/AsyncGuard.hpp"
+#include "app/wxCustomStatusBar.h"
 #include "core/ActivityMonitor.h"
 #include "core/AppPaths.h"
 #include "core/Config.h"
@@ -68,6 +69,16 @@ private:
   wxPanel *NewTerminalPane();
   void AddToPane(wxPanel *pane, wxTerminalViewCtrl *terminal);
   void SetStatus(SessionStatus status);
+  // The bar at the top of the page: session + agent (with the agent's icon),
+  // where the agent runs. The main text area, first, shows the review state.
+  void CreateStatusBar();
+  void UpdateSessionField();
+  // Sets the widths of the fields from the width of the page (cheap).
+  void LayoutStatusBar();
+  // The Review Buddy state, in the main text area (empty without one).
+  void UpdateReviewField();
+  void OnReviewChanged(wxCommandEvent &) { UpdateReviewField(); }
+  void OnSize(wxSizeEvent &event);
   void OnTerminated(wxTerminalEvent &evt);
   void OnTitleChanged(wxTerminalEvent &evt);
   void OnTerminalLink(wxTerminalEvent &evt);
@@ -113,6 +124,10 @@ private:
 
   // Tells the user how a review ended; on top of the terminals.
   wxInfoBar *m_infoBar{nullptr};
+
+  wxCustomStatusBar *m_statusBar{nullptr};
+  std::shared_ptr<wxCustomStatusBarBitmapField> m_sessionField;
+  int m_sessionFieldBestWidth{0}; // in pixels
 
   // The agent's pane is the only child of the splitter until a review buddy
   // opens its pane next to it. Each pane holds one terminal with a border.

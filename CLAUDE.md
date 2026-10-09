@@ -17,6 +17,7 @@ read those for depth. This file covers the rules an agent must not violate.
   absl-style. Don't introduce `throw`/`try`/`catch`.
 - **`src/core/` stays GUI-free.** It uses only wxBase types (`wxString`, `wxFileName`,
   etc.), no wxWidgets UI classes. UI logic belongs in `src/app/`.
+- **ALWAYS use wxWidgets events for notifications and callbacks.** Avoid `std::function`.
 - **Logging goes through `KLOG_DEBUG()/KLOG_INFO()/KLOG_WARN()/KLOG_ERROR()`**
   (`core/Logger.h`), never `wxLog*`. Output goes to `~/.kennel/logs/kennel.log`.
 - When git-committing a change, make sure to sign-off the commit using git's "-s"

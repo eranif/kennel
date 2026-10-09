@@ -317,7 +317,8 @@ set(KENNEL_APP_SOURCES
     src/app/AppUIGlobals.cpp
     src/app/NewAgentWizard.cpp
     src/app/SessionGroup.cpp
-    src/app/FileBrowserDlg.cpp)
+    src/app/FileBrowserDlg.cpp
+    src/app/wxCustomStatusBar.cpp)
 
 if(APPLE)
   list(APPEND KENNEL_APP_SOURCES src/app/AuiTabArtMac.cpp)

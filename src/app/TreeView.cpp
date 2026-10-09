@@ -40,24 +40,6 @@ wxString LookupPersistedGroupIcon(const wxString &groupName) {
   }
   return wxEmptyString;
 }
-
-// Icon shown on a session leaf: terminal.svg for a plain terminal, else the
-// agent's icon, or none for an agent with no resolvable icon.
-wxBitmapBundle SessionIconFor(const Session &session) {
-  if (session.plainTerminal) {
-    return AppManager::Get().GetBitmaps().Get("terminal", false);
-  }
-  const auto *agentDef =
-      AppManager::Get().Adapters().FindAgent(session.agentName);
-  if (agentDef == nullptr) {
-    return wxBitmapBundle{};
-  }
-  const wxString path = ResolveIconPath(agentDef->iconPath);
-  if (path.empty() || !wxFileExists(path)) {
-    return wxBitmapBundle{};
-  }
-  return wxBitmapBundle::FromSVGFile(path, wxSize(16, 16));
-}
 } // namespace
 
 TreeView::TreeView(wxWindow *parent) : wxPanel(parent) {

@@ -68,6 +68,8 @@ wxString JoinPath(const wxString &dir, const wxString &name) {
 }
 } // namespace
 
+wxDEFINE_EVENT(wxEVT_REVIEW_CHANGED, wxCommandEvent);
+
 ReviewBuddy::ReviewBuddy(const Target &target, wxTerminalViewCtrl *main,
                          LaunchFn launchReviewer, std::function<bool()> isShown,
                          NoticeFn showNotice, FocusFn focusTerminal)
@@ -94,6 +96,42 @@ bool ReviewBuddy::HasStalled() const {
 
 wxString ReviewBuddy::Describe() const {
   return m_loop ? m_loop->Describe() : _("Starting");
+}
+
+void ReviewBuddy::NotifyChanged() {
+  if (m_eventTarget == nullptr) {
+    return;
+  }
+  wxCommandEvent event(wxEVT_REVIEW_CHANGED);
+  event.SetEventObject(this);
+  m_eventTarget->ProcessEvent(event);
+}
+
+wxString ReviewBuddy::StatusText() const {
+  if (!m_loop) {
+    return _("Starting review");
+  }
+  const wxString rounds =
+      wxString::Format(_("round %d/%d"), m_loop->Round(), m_loop->MaxRounds());
+  switch (m_loop->GetState()) {
+  case ReviewLoop::State::Reviewing:
+    return m_loop->IsSlow()
+               ? wxString::Format(_("Waiting for review (%s - slow)"), rounds)
+               : wxString::Format(_("Waiting for review (%s)"), rounds);
+  case ReviewLoop::State::Fixing:
+    return m_loop->IsSlow()
+               ? wxString::Format(_("Addressing comments (%s - slow)"), rounds)
+               : wxString::Format(_("Addressing comments (%s)"), rounds);
+  case ReviewLoop::State::Stalled:
+    return _("Review stalled");
+  case ReviewLoop::State::Stopped:
+    return _("Review stopped");
+  case ReviewLoop::State::Done:
+    return m_loop->Describe();
+  case ReviewLoop::State::Idle:
+    break;
+  }
+  return _("Starting review");
 }
 
 wxString ReviewBuddy::CommentsPath() const {
@@ -131,6 +169,7 @@ void ReviewBuddy::Stop() {
   m_pollTimer.Stop();
   m_enterTimer.Stop();
   m_enterTarget = nullptr;
+  NotifyChanged();
 }
 
 // ---------------------------------------------------------------------------
@@ -208,6 +247,8 @@ void ReviewBuddy::CheckRemote(const wxString &marker,
 
 void ReviewBuddy::Execute(Actions actions, size_t from) {
   m_lastProgress = std::chrono::steady_clock::now();
+  // The loop changed its state before it handed over these actions.
+  NotifyChanged();
   for (size_t i = from; i < actions.size(); ++i) {
     const auto &action = actions[i];
     switch (action.kind) {
