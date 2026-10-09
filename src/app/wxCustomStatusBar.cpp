@@ -154,6 +154,39 @@ void wxCustomStatusBarBitmapField::Render(wxDC &dc, const wxRect &rect,
   }
 }
 
+size_t wxCustomStatusBarControlField::GetWidth() const {
+  if (m_control == nullptr || !m_shown) {
+    return 0;
+  }
+  return m_control->GetSize().GetWidth() + 2 * kSpace;
+}
+
+void wxCustomStatusBarControlField::Render(wxDC &dc, const wxRect &rect,
+                                           wxCustomStatusBarArt::Ptr_t art) {
+  m_rect = rect;
+  art->DrawFieldSeparator(dc, rect);
+  if (m_control == nullptr) {
+    return;
+  }
+  // Only when it moved: moving a window while painting its parent may cause
+  // another paint.
+  const wxPoint pos = wxRect(m_control->GetSize()).CenterIn(rect).GetTopLeft();
+  if (m_control->GetPosition() != pos) {
+    m_control->Move(pos);
+  }
+  // Not before it is in place: it would flash at the left edge of the bar.
+  if (!m_control->IsShown()) {
+    m_control->Show();
+  }
+}
+
+void wxCustomStatusBarControlField::SetShown(bool shown) {
+  m_shown = shown;
+  if (!shown && m_control != nullptr) {
+    m_control->Hide();
+  }
+}
+
 //========================------------------------------------
 // wxCustomStatusBar
 //========================------------------------------------

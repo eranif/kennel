@@ -15,13 +15,14 @@
 #include "terminal_event.h"
 #include "terminal_view.h"
 
+#include <wx/activityindicator.h>
 #include <wx/dir.h>
 #include <wx/file.h>
 #include <wx/filename.h>
 #include <wx/frame.h>
-#include <wx/infobar.h>
 #include <wx/menu.h>
 #include <wx/splitter.h>
+#include <wx/timer.h>
 #include <wx/utils.h>
 #include <wx/xrc/xmlres.h>
 
@@ -44,6 +45,8 @@ namespace {
 // keeps (both in DIP).
 constexpr int kStatusHostWidth = 160;
 constexpr int kStatusMinMainWidth = 150;
+// How long the main text area shows how a review ended.
+constexpr int kNoticeMs = 60 * 1000;
 
 // Menu ids of the review buddy entries. Fixed, because ids from
 // wxWindow::NewControlId() would run out after enough right-clicks.
@@ -97,10 +100,9 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
       m_agent(std::move(agent)), m_session(std::move(session)),
       m_resume(resume) {
   SetDefaultSessionName(m_session.name);
-  // From top to bottom: the status bar, the info bar, the terminals.
+  // From top to bottom: the status bar, the terminals.
   CreateStatusBar();
-  m_infoBar = new wxInfoBar(this);
-  GetSizer()->Add(m_infoBar, wxSizerFlags().Expand());
+  Bind(wxEVT_TIMER, &SessionPage::OnNoticeTimer, this, m_noticeTimer.GetId());
   Bind(wxEVT_REVIEW_CHANGED, &SessionPage::OnReviewChanged, this);
   Bind(wxEVT_SIZE, &SessionPage::OnSize, this);
   CreateTerminal();
@@ -122,6 +124,14 @@ void SessionPage::CreateStatusBar() {
     host = wxString::Format(_("WSL: %s"), wsl::DistroOf(m_agent->loginShell));
   }
   hostField->SetText(host);
+  // Shown while a review is in progress; it has no width while hidden.
+  m_indicator = new wxActivityIndicator(
+      m_statusBar, wxID_ANY, wxDefaultPosition, FromDIP(wxSize(18, 18)));
+  m_indicator->Hide();
+  m_indicatorField =
+      std::make_shared<wxCustomStatusBarControlField>(m_statusBar, m_indicator);
+  m_statusBar->AddField(m_indicatorField);
+
   hostField->SetTooltip(
       m_session.workingDir.empty() ? host : host + ": " + m_session.workingDir);
   m_statusBar->AddField(hostField);
@@ -160,7 +170,8 @@ void SessionPage::LayoutStatusBar() {
   // The session field gets what it needs, but the main text area (the review
   // state) keeps a minimum width; the label is cut with "..." if it must.
   const int available = GetClientSize().GetWidth() -
-                        FromDIP(kStatusMinMainWidth + kStatusHostWidth);
+                        FromDIP(kStatusMinMainWidth + kStatusHostWidth) -
+                        static_cast<int>(m_indicatorField->GetWidth());
   m_sessionField->SetWidth(
       std::max(0, std::min(m_sessionFieldBestWidth, available)));
   m_statusBar->Refresh();
@@ -172,12 +183,59 @@ void SessionPage::OnSize(wxSizeEvent &event) {
   LayoutStatusBar();
 }
 
-void SessionPage::UpdateReviewField() {
+void SessionPage::UpdateMainText() {
   if (m_statusBar == nullptr) {
     return;
   }
-  // The main text area shows the review state, and all of it in the tooltip.
-  m_statusBar->SetText(m_review ? m_review->StatusText() : wxString{});
+  const bool inProgress = m_review && m_review->IsInProgress();
+  const bool ended = m_review && !inProgress;
+  if (!ended) {
+    m_endNoticeShown = false;
+  } else if (!m_endNoticeShown) {
+    // Tell the user how the review ended (once).
+    m_endNoticeShown = true;
+    m_notice = m_review->StatusText();
+    m_noticeTimer.Start(kNoticeMs, wxTIMER_ONE_SHOT);
+  }
+
+  if (inProgress) {
+    m_statusBar->SetText(m_review->StatusText());
+  } else if (m_noticeTimer.IsRunning()) {
+    m_statusBar->SetText(m_notice);
+  } else {
+    m_statusBar->SetText(m_terminalTitle);
+  }
+  // Waiting for the user (stalled) is not busy.
+  SetBusy(inProgress && !m_review->HasStalled());
+}
+
+void SessionPage::ShowNotice(const wxString &text) {
+  m_notice = text;
+  m_noticeTimer.Start(kNoticeMs, wxTIMER_ONE_SHOT);
+  UpdateMainText();
+}
+
+void SessionPage::ClearNotice() {
+  m_noticeTimer.Stop();
+  m_notice.clear();
+  m_endNoticeShown = false;
+  UpdateMainText();
+}
+
+void SessionPage::SetBusy(bool busy) {
+  if (m_indicatorField == nullptr ||
+      (m_indicatorField->GetWidth() > 0) == busy) {
+    return;
+  }
+  // The field shows the indicator when the bar paints (it is in place by then).
+  m_indicatorField->SetShown(busy);
+  if (busy) {
+    m_indicator->Start();
+  } else {
+    m_indicator->Stop();
+  }
+  // The indicator takes room from the main text area and the session field.
+  LayoutStatusBar();
 }
 
 SessionPage::~SessionPage() { m_alive->store(false); }
@@ -281,8 +339,8 @@ void SessionPage::CreateTerminal() {
                              wxSP_LIVE_UPDATE | wxSP_3DSASH);
     m_splitter->SetSashGravity(0.5);
     m_splitter->SetMinimumPaneSize(150);
-    // Below the status bar and the info bar (also after a restart).
-    GetSizer()->Insert(2, m_splitter, wxSizerFlags(1).Expand());
+    // Below the status bar (also after a restart).
+    GetSizer()->Insert(1, m_splitter, wxSizerFlags(1).Expand());
   }
   m_mainPane = NewTerminalPane();
   m_terminal = new wxTerminalViewCtrl(m_mainPane, shellCommand, env, cwd);
@@ -425,8 +483,9 @@ void SessionPage::OnTerminated(wxTerminalEvent &evt) {
 
 void SessionPage::OnTitleChanged(wxTerminalEvent &evt) {
   evt.Skip();
-  m_terminalTitle = MakeAppTitle(evt.GetTitle(), m_session.agentName);
-  ApplyTitle();
+  // The status bar shows it (not while a review is in progress).
+  m_terminalTitle = evt.GetTitle();
+  UpdateMainText();
 }
 
 void SessionPage::SetStatus(SessionStatus status) {
@@ -534,7 +593,7 @@ void SessionPage::ApplyTheme(const wxTerminalTheme &theme) {
 void SessionPage::ApplyTitle() {
   if (IsActive() && IsShown()) {
     auto *frame = dynamic_cast<wxFrame *>(wxTheApp->GetTopWindow());
-    frame->SetLabel(m_terminalTitle.empty() ? m_defaultTitle : m_terminalTitle);
+    frame->SetLabel(m_defaultTitle);
   }
 }
 
@@ -757,14 +816,13 @@ void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
   // The folder as Kennel reaches it (it reads and writes the review files).
   const wxString hostDir = HostWorkingDir();
   if (hostDir.empty() && !m_agent->IsRemote()) {
-    m_infoBar->ShowMessage(_("Cannot find the session's working directory"),
-                           wxICON_WARNING);
+    ShowNotice(_("Cannot find the session's working directory"));
     return;
   }
 
   // The reviewer's pane opens when the first request is ready (it is written
   // first, possibly over SSH): the agent reads it as soon as it starts.
-  DismissNotice(); // The message about an earlier review
+  ClearNotice(); // The message about an earlier review
   m_review = std::make_unique<ReviewBuddy>(
       ReviewBuddy::Target{hostDir, m_agent->remoteHost, m_agent->remoteUser,
                           m_session.name},
@@ -774,10 +832,6 @@ void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
       },
       // Whether the user is looking at this session right now.
       [this] { return IsActive() && IsShownOnScreen(); },
-      [this](const wxString &message, bool problem) {
-        m_infoBar->ShowMessage(message,
-                               problem ? wxICON_WARNING : wxICON_INFORMATION);
-      },
       [this](wxTerminalViewCtrl *terminal) { FocusTerminal(terminal); });
   m_review->SetEventTarget(this);
   m_review->Begin();
@@ -832,16 +886,9 @@ wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
   return m_reviewTerminal;
 }
 
-void SessionPage::DismissNotice() {
-  if (m_infoBar != nullptr && m_infoBar->IsShown()) {
-    m_infoBar->Dismiss();
-  }
-}
-
 void SessionPage::CloseReviewBuddy() {
   m_review.reset(); // stops its timers
-  UpdateReviewField();
-  DismissNotice();
+  ClearNotice();
   if (m_reviewTerminal == nullptr) {
     return;
   }

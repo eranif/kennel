@@ -78,3 +78,6 @@ Testing/
 
 # wxCrafter-generated XRC resources (the compiled *_bitmaps.cpp is built instead)
 *.xrc
+
+# Claude Code local settings
+.claude/settings.local.json

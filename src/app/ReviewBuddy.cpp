@@ -72,12 +72,11 @@ wxDEFINE_EVENT(wxEVT_REVIEW_CHANGED, wxCommandEvent);
 
 ReviewBuddy::ReviewBuddy(const Target &target, wxTerminalViewCtrl *main,
                          LaunchFn launchReviewer, std::function<bool()> isShown,
-                         NoticeFn showNotice, FocusFn focusTerminal)
+                         FocusFn focusTerminal)
     : m_target(target), m_remote(!target.remoteHost.empty()), m_main(main),
       m_launchReviewer(std::move(launchReviewer)),
       m_isShown(std::move(isShown)), m_focusTerminal(std::move(focusTerminal)),
-      m_showNotice(std::move(showNotice)), m_pollTimer(this),
-      m_enterTimer(this) {
+      m_pollTimer(this), m_enterTimer(this) {
   Bind(wxEVT_TIMER, &ReviewBuddy::OnPoll, this, m_pollTimer.GetId());
   Bind(wxEVT_TIMER, &ReviewBuddy::OnEnterTimer, this, m_enterTimer.GetId());
 }
@@ -92,6 +91,23 @@ bool ReviewBuddy::IsRunning() const { return m_loop && m_loop->IsActive(); }
 
 bool ReviewBuddy::HasStalled() const {
   return m_loop && m_loop->GetState() == ReviewLoop::State::Stalled;
+}
+
+bool ReviewBuddy::IsInProgress() const {
+  if (!m_loop) {
+    return true; // Starting
+  }
+  switch (m_loop->GetState()) {
+  case ReviewLoop::State::Idle:
+  case ReviewLoop::State::Reviewing:
+  case ReviewLoop::State::Fixing:
+  case ReviewLoop::State::Stalled:
+    return true;
+  case ReviewLoop::State::Done:
+  case ReviewLoop::State::Stopped:
+    break;
+  }
+  return false;
 }
 
 wxString ReviewBuddy::Describe() const {
@@ -123,11 +139,11 @@ wxString ReviewBuddy::StatusText() const {
                ? wxString::Format(_("Addressing comments (%s - slow)"), rounds)
                : wxString::Format(_("Addressing comments (%s)"), rounds);
   case ReviewLoop::State::Stalled:
-    return _("Review stalled");
+    return wxString::Format(_("Review stalled: %s"), m_loop->Message());
   case ReviewLoop::State::Stopped:
     return _("Review stopped");
   case ReviewLoop::State::Done:
-    return m_loop->Describe();
+    return wxString::Format(_("Review finished: %s"), m_loop->Message());
   case ReviewLoop::State::Idle:
     break;
   }
@@ -292,7 +308,7 @@ void ReviewBuddy::Execute(Actions actions, size_t from) {
       break;
     case ReviewLoop::Action::Kind::Notify:
       KLOG_INFO() << "Review buddy: " << action.text;
-      NotifyUser(_("Review needs your attention"), action.text, true);
+      NotifyUser(_("Review needs your attention"), action.text);
       break;
     case ReviewLoop::Action::Kind::Finished:
       Finished();
@@ -410,11 +426,10 @@ void ReviewBuddy::Finished() {
   KLOG_INFO() << "Review buddy ended: " << m_loop->Message();
   const bool done = m_loop->GetState() == ReviewLoop::State::Done;
   NotifyUser(done ? _("Review finished") : _("Review needs your attention"),
-             m_loop->Message(), !done);
+             m_loop->Message());
 }
 
-void ReviewBuddy::NotifyUser(const wxString &title, const wxString &message,
-                             bool problem) {
+void ReviewBuddy::NotifyUser(const wxString &title, const wxString &message) {
   if (wxTheApp == nullptr) {
     return;
   }
@@ -422,13 +437,8 @@ void ReviewBuddy::NotifyUser(const wxString &title, const wxString &message,
                             ? message
                             : m_target.sessionName + ": " + message;
 
-  // In the session, until the user closes it. This cannot get lost. It leaves
-  // out the session name (in `text`) on purpose: it is shown inside that
-  // session.
-  if (m_showNotice) {
-    m_showNotice(title + " - " + message, problem);
-  }
-  // The status bar. Other activity may overwrite it soon.
+  // The status bar of the window. Other activity may overwrite it soon. (The
+  // session shows the state of the review in its own status bar.)
   if (auto *frame = GetMainFrame()) {
     frame->SetActivityText(title + " - " + text);
   }

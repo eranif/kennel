@@ -36,10 +36,6 @@ public:
   // its terminal (nullptr if that failed).
   using LaunchFn = std::function<wxTerminalViewCtrl *(const wxString &prompt)>;
 
-  // Shows `message` in the main agent's session until the user closes it.
-  // `problem` is true when the loop needs the user, false when it is finished.
-  using NoticeFn = std::function<void(const wxString &message, bool problem)>;
-
   // Gives the keyboard focus to a terminal, if the user is working in this
   // session. Called when a request is typed into a terminal: that agent is the
   // active one now, and it may need an answer (a permission prompt).
@@ -49,7 +45,7 @@ public:
   // right now; it decides whether a system notification is worth showing.
   ReviewBuddy(const Target &target, wxTerminalViewCtrl *main,
               LaunchFn launchReviewer, std::function<bool()> isShown,
-              NoticeFn showNotice, FocusFn focusTerminal);
+              FocusFn focusTerminal);
   ~ReviewBuddy() override;
 
   // Writes the first request and starts the reviewer with it.
@@ -58,6 +54,9 @@ public:
   // The user can act on the loop only when it has started.
   bool IsRunning() const;
   bool HasStalled() const;
+  // The review has not ended yet: it is starting, running or stalled (waiting
+  // for the user). False once it is finished or the user stopped it.
+  bool IsInProgress() const;
   // A file is being written or checked over SSH; Resend() waits for that.
   bool IsBusy() const { return m_ioBusy; }
   wxString Describe() const;
@@ -84,11 +83,11 @@ private:
   void PasteLine(wxTerminalViewCtrl *terminal, const wxString &line);
   void Finished();
   void NotifyChanged();
-  // Tells the user about the loop: a notice in the session (it stays until
-  // closed), the status bar, and, when they are not looking at this session, a
-  // system notification. The Dock icon / taskbar button also asks for
-  // attention when Kennel is in the background.
-  void NotifyUser(const wxString &title, const wxString &message, bool problem);
+  // Tells the user about the loop: the status text of the window and, when they
+  // are not looking at this session, a system notification. The Dock icon /
+  // taskbar button also asks for attention when Kennel is in the background.
+  // (The status bar of the session follows wxEVT_REVIEW_CHANGED instead.)
+  void NotifyUser(const wxString &title, const wxString &message);
 
   bool WriteLocal(const wxString &relPath, const wxString &text);
   wxString ReadLocal(const wxString &relPath) const;
@@ -111,7 +110,6 @@ private:
   LaunchFn m_launchReviewer;
   std::function<bool()> m_isShown;
   FocusFn m_focusTerminal;
-  NoticeFn m_showNotice;
   wxEvtHandler *m_eventTarget{nullptr};
 
   std::unique_ptr<ReviewLoop> m_loop;

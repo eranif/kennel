@@ -79,12 +79,21 @@ above it if they are empty then. In every other case the folder stays, because i
 what is still open: when the round limit is reached, when the loop stalls or you stop it.
 
 When the loop ends (the review is clean, the round limit is reached, or something fails),
-Kennel tells you in four ways: a message bar at the top of the session that stays until you
-close it; the result in the status bar; a system notification when you are not looking at
-that session; and, when Kennel is in the background, a bouncing Dock icon (macOS) or
-a flashing taskbar button (Windows). The context menu shows the state and offers **Send the
-Request Again**, **Stop the Review**, **Open the Latest Review** and **Close Review Buddy**.
+Kennel tells you in four ways: the result in the session's status bar; the result in the
+window's status bar; a system notification when you are not looking at that session; and,
+when Kennel is in the background, a bouncing Dock icon (macOS) or a flashing taskbar button
+(Windows). The result in the session's status bar stays for a minute, then the terminal
+title is back, so the system notification is what reaches you when you are not looking.
+The context menu shows the state and offers **Send the Request Again**, **Stop the Review**,
+**Open the Latest Review** and **Close Review Buddy**.
 After 20 minutes without an answer, Kennel notifies you the same way but keeps waiting.
+
+Every session has its own status bar at the top, with the terminal's title in the main area
+(the window title no longer follows it), the host the agent runs on (Local, a WSL distro or
+`user@host`) and the session name with the agent's icon. While a review buddy is open, the main
+area shows its state instead ("Waiting for review", "Addressing comments", ...) with a
+spinner while it works. When the review ends, the main area shows how it ended for a minute,
+and then the terminal title is back.
 
 The entry needs a `.git` folder (or file) in the session's working directory, and only offers
 agents that run on the same host as the session.

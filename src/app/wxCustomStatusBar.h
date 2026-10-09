@@ -8,6 +8,7 @@
 #include <vector>
 #include <wx/bitmap.h>
 #include <wx/colour.h>
+#include <wx/control.h>
 #include <wx/dc.h>
 #include <wx/event.h>
 #include <wx/statusbr.h>
@@ -134,6 +135,29 @@ private:
   size_t m_width;
   wxBitmap m_bitmap;
   wxString m_label;
+};
+
+//================---------------
+// Control field
+//================---------------
+// Hosts a child control of the status bar (a wxActivityIndicator, ...), centred
+// in the field. The field is as wide as the control (and some space around it)
+// while it is shown (SetShown()), and has no width while it is hidden. The
+// control is moved into place before it is shown.
+class wxCustomStatusBarControlField : public wxCustomStatusBarField {
+public:
+  wxCustomStatusBarControlField(wxCustomStatusBar *parent, wxControl *control)
+      : wxCustomStatusBarField(parent), m_control(control) {}
+
+  void Render(wxDC &dc, const wxRect &rect,
+              wxCustomStatusBarArt::Ptr_t art) override;
+  size_t GetWidth() const override;
+
+  void SetShown(bool shown);
+
+private:
+  wxControl *m_control;
+  bool m_shown{false};
 };
 
 //================---------------

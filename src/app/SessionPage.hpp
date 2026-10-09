@@ -17,8 +17,9 @@
 #include <memory>
 #include <vector>
 
-#include <wx/infobar.h>
+#include <wx/timer.h>
 
+class wxActivityIndicator;
 class wxTerminalViewCtrl;
 class wxTerminalEvent;
 class wxSplitterWindow;
@@ -75,9 +76,18 @@ private:
   void UpdateSessionField();
   // Sets the widths of the fields from the width of the page (cheap).
   void LayoutStatusBar();
-  // The Review Buddy state, in the main text area (empty without one).
-  void UpdateReviewField();
-  void OnReviewChanged(wxCommandEvent &) { UpdateReviewField(); }
+  // Fills the main text area, and starts / stops the activity indicator:
+  //   - while a review is in progress: the review state (the terminal title is
+  //     not shown, but is remembered);
+  //   - for a while after it ended, or after a problem: the notice;
+  //   - otherwise: the terminal title.
+  void UpdateMainText();
+  // Shows `text` in the main text area for a while (see UpdateMainText()).
+  void ShowNotice(const wxString &text);
+  void ClearNotice();
+  void SetBusy(bool busy);
+  void OnReviewChanged(wxCommandEvent &) { UpdateMainText(); }
+  void OnNoticeTimer(wxTimerEvent &) { UpdateMainText(); }
   void OnSize(wxSizeEvent &event);
   void OnTerminated(wxTerminalEvent &evt);
   void OnTitleChanged(wxTerminalEvent &evt);
@@ -108,8 +118,6 @@ private:
   wxTerminalViewCtrl *StartReviewer(const AgentDef &reviewer,
                                     const wxString &prompt);
   void CloseReviewBuddy();
-  // Hides the message about the last review, if it is showing.
-  void DismissNotice();
   void OpenLatestReview();
   wxBookCtrlBase *GetBook() const {
     return dynamic_cast<wxBookCtrlBase *>(GetParent());
@@ -122,12 +130,16 @@ private:
 
   enum class GitState { Unknown, Yes, No };
 
-  // Tells the user how a review ended; on top of the terminals.
-  wxInfoBar *m_infoBar{nullptr};
-
   wxCustomStatusBar *m_statusBar{nullptr};
   std::shared_ptr<wxCustomStatusBarBitmapField> m_sessionField;
-  int m_sessionFieldBestWidth{0}; // in pixels
+  int m_sessionFieldBestWidth{0};            // in pixels
+  wxActivityIndicator *m_indicator{nullptr}; // While a review is in progress
+  std::shared_ptr<wxCustomStatusBarControlField> m_indicatorField;
+  // What the main text area shows when there is no review in progress: the
+  // notice while its timer runs, then the terminal title.
+  wxString m_notice;
+  wxTimer m_noticeTimer{this};
+  bool m_endNoticeShown{false}; // For the review that ended
 
   // The agent's pane is the only child of the splitter until a review buddy
   // opens its pane next to it. Each pane holds one terminal with a border.
@@ -149,8 +161,8 @@ private:
   AliveFlag m_alive{MakeAliveFlag()};
   std::unique_ptr<ActivityMonitor> m_monitor;
   SessionStatus m_status = SessionStatus::Starting;
-  wxString m_defaultTitle;
-  wxString m_terminalTitle;
+  wxString m_defaultTitle;  // The window title
+  wxString m_terminalTitle; // The title the terminal set; in the status bar
   std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor{nullptr};
 };
 
