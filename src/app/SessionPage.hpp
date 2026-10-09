@@ -76,17 +76,18 @@ private:
   // Works out where the agent runs and the session label.
   void InitStatus();
   void UpdateSessionLabel();
-  // Fills the main text and the busy flag, then publishes:
-  //   - while a review is in progress: the review state (the terminal title is
-  //     not shown, but is remembered);
+  // Fills the title (the terminal title; not followed while a review is in
+  // progress), the review text and the busy flag, then publishes. The review
+  // text is:
+  //   - while a review is in progress: the review state;
   //   - for a while after it ended, or after a problem: the notice;
-  //   - otherwise: the terminal title.
-  void UpdateMainText();
-  // Shows `text` in the main text for a while (see UpdateMainText()).
+  //   - otherwise: empty.
+  void UpdateStatus();
+  // Shows `text` in the review text for a while (see UpdateStatus()).
   void ShowNotice(const wxString &text);
   void ClearNotice();
-  void OnReviewChanged(wxCommandEvent &) { UpdateMainText(); }
-  void OnNoticeTimer(wxTimerEvent &) { UpdateMainText(); }
+  void OnReviewChanged(wxCommandEvent &) { UpdateStatus(); }
+  void OnNoticeTimer(wxTimerEvent &) { UpdateStatus(); }
   void OnTerminated(wxTerminalEvent &evt);
   void OnTitleChanged(wxTerminalEvent &evt);
   void OnTerminalLink(wxTerminalEvent &evt);
@@ -129,7 +130,8 @@ private:
   enum class GitState { Unknown, Yes, No };
 
   // What the status bar of the main window shows while this page is showing.
-  wxString m_statusText;   // The main text, see UpdateMainText()
+  wxString m_statusText;   // The terminal title
+  wxString m_reviewText;   // The state of the review buddy, or a notice
   wxString m_host;         // Where the agent runs
   wxString m_sessionLabel; // "session - agent"
   wxBitmapBundle m_sessionIcon;

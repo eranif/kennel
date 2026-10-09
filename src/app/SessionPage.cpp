@@ -132,11 +132,17 @@ void SessionPage::PublishStatus() {
   SessionStatusEvent event(wxEVT_SESSION_STATUS);
   event.SetEventObject(this);
   event.SetString(m_statusText);
+  event.SetReviewText(m_reviewText);
   event.SetHost(m_host);
   event.SetSessionLabel(m_sessionLabel);
   event.SetIcon(m_sessionIcon);
   event.SetBusy(m_busy);
-  wxString tooltip = m_sessionLabel + wxT("\n") + m_host;
+  // The fields cut long texts: all of them are in the tooltip.
+  wxString tooltip;
+  if (!m_reviewText.empty()) {
+    tooltip << m_reviewText << wxT("\n");
+  }
+  tooltip << m_sessionLabel << wxT("\n") << m_host;
   if (!m_session.workingDir.empty()) {
     tooltip += ": " + m_session.workingDir;
   }
@@ -145,7 +151,7 @@ void SessionPage::PublishStatus() {
   GetEventHandler()->ProcessEvent(event);
 }
 
-void SessionPage::UpdateMainText() {
+void SessionPage::UpdateStatus() {
   const bool inProgress = m_review && m_review->IsInProgress();
   const bool ended = m_review && !inProgress;
   if (!ended) {
@@ -158,11 +164,15 @@ void SessionPage::UpdateMainText() {
   }
 
   if (inProgress) {
-    m_statusText = m_review->StatusText();
-  } else if (m_noticeTimer.IsRunning()) {
-    m_statusText = m_notice;
+    // The terminal title is not followed while a review is in progress; the
+    // status bar keeps the one it had (the current one if it had none).
+    if (m_statusText.empty()) {
+      m_statusText = m_terminalTitle;
+    }
+    m_reviewText = m_review->StatusText();
   } else {
     m_statusText = m_terminalTitle;
+    m_reviewText = m_noticeTimer.IsRunning() ? m_notice : wxString();
   }
   // Waiting for the user (stalled) is not busy.
   m_busy = inProgress && !m_review->HasStalled();
@@ -172,14 +182,14 @@ void SessionPage::UpdateMainText() {
 void SessionPage::ShowNotice(const wxString &text) {
   m_notice = text;
   m_noticeTimer.Start(kNoticeMs, wxTIMER_ONE_SHOT);
-  UpdateMainText();
+  UpdateStatus();
 }
 
 void SessionPage::ClearNotice() {
   m_noticeTimer.Stop();
   m_notice.clear();
   m_endNoticeShown = false;
-  UpdateMainText();
+  UpdateStatus();
 }
 
 SessionPage::~SessionPage() { m_alive->store(false); }
@@ -428,7 +438,7 @@ void SessionPage::OnTitleChanged(wxTerminalEvent &evt) {
   evt.Skip();
   // The status bar shows it (not while a review is in progress).
   m_terminalTitle = evt.GetTitle();
-  UpdateMainText();
+  UpdateStatus();
 }
 
 void SessionPage::SetStatus(SessionStatus status) {

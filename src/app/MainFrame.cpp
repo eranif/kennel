@@ -112,9 +112,15 @@ MainFrame::MainFrame()
 
 void MainFrame::CreateStatusFields() {
   CreateStatusBar(kFieldCount);
-  const int widths[kFieldCount] = {-1, FromDIP(160), FromDIP(26), FromDIP(220),
-                                   FromDIP(50)};
+  // The main text and the title share what is left, the title gets more.
+  const int widths[kFieldCount] = {-1,          -2,           FromDIP(240),
+                                   FromDIP(30), FromDIP(160), FromDIP(26),
+                                   FromDIP(220)};
   SetStatusWidths(kFieldCount, widths);
+  // No border around the fields.
+  int styles[kFieldCount];
+  std::fill(std::begin(styles), std::end(styles), wxSB_FLAT);
+  GetStatusBar()->SetStatusStyles(kFieldCount, styles);
   m_baseText = wxString::Format("%s %s", kAppName, kAppVersion);
   SetStatusText(m_baseText, kFieldText);
 
@@ -138,8 +144,10 @@ void MainFrame::LayoutStatusChildren() {
   wxRect rect;
   if (m_statusIndicator != nullptr &&
       bar->GetFieldRect(kFieldIndicator, rect)) {
-    m_statusIndicator->SetSize(rect.x + 2, rect.y + 2, rect.GetWidth() - 4,
-                               rect.GetHeight() - 4);
+    // A square, in the middle of the field.
+    const int side =
+        std::max(1, std::min(rect.GetWidth(), rect.GetHeight()) - 4);
+    m_statusIndicator->SetSize(wxRect(wxSize(side, side)).CenterIn(rect));
   }
   if (m_sessionIcon != nullptr && bar->GetFieldRect(kFieldIcon, rect)) {
     m_sessionIcon->Move(
@@ -160,11 +168,8 @@ void MainFrame::UpdateIndicator() {
 
 void MainFrame::OnSessionStatus(SessionStatusEvent &event) {
   CHECK_NOT_NULL_RETURN(m_sessionIcon);
-  m_baseText = event.GetString();
-  // A message of an activity stays until it is cleared.
-  if (m_activityText.empty()) {
-    SetStatusText(m_baseText, kFieldText);
-  }
+  SetStatusText(event.GetString(), kFieldTitle);
+  SetStatusText(event.GetReviewText(), kFieldReview);
   SetStatusText(event.GetHost(), kFieldHost);
   SetStatusText(event.GetSessionLabel(), kFieldSession);
   // The fields cut long texts: all of it is in the tooltip of the bar.
@@ -183,11 +188,9 @@ void MainFrame::OnSessionStatus(SessionStatusEvent &event) {
 
 void MainFrame::ClearSessionStatus() {
   CHECK_NOT_NULL_RETURN(m_sessionIcon);
-  m_baseText = wxString::Format("%s %s", kAppName, kAppVersion);
-  if (m_activityText.empty()) {
-    SetStatusText(m_baseText, kFieldText);
-  }
+  SetStatusText(wxEmptyString, kFieldTitle);
   GetStatusBar()->SetToolTip(wxEmptyString);
+  SetStatusText(wxEmptyString, kFieldReview);
   SetStatusText(wxEmptyString, kFieldHost);
   SetStatusText(wxEmptyString, kFieldSession);
   m_sessionIcon->Hide();

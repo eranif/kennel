@@ -5,10 +5,11 @@
 #include <wx/string.h>
 
 // What the status bar of the main window shows for the session page that is
-// showing: the main text (GetString()), where the agent runs, the session with
-// its icon, and whether a review buddy is working. A SessionPage sends it to
-// itself whenever one of them changes (and when it is selected); it travels up
-// the parent chain to MainFrame.
+// showing: the title of the terminal (GetString()), the state of the review
+// buddy, where the agent runs, the session with its icon, and whether a review
+// buddy is working. A SessionPage sends it to itself whenever one of them
+// changes (and when it is selected); it travels up the parent chain to
+// MainFrame.
 class SessionStatusEvent : public wxCommandEvent {
 public:
   explicit SessionStatusEvent(wxEventType type = wxEVT_NULL, int id = 0)
@@ -28,6 +29,10 @@ public:
   const wxBitmapBundle &GetIcon() const { return m_icon; }
   void SetIcon(const wxBitmapBundle &icon) { m_icon = icon; }
 
+  // The state of the review buddy (empty without one): "Addressing comments".
+  const wxString &GetReviewText() const { return m_reviewText; }
+  void SetReviewText(const wxString &text) { m_reviewText = text; }
+
   // The full text of the host and the session, for the tooltip of the status
   // bar (the fields cut long texts).
   const wxString &GetTooltip() const { return m_tooltip; }
@@ -38,6 +43,7 @@ public:
 
 private:
   wxString m_host;
+  wxString m_reviewText;
   wxString m_sessionLabel;
   wxString m_tooltip;
   wxBitmapBundle m_icon;

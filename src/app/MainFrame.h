@@ -29,7 +29,8 @@ public:
   JobScheduler *GetJobScheduler() { return m_jobScheduler.get(); }
 
   // A message in the main text of the status bar, until something else is
-  // shown there. ClearActivityText() brings back the text of the session.
+  // shown there (the help of a menu item uses it too). ClearActivityText()
+  // brings back the text it had at the start.
   void SetActivityText(const wxString &text) {
     m_activityText = text;
     SetStatusText(text, kFieldText);
@@ -65,14 +66,17 @@ private:
 
   void OnActivate(wxActivateEvent &event);
 
-  // The status bar: the main text, where the agent runs, the icon and the name
-  // of the session, and the activity indicator.
+  // The status bar: the main text, the terminal title, the state of the review
+  // buddy, the activity indicator, where the agent runs, and the icon and the
+  // name of the session.
   enum StatusField {
-    kFieldText,
+    kFieldText,  // Activity messages and the help of menu items
+    kFieldTitle, // The title of the terminal
+    kFieldReview,
+    kFieldIndicator,
     kFieldHost,
     kFieldIcon,
     kFieldSession,
-    kFieldIndicator,
     kFieldCount
   };
   void CreateStatusFields();

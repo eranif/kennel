@@ -79,21 +79,23 @@ above it if they are empty then. In every other case the folder stays, because i
 what is still open: when the round limit is reached, when the loop stalls or you stop it.
 
 When the loop ends (the review is clean, the round limit is reached, or something fails),
-Kennel tells you in three ways: the result in the status bar of the window (it stays for a
-minute, then the terminal title is back); a system notification when you are not looking at
-that session; and, when Kennel is in the background, a bouncing Dock icon (macOS) or a
-flashing taskbar button (Windows). The status bar only shows the session you are looking at,
-so the system notification is what reaches you when you are not looking.
+Kennel tells you in three ways: the result in the review field of the status bar of the
+window (it stays for a minute, then the field is empty); a system notification when you are
+not looking at that session; and, when Kennel is in the background, a bouncing Dock icon
+(macOS) or a flashing taskbar button (Windows). The status bar only shows the session you
+are looking at, so the system notification is what reaches you when you are not looking.
 The context menu shows the state and offers **Send the Request Again**, **Stop the Review**,
 **Open the Latest Review** and **Close Review Buddy**.
 After 20 minutes without an answer, Kennel notifies you the same way but keeps waiting.
 
 The status bar of the window follows the session you are looking at: the terminal's title in
-the main area (the window title no longer follows it), the host the agent runs on (Local, a
-WSL distro or `user@host`), and the session name with the agent's icon. While a review buddy
-is open, the main area shows its state instead ("Waiting for review", "Addressing
-comments", ...) and the activity indicator at the right spins while it works. When the review
-ends, the main area shows how it ended for a minute, and then the terminal title is back.
+its own field (the window title no longer follows it; the main text area at the left is left
+for messages and the help of menu items), the host the agent runs on (Local, a
+WSL distro or `user@host`), and the session name with the agent's icon. Right of the title,
+a review field shows the state of the review buddy ("Waiting for review",
+"Addressing comments", ...) and an activity indicator spins while it works. The terminal
+title is not followed while a review buddy is open. When the review ends, the review field
+shows how it ended for a minute, and then it is empty and the title is followed again.
 
 The entry needs a `.git` folder (or file) in the session's working directory, and only offers
 agents that run on the same host as the session.
