@@ -181,7 +181,7 @@ void MainView::RefreshFlatView() {
 
 void MainView::DoRefreshFlatView() {
   m_flatRefreshPending = false;
-  // Tree order, never sorted.
+  // Tree order; the list sorts it if the user picked a column.
   m_flatView->SetPages(m_treeView->GetPages(), GetActivePageRef());
 }
 

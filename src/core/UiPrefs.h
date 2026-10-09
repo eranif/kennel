@@ -22,6 +22,10 @@ struct UiPrefs {
   // of display scaling). <= 0 => keep the default layout.
   int sidebarWidth{0};   // Width of the left pane (sessions) vs the terminal
   int treePaneHeight{0}; // Height of the session tree above the flat list
+  // The column the flat list is sorted by ("name" or "group"), empty => not
+  // sorted (tree order).
+  wxString flatViewSortColumn;
+  bool flatViewSortAscending{true};
   wxString lastSelectedSession; // empty => no prior selection
   wxString terminalTheme;       // name of the last-applied terminal theme
   wxString terminalFontDesc;    // wxFont native info desc (empty => default)
