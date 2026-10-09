@@ -8,12 +8,17 @@
 
 // Builds the list of commands to send to the terminal to launch a session.
 // When resume is true and agent.resumeArg is non-empty, the resume arg is
-// appended before agent.extraArgs. A non-empty `initialPrompt` is appended
-// last, as a quoted argument: the agent starts interactively and submits it as
-// its first message (`kiro-cli chat "<prompt>"`, `claude "<prompt>"`). The
-// prompt is escaped for a POSIX shell (also over ssh and in WSL). A Windows
-// shell (cmd, PowerShell) does not understand that escaping, so keep the prompt
-// to plain text there.
+// appended before agent.extraArgs. The command is then
+// "<resume cmd> || <plain cmd>", so a fresh session starts when there is
+// nothing to resume. This also starts a new session when the resumed one ends
+// with a non-zero exit code.
+// A non-empty `initialPrompt` is appended last, as a quoted argument: the agent
+// starts interactively and submits it as its first message
+// (`kiro-cli chat "<prompt>"`, `claude "<prompt>"`). For kiro-cli, `chat` is
+// added before the other arguments if no argument has it. The prompt is
+// escaped for a POSIX shell (also over ssh and in WSL). A Windows shell (cmd,
+// PowerShell) does not understand that escaping, so keep the prompt to plain
+// text there.
 std::vector<wxString> BuildCommandLine(const AgentDef &agent,
                                        const wxString &workingDir, bool resume,
                                        const wxString &initialPrompt = {});

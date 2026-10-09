@@ -1,5 +1,8 @@
 #include "core/ClientAdapter.h"
 
+#include <wx/arrstr.h>
+#include <wx/filename.h>
+
 namespace {
 
 std::vector<wxString> WrapCommand(const AgentDef &agent,
@@ -46,27 +49,62 @@ wxString QuoteForShell(const wxString &text) {
   return quoted;
 }
 
+bool IsKiro(const AgentDef &agent) {
+  const wxString name = wxFileName(agent.executable).GetName();
+  return name == "kiro-cli" || name == "kiro-cli-chat";
+}
+// Whether `chat` is one of the words in `args` (an entry can hold several).
+bool HasChat(const std::vector<wxString> &args) {
+  for (const wxString &arg : args) {
+    for (const wxString &word : wxSplit(arg, ' ')) {
+      if (word == "chat") {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 } // namespace
 
 std::vector<wxString> BuildCommandLine(const AgentDef &agent,
                                        const wxString &workingDir, bool resume,
                                        const wxString &initialPrompt) {
-  std::vector<wxString> args = agent.baseArgs;
+  auto build = [&](bool withResume) {
+    std::vector<wxString> args = agent.baseArgs;
+    // kiro-cli takes a first message only as an argument of "chat", and a flag
+    // like --resume belongs after it.
+    if (!initialPrompt.empty() && IsKiro(agent)) {
+      std::vector<wxString> all = args;
+      all.insert(all.end(), agent.extraArgs.begin(), agent.extraArgs.end());
+      if (withResume) {
+        all.push_back(agent.resumeArg);
+      }
+      if (!HasChat(all)) {
+        args.push_back("chat");
+      }
+    }
+    if (withResume) {
+      args.push_back(agent.resumeArg);
+    }
+    for (const wxString &arg : agent.extraArgs) {
+      args.push_back(arg);
+    }
 
+    wxString cmd = wxString::Format(R"("%s")", agent.executable);
+    for (const wxString &arg : args) {
+      cmd << " " << arg;
+    }
+    if (!initialPrompt.empty()) {
+      cmd << " " << QuoteForShell(initialPrompt);
+    }
+    return cmd;
+  };
+
+  wxString cmd = build(false);
   if (resume && !agent.resumeArg.empty()) {
-    args.push_back(agent.resumeArg);
-  }
-
-  for (const wxString &arg : agent.extraArgs) {
-    args.push_back(arg);
-  }
-
-  wxString cmd = wxString::Format(R"("%s")", agent.executable);
-  for (const wxString &arg : args) {
-    cmd << " " << arg;
-  }
-  if (!initialPrompt.empty()) {
-    cmd << " " << QuoteForShell(initialPrompt);
+    // Resuming fails when there is no earlier session: start a new one then.
+    cmd = build(true) + " || " + cmd;
   }
 
   return WrapCommand(agent, workingDir, cmd);
