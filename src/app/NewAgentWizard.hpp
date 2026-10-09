@@ -12,7 +12,6 @@ public:
 
 protected:
   void OnBrowseBitmap(wxCommandEvent &event) override;
-  void OnBrowseResumeArgs(wxCommandEvent &event) override;
   void OnDeleteEnv(wxCommandEvent &event) override;
   void OnDeleteEnvUI(wxUpdateUIEvent &event) override;
   void OnNewEnv(wxCommandEvent &event) override;

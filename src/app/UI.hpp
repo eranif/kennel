@@ -202,12 +202,6 @@ protected:
   wxComboBox *m_comboBoxExecutable;
   wxStaticText *m_staticText89;
   wxTextCtrl *m_textCtrlLaunchArgs;
-  wxStaticText *m_staticText293;
-  wxTextCtrl *m_textCtrlResumeArgs;
-  wxButton *m_button331;
-  wxStaticText *m_staticText3724;
-  wxTextCtrl *m_textCtrlNonInteractiveSwitch;
-  wxButton *m_buttonNonInteractiveSuggest;
   wxStaticText *m_staticText372;
   wxChoice *m_choiceShell;
   wxStaticText *m_staticText99;
@@ -226,10 +220,6 @@ protected:
   wxButton *m_buttonCancel;
 
 protected:
-  virtual void OnSuggestResumeArgs(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnSuggestNonInteractiveOptions(wxCommandEvent &event) {
-    event.Skip();
-  }
   virtual void OnBrowseBitmap(wxCommandEvent &event) { event.Skip(); }
   virtual void OnRemoteHost(wxCommandEvent &event) { event.Skip(); }
   virtual void OnEnvActivated(wxDataViewEvent &event) { event.Skip(); }
@@ -246,16 +236,6 @@ public:
   wxComboBox *GetComboBoxExecutable() { return m_comboBoxExecutable; }
   wxStaticText *GetStaticText89() { return m_staticText89; }
   wxTextCtrl *GetTextCtrlLaunchArgs() { return m_textCtrlLaunchArgs; }
-  wxStaticText *GetStaticText293() { return m_staticText293; }
-  wxTextCtrl *GetTextCtrlResumeArgs() { return m_textCtrlResumeArgs; }
-  wxButton *GetButton331() { return m_button331; }
-  wxStaticText *GetStaticText3724() { return m_staticText3724; }
-  wxTextCtrl *GetTextCtrlNonInteractiveSwitch() {
-    return m_textCtrlNonInteractiveSwitch;
-  }
-  wxButton *GetButtonNonInteractiveSuggest() {
-    return m_buttonNonInteractiveSuggest;
-  }
   wxStaticText *GetStaticText372() { return m_staticText372; }
   wxChoice *GetChoiceShell() { return m_choiceShell; }
   wxStaticText *GetStaticText99() { return m_staticText99; }
@@ -480,7 +460,6 @@ protected:
   std::vector<wxWizardPageSimple *> m_pages;
 
   wxWizardPageSimple *m_wizardPageLocalOrRemote;
-  wxBannerWindow *m_bannerLocalOrRemoteBitmap;
   wxBannerWindow *m_banner473;
   wxCheckBox *m_checkBoxLocalHost;
   wxStaticText *m_staticText28930;
@@ -489,7 +468,6 @@ protected:
   wxStaticText *m_staticText32934;
   wxTextCtrl *m_textCtrlUser;
   wxWizardPageSimple *m_wizardPageWhatToLaunch;
-  wxBannerWindow *m_bannerWhatToLaunchBitmap;
   wxBannerWindow *m_banner436;
   wxFlexGridSizer *flexGridSizer821;
   wxStaticText *m_staticText832;
@@ -498,14 +476,10 @@ protected:
   wxComboBox *m_comboBoxExecutable;
   wxStaticText *m_staticText896;
   wxTextCtrl *m_textCtrlLaunchArgs;
-  wxStaticText *m_staticText2938;
-  wxTextCtrl *m_textCtrlResumeArgs;
-  wxButton *m_buttonResumeArgs;
   wxStaticText *m_staticText9914;
   wxTextCtrl *m_textCtrlBitmap;
   wxButton *m_button15517;
   wxWizardPageSimple *m_wizardPageAdvanced;
-  wxBannerWindow *m_bannerAdvancedBimap;
   wxBannerWindow *m_banner474;
   wxStaticText *m_staticTextLoginShell;
   wxChoice *m_choiceShell;
@@ -516,16 +490,12 @@ protected:
 protected:
   virtual void OnEnableRemoteUI(wxUpdateUIEvent &event) { event.Skip(); }
   virtual void OnBrowseHosts(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnBrowseResumeArgs(wxCommandEvent &event) { event.Skip(); }
   virtual void OnBrowseBitmap(wxCommandEvent &event) { event.Skip(); }
   virtual void OnNewEnv(wxCommandEvent &event) { event.Skip(); }
   virtual void OnDeleteEnv(wxCommandEvent &event) { event.Skip(); }
   virtual void OnDeleteEnvUI(wxUpdateUIEvent &event) { event.Skip(); }
 
 public:
-  wxBannerWindow *GetBannerLocalOrRemoteBitmap() {
-    return m_bannerLocalOrRemoteBitmap;
-  }
   wxBannerWindow *GetBanner473() { return m_banner473; }
   wxCheckBox *GetCheckBoxLocalHost() { return m_checkBoxLocalHost; }
   wxStaticText *GetStaticText28930() { return m_staticText28930; }
@@ -536,9 +506,6 @@ public:
   wxWizardPageSimple *GetWizardPageLocalOrRemote() {
     return m_wizardPageLocalOrRemote;
   }
-  wxBannerWindow *GetBannerWhatToLaunchBitmap() {
-    return m_bannerWhatToLaunchBitmap;
-  }
   wxBannerWindow *GetBanner436() { return m_banner436; }
   wxStaticText *GetStaticText832() { return m_staticText832; }
   wxTextCtrl *GetTextCtrlName() { return m_textCtrlName; }
@@ -546,16 +513,12 @@ public:
   wxComboBox *GetComboBoxExecutable() { return m_comboBoxExecutable; }
   wxStaticText *GetStaticText896() { return m_staticText896; }
   wxTextCtrl *GetTextCtrlLaunchArgs() { return m_textCtrlLaunchArgs; }
-  wxStaticText *GetStaticText2938() { return m_staticText2938; }
-  wxTextCtrl *GetTextCtrlResumeArgs() { return m_textCtrlResumeArgs; }
-  wxButton *GetButtonResumeArgs() { return m_buttonResumeArgs; }
   wxStaticText *GetStaticText9914() { return m_staticText9914; }
   wxTextCtrl *GetTextCtrlBitmap() { return m_textCtrlBitmap; }
   wxButton *GetButton15517() { return m_button15517; }
   wxWizardPageSimple *GetWizardPageWhatToLaunch() {
     return m_wizardPageWhatToLaunch;
   }
-  wxBannerWindow *GetBannerAdvancedBimap() { return m_bannerAdvancedBimap; }
   wxBannerWindow *GetBanner474() { return m_banner474; }
   wxStaticText *GetStaticTextLoginShell() { return m_staticTextLoginShell; }
   wxChoice *GetChoiceShell() { return m_choiceShell; }

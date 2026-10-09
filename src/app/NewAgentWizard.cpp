@@ -4,6 +4,7 @@
 #include "app/AssetBootstrap.h"
 #include "app/EditHosts.hpp"
 #include "core/AppManager.h"
+#include "core/ClientAdapter.h"
 #include "core/Helpers.h"
 #include "core/KennelRemote.h"
 
@@ -23,16 +24,6 @@ wxBitmapBundle LoadWizardBitmap(const wxString &name) {
 
 NewAgentWizard::NewAgentWizard(wxWindow *parent) : NewAgentWizardBase(parent) {
   SetLabel(_("Configure New Agent"));
-#if defined(__WXMAC__) || defined(__WXMSW__)
-  m_bannerLocalOrRemoteBitmap->SetBitmap(
-      LoadWizardBitmap("wizard-connection.svg"));
-  m_bannerWhatToLaunchBitmap->SetBitmap(LoadWizardBitmap("wizard-details.svg"));
-  m_bannerAdvancedBimap->SetBitmap(LoadWizardBitmap("wizard-advanced.svg"));
-#else
-  m_bannerLocalOrRemoteBitmap->Hide();
-  m_bannerWhatToLaunchBitmap->Hide();
-  m_bannerAdvancedBimap->Hide();
-#endif
   PopulateLoginShells();
   Bind(wxEVT_UPDATE_UI, &NewAgentWizard::OnNextUI, this, wxID_FORWARD);
   Bind(wxEVT_WIZARD_PAGE_SHOWN, &NewAgentWizard::OnPageShown, this);
@@ -102,8 +93,9 @@ void NewAgentWizard::OnNextUI(wxUpdateUIEvent &event) {
     name.Trim().Trim(false);
     exec.Trim().Trim(false);
     bitmap.Trim().Trim(false);
-    event.Enable(!name.empty() && !exec.empty() && !bitmap.empty() &&
-                 wxFileExists(bitmap));
+    // The icon is optional: GetData() picks one when it is empty.
+    event.Enable(!name.empty() && ::IsSupportedClient(exec) &&
+                 (bitmap.empty() || wxFileExists(bitmap)));
   } else {
     event.Enable(true);
   }
@@ -123,8 +115,7 @@ AgentDef NewAgentWizard::GetData() const {
   // Page 2: details
   d.name = m_textCtrlName->GetValue();
   d.executable = m_comboBoxExecutable->GetValue();
-  d.resumeArg = m_textCtrlResumeArgs->GetValue();
-  d.iconPath = m_textCtrlBitmap->GetValue();
+  d.iconPath = m_textCtrlBitmap->GetValue().Trim().Trim(false);
 
   auto baseArgs = ::wxStringTokenize(m_textCtrlLaunchArgs->GetValue(),
                                      " \t\r\n", wxTOKEN_STRTOK);
@@ -133,9 +124,14 @@ AgentDef NewAgentWizard::GetData() const {
     d.baseArgs.push_back(arg);
   }
 
+  ::ApplyClientDefaults(d);
+
   // Page 3: advanced
   d.loginShell = FindShellCommand(m_choiceShell->GetStringSelection())
                      .value_or(wxString{});
+  if (d.iconPath.empty()) {
+    d.iconPath = ::DefaultIconFor(d);
+  }
 
   for (int i = 0; i < m_dvListCtrlEnv->GetItemCount(); ++i) {
     d.env.insert({m_dvListCtrlEnv->GetTextValue(i, 0),
@@ -176,24 +172,6 @@ void NewAgentWizard::OnBrowseBitmap(wxCommandEvent &event) {
   if (dlg.ShowModal() == wxID_OK) {
     m_textCtrlBitmap->SetValue(dlg.GetPath());
   }
-}
-
-void NewAgentWizard::OnBrowseResumeArgs(wxCommandEvent &event) {
-  wxUnusedVar(event);
-  wxArrayString choices{
-      "kiro-cli: chat --resume",
-      "claude-code: --continue",
-      "codex: resume --last",
-  };
-  wxString choice =
-      ::wxGetSingleChoice(_("Suggestions:"), "Kennel", choices, 0, this);
-  if (choice.empty()) {
-    return;
-  }
-  wxString value = choice.AfterFirst(':');
-  value.Trim().Trim(false);
-  m_textCtrlResumeArgs->ChangeValue(value);
-  m_textCtrlResumeArgs->SetFocus();
 }
 
 void NewAgentWizard::OnDeleteEnv(wxCommandEvent &event) {

@@ -1,4 +1,5 @@
 #include "core/ConfigStore.h"
+#include "core/ClientAdapter.h"
 
 #include "core/JsonUtil.h"
 #include "core/Logger.h"
@@ -37,8 +38,6 @@ json ToJson(const AppConfig &cfg) {
         {"name", ToUtf8(a.name)},
         {"executable", ToUtf8(a.executable)},
         {"baseArgs", baseArgs},
-        {"resumeArg", ToUtf8(a.resumeArg)},
-        {"nonInteractiveArg", ToUtf8(a.nonInteractiveArg)},
         {"iconPath", ToUtf8(a.iconPath)},
         {"extraArgs", extraArgs},
         {"env", env},
@@ -79,39 +78,22 @@ GlobalSettings ParseGlobal(const json &g) {
   return out;
 }
 
-// Backward compatibility: agents configured before AgentDef::nonInteractiveArg
-// existed have no value for it. Fill in a sensible default for the known
-// built-in CLIs so existing configs work with Prompt jobs without the user
-// having to revisit every agent by hand.
-wxString DefaultNonInteractiveArg(const wxString &executable) {
-  const wxString exeName = wxFileName(executable).GetName().Lower();
-  if (exeName == "claude") {
-    return "-p";
-  }
-  if (exeName == "codex") {
-    return "exec";
-  }
-  if (exeName == "kiro-cli") {
-    return "chat --no-interactive";
-  }
-  return wxEmptyString;
-}
-
 AgentDef ParseAgent(const json &j) {
   AgentDef out;
   out.name = GetStr(j, "name");
   out.executable = GetStr(j, "executable");
   out.baseArgs = GetStrArray(j, "baseArgs");
-  out.resumeArg = GetStr(j, "resumeArg");
-  out.nonInteractiveArg = GetStr(j, "nonInteractiveArg");
-  if (out.nonInteractiveArg.empty()) {
-    out.nonInteractiveArg = DefaultNonInteractiveArg(out.executable);
-  }
   out.iconPath = GetStr(j, "iconPath");
   out.extraArgs = GetStrArray(j, "extraArgs");
   out.remoteHost = GetStr(j, "remoteHost");
   out.remoteUser = GetStr(j, "remoteUser");
   out.loginShell = GetStr(j, "loginShell");
+  // The resume and one-shot arguments belong to the tool, not to the config.
+  ApplyClientDefaults(out);
+  if (!IsSupportedClient(out.executable)) {
+    KLOG_WARN() << "Agent '" << out.name << "': '" << out.executable
+                << "' is not a supported tool (claude, codex, kiro-cli)";
+  }
   if (auto e = j.find("env"); e != j.end() && e->is_object()) {
     for (auto it = e->begin(); it != e->end(); ++it) {
       if (it.value().is_string()) {

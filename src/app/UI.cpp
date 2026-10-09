@@ -559,66 +559,6 @@ EditAgentDlgBase::EditAgentDlgBase(wxWindow *parent, wxWindowID id,
   flexGridSizer82->Add(m_textCtrlLaunchArgs, 0, wxALL | wxEXPAND,
                        WXC_FROM_DIP(5));
 
-  m_staticText293 = new wxStaticText(m_panel87, wxID_ANY, _("Resume Switch:"),
-                                     wxDefaultPosition,
-                                     wxDLG_UNIT(m_panel87, wxSize(-1, -1)), 0);
-
-  flexGridSizer82->Add(m_staticText293, 0,
-                       wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
-                       WXC_FROM_DIP(5));
-
-  wxBoxSizer *boxSizer330 = new wxBoxSizer(wxHORIZONTAL);
-
-  flexGridSizer82->Add(boxSizer330, 0, wxEXPAND, WXC_FROM_DIP(5));
-
-  m_textCtrlResumeArgs =
-      new wxTextCtrl(m_panel87, wxID_ANY, wxT(""), wxDefaultPosition,
-                     wxDLG_UNIT(m_panel87, wxSize(-1, -1)), 0);
-#if wxVERSION_NUMBER >= 3000
-  m_textCtrlResumeArgs->SetHint(_("e.g. --resume"));
-#endif
-
-  boxSizer330->Add(m_textCtrlResumeArgs, 1, wxALL | wxALIGN_CENTER_VERTICAL,
-                   WXC_FROM_DIP(5));
-
-  m_button331 =
-      new wxButton(m_panel87, wxID_ANY, _("..."), wxDefaultPosition,
-                   wxDLG_UNIT(m_panel87, wxSize(-1, -1)), wxBU_EXACTFIT);
-  m_button331->SetToolTip(_("Suggest"));
-
-  boxSizer330->Add(m_button331, 0, wxALL | wxALIGN_CENTER_VERTICAL,
-                   WXC_FROM_DIP(5));
-
-  m_staticText3724 = new wxStaticText(
-      m_panel87, wxID_ANY, _("Non-Interactive Switch:"), wxDefaultPosition,
-      wxDLG_UNIT(m_panel87, wxSize(-1, -1)), 0);
-
-  flexGridSizer82->Add(m_staticText3724, 0,
-                       wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
-                       WXC_FROM_DIP(5));
-
-  wxBoxSizer *boxSizer3301 = new wxBoxSizer(wxHORIZONTAL);
-
-  flexGridSizer82->Add(boxSizer3301, 0, wxEXPAND, WXC_FROM_DIP(5));
-
-  m_textCtrlNonInteractiveSwitch =
-      new wxTextCtrl(m_panel87, wxID_ANY, wxT(""), wxDefaultPosition,
-                     wxDLG_UNIT(m_panel87, wxSize(-1, -1)), 0);
-#if wxVERSION_NUMBER >= 3000
-  m_textCtrlNonInteractiveSwitch->SetHint(_("e.g. -p"));
-#endif
-
-  boxSizer3301->Add(m_textCtrlNonInteractiveSwitch, 1,
-                    wxALL | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
-
-  m_buttonNonInteractiveSuggest =
-      new wxButton(m_panel87, wxID_ANY, _("..."), wxDefaultPosition,
-                   wxDLG_UNIT(m_panel87, wxSize(-1, -1)), wxBU_EXACTFIT);
-  m_buttonNonInteractiveSuggest->SetToolTip(_("Suggest"));
-
-  boxSizer3301->Add(m_buttonNonInteractiveSuggest, 0,
-                    wxALL | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
-
   m_staticText372 = new wxStaticText(m_panel87, wxID_ANY, _("Login Shell:"),
                                      wxDefaultPosition,
                                      wxDLG_UNIT(m_panel87, wxSize(-1, -1)), 0);
@@ -795,11 +735,6 @@ EditAgentDlgBase::EditAgentDlgBase(wxWindow *parent, wxWindowID id,
     wxPersistenceManager::Get().Restore(this);
   }
   // Connect events
-  m_button331->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
-                    &EditAgentDlgBase::OnSuggestResumeArgs, this);
-  m_buttonNonInteractiveSuggest->Bind(
-      wxEVT_COMMAND_BUTTON_CLICKED,
-      &EditAgentDlgBase::OnSuggestNonInteractiveOptions, this);
   m_button155->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
                     &EditAgentDlgBase::OnBrowseBitmap, this);
   m_button292->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
@@ -817,11 +752,6 @@ EditAgentDlgBase::EditAgentDlgBase(wxWindow *parent, wxWindowID id,
 }
 
 EditAgentDlgBase::~EditAgentDlgBase() {
-  m_button331->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
-                      &EditAgentDlgBase::OnSuggestResumeArgs, this);
-  m_buttonNonInteractiveSuggest->Unbind(
-      wxEVT_COMMAND_BUTTON_CLICKED,
-      &EditAgentDlgBase::OnSuggestNonInteractiveOptions, this);
   m_button155->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
                       &EditAgentDlgBase::OnBrowseBitmap, this);
   m_button292->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
@@ -1663,15 +1593,6 @@ NewAgentWizardBase::NewAgentWizardBase(wxWindow *parent, wxWindowID id,
   wxBoxSizer *boxSizer494 = new wxBoxSizer(wxHORIZONTAL);
   m_wizardPageLocalOrRemote->SetSizer(boxSizer494);
 
-  m_bannerLocalOrRemoteBitmap = new wxBannerWindow(
-      m_wizardPageLocalOrRemote, wxID_ANY, wxLEFT, wxDefaultPosition,
-      wxDLG_UNIT(m_wizardPageLocalOrRemote, wxSize(-1, -1)), 0);
-  m_bannerLocalOrRemoteBitmap->SetBitmap(wxNullBitmap);
-  m_bannerLocalOrRemoteBitmap->SetText(wxT(""), wxT(""));
-
-  boxSizer494->Add(m_bannerLocalOrRemoteBitmap, 0,
-                   wxALL | wxEXPAND | wxALIGN_LEFT, WXC_FROM_DIP(5));
-
   wxBoxSizer *boxSizer383 = new wxBoxSizer(wxVERTICAL);
 
   boxSizer494->Add(boxSizer383, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
@@ -1771,15 +1692,6 @@ NewAgentWizardBase::NewAgentWizardBase(wxWindow *parent, wxWindowID id,
   wxBoxSizer *boxSizer492 = new wxBoxSizer(wxHORIZONTAL);
   m_wizardPageWhatToLaunch->SetSizer(boxSizer492);
 
-  m_bannerWhatToLaunchBitmap = new wxBannerWindow(
-      m_wizardPageWhatToLaunch, wxID_ANY, wxLEFT, wxDefaultPosition,
-      wxDLG_UNIT(m_wizardPageWhatToLaunch, wxSize(-1, -1)), 0);
-  m_bannerWhatToLaunchBitmap->SetBitmap(wxNullBitmap);
-  m_bannerWhatToLaunchBitmap->SetText(wxT(""), wxT(""));
-
-  boxSizer492->Add(m_bannerWhatToLaunchBitmap, 0, wxALL | wxEXPAND,
-                   WXC_FROM_DIP(5));
-
   wxBoxSizer *boxSizer382 = new wxBoxSizer(wxVERTICAL);
 
   boxSizer492->Add(boxSizer382, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
@@ -1861,36 +1773,6 @@ NewAgentWizardBase::NewAgentWizardBase(wxWindow *parent, wxWindowID id,
   flexGridSizer821->Add(m_textCtrlLaunchArgs, 0, wxALL | wxEXPAND,
                         WXC_FROM_DIP(5));
 
-  m_staticText2938 = new wxStaticText(
-      m_wizardPageWhatToLaunch, wxID_ANY, _("Resume Args:"), wxDefaultPosition,
-      wxDLG_UNIT(m_wizardPageWhatToLaunch, wxSize(-1, -1)), 0);
-
-  flexGridSizer821->Add(m_staticText2938, 0,
-                        wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
-                        WXC_FROM_DIP(5));
-
-  wxBoxSizer *boxSizer3309 = new wxBoxSizer(wxHORIZONTAL);
-
-  flexGridSizer821->Add(boxSizer3309, 0, wxEXPAND, WXC_FROM_DIP(5));
-
-  m_textCtrlResumeArgs = new wxTextCtrl(
-      m_wizardPageWhatToLaunch, wxID_ANY, wxT(""), wxDefaultPosition,
-      wxDLG_UNIT(m_wizardPageWhatToLaunch, wxSize(-1, -1)), 0);
-#if wxVERSION_NUMBER >= 3000
-  m_textCtrlResumeArgs->SetHint(_("e.g. --resume"));
-#endif
-
-  boxSizer3309->Add(m_textCtrlResumeArgs, 1, wxALL | wxALIGN_CENTER_VERTICAL,
-                    WXC_FROM_DIP(5));
-
-  m_buttonResumeArgs = new wxButton(
-      m_wizardPageWhatToLaunch, wxID_ANY, _("..."), wxDefaultPosition,
-      wxDLG_UNIT(m_wizardPageWhatToLaunch, wxSize(-1, -1)), wxBU_EXACTFIT);
-  m_buttonResumeArgs->SetToolTip(_("Suggest"));
-
-  boxSizer3309->Add(m_buttonResumeArgs, 0, wxALL | wxALIGN_CENTER_VERTICAL,
-                    WXC_FROM_DIP(5));
-
   m_staticText9914 = new wxStaticText(
       m_wizardPageWhatToLaunch, wxID_ANY, _("Image:"), wxDefaultPosition,
       wxDLG_UNIT(m_wizardPageWhatToLaunch, wxSize(-1, -1)), 0);
@@ -1931,14 +1813,6 @@ NewAgentWizardBase::NewAgentWizardBase(wxWindow *parent, wxWindowID id,
 
   wxBoxSizer *boxSizer489 = new wxBoxSizer(wxHORIZONTAL);
   m_wizardPageAdvanced->SetSizer(boxSizer489);
-
-  m_bannerAdvancedBimap = new wxBannerWindow(
-      m_wizardPageAdvanced, wxID_ANY, wxLEFT, wxDefaultPosition,
-      wxDLG_UNIT(m_wizardPageAdvanced, wxSize(-1, -1)), 0);
-  m_bannerAdvancedBimap->SetBitmap(wxNullBitmap);
-  m_bannerAdvancedBimap->SetText(wxT(""), wxT(""));
-
-  boxSizer489->Add(m_bannerAdvancedBimap, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
   wxBoxSizer *boxSizer384 = new wxBoxSizer(wxVERTICAL);
 
@@ -2039,8 +1913,6 @@ NewAgentWizardBase::NewAgentWizardBase(wxWindow *parent, wxWindowID id,
                           &NewAgentWizardBase::OnEnableRemoteUI, this);
   m_textCtrlUser->Bind(wxEVT_UPDATE_UI, &NewAgentWizardBase::OnEnableRemoteUI,
                        this);
-  m_buttonResumeArgs->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
-                           &NewAgentWizardBase::OnBrowseResumeArgs, this);
   m_button15517->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
                       &NewAgentWizardBase::OnBrowseBitmap, this);
   m_buttonNewEnv41->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
@@ -2064,8 +1936,6 @@ NewAgentWizardBase::~NewAgentWizardBase() {
                             &NewAgentWizardBase::OnEnableRemoteUI, this);
   m_textCtrlUser->Unbind(wxEVT_UPDATE_UI, &NewAgentWizardBase::OnEnableRemoteUI,
                          this);
-  m_buttonResumeArgs->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
-                             &NewAgentWizardBase::OnBrowseResumeArgs, this);
   m_button15517->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
                         &NewAgentWizardBase::OnBrowseBitmap, this);
   m_buttonNewEnv41->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,

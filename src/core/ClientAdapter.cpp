@@ -49,10 +49,6 @@ wxString QuoteForShell(const wxString &text) {
   return quoted;
 }
 
-bool IsKiro(const AgentDef &agent) {
-  const wxString name = wxFileName(agent.executable).GetName();
-  return name == "kiro-cli" || name == "kiro-cli-chat";
-}
 // Whether `chat` is one of the words in `args` (an entry can hold several).
 bool HasChat(const std::vector<wxString> &args) {
   for (const wxString &arg : args) {
@@ -67,6 +63,65 @@ bool HasChat(const std::vector<wxString> &args) {
 
 } // namespace
 
+ClientKind ClientKindOf(const wxString &executable) {
+  const wxString name = wxFileName(executable).GetName().Lower();
+  if (name == "claude") {
+    return ClientKind::Claude;
+  }
+  if (name == "codex") {
+    return ClientKind::Codex;
+  }
+  if (name == "kiro-cli" || name == "kiro-cli-chat") {
+    return ClientKind::Kiro;
+  }
+  return ClientKind::Unknown;
+}
+
+void ApplyClientDefaults(AgentDef &agent) {
+  switch (ClientKindOf(agent.executable)) {
+  case ClientKind::Claude:
+    agent.resumeArg = "--continue";
+    agent.nonInteractiveArg = "-p";
+    break;
+  case ClientKind::Codex:
+    agent.resumeArg = "resume --last";
+    agent.nonInteractiveArg = "exec";
+    break;
+  case ClientKind::Kiro:
+    agent.resumeArg = "chat --resume";
+    agent.nonInteractiveArg = "chat --no-interactive";
+    break;
+  case ClientKind::Unknown:
+    agent.resumeArg.clear();
+    agent.nonInteractiveArg.clear();
+    break;
+  }
+}
+
+wxString DefaultIconFor(const AgentDef &agent) {
+  wxString base;
+  switch (ClientKindOf(agent.executable)) {
+  case ClientKind::Claude:
+    base = "claude-code";
+    break;
+  case ClientKind::Codex:
+    base = "codex";
+    break;
+  case ClientKind::Kiro:
+    base = "kiro";
+    break;
+  case ClientKind::Unknown:
+    return "agent.svg";
+  }
+  if (agent.IsRemote()) {
+    return base + "-remote.svg";
+  }
+  if (agent.IsWSL()) {
+    return base + "-wsl.svg";
+  }
+  return base + ".svg";
+}
+
 std::vector<wxString> BuildCommandLine(const AgentDef &agent,
                                        const wxString &workingDir, bool resume,
                                        const wxString &initialPrompt) {
@@ -74,7 +129,8 @@ std::vector<wxString> BuildCommandLine(const AgentDef &agent,
     std::vector<wxString> args = agent.baseArgs;
     // kiro-cli takes a first message only as an argument of "chat", and a flag
     // like --resume belongs after it.
-    if (!initialPrompt.empty() && IsKiro(agent)) {
+    if (!initialPrompt.empty() &&
+        ClientKindOf(agent.executable) == ClientKind::Kiro) {
       std::vector<wxString> all = args;
       all.insert(all.end(), agent.extraArgs.begin(), agent.extraArgs.end());
       if (withResume) {

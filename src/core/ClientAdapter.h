@@ -6,6 +6,26 @@
 
 #include <vector>
 
+// The CLI tools Kennel supports. Anything else needs code changes here: the
+// resume and one-shot arguments are fixed per tool, not set by the user.
+enum class ClientKind { Unknown, Claude, Codex, Kiro };
+
+// The tool behind `executable`: the file name decides (a path, a ".exe" or a
+// ".cmd" is fine).
+ClientKind ClientKindOf(const wxString &executable);
+inline bool IsSupportedClient(const wxString &executable) {
+  return ClientKindOf(executable) != ClientKind::Unknown;
+}
+
+// Sets agent.resumeArg and agent.nonInteractiveArg from the tool. Both are
+// empty for an unsupported tool.
+void ApplyClientDefaults(AgentDef &agent);
+
+// The shipped icon (a file name in the assets folder) for an agent that has
+// none: by tool, and by where it runs (remote, WSL or local). Needs the
+// executable, remoteHost and loginShell of `agent`.
+wxString DefaultIconFor(const AgentDef &agent);
+
 // Builds the list of commands to send to the terminal to launch a session.
 // When resume is true and agent.resumeArg is non-empty, the resume arg is
 // appended before agent.extraArgs. The command is then

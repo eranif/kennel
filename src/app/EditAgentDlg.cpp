@@ -4,6 +4,7 @@
 #include "app/AssetBootstrap.h"
 #include "app/EditHosts.hpp"
 #include "core/AppManager.h"
+#include "core/ClientAdapter.h"
 #include "core/Helpers.h"
 #include "core/KennelRemote.h"
 #include <wx/choicdlg.h>
@@ -51,8 +52,6 @@ EditAgentDlg::EditAgentDlg(wxWindow *parent, const AgentDef *agent)
     m_textCtrlName->SetValue(agent->name);
     m_comboBoxExecutable->SetValue(agent->executable);
     m_textCtrlLaunchArgs->SetValue(JoinStrings(agent->baseArgs, " "));
-    m_textCtrlResumeArgs->SetValue(agent->resumeArg);
-    m_textCtrlNonInteractiveSwitch->SetValue(agent->nonInteractiveArg);
     m_textCtrlHost->SetValue(agent->remoteHost);
     m_textCtrlUser->SetValue(agent->remoteUser);
     m_textCtrlBitmap->SetValue(ResolveIconPath(agent->iconPath));
@@ -114,7 +113,7 @@ void EditAgentDlg::OnOk(wxCommandEvent &event) { event.Skip(); }
 
 void EditAgentDlg::OnOkUI(wxUpdateUIEvent &event) {
   event.Enable(!m_textCtrlName->GetValue().empty() &&
-               !m_comboBoxExecutable->GetValue().empty());
+               ::IsSupportedClient(m_comboBoxExecutable->GetValue()));
 }
 
 AgentDef EditAgentDlg::GetData() const {
@@ -122,8 +121,6 @@ AgentDef EditAgentDlg::GetData() const {
   AgentDef d;
   d.name = m_textCtrlName->GetValue();
   d.executable = m_comboBoxExecutable->GetValue();
-  d.resumeArg = m_textCtrlResumeArgs->GetValue();
-  d.nonInteractiveArg = m_textCtrlNonInteractiveSwitch->GetValue();
   d.remoteHost = m_textCtrlHost->GetValue();
   d.remoteUser = m_textCtrlUser->GetValue();
   d.iconPath = m_textCtrlBitmap->GetValue();
@@ -135,6 +132,8 @@ AgentDef EditAgentDlg::GetData() const {
     arg.Trim().Trim(false);
     d.baseArgs.push_back(arg);
   }
+
+  ::ApplyClientDefaults(d);
 
   for (auto i = 0; i < m_dvListCtrlEnv->GetItemCount(); ++i) {
     d.env.insert({m_dvListCtrlEnv->GetTextValue(i, 0),
@@ -173,39 +172,4 @@ void EditAgentDlg::OnRemoteHost(wxCommandEvent &event) {
   }
   m_textCtrlHost->ChangeValue(dlg.GetSelection().address);
   m_textCtrlHost->SetFocus();
-}
-
-void EditAgentDlg::OnSuggestResumeArgs(wxCommandEvent &event) {
-  wxUnusedVar(event);
-  wxArrayString choices{
-      "kiro-cli: chat --resume",
-      "claude-code: --continue",
-      "codex: resume --last",
-  };
-  wxString choice =
-      ::wxGetSingleChoice(_("Suggestions:"), "Kennel", choices, 0, this);
-  if (choice.empty())
-    return;
-
-  wxString value = choice.AfterFirst(':');
-  value.Trim().Trim(false);
-  m_textCtrlResumeArgs->ChangeValue(value);
-  m_textCtrlResumeArgs->SetFocus();
-}
-void EditAgentDlg::OnSuggestNonInteractiveOptions(wxCommandEvent &event) {
-  wxUnusedVar(event);
-  wxArrayString choices{
-      "claude: -p",
-      "codex: exec",
-      "kiro-cli: chat --no-interactive",
-  };
-  wxString choice =
-      ::wxGetSingleChoice(_("Suggestions:"), "Kennel", choices, 0, this);
-  if (choice.empty())
-    return;
-
-  wxString value = choice.AfterFirst(':');
-  value.Trim().Trim(false);
-  m_textCtrlNonInteractiveSwitch->ChangeValue(value);
-  m_textCtrlNonInteractiveSwitch->SetFocus();
 }
