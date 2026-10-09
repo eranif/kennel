@@ -119,6 +119,7 @@ private:
   std::chrono::steady_clock::time_point m_lastProgress;
   int m_remoteErrors{0};
   bool m_ioBusy{false};
+  bool m_stopped{false};       // Stop() was called (also before Begin())
   bool m_folderRemoved{false}; // The review files are gone (not just tried)
 
   // For the worker threads of the remote checks, see AsyncGuard.hpp.

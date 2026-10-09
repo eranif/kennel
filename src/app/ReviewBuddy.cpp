@@ -95,7 +95,7 @@ bool ReviewBuddy::HasStalled() const {
 
 bool ReviewBuddy::IsInProgress() const {
   if (!m_loop) {
-    return true; // Starting
+    return !m_stopped; // Starting
   }
   switch (m_loop->GetState()) {
   case ReviewLoop::State::Idle:
@@ -125,7 +125,7 @@ void ReviewBuddy::NotifyChanged() {
 
 wxString ReviewBuddy::StatusText() const {
   if (!m_loop) {
-    return _("Starting review");
+    return m_stopped ? _("Review stopped") : _("Starting review");
   }
   const wxString rounds =
       wxString::Format(_("round %d/%d"), m_loop->Round(), m_loop->MaxRounds());
@@ -155,7 +155,7 @@ wxString ReviewBuddy::CommentsPath() const {
 }
 
 void ReviewBuddy::Begin() {
-  if (m_loop) {
+  if (m_loop || m_stopped) {
     return;
   }
   m_loop = std::make_unique<ReviewLoop>(ReviewLoop::NewId());
@@ -179,6 +179,7 @@ void ReviewBuddy::Resend() {
 }
 
 void ReviewBuddy::Stop() {
+  m_stopped = true;
   if (m_loop) {
     m_loop->Stop();
   }

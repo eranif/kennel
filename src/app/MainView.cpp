@@ -1040,6 +1040,10 @@ void MainView::DeleteGroupByName(const wxString &name) {
     }
   }
 
+  // The status bar is cleared only when the page that is showing goes away.
+  const bool activeDeleted =
+      std::find(sessions.begin(), sessions.end(),
+                m_sessionsBook->GetCurrentPage()) != sessions.end();
   for (auto *page : sessions) {
     int where = m_sessionsBook->FindPage(page);
     if (where != wxNOT_FOUND) {
@@ -1048,7 +1052,9 @@ void MainView::DeleteGroupByName(const wxString &name) {
   }
   m_treeView->RemoveGroup(name); // deletes the group with its container
   RefreshFlatView();
-  GetMainFrame()->ClearSessionStatus(); // The active page may have been in it
+  if (activeDeleted) {
+    GetMainFrame()->ClearSessionStatus();
+  }
 
   SyncWorkspaceToDisk();
 

@@ -90,7 +90,8 @@ After 20 minutes without an answer, Kennel notifies you the same way but keeps w
 
 The status bar of the window follows the session you are looking at: the terminal's title in
 its own field (the window title no longer follows it; the main text area at the left is left
-for messages and the help of menu items), the host the agent runs on (Local, a
+for messages and the help of menu items; it shows the name and the version of Kennel
+when idle), the host the agent runs on (Local, a
 WSL distro or `user@host`), and the session name with the agent's icon. Right of the title,
 a review field shows the state of the review buddy ("Waiting for review",
 "Addressing comments", ...) and an activity indicator spins while it works. The terminal

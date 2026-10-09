@@ -87,7 +87,11 @@ private:
   void ShowNotice(const wxString &text);
   void ClearNotice();
   void OnReviewChanged(wxCommandEvent &) { UpdateStatus(); }
-  void OnNoticeTimer(wxTimerEvent &) { UpdateStatus(); }
+  void OnNoticeTimer(wxTimerEvent &) {
+    // Does not depend on the port stopping a one-shot timer before this runs.
+    m_noticeTimer.Stop();
+    UpdateStatus();
+  }
   void OnTerminated(wxTerminalEvent &evt);
   void OnTitleChanged(wxTerminalEvent &evt);
   void OnTerminalLink(wxTerminalEvent &evt);

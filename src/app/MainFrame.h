@@ -32,14 +32,10 @@ public:
   // shown there (the help of a menu item uses it too). ClearActivityText()
   // brings back the text it had at the start.
   void SetActivityText(const wxString &text) {
-    m_activityText = text;
     SetStatusText(text, kFieldText);
   }
 
-  void ClearActivityText() {
-    m_activityText.clear();
-    SetStatusText(m_baseText, kFieldText);
-  }
+  void ClearActivityText() { SetStatusText(m_baseText, kFieldText); }
 
   void StartActivityIndicator() {
     m_activityBusy = true;
@@ -149,7 +145,6 @@ private:
   wxActivityIndicator *m_statusIndicator{nullptr};
   wxStaticBitmap *m_sessionIcon{nullptr};
   wxString m_baseText; // The main text of the status bar without an activity
-  wxString m_activityText; // A message that is showing, empty if none
   bool m_activityBusy{false};
   bool m_sessionBusy{false};
   std::unique_ptr<UpdateChecker> m_updateChecker;
