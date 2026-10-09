@@ -143,7 +143,8 @@ void FilePage::OnKeyDown(wxKeyEvent &event) {
 void FilePage::OnSavePointChanged(wxStyledTextEvent &event) {
   event.Skip();
   wxFrame *frame = static_cast<wxFrame *>(wxTheApp->GetTopWindow());
-  frame->SetLabel(
-      (m_editor->GetCtrl()->IsModified() ? wxString{"*"} : wxString{}) +
-      m_path);
+  frame->SetLabel((m_editor->GetCtrl()->IsModified()
+                       ? wxString::FromUTF8("💾 ") // U+1F4BE floppy disk
+                       : wxString{}) +
+                  m_path);
 }
