@@ -113,7 +113,7 @@ MainFrame::MainFrame()
 void MainFrame::CreateStatusFields() {
   CreateStatusBar(kFieldCount);
   // The main text and the title share what is left, the title gets more.
-  const int widths[kFieldCount] = {-1,          -2,           FromDIP(240),
+  const int widths[kFieldCount] = {-1,          -2,           FromDIP(300),
                                    FromDIP(30), FromDIP(160), FromDIP(26),
                                    FromDIP(220)};
   SetStatusWidths(kFieldCount, widths);
