@@ -97,7 +97,7 @@ wxString ReviewBuddy::Describe() const {
 }
 
 wxString ReviewBuddy::CommentsPath() const {
-  return m_loop ? m_loop->CommentsPath() : wxString{};
+  return m_loop && !m_folderRemoved ? m_loop->CommentsPath() : wxString{};
 }
 
 void ReviewBuddy::Begin() {
@@ -238,6 +238,17 @@ void ReviewBuddy::Execute(Actions actions, size_t from) {
     case ReviewLoop::Action::Kind::PasteToMain:
       PasteLine(m_main, action.text);
       break;
+    case ReviewLoop::Action::Kind::RemoveFolder:
+      if (!ReviewLoop::IsReviewFolder(action.path)) {
+        KLOG_ERROR() << "Review buddy: not removing '" << action.path << "'";
+        break;
+      }
+      if (m_remote) {
+        RemoveRemote(action.path, std::move(actions), i + 1);
+        return;
+      }
+      m_folderRemoved = RemoveLocal(action.path);
+      break;
     case ReviewLoop::Action::Kind::Notify:
       KLOG_INFO() << "Review buddy: " << action.text;
       NotifyUser(_("Review needs your attention"), action.text, true);
@@ -279,6 +290,57 @@ void ReviewBuddy::WriteRemote(const wxString &relPath, const wxString &text,
                        Execute(std::move(rest), next);
                      });
   }).detach();
+}
+
+void ReviewBuddy::RemoveRemote(const wxString &relPath, Actions rest,
+                               size_t next) {
+  m_ioBusy = true;
+  const wxString host = m_target.remoteHost;
+  const wxString user = m_target.remoteUser;
+  const wxString path = RemotePath(relPath);
+  const std::vector<wxString> parents = {RemotePath(".agents/reviews"),
+                                         RemotePath(".agents")};
+
+  std::thread([this, alive = m_alive, host, user, path, parents,
+               rest = std::move(rest), next]() mutable {
+    Status st = SftpClient::RemoveTree(host, user, path, parents);
+    CallAfterIfAlive(alive,
+                     [this, st, path, rest = std::move(rest), next]() mutable {
+                       m_ioBusy = false;
+                       if (st.ok()) {
+                         m_folderRemoved = true;
+                       } else {
+                         KLOG_WARN() << "Review buddy: could not remove "
+                                     << path << ": " << st.message();
+                       }
+                       Execute(std::move(rest), next);
+                     });
+  }).detach();
+}
+
+bool ReviewBuddy::RemoveLocal(const wxString &relPath) {
+  const wxString folder = LocalPath(relPath);
+  // A symbolic link in its place is not ours: leave it.
+  if (wxFileName::Exists(folder,
+                         wxFILE_EXISTS_SYMLINK | wxFILE_EXISTS_NO_FOLLOW)) {
+    KLOG_WARN() << "Review buddy: '" << folder << "' is a symbolic link";
+    return false;
+  }
+  if (wxDir::Exists(folder) &&
+      !wxFileName::Rmdir(folder, wxPATH_RMDIR_RECURSIVE)) {
+    KLOG_WARN() << "Review buddy: could not remove '" << folder << "'";
+    return false;
+  }
+  // Leave no trace: the folders around it, if nothing else is in them.
+  for (const wxString &parent :
+       {LocalPath(".agents/reviews"), LocalPath(".agents")}) {
+    wxDir dir(parent);
+    if (dir.IsOpened() && !dir.HasFiles() && !dir.HasSubDirs()) {
+      dir.Close();
+      wxFileName::Rmdir(parent);
+    }
+  }
+  return true;
 }
 
 void ReviewBuddy::PasteLine(wxTerminalViewCtrl *terminal,

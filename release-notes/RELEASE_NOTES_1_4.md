@@ -73,6 +73,11 @@ with the details. The reviewer may only
 write under `.agents/reviews/`. On a local repository, Kennel adds that folder to
 `.git/info/exclude`.
 
+When the reviewer finds nothing (`STATUS: CLEAN`), Kennel deletes the review folder
+`.agents/reviews/<id>/` (over SSH too), and the `.agents/reviews` and `.agents` folders
+above it if they are empty then. In every other case the folder stays, because it holds
+what is still open: when the round limit is reached, when the loop stalls or you stop it.
+
 When the loop ends (the review is clean, the round limit is reached, or something fails),
 Kennel tells you in four ways: a message bar at the top of the session that stays until you
 close it; the result in the status bar; a system notification when you are not looking at

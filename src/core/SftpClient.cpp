@@ -130,6 +130,56 @@ bool IsRegularFile(sftp_session sftp, const wxString &path, uint64_t *size) {
   return true;
 }
 
+// Removes the folder `path` and what is in it. A symbolic link inside is
+// removed, not followed.
+Status RemoveRecursive(sftp_session sftp, ssh_session session,
+                       const std::string &path, int depth) {
+  constexpr int kMaxDepth = 16;
+  if (depth > kMaxDepth) {
+    return Status::Error("The folder is nested too deeply");
+  }
+  sftp_dir dir = sftp_opendir(sftp, path.c_str());
+  if (dir == nullptr) {
+    return SshError(
+        wxString::Format("Could not open %s", wxString::FromUTF8(path)),
+        session);
+  }
+  struct Entry {
+    std::string name;
+    bool isDir;
+  };
+  std::vector<Entry> entries;
+  while (sftp_attributes attrs = sftp_readdir(sftp, dir)) {
+    const std::string name = attrs->name != nullptr ? attrs->name : "";
+    const bool isDir = attrs->type == SSH_FILEXFER_TYPE_DIRECTORY;
+    sftp_attributes_free(attrs);
+    if (!name.empty() && name != "." && name != "..") {
+      entries.push_back({name, isDir});
+    }
+  }
+  sftp_closedir(dir);
+
+  for (const Entry &entry : entries) {
+    const std::string child = path + "/" + entry.name;
+    if (entry.isDir) {
+      if (Status st = RemoveRecursive(sftp, session, child, depth + 1);
+          !st.ok()) {
+        return st;
+      }
+    } else if (sftp_unlink(sftp, child.c_str()) != SSH_OK) {
+      return SshError(
+          wxString::Format("Could not remove %s", wxString::FromUTF8(child)),
+          session);
+    }
+  }
+  if (sftp_rmdir(sftp, path.c_str()) != SSH_OK) {
+    return SshError(
+        wxString::Format("Could not remove %s", wxString::FromUTF8(path)),
+        session);
+  }
+  return Status::Ok();
+}
+
 } // namespace
 
 StatusOr<SftpClient::RemoteFile>
@@ -390,4 +440,51 @@ Status SftpClient::PutFile(const wxString &host, const wxString &user,
     offset += static_cast<size_t>(n);
   }
   return Status::Ok();
+}
+
+Status SftpClient::RemoveTree(const wxString &host, const wxString &user,
+                              const wxString &path,
+                              const std::vector<wxString> &emptyParents) {
+  wxString bare = path;
+  while (bare.length() > 1 && bare.EndsWith("/")) {
+    bare.RemoveLast();
+  }
+  if (bare.empty() || bare == "/" || bare == "~" || bare == "$HOME") {
+    return Status::Error("Refusing to remove " + path);
+  }
+  auto session = Connect(host, user);
+  if (!session.ok()) {
+    return session.status();
+  }
+
+  SftpSessionPtr sftp{sftp_new(session.value().get())};
+  if (!sftp || sftp_init(sftp.get()) != SSH_OK) {
+    return SshError("Could not start the SFTP subsystem",
+                    session.value().get());
+  }
+
+  wxString home;
+  if (char *real = sftp_canonicalize_path(sftp.get(), ".")) {
+    home = wxString::FromUTF8(real);
+    ssh_string_free_char(real);
+  }
+
+  Status result = Status::Ok();
+  const std::string target = ExpandHome(path, home).ToStdString(wxConvUTF8);
+  SftpAttrPtr attrs{sftp_lstat(sftp.get(), target.c_str())};
+  if (attrs && attrs->type == SSH_FILEXFER_TYPE_DIRECTORY) {
+    result = RemoveRecursive(sftp.get(), session.value().get(), target, 0);
+  } else if (attrs && sftp_unlink(sftp.get(), target.c_str()) != SSH_OK) {
+    // A symbolic link or a file: remove just that.
+    result = SshError(wxString::Format("Could not remove %s", path),
+                      session.value().get());
+  }
+
+  // Best effort: sftp_rmdir() fails on a folder that is not empty, which is
+  // what we want then.
+  for (const wxString &parent : emptyParents) {
+    sftp_rmdir(sftp.get(),
+               ExpandHome(parent, home).ToStdString(wxConvUTF8).c_str());
+  }
+  return result;
 }

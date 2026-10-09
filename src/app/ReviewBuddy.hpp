@@ -62,7 +62,7 @@ public:
   void Resend();
   void Stop();
   // The comments file of the current round, relative to the working dir; empty
-  // before the loop has started.
+  // before the loop has started, and after its files were removed.
   wxString CommentsPath() const;
   const Target &GetTarget() const { return m_target; }
 
@@ -88,6 +88,10 @@ private:
   void AddIgnoreRule() const;
 
   void CheckRemote(const wxString &marker, const wxString &fileToRead);
+  // Deletes the loop's folder (and the .agents folders above it if they are
+  // empty now). True if the folder is gone. Failing is only logged.
+  bool RemoveLocal(const wxString &relPath);
+  void RemoveRemote(const wxString &relPath, Actions rest, size_t next);
   void WriteRemote(const wxString &relPath, const wxString &text, Actions rest,
                    size_t next);
 
@@ -107,6 +111,7 @@ private:
   std::chrono::steady_clock::time_point m_lastProgress;
   int m_remoteErrors{0};
   bool m_ioBusy{false};
+  bool m_folderRemoved{false}; // The review files are gone (not just tried)
 
   // For the worker threads of the remote checks, see AsyncGuard.hpp.
   AliveFlag m_alive{MakeAliveFlag()};

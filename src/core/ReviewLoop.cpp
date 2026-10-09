@@ -113,9 +113,14 @@ ReviewLoop::OnMarkerFound(const wxString &content) {
                     "missing or empty"));
     }
     if (ParseVerdict(content) == Verdict::Clean) {
-      return Finish(
+      // Nothing is left to read: the folder is clutter now. (After the round
+      // limit it stays: it holds the findings that are still open.) The user
+      // is told first: removing it can be slow over SSH.
+      auto actions = Finish(
           State::Done,
           wxString::Format(_("Review is clean after %d round(s)"), m_round));
+      actions.push_back({Action::Kind::RemoveFolder, Folder(), wxEmptyString});
+      return actions;
     }
     // "Findings" and "Unknown" both go to the main agent: a review that forgot
     // its STATUS line still has something to say, and the round limit stops a
@@ -181,6 +186,27 @@ std::vector<ReviewLoop::Action> ReviewLoop::Resend() {
 void ReviewLoop::Stop() {
   m_state = State::Stopped;
   m_message.clear();
+}
+
+bool ReviewLoop::IsReviewFolder(const wxString &path) {
+  const wxString prefix = wxString(kReviewsDir) + "/";
+  if (!path.StartsWith(prefix)) {
+    return false;
+  }
+  // The id is a UUID: 36 characters, lower case hex digits and 4 dashes.
+  const wxString id = path.Mid(prefix.length());
+  if (id.length() != 36) {
+    return false;
+  }
+  for (size_t i = 0; i < id.length(); ++i) {
+    const wxUniChar c = id[i];
+    const bool dash = i == 8 || i == 13 || i == 18 || i == 23;
+    const bool hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+    if (dash ? c != '-' : !hex) {
+      return false;
+    }
+  }
+  return true;
 }
 
 ReviewLoop::Verdict ReviewLoop::ParseVerdict(const wxString &comments) {

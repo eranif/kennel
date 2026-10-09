@@ -45,6 +45,18 @@ public:
   static StatusOr<bool> Exists(const wxString &host, const wxString &user,
                                const wxString &path);
 
+  // Deletes `path` and everything in it (a symbolic link is removed, never
+  // followed). A path that does not exist is fine. Afterwards each of
+  // `emptyParents` is removed if it is empty, and left alone if not. `~/` and
+  // `$HOME/` expand to the remote home. Blocking, like ReadFile.
+  //
+  // This is as dangerous as it sounds: the caller must make sure that `path` is
+  // a folder it created (ReviewLoop::IsReviewFolder() does that). The checks
+  // here only stop the most obvious mistakes: an empty path, `/`, `~`.
+  static Status RemoveTree(const wxString &host, const wxString &user,
+                           const wxString &path,
+                           const std::vector<wxString> &emptyParents = {});
+
   // Creates the file at `path`, or replaces it, with `content`; missing parent
   // folders are created. `~/` and `$HOME/` expand to the remote home. Unlike
   // WriteFile this is not atomic, it is meant for small new files. Blocking.

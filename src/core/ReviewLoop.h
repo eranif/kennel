@@ -26,7 +26,9 @@ public:
     Idle,      // Not started
     Reviewing, // Waiting for the reviewer to finish round N
     Fixing,    // Waiting for the main agent to address round N
-    Done,      // The reviewer found nothing, or the round limit was reached
+    Done,      // The reviewer found nothing (the folder is removed), or the
+               // round limit was reached (the folder stays: it holds the
+               // findings that are still open)
     Stalled,   // Something failed, see Message(); Resend() tries again
     Stopped,   // The user stopped it
   };
@@ -38,6 +40,9 @@ public:
       WriteFile,       // Write `text` to `path`, creating folders as needed
       PasteToReviewer, // Type the line `text` into the reviewer's terminal
       PasteToMain,     // Type the line `text` into the main agent's terminal
+      RemoveFolder,    // Delete the loop's folder `path`, with its content.
+                       // Comes after Finished, so the user is told first. A
+                       // failure is not an error: it is only some clutter.
       Notify,          // Still waiting after a long time: tell the user
       Finished,        // The loop ended (Done or Stalled): tell the user
     };
@@ -88,6 +93,11 @@ public:
   wxString Folder() const;
   // Where the reviewer writes the comments of the current round.
   wxString CommentsPath() const;
+
+  // Whether `path` is the folder of a loop: ".agents/reviews/<id>", with an id
+  // as NewId() makes it and nothing else. The owner checks this before it
+  // deletes anything.
+  static bool IsReviewFolder(const wxString &path);
 
   static Verdict ParseVerdict(const wxString &comments);
   // `n` is the number in the file names, `round` the round shown to the user.
