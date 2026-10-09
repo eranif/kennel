@@ -20,6 +20,15 @@ class FilePage;
 inline const wxString kTerminalsGroupName = _("Terminals");
 inline const wxString kFilesGroupName = _("Files");
 
+// The containers "Terminals" and "Files" are not groups: no session or group
+// may use their names.
+inline bool IsReservedGroupName(const wxString &name) {
+  wxString trimmed = name;
+  trimmed.Trim().Trim(false);
+  return trimmed.IsSameAs(kTerminalsGroupName, false) ||
+         trimmed.IsSameAs(kFilesGroupName, false);
+}
+
 // Icon aliases for freshly created groups; one is picked at random and
 // persisted so the group keeps its color across restarts.
 inline constexpr const char *kGroupIconAliases[] = {

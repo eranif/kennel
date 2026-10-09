@@ -33,6 +33,7 @@ protected:
   wxString MakeGroupName() const;
 
 private:
+  wxString m_lastGroupText; // The last group text that was allowed
   void PopulateClients();
   wxString SelectedAgentId() const;
 };

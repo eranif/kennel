@@ -2,6 +2,7 @@
 
 #include "app/FileBrowserDlg.hpp"
 #include "app/MainFrame.h"
+#include "app/TreeView.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/UiPrefs.h"
@@ -33,6 +34,18 @@ StartAgentDialog::StartAgentDialog(wxWindow *parent)
   existMessage << wxT("⚠") << _(" Session name already exists");
   m_staticTextErrorMessage->SetLabel(existMessage);
   PopulateClients();
+  // Typing the name of the Terminals or Files container is not possible: the
+  // text goes back to what it was.
+  m_comboBoxGroup->Bind(wxEVT_TEXT, [this](wxCommandEvent &event) {
+    const wxString text = m_comboBoxGroup->GetValue();
+    if (IsReservedGroupName(text)) {
+      m_comboBoxGroup->ChangeValue(m_lastGroupText);
+      m_comboBoxGroup->SetInsertionPointEnd();
+      return;
+    }
+    m_lastGroupText = text;
+    event.Skip();
+  });
   GetSizer()->Fit(this);
   Layout();
   CenterOnParent();

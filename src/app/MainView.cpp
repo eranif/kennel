@@ -1060,6 +1060,12 @@ void MainView::RenameGroup(SessionGroup *group) {
     return;
   }
 
+  if (IsReservedGroupName(newName)) {
+    wxMessageBox(wxString::Format(_("'%s' is a reserved name"), newName),
+                 "Kennel", wxOK | wxICON_ERROR, this);
+    return;
+  }
+
   if (m_treeView->GetGroup(newName) != nullptr) {
     wxMessageBox(
         wxString::Format(_("A group named '%s' already exists"), newName),
