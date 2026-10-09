@@ -190,8 +190,9 @@ void SessionPage::CreateTerminal() {
 
   KLOG_INFO() << "Running shell: " << shellCommand;
   if (m_splitter == nullptr) {
-    m_splitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition,
-                                      wxDefaultSize, wxSP_LIVE_UPDATE);
+    m_splitter =
+        new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                             wxSP_LIVE_UPDATE | wxSP_3DSASH);
     m_splitter->SetSashGravity(0.5);
     m_splitter->SetMinimumPaneSize(150);
     GetSizer()->Add(m_splitter, wxSizerFlags(1).Expand());
