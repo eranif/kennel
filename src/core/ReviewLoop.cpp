@@ -296,7 +296,7 @@ wxString ReviewLoop::BuildFixRequest(const wxString &folder, int n, int round) {
        << NumberedPath(folder, "response", n, "md") << "`.\n"
        << "- Do not edit anything under `.agents/reviews/` except that "
           "response file.\n"
-       << "- You MUST not commit anything until the user approves.\n"
+       << "- You MUST NOT commit anything until the user approves.\n"
        << "- When you are done, create the empty file `"
        << NumberedPath(folder, "comments-addressed", n, "marker") << "`.\n\n"
        << "Then stop and wait.\n";

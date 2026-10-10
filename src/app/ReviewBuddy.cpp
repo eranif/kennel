@@ -10,6 +10,7 @@
 #include <wx/dir.h>
 #include <wx/ffile.h>
 #include <wx/filename.h>
+#include <wx/msgdlg.h>
 #include <wx/notifmsg.h>
 #include <wx/toplevel.h>
 #include <wx/utils.h>
@@ -25,43 +26,6 @@ constexpr int kEnterDelayMs = 400;
 constexpr auto kStallTimeout = std::chrono::minutes(20);
 constexpr int kMaxRemoteErrors = 5;
 
-#ifdef __WXOSX__
-// `text` as an AppleScript string literal (in double quotes).
-wxString AppleScriptString(const wxString &text) {
-  wxString quoted = "\"";
-  for (const wxUniChar c : text) {
-    if (c == '"' || c == '\\') {
-      quoted << '\\';
-      quoted << c;
-    } else if (c == '\n' || c == '\r') {
-      quoted << ' ';
-    } else {
-      quoted << c;
-    }
-  }
-  quoted << '"';
-  return quoted;
-}
-
-// wxNotificationMessage uses NSUserNotification here, which macOS has
-// deprecated for years, and the notification never showed up. This one goes
-// through osascript. The arguments are passed as a list, not through a shell.
-//
-// Its limits: macOS shows it as coming from "Script Editor", it does not show
-// if the user turned notifications off for that app, and a click on it does not
-// bring Kennel to the front. The message in the session and the status bar
-// still tell the user. A native UNUserNotificationCenter call would fix this,
-// but it needs Objective-C++ and a signed app.
-void ShowMacNotification(const wxString &title, const wxString &text) {
-  const std::string script =
-      ("display notification " + AppleScriptString(text) + " with title " +
-       AppleScriptString(title))
-          .utf8_string();
-  const char *argv[] = {"osascript", "-e", script.c_str(), nullptr};
-  wxExecute(argv, wxEXEC_ASYNC | wxEXEC_NODISABLE);
-}
-#endif
-
 wxString JoinPath(const wxString &dir, const wxString &name) {
   return dir.EndsWith("/") || dir.EndsWith("\\") ? dir + name
                                                  : dir + "/" + name;
@@ -71,12 +35,11 @@ wxString JoinPath(const wxString &dir, const wxString &name) {
 wxDEFINE_EVENT(wxEVT_REVIEW_CHANGED, wxCommandEvent);
 
 ReviewBuddy::ReviewBuddy(const Target &target, wxTerminalViewCtrl *main,
-                         LaunchFn launchReviewer, std::function<bool()> isShown,
-                         FocusFn focusTerminal)
+                         LaunchFn launchReviewer, FocusFn focusTerminal)
     : m_target(target), m_remote(!target.remoteHost.empty()), m_main(main),
       m_launchReviewer(std::move(launchReviewer)),
-      m_isShown(std::move(isShown)), m_focusTerminal(std::move(focusTerminal)),
-      m_pollTimer(this), m_enterTimer(this) {
+      m_focusTerminal(std::move(focusTerminal)), m_pollTimer(this),
+      m_enterTimer(this) {
   Bind(wxEVT_TIMER, &ReviewBuddy::OnPoll, this, m_pollTimer.GetId());
   Bind(wxEVT_TIMER, &ReviewBuddy::OnEnterTimer, this, m_enterTimer.GetId());
 }
@@ -438,16 +401,20 @@ void ReviewBuddy::NotifyUser(const wxString &title, const wxString &message) {
                             ? message
                             : m_target.sessionName + ": " + message;
 
-  // Outside the session the user is looking at: a system notification.
-  const bool looking = wxTheApp->IsActive() && m_isShown && m_isShown();
-  if (!looking) {
+  // Always shown, even when the user is looking at this session: the end of a
+  // review is easy to miss in the status bar.
 #ifdef __WXOSX__
-    ShowMacNotification(title, text);
+  // The system notification does not show up reliably here: a dialog does. It
+  // runs after the current handler, which may be in the middle of the actions
+  // of the loop (a dialog runs its own event loop).
+  wxTheApp->CallAfter([title, text]() {
+    wxMessageBox(text, title, wxOK | wxICON_INFORMATION,
+                 wxTheApp->GetTopWindow());
+  });
 #else
-    wxNotificationMessage notification(title, text, wxTheApp->GetTopWindow());
-    notification.Show();
+  wxNotificationMessage notification(title, text, wxTheApp->GetTopWindow());
+  notification.Show();
 #endif
-  }
 
   // Kennel is in the background: the Dock icon bounces on macOS, the taskbar
   // button flashes on Windows.

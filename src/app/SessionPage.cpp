@@ -799,8 +799,6 @@ void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
       [this, reviewer](const wxString &prompt, const wxString &folder) {
         return StartReviewer(reviewer, prompt, folder);
       },
-      // Whether the user is looking at this session right now.
-      [this] { return IsActive() && IsShownOnScreen(); },
       [this](wxTerminalViewCtrl *terminal) { FocusTerminal(terminal); });
   m_review->SetEventTarget(this);
   m_review->Begin();

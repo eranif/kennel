@@ -43,11 +43,8 @@ public:
   // active one now, and it may need an answer (a permission prompt).
   using FocusFn = std::function<void(wxTerminalViewCtrl *terminal)>;
 
-  // `isShown` tells whether the user is looking at the main agent's session
-  // right now; it decides whether a system notification is worth showing.
   ReviewBuddy(const Target &target, wxTerminalViewCtrl *main,
-              LaunchFn launchReviewer, std::function<bool()> isShown,
-              FocusFn focusTerminal);
+              LaunchFn launchReviewer, FocusFn focusTerminal);
   ~ReviewBuddy() override;
 
   // Writes the first request and starts the reviewer with it.
@@ -112,7 +109,6 @@ private:
   wxTerminalViewCtrl *m_main;
   wxTerminalViewCtrl *m_reviewer{nullptr}; // Null until the reviewer started
   LaunchFn m_launchReviewer;
-  std::function<bool()> m_isShown;
   FocusFn m_focusTerminal;
   wxEvtHandler *m_eventTarget{nullptr};
 
