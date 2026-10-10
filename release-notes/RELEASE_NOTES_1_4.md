@@ -75,17 +75,27 @@ with the details. The reviewer may only
 write under `.agents/reviews/`. On a local repository, Kennel adds that folder to
 `.git/info/exclude`.
 
-When the reviewer finds nothing (`STATUS: CLEAN`), Kennel deletes the review folder
-`.agents/reviews/<id>/` (over SSH too), and the `.agents/reviews` and `.agents` folders
-above it if they are empty then. In every other case the folder stays, because it holds
-what is still open: when the round limit is reached, when the loop stalls or you stop it.
+The reviewer itself starts in that review folder, not in the project folder. Agents such as
+Claude and Kiro keep their history per folder, so `--continue` / `--resume` in the project
+folder picks up your own conversation and never the reviewer's. The reviewer's request tells it
+where the project is and to run its `git` commands there. The request for your agent says that
+it must not commit anything until you approve.
+
+When the reviewer finds nothing (`STATUS: CLEAN`), the review folder `.agents/reviews/<id>/`
+is deleted when the reviewer's pane closes (over SSH too), and so are the `.agents/reviews`
+and `.agents` folders above it if they are empty then. The folder is kept while the pane is
+open, because the reviewer runs in it. On Windows a folder that a running program uses cannot
+be deleted, so it may stay if the reviewer is not finished yet. In every other case the folder
+stays, because it holds what is still open: when the round limit is reached, when the loop
+stalls or you stop it.
 
 When the loop ends (the review is clean, the round limit is reached, or something fails),
 Kennel tells you in three ways: the result in the review field of the status bar of the
-window (it stays for a minute, then the field is empty); a system notification when you are
-not looking at that session; and, when Kennel is in the background, a bouncing Dock icon
-(macOS) or a flashing taskbar button (Windows). The status bar only shows the session you
-are looking at, so the system notification is what reaches you when you are not looking.
+window (it stays for a minute, then the field is empty); a dialog on every platform, also when
+you are looking at that session, with the buttons **Ok** and **Ok, Close Review Buddy**; and,
+when Kennel is in the background, a bouncing Dock icon (macOS) or a flashing taskbar button
+(Windows). Kennel remembers your last answer and makes it the default button next time. If a
+dialog is open already, a second one is not shown on top of it.
 The context menu shows the state and offers **Send the Request Again**, **Stop the Review**,
 **Open the Latest Review** and **Close Review Buddy**.
 After 20 minutes without an answer, Kennel notifies you the same way but keeps waiting.
@@ -95,8 +105,8 @@ its own field (the window title no longer follows it; the main text area at the 
 for messages and the help of menu items; it shows the name and the version of Kennel
 when idle), the host the agent runs on (Local, a
 WSL distro or `user@host`), and the session name with the agent's icon. Right of the title,
-a review field shows the state of the review buddy ("Waiting for review",
-"Addressing comments", ...) and an activity indicator spins while it works. The terminal
+an activity indicator spins while the review buddy works, and next to it a review field shows
+its state ("Waiting for review", "Addressing comments", ...). The terminal
 title is not followed while a review buddy is open. When the review ends, the review field
 shows how it ended for a minute, and then it is empty and the title is followed again.
 
@@ -162,6 +172,12 @@ The Manage Jobs dialog now uses a multi-column list showing each job's name, typ
   `dailyMinute` values are clamped and logged instead of producing an unusable schedule.
 - **macOS crash when closing a session** — the fallback-session selection is now deferred so
   the native outline view is never accessed after its tree item has been deleted.
+- **Agents with a multi-word resume argument** — the resume argument of an agent is split into
+  words, so a value with spaces is passed as separate arguments. For Kiro, a `chat` word that
+  the resume argument repeats is not added a second time.
+- **Safer Review Buddy shutdown** — closing a session page with a review buddy open removes the
+  reviewer's pane first and then the review folder, so the folder is not deleted while the
+  reviewer still uses it.
 - **Stale last-active session** — a group now remembers its last active session by name
   rather than by pointer, avoiding dangling references when a session is closed or renamed.
 
