@@ -62,14 +62,14 @@ private:
 
   void OnActivate(wxActivateEvent &event);
 
-  // The status bar: the main text, the terminal title, the state of the review
-  // buddy, the activity indicator, where the agent runs, and the icon and the
+  // The status bar: the main text, the terminal title, the activity indicator,
+  // the state of the review buddy, where the agent runs, and the icon and the
   // name of the session.
   enum StatusField {
     kFieldText,  // Activity messages and the help of menu items
     kFieldTitle, // The title of the terminal
-    kFieldReview,
     kFieldIndicator,
+    kFieldReview,
     kFieldHost,
     kFieldIcon,
     kFieldSession,
