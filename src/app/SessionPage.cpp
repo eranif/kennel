@@ -195,8 +195,19 @@ void SessionPage::ClearNotice() {
 SessionPage::~SessionPage() {
   m_alive->store(false);
   // The review folder is deleted with the ReviewBuddy: do it after the
-  // reviewer's pane is gone, not as a member being destroyed before it.
-  CloseReviewBuddy();
+  // reviewer's pane is asked to go, not as a member destroyed before it. No
+  // notice, focus or unsplit here: the page is being torn down.
+  DestroyReviewPane();
+  m_review.reset();
+}
+
+void SessionPage::DestroyReviewPane() {
+  if (m_reviewPane != nullptr) {
+    m_reviewPane->Destroy(); // and the terminal in it
+  }
+  m_reviewPane = nullptr;
+  m_reviewTerminal = nullptr;
+  m_reviewAcceleratorInterceptor.reset();
 }
 
 bool SessionPage::IsActive() const {
@@ -869,10 +880,7 @@ void SessionPage::CloseReviewBuddy() {
   if (m_splitter != nullptr) {
     m_splitter->Unsplit(m_reviewPane);
   }
-  m_reviewPane->Destroy(); // and the terminal in it
-  m_reviewPane = nullptr;
-  m_reviewTerminal = nullptr;
-  m_reviewAcceleratorInterceptor.reset();
+  DestroyReviewPane();
   if (m_terminal != nullptr) {
     m_terminal->SetFocus();
   }

@@ -72,7 +72,7 @@ public:
   void Stop();
   // The comments file of the current round, relative to the working dir; empty
   // before the loop has started. The file exists until the reviewer's pane is
-  // closed: the review folder is deleted then.
+  // closed: after a clean review, the review folder is deleted then.
   wxString CommentsPath() const;
   const Target &GetTarget() const { return m_target; }
 

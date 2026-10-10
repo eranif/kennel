@@ -122,6 +122,8 @@ private:
   wxTerminalViewCtrl *StartReviewer(const AgentDef &reviewer,
                                     const wxString &prompt,
                                     const wxString &folder);
+  // Destroys the reviewer's pane and terminal; no UI work around it.
+  void DestroyReviewPane();
   void CloseReviewBuddy();
   void OpenLatestReview();
   wxBookCtrlBase *GetBook() const {
