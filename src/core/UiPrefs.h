@@ -33,6 +33,9 @@ struct UiPrefs {
   bool blockCursor{true};
   bool terminalOptimizedDrawing{false}; // Enable optimized drawing?
   bool checkForUpdatesOnStartup{true};
+  // The last answer to the dialog at the end of a review: also close the
+  // Review Buddy?
+  bool closeReviewBuddyOnDismiss{false};
   size_t scrollbackLines{5000};
   wxString terminalLoginShell = ::FindShells().GetDefaultShellCmd();
   wxString terminalHomeDir = ::wxGetHomeDir();

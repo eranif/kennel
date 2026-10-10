@@ -16,6 +16,11 @@
 class wxTerminalViewCtrl;
 
 wxDECLARE_EVENT(wxEVT_REVIEW_CHANGED, wxCommandEvent);
+// Sent to the event target when the user asks, in the dialog at the end of a
+// review, to close the Review Buddy. The string of the event is the
+// LoopId() of that ReviewBuddy; the owner closes it later (CallAfter), not
+// inside the handler.
+wxDECLARE_EVENT(wxEVT_REVIEW_BUDDY_CLOSE, wxCommandEvent);
 
 // Runs a ReviewLoop for one SessionPage: the main agent's terminal plus the
 // reviewer's terminal next to it. It writes the request files and checks every
@@ -72,6 +77,9 @@ public:
   // closed: after a clean review, the review folder is deleted then.
   wxString CommentsPath() const;
   const Target &GetTarget() const { return m_target; }
+  // The id of the review loop; empty before Begin(). It is also the string of
+  // wxEVT_REVIEW_BUDDY_CLOSE, so that the owner knows which review asked.
+  wxString LoopId() const { return m_loop ? m_loop->Id() : wxString{}; }
 
 private:
   using Actions = std::vector<ReviewLoop::Action>;
@@ -119,7 +127,8 @@ private:
   std::chrono::steady_clock::time_point m_lastProgress;
   int m_remoteErrors{0};
   bool m_ioBusy{false};
-  bool m_stopped{false}; // Stop() was called (also before Begin())
+  bool m_dialogOpen{false}; // The dialog at the end of a review is shown
+  bool m_stopped{false};    // Stop() was called (also before Begin())
   // The folder to delete when this object goes away (the reviewer runs in it,
   // so it stays until its pane is closed). Empty: none.
   wxString m_removeOnClose;

@@ -98,6 +98,12 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
   InitStatus();
   Bind(wxEVT_TIMER, &SessionPage::OnNoticeTimer, this, m_noticeTimer.GetId());
   Bind(wxEVT_REVIEW_CHANGED, &SessionPage::OnReviewChanged, this);
+  Bind(wxEVT_REVIEW_BUDDY_CLOSE, [this](wxCommandEvent &event) {
+    // The buddy that asked may be closed already, and a new one started.
+    if (m_review && m_review->LoopId() == event.GetString()) {
+      CallAfter(&SessionPage::CloseReviewBuddy);
+    }
+  });
   CreateTerminal();
 }
 

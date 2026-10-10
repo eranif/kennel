@@ -1,6 +1,7 @@
 #include "app/ReviewBuddy.hpp"
 
 #include "MainFrame.h"
+#include "core/AppManager.h"
 #include "core/Logger.h"
 #include "core/SftpClient.h"
 
@@ -11,7 +12,6 @@
 #include <wx/ffile.h>
 #include <wx/filename.h>
 #include <wx/msgdlg.h>
-#include <wx/notifmsg.h>
 #include <wx/toplevel.h>
 #include <wx/utils.h>
 
@@ -33,6 +33,7 @@ wxString JoinPath(const wxString &dir, const wxString &name) {
 } // namespace
 
 wxDEFINE_EVENT(wxEVT_REVIEW_CHANGED, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_REVIEW_BUDDY_CLOSE, wxCommandEvent);
 
 ReviewBuddy::ReviewBuddy(const Target &target, wxTerminalViewCtrl *main,
                          LaunchFn launchReviewer, FocusFn focusTerminal)
@@ -402,19 +403,40 @@ void ReviewBuddy::NotifyUser(const wxString &title, const wxString &message) {
                             : m_target.sessionName + ": " + message;
 
   // Always shown, even when the user is looking at this session: the end of a
-  // review is easy to miss in the status bar.
-#ifdef __WXOSX__
-  // The system notification does not show up reliably here: a dialog does. It
-  // runs after the current handler, which may be in the middle of the actions
-  // of the loop (a dialog runs its own event loop).
-  wxTheApp->CallAfter([title, text]() {
-    wxMessageBox(text, title, wxOK | wxICON_INFORMATION,
-                 wxTheApp->GetTopWindow());
+  // review is easy to miss in the status bar. It runs after the current
+  // handler, which may be in the middle of the actions of the loop (a dialog
+  // runs its own event loop). Nothing is shown if this object is gone by then.
+  CallAfterIfAlive(m_alive, [this, alive = m_alive, title, text]() {
+    const wxString loopId = LoopId();
+    if (m_dialogOpen) {
+      // Not a second dialog on top of the first: the status bar has the state.
+      KLOG_INFO() << "Review buddy: dialog already open, skipping: " << text;
+      return;
+    }
+    const bool lastClosed =
+        AppManager::Get().GetPrefs().closeReviewBuddyOnDismiss;
+    wxMessageDialog dlg(wxTheApp->GetTopWindow(), text, title,
+                        wxYES_NO | (lastClosed ? wxYES_DEFAULT : wxNO_DEFAULT) |
+                            wxICON_INFORMATION);
+    dlg.SetYesNoLabels(_("Ok, Close Review Buddy"), _("Ok"));
+    m_dialogOpen = true;
+    const bool closeBuddy = dlg.ShowModal() == wxID_YES;
+    // This object may be gone while the dialog was open.
+    if (alive->load()) {
+      m_dialogOpen = false;
+    }
+    // Closing the dialog with Esc counts as "Ok".
+    AppManager::Get().GetPrefs().closeReviewBuddyOnDismiss = closeBuddy;
+    if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+      KLOG_WARN() << "Could not save the Review Buddy dialog answer: "
+                  << st.message();
+    }
+    if (closeBuddy && alive->load() && m_eventTarget != nullptr) {
+      wxCommandEvent event(wxEVT_REVIEW_BUDDY_CLOSE);
+      event.SetString(loopId);
+      m_eventTarget->AddPendingEvent(event);
+    }
   });
-#else
-  wxNotificationMessage notification(title, text, wxTheApp->GetTopWindow());
-  notification.Show();
-#endif
 
   // Kennel is in the background: the Dock icon bounces on macOS, the taskbar
   // button flashes on Windows.
