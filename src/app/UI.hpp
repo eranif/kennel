@@ -15,7 +15,12 @@
 #include <wx/artprov.h>
 #include <wx/sizer.h>
 #include <wx/splitter.h>
+#include <wx/pen.h>
+#include <wx/aui/auibar.h>
+#include <map>
+#include <wx/menu.h>
 #include <wx/simplebook.h>
+#include <wx/imaglist.h>
 #include <wx/dialog.h>
 #include <wx/iconbndl.h>
 #include <wx/statbox.h>
@@ -29,13 +34,8 @@
 #include <wx/toolbar.h>
 #include <wx/dataview.h>
 #include <wx/notebook.h>
-#include <wx/imaglist.h>
 #include <wx/statbmp.h>
 #include <wx/stc/stc.h>
-#include <wx/pen.h>
-#include <wx/aui/auibar.h>
-#include <map>
-#include <wx/menu.h>
 #include <wx/fontpicker.h>
 #include <wx/spinctrl.h>
 #include <wx/wizard.h>
@@ -79,17 +79,19 @@ protected:
   wxSplitterWindow *m_splitterMain;
   wxPanel *m_splitterPageLeft;
   wxBoxSizer *m_leftPaneMainSizer;
-  wxSplitterWindow *m_splitterLeftVertical;
-  wxPanel *m_splitterPageLeftTop;
-  wxPanel *m_splitterPageLeftBottom;
+  wxAuiToolBar *m_auibar;
+  wxSimplebook *m_notebookLeft;
+  wxPanel *m_panelFlatView;
+  wxPanel *m_panelTreeView;
   wxPanel *m_splitterPageRight;
   wxSimplebook *m_sessionsBook;
 
 protected:
 public:
-  wxPanel *GetSplitterPageLeftTop() { return m_splitterPageLeftTop; }
-  wxPanel *GetSplitterPageLeftBottom() { return m_splitterPageLeftBottom; }
-  wxSplitterWindow *GetSplitterLeftVertical() { return m_splitterLeftVertical; }
+  wxAuiToolBar *GetAuibar() { return m_auibar; }
+  wxPanel *GetPanelFlatView() { return m_panelFlatView; }
+  wxPanel *GetPanelTreeView() { return m_panelTreeView; }
+  wxSimplebook *GetNotebookLeft() { return m_notebookLeft; }
   wxPanel *GetSplitterPageLeft() { return m_splitterPageLeft; }
   wxSimplebook *GetSessionsBook() { return m_sessionsBook; }
   wxPanel *GetSplitterPageRight() { return m_splitterPageRight; }

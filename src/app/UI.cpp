@@ -86,31 +86,36 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
   m_leftPaneMainSizer = new wxBoxSizer(wxVERTICAL);
   m_splitterPageLeft->SetSizer(m_leftPaneMainSizer);
 
-  m_splitterLeftVertical =
-      new wxSplitterWindow(m_splitterPageLeft, wxID_ANY, wxDefaultPosition,
-                           wxDLG_UNIT(m_splitterPageLeft, wxSize(-1, -1)),
-                           wxSP_LIVE_UPDATE | wxSP_3D);
-  m_splitterLeftVertical->SetSashGravity(0.5);
-  m_splitterLeftVertical->SetMinimumPaneSize(10);
+  m_auibar = new wxAuiToolBar(m_splitterPageLeft, wxID_ANY, wxDefaultPosition,
+                              wxDLG_UNIT(m_splitterPageLeft, wxSize(-1, -1)),
+                              wxAUI_TB_DEFAULT_STYLE);
+  m_auibar->SetToolBitmapSize(wxSize(16, 16));
 
-  m_leftPaneMainSizer->Add(m_splitterLeftVertical, 1, wxEXPAND,
-                           WXC_FROM_DIP(5));
+  m_leftPaneMainSizer->Add(m_auibar, 0, wxEXPAND, WXC_FROM_DIP(5));
 
-  m_splitterPageLeftTop = new wxPanel(
-      m_splitterLeftVertical, wxID_ANY, wxDefaultPosition,
-      wxDLG_UNIT(m_splitterLeftVertical, wxSize(-1, -1)), wxTAB_TRAVERSAL);
+  m_notebookLeft =
+      new wxSimplebook(m_splitterPageLeft, wxID_ANY, wxDefaultPosition,
+                       wxDLG_UNIT(m_splitterPageLeft, wxSize(-1, -1)), 0);
+  m_notebookLeft->SetName(wxT("m_notebookLeft"));
+  m_notebookLeft->SetEffect(wxSHOW_EFFECT_NONE);
 
-  wxBoxSizer *boxSizer555 = new wxBoxSizer(wxVERTICAL);
-  m_splitterPageLeftTop->SetSizer(boxSizer555);
+  m_leftPaneMainSizer->Add(m_notebookLeft, 1, wxEXPAND, WXC_FROM_DIP(5));
 
-  m_splitterPageLeftBottom = new wxPanel(
-      m_splitterLeftVertical, wxID_ANY, wxDefaultPosition,
-      wxDLG_UNIT(m_splitterLeftVertical, wxSize(-1, -1)), wxTAB_TRAVERSAL);
-  m_splitterLeftVertical->SplitHorizontally(m_splitterPageLeftTop,
-                                            m_splitterPageLeftBottom, 0);
+  m_panelFlatView =
+      new wxPanel(m_notebookLeft, wxID_ANY, wxDefaultPosition,
+                  wxDLG_UNIT(m_notebookLeft, wxSize(-1, -1)), wxTAB_TRAVERSAL);
+  m_notebookLeft->AddPage(m_panelFlatView, _("Sessions"), true);
 
-  wxBoxSizer *boxSizer556 = new wxBoxSizer(wxVERTICAL);
-  m_splitterPageLeftBottom->SetSizer(boxSizer556);
+  wxBoxSizer *boxSizer561 = new wxBoxSizer(wxVERTICAL);
+  m_panelFlatView->SetSizer(boxSizer561);
+
+  m_panelTreeView =
+      new wxPanel(m_notebookLeft, wxID_ANY, wxDefaultPosition,
+                  wxDLG_UNIT(m_notebookLeft, wxSize(-1, -1)), wxTAB_TRAVERSAL);
+  m_notebookLeft->AddPage(m_panelTreeView, _("Tree View"), false);
+
+  wxBoxSizer *boxSizer562 = new wxBoxSizer(wxVERTICAL);
+  m_panelTreeView->SetSizer(boxSizer562);
 
   m_splitterPageRight =
       new wxPanel(m_splitterMain, wxID_ANY, wxDefaultPosition,

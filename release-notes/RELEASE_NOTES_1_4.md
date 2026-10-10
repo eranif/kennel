@@ -33,16 +33,18 @@ opens as an editor page in the main view instead of a modal dialog.
   file with unsaved changes asks whether to save. The Files container has a **Close All Files**
   menu entry, and each file has a **Close** entry.
 - **Navigation and appearance** — theme and font changes apply to file pages too.
-- **Flat page list** — below the session tree, a second list shows every open terminal,
-  session and file in one place (icon and name, plus its group), in the same order as the
-  tree. Picking a page in either view selects it in the other. The list offers the same
-  context menus as the tree (right-clicking empty space offers Start Agent and New Terminal).
+- **Flat page list** — a second view of the left pane, chosen with the "List View" and
+  "Tree View" tools above it, shows every open terminal, session and file in one place (icon
+  and name, plus its group), in the same order as the tree. Picking a page in either view
+  selects it in the other. The list offers the same context menus as the tree (right-clicking
+  empty space offers Start Agent and New Terminal).
   Picking a page in the flat list does not change the Ctrl+Tab order; anything else (the
   tree, Ctrl+Tab, opening a file or session) does. That order is saved in `workspace.json`,
   so after a restart Kennel reopens on the page you used last.
-- **Remembered layout** — the two splitters (session panes | terminal, and session tree |
-  flat list) keep their positions between runs. They are saved in the UI preferences when the
-  window closes and are not saved while the window is minimized.
+- **Remembered layout** — the splitter between the session pages and the terminal keeps its
+  position between runs, and so does the tab of the left pane (session tree or flat list).
+  They are saved in the UI preferences when the window closes and are not saved while the
+  window is minimized.
 - **Ctrl+Tab page switcher** — Ctrl+Tab / Ctrl+Shift+Tab (the Ctrl key on every platform,
   including macOS) replaces Alt+Left/Right. It pops up a list of every open terminal, session
   and file, most recently used first (the flat list does not reorder, so this is the place for

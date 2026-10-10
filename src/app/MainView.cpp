@@ -95,10 +95,11 @@ MainView::MainView(wxWindow *parent)
   LoadBitmaps();
 
   // The views need the bitmaps (group icons) loaded first.
-  m_treeView = new TreeView(GetSplitterPageLeftTop());
-  FillPanel(GetSplitterPageLeftTop(), m_treeView);
-  m_flatView = new FlatView(GetSplitterPageLeftBottom());
-  FillPanel(GetSplitterPageLeftBottom(), m_flatView);
+  m_treeView = new TreeView(GetPanelTreeView());
+  FillPanel(GetPanelTreeView(), m_treeView);
+  m_flatView = new FlatView(GetPanelFlatView());
+  FillPanel(GetPanelFlatView(), m_flatView);
+  CreateLeftToolBar();
 
   for (int i = 0; i < kSpinnerFrameCount; ++i) {
     wxString name;
@@ -763,32 +764,86 @@ bool MainView::LaunchSession(const NewSessionRequest &req,
   return true;
 }
 
+// ---------------------------------------------------------------------------
+// The tools of the left pane: they switch between the list and the tree
+// ---------------------------------------------------------------------------
+
+namespace {
+const int kIdShowListView = XRCID("show-list-view");
+const int kIdShowTreeView = XRCID("show-tree-view");
+} // namespace
+
+void MainView::CreateLeftToolBar() {
+  wxAuiToolBar *bar = GetAuibar();
+  const auto &bmps = AppManager::Get().GetBitmaps();
+  bar->AddTool(kIdShowListView, _("List View"), bmps.Get("list-view", false),
+               _("List View"), wxITEM_RADIO);
+  bar->AddTool(kIdShowTreeView, _("Tree View"), bmps.Get("tree-view", false),
+               _("Tree View"), wxITEM_RADIO);
+  bar->Realize();
+  bar->Bind(wxEVT_TOOL, &MainView::OnShowListView, this, kIdShowListView);
+  bar->Bind(wxEVT_TOOL, &MainView::OnShowTreeView, this, kIdShowTreeView);
+  UpdateLeftToolBar();
+}
+
+void MainView::OnShowListView(wxCommandEvent &) {
+  ShowLeftPage(GetPanelFlatView());
+}
+
+void MainView::OnShowTreeView(wxCommandEvent &) {
+  ShowLeftPage(GetPanelTreeView());
+}
+
+void MainView::ShowLeftPage(wxWindow *page) {
+  const int where = GetNotebookLeft()->FindPage(page);
+  if (where != wxNOT_FOUND) {
+    GetNotebookLeft()->SetSelection(where);
+  }
+  UpdateLeftToolBar();
+}
+
+void MainView::UpdateLeftToolBar() {
+  wxAuiToolBar *bar = GetAuibar();
+  const bool list = GetNotebookLeft()->GetCurrentPage() == GetPanelFlatView();
+  // A radio tool: this checks it and unchecks the other (its state argument is
+  // ignored, so the other one must not be toggled too).
+  bar->ToggleTool(list ? kIdShowListView : kIdShowTreeView, true);
+  bar->Refresh(false);
+}
+
 void MainView::RestoreLayout() {
+  // The page needs no room: set it now, so the left pane does not flash the
+  // other.
+  {
+    const int page = AppManager::Get().GetPrefs().leftTab;
+    if (page >= 0 &&
+        page < static_cast<int>(GetNotebookLeft()->GetPageCount())) {
+      GetNotebookLeft()->SetSelection(page);
+    }
+    UpdateLeftToolBar();
+    m_leftPageRestored = true;
+  }
   // Deferred: the sash can only be moved to where the window is big enough
   // for it, and the window is not at its final size (e.g. maximized) before
   // the first pass of the event loop.
   CallAfter([this] {
     const auto &prefs = AppManager::Get().GetPrefs();
     ApplySashPosition(GetSplitterMain(), prefs.sidebarWidth);
-    ApplySashPosition(GetSplitterLeftVertical(), prefs.treePaneHeight);
     m_layoutRestored = true;
   });
 }
 
 void MainView::SaveLayout() {
-  // Before the saved layout was applied the splitters still hold their
-  // defaults, which must not replace what was saved.
-  if (!m_layoutRestored) {
-    return;
-  }
+  // Before the saved layout was applied the page and the splitter still hold
+  // their defaults, which must not replace what was saved. The page is applied
+  // at once, the splitter later (see RestoreLayout()).
   auto &prefs = AppManager::Get().GetPrefs();
-  if (GetSplitterMain()->IsSplit()) {
+  if (m_leftPageRestored) {
+    prefs.leftTab = std::max(0, GetNotebookLeft()->GetSelection());
+  }
+  if (m_layoutRestored && GetSplitterMain()->IsSplit()) {
     prefs.sidebarWidth =
         GetSplitterMain()->ToDIP(GetSplitterMain()->GetSashPosition());
-  }
-  if (GetSplitterLeftVertical()->IsSplit()) {
-    prefs.treePaneHeight = GetSplitterLeftVertical()->ToDIP(
-        GetSplitterLeftVertical()->GetSashPosition());
   }
 }
 
@@ -1284,6 +1339,12 @@ void MainView::LoadBitmaps() {
 
   bmps.Load("terminals.svg");
   bmps.AddAlias("terminals.svg", "terminals");
+
+  bmps.Load("list-view.svg");
+  bmps.AddAlias("list-view.svg", "list-view");
+
+  bmps.Load("tree-view.svg");
+  bmps.AddAlias("tree-view.svg", "tree-view");
 
   bmps.Load("restart.svg");
   bmps.AddAlias("restart.svg", "restart");

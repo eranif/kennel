@@ -20,8 +20,9 @@ struct UiPrefs {
   WindowGeometry window;
   // Splitter positions, in device-independent pixels (so they survive a change
   // of display scaling). <= 0 => keep the default layout.
-  int sidebarWidth{0};   // Width of the left pane (sessions) vs the terminal
-  int treePaneHeight{0}; // Height of the session tree above the flat list
+  int sidebarWidth{0}; // Width of the left pane (sessions) vs the terminal
+  // The page of the left pane that was showing (0: the flat list, 1: the tree).
+  int leftTab{0};
   // The column the flat list is sorted by ("name" or "group"), empty => not
   // sorted (tree order).
   wxString flatViewSortColumn;
