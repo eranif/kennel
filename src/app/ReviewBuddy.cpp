@@ -85,6 +85,15 @@ ReviewBuddy::~ReviewBuddy() {
   m_alive->store(false);
   m_pollTimer.Stop();
   m_enterTimer.Stop();
+  // Windows cannot delete a folder that a running process uses as its working
+  // directory: if the reviewer is not dead yet, the folder may stay (logged).
+  if (!m_removeOnClose.empty()) {
+    if (m_remote) {
+      RemoveRemote(m_removeOnClose);
+    } else {
+      RemoveLocal(m_removeOnClose);
+    }
+  }
 }
 
 bool ReviewBuddy::IsRunning() const { return m_loop && m_loop->IsActive(); }
@@ -151,7 +160,7 @@ wxString ReviewBuddy::StatusText() const {
 }
 
 wxString ReviewBuddy::CommentsPath() const {
-  return m_loop && !m_folderRemoved ? m_loop->CommentsPath() : wxString{};
+  return m_loop ? m_loop->CommentsPath() : wxString{};
 }
 
 void ReviewBuddy::Begin() {
@@ -284,7 +293,9 @@ void ReviewBuddy::Execute(Actions actions, size_t from) {
         // The first request: the reviewer starts with it as its first message,
         // so there is nothing to wait for. The request file is written already
         // (the actions run in order).
-        m_reviewer = m_launchReviewer ? m_launchReviewer(action.text) : nullptr;
+        m_reviewer = m_launchReviewer
+                         ? m_launchReviewer(action.text, m_loop->Folder())
+                         : nullptr;
         if (m_reviewer == nullptr) {
           Execute(m_loop->Fail(_("Could not start the reviewer")));
           return;
@@ -301,11 +312,8 @@ void ReviewBuddy::Execute(Actions actions, size_t from) {
         KLOG_ERROR() << "Review buddy: not removing '" << action.path << "'";
         break;
       }
-      if (m_remote) {
-        RemoveRemote(action.path, std::move(actions), i + 1);
-        return;
-      }
-      m_folderRemoved = RemoveLocal(action.path);
+      // The reviewer runs in this folder: it goes when its pane closes.
+      m_removeOnClose = action.path;
       break;
     case ReviewLoop::Action::Kind::Notify:
       KLOG_INFO() << "Review buddy: " << action.text;
@@ -350,29 +358,21 @@ void ReviewBuddy::WriteRemote(const wxString &relPath, const wxString &text,
   }).detach();
 }
 
-void ReviewBuddy::RemoveRemote(const wxString &relPath, Actions rest,
-                               size_t next) {
-  m_ioBusy = true;
+void ReviewBuddy::RemoveRemote(const wxString &relPath) {
   const wxString host = m_target.remoteHost;
   const wxString user = m_target.remoteUser;
   const wxString path = RemotePath(relPath);
   const std::vector<wxString> parents = {RemotePath(".agents/reviews"),
                                          RemotePath(".agents")};
 
-  std::thread([this, alive = m_alive, host, user, path, parents,
-               rest = std::move(rest), next]() mutable {
+  // Not tied to this object: it is going away. If Kennel exits before the
+  // thread is done, the remote folder stays.
+  std::thread([host, user, path, parents]() {
     Status st = SftpClient::RemoveTree(host, user, path, parents);
-    CallAfterIfAlive(alive,
-                     [this, st, path, rest = std::move(rest), next]() mutable {
-                       m_ioBusy = false;
-                       if (st.ok()) {
-                         m_folderRemoved = true;
-                       } else {
-                         KLOG_WARN() << "Review buddy: could not remove "
-                                     << path << ": " << st.message();
-                       }
-                       Execute(std::move(rest), next);
-                     });
+    if (!st.ok()) {
+      KLOG_WARN() << "Review buddy: could not remove " << path << ": "
+                  << st.message();
+    }
   }).detach();
 }
 

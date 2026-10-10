@@ -192,7 +192,12 @@ void SessionPage::ClearNotice() {
   UpdateStatus();
 }
 
-SessionPage::~SessionPage() { m_alive->store(false); }
+SessionPage::~SessionPage() {
+  m_alive->store(false);
+  // The review folder is deleted with the ReviewBuddy: do it after the
+  // reviewer's pane is gone, not as a member being destroyed before it.
+  CloseReviewBuddy();
+}
 
 bool SessionPage::IsActive() const {
   return GetMainFrame()->IsWindowActive(this);
@@ -780,8 +785,8 @@ void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
       ReviewBuddy::Target{hostDir, m_agent->remoteHost, m_agent->remoteUser,
                           m_session.name},
       m_terminal,
-      [this, reviewer](const wxString &prompt) {
-        return StartReviewer(reviewer, prompt);
+      [this, reviewer](const wxString &prompt, const wxString &folder) {
+        return StartReviewer(reviewer, prompt, folder);
       },
       // Whether the user is looking at this session right now.
       [this] { return IsActive() && IsShownOnScreen(); },
@@ -791,10 +796,20 @@ void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
 }
 
 wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
-                                               const wxString &prompt) {
+                                               const wxString &prompt,
+                                               const wxString &folder) {
   if (m_reviewTerminal != nullptr || m_terminal == nullptr) {
     return m_reviewTerminal;
   }
+
+  // The reviewer does not run in the folder of the main agent: the tools keep
+  // their history (what --continue / --resume pick up) per folder.
+  auto inFolder = [&folder](const wxString &base) {
+    return base + (base.EndsWith("/") || base.EndsWith("\\") ? "" : "/") +
+           folder;
+  };
+  const wxString reviewerDir = inFolder(
+      m_session.workingDir.empty() ? wxString("~") : m_session.workingDir);
 
   const auto &prefs = AppManager::Get().GetPrefs();
   wxString shellCommand = prefs.terminalLoginShell;
@@ -802,13 +817,11 @@ wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
     shellCommand = reviewer.loginShell;
   }
   // A WSL agent's directory is a Linux path: the shell command takes it.
-  shellCommand.Replace(
-      "%WORKING_DIRECTORY%",
-      (m_session.workingDir.empty() ? "~" : m_session.workingDir));
+  shellCommand.Replace("%WORKING_DIRECTORY%", reviewerDir);
   std::optional<wxString> cwd;
   if (!reviewer.IsRemote() && !reviewer.IsWSL() &&
       !m_session.workingDir.empty()) {
-    cwd = m_session.workingDir;
+    cwd = inFolder(HostWorkingDir());
   }
 
   // As for the agent's own terminal (CreateTerminal), the environment is the
@@ -821,7 +834,7 @@ wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
   m_reviewAcceleratorInterceptor =
       std::make_unique<AcceleratorInterceptor>(m_reviewTerminal);
   for (const wxString &command :
-       BuildCommandLine(reviewer, m_session.workingDir, false, prompt)) {
+       BuildCommandLine(reviewer, reviewerDir, false, prompt)) {
     m_reviewTerminal->SendCommand(command);
   }
   ConfigureTerminal(m_reviewTerminal);
@@ -840,7 +853,9 @@ wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
 }
 
 void SessionPage::CloseReviewBuddy() {
-  m_review.reset(); // stops its timers
+  // Destroyed on return, after the reviewer's pane: it deletes the folder the
+  // reviewer ran in.
+  const std::unique_ptr<ReviewBuddy> review = std::move(m_review);
   ClearNotice();
   if (m_reviewTerminal == nullptr) {
     return;

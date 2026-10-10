@@ -80,10 +80,13 @@ std::vector<ReviewLoop::Action> ReviewLoop::Start() {
 
 std::vector<ReviewLoop::Action> ReviewLoop::AskForReview() {
   const wxString file = NumberedPath(Folder(), "review-request", m_dir, "md");
+  // The reviewer runs in the folder of the loop (see BuildReviewRequest): it
+  // finds its files there.
+  const wxString reviewerFile =
+      NumberedPath(".", "review-request", m_dir, "md");
   return {
-      {Action::Kind::WriteFile, file,
-       BuildReviewRequest(Folder(), m_dir, m_round)},
-      {Action::Kind::PasteToReviewer, wxEmptyString, FollowLine(file)},
+      {Action::Kind::WriteFile, file, BuildReviewRequest(".", m_dir, m_round)},
+      {Action::Kind::PasteToReviewer, wxEmptyString, FollowLine(reviewerFile)},
   };
 }
 
@@ -236,17 +239,24 @@ ReviewLoop::Verdict ReviewLoop::ParseVerdict(const wxString &comments) {
 
 wxString ReviewLoop::BuildReviewRequest(const wxString &folder, int n,
                                         int round) {
+  // The reviewer starts in the folder of the loop, so that its own history
+  // does not mix with the one of the main agent (which the tools key by
+  // folder). `folder` is that folder, as the reviewer sees it.
   wxString text;
   text << "# Code review request (round " << round << ")\n\n"
-       << "You are a code reviewer. Another agent wrote the code in this "
-          "folder. Review its work that is **not pushed yet**:\n\n"
+       << "You are a code reviewer. Another agent wrote the code in the "
+          "project, which is three folders above your current folder (`../../"
+          "..`). Your current folder is only for the files of this review. "
+          "Review the work in the project that is **not pushed yet**. Run the "
+          "git commands below from the project folder:\n\n"
        << "- uncommitted changes in the working tree, staged and unstaged, and "
           "new untracked files (`git status`, `git diff HEAD`)\n"
        << "- commits that are not on the upstream branch "
           "(`git log @{upstream}..HEAD`, `git diff @{upstream}...HEAD`). If "
           "the branch has no upstream, compare with the default branch of the "
           "remote (for example `origin/main` or `origin/master`).\n\n"
-       << "Ignore the `.agents/` folder: it holds the files of this review.\n";
+       << "Ignore the `.agents/` folder of the project: it holds the files of "
+          "this review.\n";
   if (round > 1) {
     text << "\nThis is not the first round. First read the comments of the "
             "earlier rounds (`"

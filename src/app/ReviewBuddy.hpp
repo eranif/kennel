@@ -33,8 +33,10 @@ public:
   };
 
   // Starts the reviewer's agent with `prompt` as its first message and returns
-  // its terminal (nullptr if that failed).
-  using LaunchFn = std::function<wxTerminalViewCtrl *(const wxString &prompt)>;
+  // its terminal (nullptr if that failed). The agent runs in `folder` (relative
+  // to the working dir): its history is then apart from the main agent's.
+  using LaunchFn = std::function<wxTerminalViewCtrl *(const wxString &prompt,
+                                                      const wxString &folder)>;
 
   // Gives the keyboard focus to a terminal, if the user is working in this
   // session. Called when a request is typed into a terminal: that agent is the
@@ -69,7 +71,8 @@ public:
   void Resend();
   void Stop();
   // The comments file of the current round, relative to the working dir; empty
-  // before the loop has started, and after its files were removed.
+  // before the loop has started. The file exists until the reviewer's pane is
+  // closed: the review folder is deleted then.
   wxString CommentsPath() const;
   const Target &GetTarget() const { return m_target; }
 
@@ -99,7 +102,8 @@ private:
   // Deletes the loop's folder (and the .agents folders above it if they are
   // empty now). True if the folder is gone. Failing is only logged.
   bool RemoveLocal(const wxString &relPath);
-  void RemoveRemote(const wxString &relPath, Actions rest, size_t next);
+  // Same over SSH, in the background: nothing waits for it.
+  void RemoveRemote(const wxString &relPath);
   void WriteRemote(const wxString &relPath, const wxString &text, Actions rest,
                    size_t next);
 
@@ -119,8 +123,10 @@ private:
   std::chrono::steady_clock::time_point m_lastProgress;
   int m_remoteErrors{0};
   bool m_ioBusy{false};
-  bool m_stopped{false};       // Stop() was called (also before Begin())
-  bool m_folderRemoved{false}; // The review files are gone (not just tried)
+  bool m_stopped{false}; // Stop() was called (also before Begin())
+  // The folder to delete when this object goes away (the reviewer runs in it,
+  // so it stays until its pane is closed). Empty: none.
+  wxString m_removeOnClose;
 
   // For the worker threads of the remote checks, see AsyncGuard.hpp.
   AliveFlag m_alive{MakeAliveFlag()};

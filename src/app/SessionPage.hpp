@@ -118,8 +118,10 @@ private:
   void LaunchReviewBuddy(const AgentDef &reviewer);
   // Opens the reviewer's pane and starts its agent with `prompt` as the first
   // message. Called by ReviewBuddy once the request file is written.
+  // The agent runs in `folder`, relative to the working dir.
   wxTerminalViewCtrl *StartReviewer(const AgentDef &reviewer,
-                                    const wxString &prompt);
+                                    const wxString &prompt,
+                                    const wxString &folder);
   void CloseReviewBuddy();
   void OpenLatestReview();
   wxBookCtrlBase *GetBook() const {
