@@ -2,6 +2,7 @@
 
 #include <wx/arrstr.h>
 #include <wx/filename.h>
+#include <wx/tokenzr.h>
 
 namespace {
 
@@ -125,24 +126,38 @@ wxString DefaultIconFor(const AgentDef &agent) {
 std::vector<wxString> BuildCommandLine(const AgentDef &agent,
                                        const wxString &workingDir, bool resume,
                                        const wxString &initialPrompt) {
+  // The resume argument can hold several words. wxStringTokenize does not
+  // honor quotes, so a value that contains spaces is split.
+  const std::vector<wxString> resumeArgs =
+      wxStringTokenize(agent.resumeArg, " \t", wxTOKEN_STRTOK);
+
   auto build = [&](bool withResume) {
     std::vector<wxString> args = agent.baseArgs;
+    const bool isKiro = ClientKindOf(agent.executable) == ClientKind::Kiro;
     // kiro-cli takes a first message only as an argument of "chat", and a flag
     // like --resume belongs after it.
-    if (!initialPrompt.empty() &&
-        ClientKindOf(agent.executable) == ClientKind::Kiro) {
+    if (!initialPrompt.empty() && isKiro) {
       std::vector<wxString> all = args;
       all.insert(all.end(), agent.extraArgs.begin(), agent.extraArgs.end());
       if (withResume) {
-        all.push_back(agent.resumeArg);
+        all.insert(all.end(), resumeArgs.begin(), resumeArgs.end());
       }
       if (!HasChat(all)) {
         args.push_back("chat");
       }
     }
+
     if (withResume) {
-      args.push_back(agent.resumeArg);
+      // kiro: do not add a second "chat" when the resume argument repeats it.
+      const bool hasChat =
+          isKiro && (HasChat(args) || HasChat(agent.extraArgs));
+      for (const wxString &arg : resumeArgs) {
+        if (!(hasChat && arg == "chat")) {
+          args.push_back(arg);
+        }
+      }
     }
+
     for (const wxString &arg : agent.extraArgs) {
       args.push_back(arg);
     }
