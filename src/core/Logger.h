@@ -88,3 +88,13 @@ private:
 #define KLOG_INFO() KLOG(LogLevel::kInfo)
 #define KLOG_WARN() KLOG(LogLevel::kWarn)
 #define KLOG_ERROR() KLOG(LogLevel::kError)
+
+struct BlockTimer {
+  wxString m_prefix;
+  LogLevel m_logLevel;
+  BlockTimer(const wxString &prefix, LogLevel logLevel = LogLevel::kTrace)
+      : m_prefix{prefix}, m_logLevel{logLevel} {
+    KLOG(m_logLevel) << m_prefix << " Started";
+  }
+  ~BlockTimer() { KLOG(m_logLevel) << m_prefix << " Completed"; }
+};
