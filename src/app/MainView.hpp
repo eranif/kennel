@@ -3,6 +3,7 @@
 #include "UI.hpp"
 #include "app/AcceleratorInterceptor.h"
 #include "app/FileEvent.hpp"
+#include "app/PageSwitcherDlg.hpp"
 #include "app/PageViewEvent.hpp"
 #include "app/SessionGroup.h"
 #include "app/ThemeManager.h"
@@ -168,6 +169,10 @@ private:
   // then the pages never used, in tree order.
   std::vector<PageInfo>
   GetPagesByRecency(const std::optional<SessionRef> &first) const;
+  void OnPageSwitcherDone(wxCommandEvent &event);
+  // The modeless Ctrl+Tab switcher (null when closed) and its rows.
+  PageSwitcherDlg *m_switcher{nullptr};
+  std::vector<PageInfo> m_switcherPages;
   // Makes `ref` the most recently used page.
   void TouchRecent(const SessionRef &ref);
   // Renames the entries of m_recent that are `from` (a page) to `to`.

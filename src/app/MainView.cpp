@@ -114,6 +114,7 @@ MainView::MainView(wxWindow *parent)
                              this);
   Bind(wxEVT_PAGEVIEW_MENU, &MainView::OnPageMenu, this);
   Bind(wxEVT_SESSION_IDLE, &MainView::OnSessionIdle, this);
+  Bind(wxEVT_PAGE_SWITCHER_DONE, &MainView::OnPageSwitcherDone, this);
   Bind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
   Bind(wxEVT_SESSION_EXITED, &MainView::OnSessionExited, this);
   Bind(wxEVT_IDLE, &MainView::OnIdleEvent, this);
@@ -336,13 +337,15 @@ void MainView::SelectFallbackPage(const wxString &preferredGroup) {
 }
 
 void MainView::SwitchPage(bool forward) {
+  if (m_switcher) {
+    m_switcher->Advance(forward);
+    return;
+  }
   const auto ordered = GetPagesByRecency(GetActivePageRef());
   if (ordered.size() <= 1) {
     return;
   }
 
-  const int count = static_cast<int>(ordered.size());
-  int chosen = forward ? 1 : count - 1;
   // With Ctrl already released (e.g. picked from the menu) there is nothing to
   // hold on to, so skip the popup.
   if (wxGetMouseState().RawControlDown()) {
@@ -350,16 +353,28 @@ void MainView::SwitchPage(bool forward) {
     for (const auto &info : ordered) {
       items.push_back({info.label + "  -  " + info.group, info.icon});
     }
-    PageSwitcherDlg dlg(wxGetTopLevelParent(this), items, forward);
-    if (dlg.ShowModal() != wxID_OK) {
-      return;
-    }
-    chosen = dlg.GetSelectedIndex();
-  }
-  if (chosen < 0 || chosen >= count) {
+    // Modeless on purpose: a modal loop left the app lagging after closing.
+    m_switcherPages = ordered;
+    m_switcher =
+        new PageSwitcherDlg(wxGetTopLevelParent(this), this, items, forward);
     return;
   }
-  ShowPage(m_treeView->FindPage(ordered[chosen].Ref()));
+  const int count = static_cast<int>(ordered.size());
+  ShowPage(m_treeView->FindPage(ordered[forward ? 1 : count - 1].Ref()));
+}
+
+void MainView::OnPageSwitcherDone(wxCommandEvent &event) {
+  const int chosen = event.GetInt();
+  auto pages = std::move(m_switcherPages);
+  m_switcherPages.clear();
+  if (m_switcher) {
+    m_switcher->Destroy();
+    m_switcher = nullptr;
+  }
+  if (chosen < 0 || chosen >= static_cast<int>(pages.size())) {
+    return;
+  }
+  ShowPage(m_treeView->FindPage(pages[chosen].Ref()));
 }
 
 // ---------------------------------------------------------------------------

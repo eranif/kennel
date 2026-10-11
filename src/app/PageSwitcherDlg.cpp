@@ -6,6 +6,8 @@
 
 #include <algorithm>
 
+wxDEFINE_EVENT(wxEVT_PAGE_SWITCHER_DONE, wxCommandEvent);
+
 namespace {
 constexpr int kMaxVisibleRows = 12;
 constexpr int kMinWidth = 500;
@@ -19,12 +21,12 @@ constexpr int kHotKeyPrev = 2;
 #endif
 } // namespace
 
-PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent,
+PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
                                  const std::vector<PageSwitcherItem> &items,
                                  bool forward)
     : wxDialog(parent, wxID_ANY, wxEmptyString, wxDefaultPosition,
                wxDefaultSize, wxBORDER_SIMPLE | wxSTAY_ON_TOP),
-      m_timer(this) {
+      m_sink(sink), m_timer(this) {
   m_list =
       new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                              wxDV_NO_HEADER | wxDV_SINGLE | wxBORDER_NONE);
@@ -71,8 +73,9 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent,
   Bind(wxEVT_HOTKEY, [this](wxKeyEvent &) { Advance(true); }, kHotKeyNext);
   Bind(wxEVT_HOTKEY, [this](wxKeyEvent &) { Advance(false); }, kHotKeyPrev);
 #endif
-  m_list->SetFocus();
   CentreOnParent();
+  Show();
+  m_list->SetFocus();
   // Releasing Ctrl normally arrives as a key-up on the list, but poll the
   // modifier state too in case the release happened before we had focus.
   m_timer.Start(kPollMs);
@@ -108,11 +111,11 @@ void PageSwitcherDlg::OnCharHook(wxKeyEvent &event) {
     Advance(!event.ShiftDown());
     return;
   case WXK_ESCAPE:
-    EndModal(wxID_CANCEL);
+    Finish(false);
     return;
   case WXK_RETURN:
   case WXK_NUMPAD_ENTER:
-    EndModal(wxID_OK);
+    Finish(true);
     return;
   default:
     event.Skip();
@@ -124,7 +127,7 @@ void PageSwitcherDlg::OnKeyUp(wxKeyEvent &event) {
   // WXK_RAW_CONTROL is the physical Ctrl key on every platform (on macOS it is
   // distinct from Cmd).
   if (event.GetKeyCode() == WXK_RAW_CONTROL) {
-    EndModal(wxID_OK);
+    Finish(true);
     return;
   }
   event.Skip();
@@ -133,11 +136,23 @@ void PageSwitcherDlg::OnKeyUp(wxKeyEvent &event) {
 void PageSwitcherDlg::OnTimer(wxTimerEvent &event) {
   wxUnusedVar(event);
   if (!wxGetMouseState().RawControlDown()) {
-    EndModal(wxID_OK);
+    Finish(true);
   }
 }
 
 void PageSwitcherDlg::OnActivated(wxDataViewEvent &event) {
   wxUnusedVar(event);
-  EndModal(wxID_OK);
+  Finish(true);
+}
+
+void PageSwitcherDlg::Finish(bool accept) {
+  if (m_done) {
+    return;
+  }
+  m_done = true;
+  m_timer.Stop();
+  Hide();
+  wxCommandEvent evt(wxEVT_PAGE_SWITCHER_DONE);
+  evt.SetInt(accept ? GetSelectedIndex() : wxNOT_FOUND);
+  m_sink->QueueEvent(evt.Clone());
 }
