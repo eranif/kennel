@@ -4,6 +4,7 @@ ROOT_DIR=$(dirname $(readlink -f $0))
 BUILD_DIR=${ROOT_DIR}/.build-release
 MACOS_DEPLOYMENT_TARGET=${MACOS_DEPLOYMENT_TARGET:-13.0}
 OS_NAME="$(uname -s)"
+FORCE_CMAKE=0
 
 . ${ROOT_DIR}/scripts/functions.rc
 
@@ -128,7 +129,8 @@ function build_kennel_Linux() {
   local kennel_build_dir=${ROOT_DIR}/.build-release
   mkdir -p ${kennel_build_dir}
   cd ${kennel_build_dir}
-  if [ ! -f "${kennel_build_dir}/CMakeCache.txt" ] ||
+  if [ "${FORCE_CMAKE}" = "1" ] ||
+    [ ! -f "${kennel_build_dir}/CMakeCache.txt" ] ||
     [ "${ROOT_DIR}/CMakeLists.txt" -nt "${kennel_build_dir}/Makefile" ]; then
     INFO "Configuring Kennel"
     cmake ${ROOT_DIR} -DCMAKE_BUILD_TYPE=Release \
@@ -162,7 +164,8 @@ function build_kennel_macOS() {
   cd ${kennel_build_dir}
   # Configure if the build tree has not been generated yet, or if
   # CMakeLists.txt is newer than the generated cache.
-  if [ ! -f "${kennel_build_dir}/CMakeCache.txt" ] ||
+  if [ "${FORCE_CMAKE}" = "1" ] ||
+    [ ! -f "${kennel_build_dir}/CMakeCache.txt" ] ||
     [ "${ROOT_DIR}/CMakeLists.txt" -nt "${kennel_build_dir}/Makefile" ] ||
     ! grep -q "^CMAKE_OSX_DEPLOYMENT_TARGET:STRING=${MACOS_DEPLOYMENT_TARGET}$" "${kennel_build_dir}/CMakeCache.txt"; then
     INFO "Configuring Kennel"
@@ -190,7 +193,8 @@ function build_kennel_MSW() {
   cd ${kennel_build_dir}
   # Configure if the build tree has not been generated yet, or if
   # CMakeLists.txt is newer than the generated cache.
-  if [ ! -f "${kennel_build_dir}/CMakeCache.txt" ] ||
+  if [ "${FORCE_CMAKE}" = "1" ] ||
+    [ ! -f "${kennel_build_dir}/CMakeCache.txt" ] ||
     [ "${ROOT_DIR}/CMakeLists.txt" -nt "${kennel_build_dir}/Makefile" ]; then
     INFO "Configuring Kennel"
     cmake ${ROOT_DIR} -DCMAKE_BUILD_TYPE=Release -DWXWIN="${BUILD_DIR}/wxWidgets-install"
@@ -226,7 +230,10 @@ function distclean() {
 }
 
 function usage() {
-  echo "Usage: $(basename $0) [target]"
+  echo "Usage: $(basename $0) [--cmake] [target]"
+  echo ""
+  echo "Options:"
+  echo "  --cmake     Force the cmake configure stage (build and package)"
   echo ""
   echo "Targets:"
   echo "  (none)      Build Kennel (default)"
@@ -285,6 +292,11 @@ function package() {
     INFO "Linux package ready at ${BUILD_DIR}/kennel"
   fi
 }
+
+if [ "${1}" = "--cmake" ]; then
+  FORCE_CMAKE=1
+  shift
+fi
 
 case "${1}" in
 clean)
