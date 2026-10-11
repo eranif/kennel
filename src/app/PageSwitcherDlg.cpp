@@ -49,7 +49,7 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
   m_list->SetMinSize(wxSize(width, std::max(rows * rowHeight, kMinHeight)));
 
   auto *sizer = new wxBoxSizer(wxVERTICAL);
-  sizer->Add(m_list, wxSizerFlags(1).Expand().Border(wxALL, 4));
+  sizer->Add(m_list, wxSizerFlags(1).Expand().Border(wxALL, 1));
   SetSizerAndFit(sizer);
 
   Bind(wxEVT_CHAR_HOOK, &PageSwitcherDlg::OnCharHook, this);
