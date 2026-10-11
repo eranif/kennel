@@ -318,7 +318,8 @@ set(KENNEL_APP_SOURCES
     src/app/NewAgentWizard.cpp
     src/app/SessionGroup.cpp
     src/app/FileBrowserDlg.cpp
-    src/app/SessionStatusEvent.cpp)
+    src/app/SessionStatusEvent.cpp
+    src/app/WindowBook.hpp)
 
 if(APPLE)
   list(APPEND KENNEL_APP_SOURCES src/app/AuiTabArtMac.cpp)

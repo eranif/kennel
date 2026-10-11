@@ -89,7 +89,7 @@ BuildEnvironment(const std::map<wxString, wxString> &overrides) {
 }
 } // namespace
 
-SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
+SessionPage::SessionPage(WindowBook *parent, std::optional<AgentDef> agent,
                          Session session, bool resume)
     : SessionBasePage(parent), m_paths(AppManager::Get().Paths()),
       m_agent(std::move(agent)), m_session(std::move(session)),

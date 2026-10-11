@@ -6,8 +6,56 @@
 
 #include "UI.hpp"
 
-// Declare the bitmap loading function
-extern void wxCrafterFiTVkcInitBitmapResources();
+#include <wx/filesys.h>
+#include <wx/fs_mem.h>
+#include <wx/xrc/xh_all.h>
+#include <wx/xrc/xmlres.h>
+
+// Load the bitmaps from the XRC resources that are embedded in this file
+#if wxCHECK_VERSION(2, 8, 5) && wxABI_VERSION >= 20805
+#define XRC_ADD_FILE(name, data, size, mime)                                   \
+  wxMemoryFSHandler::AddFileWithMimeType(name, data, size, mime)
+#else
+#define XRC_ADD_FILE(name, data, size, mime)                                   \
+  wxMemoryFSHandler::AddFile(name, data, size)
+#endif
+
+static size_t xml_res_size_0 = 137;
+static unsigned char xml_res_file_0[] = {
+    '<', '?', 'x', 'm', 'l', ' ', 'v', 'e', 'r', 's', 'i', 'o', 'n', '=',
+    '"', '1', '.', '0', '"', ' ', 'e', 'n', 'c', 'o', 'd', 'i', 'n', 'g',
+    '=', '"', 'U', 'T', 'F', '-', '8', '"', '?', '>', 10,  '<', 'r', 'e',
+    's', 'o', 'u', 'r', 'c', 'e', ' ', 'x', 'm', 'l', 'n', 's', '=', '"',
+    'h', 't', 't', 'p', ':', '/', '/', 'w', 'w', 'w', '.', 'w', 'x', 'w',
+    'i', 'd', 'g', 'e', 't', 's', '.', 'o', 'r', 'g', '/', 'w', 'x', 'x',
+    'r', 'c', '"', '>', 10,  ' ', ' ', '<', '!', '-', '-', ' ', 'H', 'a',
+    'n', 'd', 'l', 'e', 'r', ' ', 'G', 'e', 'n', 'e', 'r', 'a', 't', 'i',
+    'o', 'n', ' ', 'i', 's', ' ', 'O', 'N', ' ', '-', '-', '>', 10,  '<',
+    '/', 'r', 'e', 's', 'o', 'u', 'r', 'c', 'e', '>', 10};
+
+static void wxCrafterFiTVkcInitBitmapResources() {
+
+  // Check for memory FS. If not present, load the handler:
+  {
+    wxMemoryFSHandler::AddFile(wxT("XRC_resource/dummy_file"),
+                               wxT("dummy one"));
+    wxFileSystem fsys;
+    wxFSFile *f = fsys.OpenFile(wxT("memory:XRC_resource/dummy_file"));
+    wxMemoryFSHandler::RemoveFile(wxT("XRC_resource/dummy_file"));
+    if (f)
+      delete f;
+    else
+      wxFileSystem::AddHandler(new wxMemoryFSHandlerBase);
+  }
+
+  XRC_ADD_FILE(
+      wxT("XRC_resource/"
+          "UI.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"),
+      xml_res_file_0, xml_res_size_0, wxT("text/xml"));
+  wxXmlResource::Get()->Load(
+      wxT("memory:XRC_resource/"
+          "UI.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"));
+}
 
 #ifdef WXC_MAYBE_UNUSED
 #undef WXC_MAYBE_UNUSED
@@ -93,11 +141,10 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
 
   m_leftPaneMainSizer->Add(m_auibar, 0, wxEXPAND, WXC_FROM_DIP(5));
 
-  m_notebookLeft =
-      new wxSimplebook(m_splitterPageLeft, wxID_ANY, wxDefaultPosition,
-                       wxDLG_UNIT(m_splitterPageLeft, wxSize(-1, -1)), 0);
+  m_notebookLeft = new WindowBook(
+      m_splitterPageLeft, wxID_ANY, wxDefaultPosition,
+      wxDLG_UNIT(m_splitterPageLeft, wxSize(-1, -1)), wxBK_DEFAULT);
   m_notebookLeft->SetName(wxT("m_notebookLeft"));
-  m_notebookLeft->SetEffect(wxSHOW_EFFECT_NONE);
 
   m_leftPaneMainSizer->Add(m_notebookLeft, 1, wxEXPAND, WXC_FROM_DIP(5));
 
@@ -125,11 +172,10 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
   wxBoxSizer *boxSizer12 = new wxBoxSizer(wxVERTICAL);
   m_splitterPageRight->SetSizer(boxSizer12);
 
-  m_sessionsBook =
-      new wxSimplebook(m_splitterPageRight, wxID_ANY, wxDefaultPosition,
-                       wxDLG_UNIT(m_splitterPageRight, wxSize(-1, -1)), 0);
+  m_sessionsBook = new WindowBook(
+      m_splitterPageRight, wxID_ANY, wxDefaultPosition,
+      wxDLG_UNIT(m_splitterPageRight, wxSize(-1, -1)), wxBK_DEFAULT);
   m_sessionsBook->SetName(wxT("m_sessionsBook"));
-  m_sessionsBook->SetEffect(wxSHOW_EFFECT_NONE);
 
   boxSizer12->Add(m_sessionsBook, 1, wxEXPAND, WXC_FROM_DIP(5));
 

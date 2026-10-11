@@ -12,11 +12,11 @@
 
 #include "terminal_theme.h"
 
+#include "WindowBook.hpp"
 #include <chrono>
 #include <functional>
 #include <memory>
 #include <vector>
-
 #include <wx/timer.h>
 
 class wxTerminalViewCtrl;
@@ -32,7 +32,7 @@ class SessionPage : public SessionBasePage {
 public:
   using StatusChangedFn = std::function<void(SessionStatus)>;
 
-  SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
+  SessionPage(WindowBook *parent, std::optional<AgentDef> agent,
               Session session, bool resume = false);
   ~SessionPage() override;
 
