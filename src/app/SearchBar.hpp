@@ -1,7 +1,7 @@
 #pragma once
 
 #include <wx/containr.h>
-#include <wx/control.h>
+#include <wx/panel.h>
 
 class wxButton;
 class wxCheckBox;
@@ -27,7 +27,7 @@ wxDECLARE_EVENT(wxEVT_SEARCHBAR_CLOSE, wxCommandEvent);
 // the find text looks for the next match, Shift+Enter for the previous one (as
 // the Down and Up buttons do). The owner does the search and the replace: the
 // bar only sends events.
-class SearchBar : public wxNavigationEnabled<wxControl> {
+class SearchBar : public wxPanel {
 public:
   enum Flags {
     kForward = 1 << 0,

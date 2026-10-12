@@ -10,8 +10,15 @@ wxDEFINE_EVENT(wxEVT_SEARCHBAR_REPLACE, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SEARCHBAR_REPLACE_ALL, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SEARCHBAR_CLOSE, wxCommandEvent);
 
+#ifdef __WXGTK__
+constexpr long kSearchBarStyle = wxBORDER_NONE;
+#else
+constexpr long kSearchBarStyle = wxBORDER_SIMPLE;
+#endif
+
 SearchBar::SearchBar(wxWindow *parent, Kind kind) {
-  Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE);
+  wxPanel::Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                  kSearchBarStyle);
   const bool editor = kind == Kind::kEditor;
   const wxSizerFlags flags = wxSizerFlags(0).Expand().Border(wxALL, 2);
 
@@ -26,17 +33,13 @@ SearchBar::SearchBar(wxWindow *parent, Kind kind) {
   m_find = new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
                           wxDefaultSize, wxTE_PROCESS_ENTER);
   m_find->SetHint(_("Find"));
-  // For the mouse: the same as Enter and Shift+Enter. The labels are the
-  // arrows U+2193 (down) and U+2191 (up).
-  auto *next = new wxButton(this, wxID_ANY, wxString(wxUniChar(0x2193)),
-                            wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+  // For the mouse: the same as Enter and Shift+Enter.
+  auto *next = new wxButton(this, wxID_ANY, _("Next"));
   next->SetToolTip(_("Find the next match (Enter)"));
   next->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
     Send(wxEVT_SEARCHBAR_FIND, kForward);
   });
-  auto *previous =
-      new wxButton(this, wxID_ANY, wxString(wxUniChar(0x2191)),
-                   wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+  auto *previous = new wxButton(this, wxID_ANY, _("Previous"));
   previous->SetToolTip(_("Find the previous match (Shift+Enter)"));
   previous->Bind(wxEVT_BUTTON,
                  [this](wxCommandEvent &) { Send(wxEVT_SEARCHBAR_FIND, 0); });
