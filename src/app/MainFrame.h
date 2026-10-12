@@ -51,6 +51,13 @@ public:
   // is): empties the fields of the session.
   void ClearSessionStatus();
 
+  // What the editor page that is showing tells about its caret ("Ln 3, Col 7").
+  // Shares the review field, which a file has no use for; ClearSessionStatus()
+  // and the next session page's status replace it.
+  void SetEditorStatus(const wxString &text) {
+    SetStatusText(text, kFieldReview);
+  }
+
   bool IsWindowActive(const SessionPage *win) const;
 
 private:

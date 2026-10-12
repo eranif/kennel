@@ -50,6 +50,7 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
   ctrl->Bind(wxEVT_KEY_DOWN, &FilePage::OnKeyDown, this);
   ctrl->Bind(wxEVT_STC_SAVEPOINTLEFT, &FilePage::OnSavePointChanged, this);
   ctrl->Bind(wxEVT_STC_SAVEPOINTREACHED, &FilePage::OnSavePointChanged, this);
+  ctrl->Bind(wxEVT_STC_UPDATEUI, &FilePage::OnEditorUpdateUI, this);
 }
 
 FilePage::~FilePage() {
@@ -163,6 +164,30 @@ void FilePage::OnKeyDown(wxKeyEvent &event) {
     return;
   }
   event.Skip();
+}
+
+void FilePage::OnEditorUpdateUI(wxStyledTextEvent &event) {
+  event.Skip();
+  // Also sent while loading, when the page is not showing yet.
+  if (IsShownOnScreen()) {
+    PublishStatus();
+  }
+}
+
+void FilePage::PublishStatus() {
+  wxStyledTextCtrl *ctrl = m_editor->GetCtrl();
+  const int pos = ctrl->GetCurrentPos();
+  wxString text =
+      wxString::Format(_("Ln %d, Col %d"), ctrl->LineFromPosition(pos) + 1,
+                       ctrl->GetColumn(pos) + 1);
+  const int from = ctrl->GetSelectionStart();
+  const int to = ctrl->GetSelectionEnd();
+  if (from != to) {
+    // Characters, not bytes: the text is UTF-8.
+    text << wxString::Format(_(" (%d selected)"),
+                             ctrl->CountCharacters(from, to));
+  }
+  GetMainFrame()->SetEditorStatus(text);
 }
 
 void FilePage::OnSavePointChanged(wxStyledTextEvent &event) {

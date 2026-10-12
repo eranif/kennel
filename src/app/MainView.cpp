@@ -323,6 +323,7 @@ void MainView::SelectFilePage(FilePage *page, bool updateRecent,
   page->CallAfter(&FilePage::FocusEditor);
   wxTheApp->GetTopWindow()->SetLabel(page->GetPath());
   GetMainFrame()->ClearSessionStatus();
+  page->PublishStatus();
 }
 
 void MainView::ActivateGroup(const wxString &groupName) {

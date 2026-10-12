@@ -49,8 +49,13 @@ public:
 
   void ApplyTheme(const wxTerminalTheme &theme) { m_editor->SetTheme(theme); }
   void FocusEditor();
+  // Shows the caret position and the size of the selection in the status bar
+  // of the main window. Called when the caret or the selection moves (only
+  // while this page is showing) and when the page is selected.
+  void PublishStatus();
 
 private:
+  void OnEditorUpdateUI(wxStyledTextEvent &event);
   void FileSaved(const Status &status);
   void OnSave(wxCommandEvent &event);
   void OnSaveUI(wxUpdateUIEvent &event);
