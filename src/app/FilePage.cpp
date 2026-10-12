@@ -46,8 +46,8 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
   m_searchBar->Hide();
   SetSizer(new wxBoxSizer(wxVERTICAL));
   GetSizer()->Add(m_toolbar, wxSizerFlags(0).Expand());
-  GetSizer()->Add(m_searchBar, wxSizerFlags(0).Expand());
   GetSizer()->Add(m_editor, wxSizerFlags(1).Expand());
+  GetSizer()->Add(m_searchBar, wxSizerFlags(0).Expand());
 
   wxStyledTextCtrl *ctrl = m_editor->GetCtrl();
   m_acceleratorInterceptor = std::make_unique<AcceleratorInterceptor>(ctrl);

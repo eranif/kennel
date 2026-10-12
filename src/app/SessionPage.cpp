@@ -160,7 +160,7 @@ SessionPage::SessionPage(WindowBook *parent, std::optional<AgentDef> agent,
   InitStatus();
   Bind(wxEVT_TIMER, &SessionPage::OnNoticeTimer, this, m_noticeTimer.GetId());
   Bind(wxEVT_REVIEW_CHANGED, &SessionPage::OnReviewChanged, this);
-  // Above the terminals: CreateTerminal() adds the splitter after it.
+  // Below the terminals: CreateTerminal() puts the splitter before it.
   m_searchBar = new SearchBar(this, /*withOptions=*/false);
   m_searchBar->Hide();
   GetSizer()->Add(m_searchBar, wxSizerFlags(0).Expand());
@@ -383,7 +383,7 @@ void SessionPage::CreateTerminal() {
                              wxSP_LIVE_UPDATE | wxSP_3DSASH);
     m_splitter->SetSashGravity(0.5);
     m_splitter->SetMinimumPaneSize(150);
-    GetSizer()->Add(m_splitter, wxSizerFlags(1).Expand());
+    GetSizer()->Insert(0, m_splitter, wxSizerFlags(1).Expand());
   }
   m_mainPane = NewTerminalPane();
   m_terminal = new wxTerminalViewCtrl(m_mainPane, shellCommand, env, cwd);

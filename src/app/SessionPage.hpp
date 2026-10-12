@@ -57,7 +57,7 @@ public:
   // page is showing). Also called when the page is selected.
   void PublishStatus();
 
-  // Shows the search bar above the terminals. It searches the terminal that
+  // Shows the search bar below the terminals. It searches the terminal that
   // has the focus (or had it last). The selected text of the terminal is what
   // it looks for.
   void ShowFind();

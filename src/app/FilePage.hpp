@@ -58,7 +58,7 @@ public:
   void PublishStatus();
 
   // ---- Find and Replace ------------------------------------------------
-  // Shows the search bar above the editor, or the (non-modal) Find and Replace
+  // Shows the search bar below the editor, or the (non-modal) Find and Replace
   // dialog when `replace` is set and the file can be edited. The selected
   // text, if it is on one line, is what it looks for.
   void ShowFind(bool replace);
