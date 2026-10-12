@@ -63,6 +63,8 @@ public:
   // Selects the next (or previous) match of the last search. Opens the dialog
   // if there was no search yet.
   void FindNext(bool forward);
+  // Whether there is a search for FindNext() to repeat.
+  bool HasSearch() const { return !m_findData.GetFindString().empty(); }
   // Closes the dialog, if it is open. MainView calls it when another page is
   // selected: the dialog works on this page only.
   void DestroyFindDialog();

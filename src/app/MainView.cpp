@@ -1079,6 +1079,15 @@ bool MainView::CanFind(bool replace) const {
   return !replace && dynamic_cast<SessionPage *>(page) != nullptr;
 }
 
+bool MainView::CanFindNext() const {
+  wxWindow *page = m_sessionsBook->GetCurrentPage();
+  if (dynamic_cast<FilePage *>(page) != nullptr) {
+    return true;
+  }
+  auto *session = dynamic_cast<SessionPage *>(page);
+  return session != nullptr && session->HasSearch();
+}
+
 bool MainView::IsSelectionSessionGroup() const {
   auto *group = GetSelectedGroup();
   return group && group->IsSessionGroup();

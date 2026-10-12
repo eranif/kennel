@@ -105,6 +105,9 @@ public:
   void ShowFind(bool replace);
   void FindNext(bool forward);
   bool CanFind(bool replace) const;
+  // Whether F3 / Shift+F3 are Find Next / Previous now: in a file, or in a
+  // session that has a search. Otherwise a program in the terminal gets F3.
+  bool CanFindNext() const;
 
   // Shows the Ctrl+Tab page switcher (every open session and file, most
   // recently used first) and activates the page chosen when Ctrl is released.

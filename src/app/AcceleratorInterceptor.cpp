@@ -32,8 +32,11 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(
         evtRefreshSession);
     return;
-  } else if (keyEvent.GetKeyCode() == WXK_F3) {
-    // Find Next / Find Previous
+  } else if (keyEvent.GetKeyCode() == WXK_F3 &&
+             (keyEvent.GetModifiers() & ~wxMOD_SHIFT) == wxMOD_NONE &&
+             GetMainFrame()->GetMainView()->CanFindNext()) {
+    // Find Next / Find Previous. A terminal without a search keeps F3 for the
+    // program in it.
     wxCommandEvent evtFindNext{wxEVT_MENU, keyEvent.ShiftDown()
                                                ? XRCID("find-previous")
                                                : XRCID("find-next")};
