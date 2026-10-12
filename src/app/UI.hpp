@@ -19,8 +19,7 @@
 #include <wx/aui/auibar.h>
 #include <map>
 #include <wx/menu.h>
-#include <wx/notebook.h>
-#include "app/WindowBook.hpp"
+#include <wx/simplebook.h>
 #include <wx/imaglist.h>
 #include <wx/dialog.h>
 #include <wx/iconbndl.h>
@@ -34,6 +33,7 @@
 #include <wx/button.h>
 #include <wx/toolbar.h>
 #include <wx/dataview.h>
+#include <wx/notebook.h>
 #include <wx/statbmp.h>
 #include <wx/stc/stc.h>
 #include <wx/fontpicker.h>
@@ -80,20 +80,20 @@ protected:
   wxPanel *m_splitterPageLeft;
   wxBoxSizer *m_leftPaneMainSizer;
   wxAuiToolBar *m_auibar;
-  WindowBook *m_notebookLeft;
+  wxSimplebook *m_notebookLeft;
   wxPanel *m_panelFlatView;
   wxPanel *m_panelTreeView;
   wxPanel *m_splitterPageRight;
-  WindowBook *m_sessionsBook;
+  wxSimplebook *m_sessionsBook;
 
 protected:
 public:
   wxAuiToolBar *GetAuibar() { return m_auibar; }
   wxPanel *GetPanelFlatView() { return m_panelFlatView; }
   wxPanel *GetPanelTreeView() { return m_panelTreeView; }
-  WindowBook *GetNotebookLeft() { return m_notebookLeft; }
+  wxSimplebook *GetNotebookLeft() { return m_notebookLeft; }
   wxPanel *GetSplitterPageLeft() { return m_splitterPageLeft; }
-  WindowBook *GetSessionsBook() { return m_sessionsBook; }
+  wxSimplebook *GetSessionsBook() { return m_sessionsBook; }
   wxPanel *GetSplitterPageRight() { return m_splitterPageRight; }
   wxSplitterWindow *GetSplitterMain() { return m_splitterMain; }
   MainViewBase(wxWindow *parent, wxWindowID id = wxID_ANY,

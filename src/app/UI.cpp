@@ -141,10 +141,11 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
 
   m_leftPaneMainSizer->Add(m_auibar, 0, wxEXPAND, WXC_FROM_DIP(5));
 
-  m_notebookLeft = new WindowBook(
-      m_splitterPageLeft, wxID_ANY, wxDefaultPosition,
-      wxDLG_UNIT(m_splitterPageLeft, wxSize(-1, -1)), wxBK_DEFAULT);
+  m_notebookLeft =
+      new wxSimplebook(m_splitterPageLeft, wxID_ANY, wxDefaultPosition,
+                       wxDLG_UNIT(m_splitterPageLeft, wxSize(-1, -1)), 0);
   m_notebookLeft->SetName(wxT("m_notebookLeft"));
+  m_notebookLeft->SetEffect(wxSHOW_EFFECT_NONE);
 
   m_leftPaneMainSizer->Add(m_notebookLeft, 1, wxEXPAND, WXC_FROM_DIP(5));
 
@@ -172,10 +173,11 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
   wxBoxSizer *boxSizer12 = new wxBoxSizer(wxVERTICAL);
   m_splitterPageRight->SetSizer(boxSizer12);
 
-  m_sessionsBook = new WindowBook(
-      m_splitterPageRight, wxID_ANY, wxDefaultPosition,
-      wxDLG_UNIT(m_splitterPageRight, wxSize(-1, -1)), wxBK_DEFAULT);
+  m_sessionsBook =
+      new wxSimplebook(m_splitterPageRight, wxID_ANY, wxDefaultPosition,
+                       wxDLG_UNIT(m_splitterPageRight, wxSize(-1, -1)), 0);
   m_sessionsBook->SetName(wxT("m_sessionsBook"));
+  m_sessionsBook->SetEffect(wxSHOW_EFFECT_NONE);
 
   boxSizer12->Add(m_sessionsBook, 1, wxEXPAND, WXC_FROM_DIP(5));
 
