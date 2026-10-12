@@ -11,10 +11,11 @@ wxDEFINE_EVENT(wxEVT_SEARCHBAR_REPLACE_ALL, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SEARCHBAR_CLOSE, wxCommandEvent);
 
 #ifdef __WXGTK__
-constexpr long kSearchBarStyle = wxBORDER_NONE;
+constexpr long kSearchBarStyle = wxBORDER_NONE | wxTAB_TRAVERSAL;
 #else
-constexpr long kSearchBarStyle = wxBORDER_DEFAULT;
+constexpr long kSearchBarStyle = wxBORDER_DEFAULT | wxTAB_TRAVERSAL;
 #endif
+constexpr int kButtonMargin = 10;
 
 SearchBar::SearchBar(wxWindow *parent, Kind kind) {
   wxPanel::Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
@@ -26,7 +27,7 @@ SearchBar::SearchBar(wxWindow *parent, Kind kind) {
   wxSize buttonSize{
       parent->GetTextExtent(editor ? _("Replace All") : _("Previous"))
               .GetWidth() +
-          (parent->FromDIP(5) * 2),
+          (parent->FromDIP(kButtonMargin) * 2),
       wxNOT_FOUND};
 
   // [ find what    ][ down    ][ up          ][ full word ][ case sensitive ]
@@ -70,6 +71,8 @@ SearchBar::SearchBar(wxWindow *parent, Kind kind) {
     m_replace = new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
                                wxDefaultSize, wxTE_PROCESS_ENTER);
     m_replace->SetHint(_("Replace with"));
+    // Tab goes from the find text to the replace text (see OnCharHook()).
+    m_replace->MoveAfterInTabOrder(m_find);
     m_replaceButton = new wxButton(this, wxID_ANY, _("Replace"),
                                    wxDefaultPosition, buttonSize);
     m_replaceButton->SetToolTip(
@@ -187,6 +190,13 @@ void SearchBar::OnCharHook(wxKeyEvent &event) {
     wxCommandEvent close(wxEVT_SEARCHBAR_CLOSE, GetId());
     close.SetEventObject(this);
     ProcessWindowEvent(close);
+    return;
+  }
+  // Tab in the replace text goes back to the find text.
+  if (key == WXK_TAB && event.GetModifiers() == wxMOD_NONE &&
+      HasFocusIn(m_replace)) {
+    m_find->SetFocus();
+    m_find->SelectAll();
     return;
   }
   // Enter in a text: the buttons and the checkboxes keep theirs.
