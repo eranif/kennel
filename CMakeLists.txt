@@ -335,6 +335,10 @@ file(GLOB KENNEL_ASSET_FILES "${CMAKE_SOURCE_DIR}/assets/*.svg")
 
 file(GLOB KENNEL_THEME_FILES "${CMAKE_SOURCE_DIR}/assets/themes/*.toml")
 
+# File type icons (one set per UI appearance), see Bitmaps::LoadMimeIcons().
+file(GLOB KENNEL_MIME_DARK_FILES "${CMAKE_SOURCE_DIR}/assets/mime/dark/*.svg")
+file(GLOB KENNEL_MIME_LIGHT_FILES "${CMAKE_SOURCE_DIR}/assets/mime/light/*.svg")
+
 # Fonts (Iosevka Term for the terminal) and their license
 file(GLOB KENNEL_FONT_FILES "${CMAKE_SOURCE_DIR}/assets/fonts/*")
 
@@ -350,6 +354,12 @@ if(APPLE)
   set_source_files_properties(
     ${KENNEL_THEME_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION
                                      "Resources/assets/themes")
+  set_source_files_properties(
+    ${KENNEL_MIME_DARK_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION
+                                         "Resources/assets/mime/dark")
+  set_source_files_properties(
+    ${KENNEL_MIME_LIGHT_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION
+                                          "Resources/assets/mime/light")
   set_source_files_properties("${CMAKE_SOURCE_DIR}/LICENSE"
                               PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
   # Bundled fonts: wxFont::AddPrivateFont() accepts only fonts in
@@ -370,7 +380,8 @@ if(APPLE)
 
   add_executable(
     kennel MACOSX_BUNDLE ${KENNEL_APP_SOURCES} ${KENNEL_ASSET_FILES}
-                         ${KENNEL_THEME_FILES} ${KENNEL_FONT_FILES})
+                         ${KENNEL_THEME_FILES} ${KENNEL_FONT_FILES}
+                         ${KENNEL_MIME_DARK_FILES} ${KENNEL_MIME_LIGHT_FILES})
   set_target_properties(
     kennel
     PROPERTIES MACOSX_BUNDLE_GUI_IDENTIFIER "com.eranif.kennel"
@@ -422,6 +433,14 @@ if(NOT APPLE)
       ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_ASSET_TOML_FILES_ONLY}
       "$<TARGET_FILE_DIR:kennel>/assets/themes"
     COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:kennel>/assets/mime/dark"
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:kennel>/assets/mime/light"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_MIME_DARK_FILES}
+            "$<TARGET_FILE_DIR:kennel>/assets/mime/dark"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_MIME_LIGHT_FILES}
+            "$<TARGET_FILE_DIR:kennel>/assets/mime/light"
+    COMMAND ${CMAKE_COMMAND} -E make_directory
             "$<TARGET_FILE_DIR:kennel>/assets/fonts"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_FONT_FILES}
             "$<TARGET_FILE_DIR:kennel>/assets/fonts"
@@ -460,6 +479,10 @@ else()
           DESTINATION ${CMAKE_INSTALL_DATADIR}/kennel/assets/themes)
   install(FILES ${KENNEL_FONT_FILES}
           DESTINATION ${CMAKE_INSTALL_DATADIR}/kennel/assets/fonts)
+  install(FILES ${KENNEL_MIME_DARK_FILES}
+          DESTINATION ${CMAKE_INSTALL_DATADIR}/kennel/assets/mime/dark)
+  install(FILES ${KENNEL_MIME_LIGHT_FILES}
+          DESTINATION ${CMAKE_INSTALL_DATADIR}/kennel/assets/mime/light)
   # License
   install(FILES "${CMAKE_SOURCE_DIR}/LICENSE"
           DESTINATION ${CMAKE_INSTALL_DATADIR}/kennel)

@@ -10,6 +10,7 @@
 #include "core/Helpers.h"
 #include "core/Logger.h"
 #include <wx/filename.h>
+#include <wx/settings.h>
 #include <wx/sizer.h>
 
 #include <algorithm>
@@ -352,7 +353,8 @@ void TreeView::AddFile(FilePage *page) {
   EnsureGroup(kFilesGroupName);
   AppendLeaf(FindGroupItem(kFilesGroupName), page->GetDisplayName(),
              new FileItemData(page),
-             AppManager::Get().GetBitmaps().GetByAlias("file", false));
+             AppManager::Get().GetBitmaps().GetFileIcon(
+                 page->GetPath(), wxSystemSettings::GetAppearance().IsDark()));
 }
 
 void TreeView::RemovePage(wxWindow *page) {

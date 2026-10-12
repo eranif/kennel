@@ -1437,6 +1437,8 @@ void MainView::LoadBitmaps() {
   bmps.Load("close.svg");
   bmps.AddAlias("close.svg", "close");
 
+  bmps.LoadMimeIcons();
+
   // Load file*.svg
   wxArrayString files;
   wxDir::GetAllFiles(ShippedAssetsDir().GetPath(), &files, "file*.svg",
