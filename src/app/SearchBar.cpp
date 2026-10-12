@@ -13,7 +13,7 @@ wxDEFINE_EVENT(wxEVT_SEARCHBAR_CLOSE, wxCommandEvent);
 #ifdef __WXGTK__
 constexpr long kSearchBarStyle = wxBORDER_NONE;
 #else
-constexpr long kSearchBarStyle = wxBORDER_SIMPLE;
+constexpr long kSearchBarStyle = wxBORDER_DEFAULT;
 #endif
 
 SearchBar::SearchBar(wxWindow *parent, Kind kind) {
@@ -21,6 +21,13 @@ SearchBar::SearchBar(wxWindow *parent, Kind kind) {
                   kSearchBarStyle);
   const bool editor = kind == Kind::kEditor;
   const wxSizerFlags flags = wxSizerFlags(0).Expand().Border(wxALL, 2);
+
+  // Measure the width a button.
+  wxSize buttonSize{
+      parent->GetTextExtent(editor ? _("Replace All") : _("Previous"))
+              .GetWidth() +
+          (parent->FromDIP(5) * 2),
+      wxNOT_FOUND};
 
   // [ find what    ][ down    ][ up          ][ full word ][ case sensitive ]
   // [ replace with ][ replace ][ replace all ][           ][                ]
@@ -34,12 +41,14 @@ SearchBar::SearchBar(wxWindow *parent, Kind kind) {
                           wxDefaultSize, wxTE_PROCESS_ENTER);
   m_find->SetHint(_("Find"));
   // For the mouse: the same as Enter and Shift+Enter.
-  auto *next = new wxButton(this, wxID_ANY, _("Next"));
+  auto *next =
+      new wxButton(this, wxID_ANY, _("Next"), wxDefaultPosition, buttonSize);
   next->SetToolTip(_("Find the next match (Enter)"));
   next->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
     Send(wxEVT_SEARCHBAR_FIND, kForward);
   });
-  auto *previous = new wxButton(this, wxID_ANY, _("Previous"));
+  auto *previous = new wxButton(this, wxID_ANY, _("Previous"),
+                                wxDefaultPosition, buttonSize);
   previous->SetToolTip(_("Find the previous match (Shift+Enter)"));
   previous->Bind(wxEVT_BUTTON,
                  [this](wxCommandEvent &) { Send(wxEVT_SEARCHBAR_FIND, 0); });
@@ -61,13 +70,15 @@ SearchBar::SearchBar(wxWindow *parent, Kind kind) {
     m_replace = new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
                                wxDefaultSize, wxTE_PROCESS_ENTER);
     m_replace->SetHint(_("Replace with"));
-    m_replaceButton = new wxButton(this, wxID_ANY, _("Replace"));
+    m_replaceButton = new wxButton(this, wxID_ANY, _("Replace"),
+                                   wxDefaultPosition, buttonSize);
     m_replaceButton->SetToolTip(
         _("Replace the selected match and find the next one (Enter)"));
     m_replaceButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
       Send(wxEVT_SEARCHBAR_REPLACE, kForward);
     });
-    m_replaceAllButton = new wxButton(this, wxID_ANY, _("Replace all"));
+    m_replaceAllButton = new wxButton(this, wxID_ANY, _("Replace all"),
+                                      wxDefaultPosition, buttonSize);
     m_replaceAllButton->SetToolTip(_("Replace all the matches in the file"));
     m_replaceAllButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
       Send(wxEVT_SEARCHBAR_REPLACE_ALL, kForward);
