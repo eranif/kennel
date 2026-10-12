@@ -161,7 +161,7 @@ SessionPage::SessionPage(WindowBook *parent, std::optional<AgentDef> agent,
   Bind(wxEVT_TIMER, &SessionPage::OnNoticeTimer, this, m_noticeTimer.GetId());
   Bind(wxEVT_REVIEW_CHANGED, &SessionPage::OnReviewChanged, this);
   // Below the terminals: CreateTerminal() puts the splitter before it.
-  m_searchBar = new SearchBar(this, /*withOptions=*/false);
+  m_searchBar = new SearchBar(this, SearchBar::Kind::kFindOnly);
   m_searchBar->Hide();
   GetSizer()->Add(m_searchBar, wxSizerFlags(0).Expand());
   Bind(wxEVT_SEARCHBAR_FIND, &SessionPage::OnSearchBarFind, this);

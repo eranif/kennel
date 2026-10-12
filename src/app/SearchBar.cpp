@@ -3,70 +3,125 @@
 #include <wx/button.h>
 #include <wx/checkbox.h>
 #include <wx/sizer.h>
-#include <wx/srchctrl.h>
-#include <wx/utils.h>
+#include <wx/textctrl.h>
 
 wxDEFINE_EVENT(wxEVT_SEARCHBAR_FIND, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_SEARCHBAR_REPLACE, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_SEARCHBAR_REPLACE_ALL, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SEARCHBAR_CLOSE, wxCommandEvent);
 
-SearchBar::SearchBar(wxWindow *parent, bool withOptions) {
+SearchBar::SearchBar(wxWindow *parent, Kind kind) {
   Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE);
+  const bool editor = kind == Kind::kEditor;
+  const wxSizerFlags flags = wxSizerFlags(0).Expand().Border(wxALL, 2);
 
-  auto *sizer = new wxBoxSizer(wxHORIZONTAL);
-  m_search = new wxSearchCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
-                              FromDIP(wxSize(300, -1)), wxTE_PROCESS_ENTER);
-  m_search->ShowCancelButton(true);
-  m_search->SetDescriptiveText(_("Find"));
-  sizer->Add(m_search, wxSizerFlags(0).CenterVertical().Border(wxALL, 2));
-  // For the mouse: the same as Shift+Enter and Enter. The labels are the
-  // arrows U+2191 (up) and U+2193 (down).
+  // [ find what    ][ down    ][ up          ][ full word ][ case sensitive ]
+  // [ replace with ][ replace ][ replace all ][           ][                ]
+  // A terminal has the first three of the first line only. The texts take the
+  // width that is left.
+  auto *sizer = new wxFlexGridSizer(editor ? 2 : 1, editor ? 5 : 3, 0, 0);
+  sizer->AddGrowableCol(0);
+  sizer->SetFlexibleDirection(wxBOTH);
+
+  m_find = new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                          wxDefaultSize, wxTE_PROCESS_ENTER);
+  m_find->SetHint(_("Find"));
+  // For the mouse: the same as Enter and Shift+Enter. The labels are the
+  // arrows U+2193 (down) and U+2191 (up).
+  auto *next = new wxButton(this, wxID_ANY, wxString(wxUniChar(0x2193)),
+                            wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+  next->SetToolTip(_("Find the next match (Enter)"));
+  next->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+    Send(wxEVT_SEARCHBAR_FIND, kForward);
+  });
   auto *previous =
       new wxButton(this, wxID_ANY, wxString(wxUniChar(0x2191)),
                    wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
   previous->SetToolTip(_("Find the previous match (Shift+Enter)"));
-  previous->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Send(0); });
-  auto *next = new wxButton(this, wxID_ANY, wxString(wxUniChar(0x2193)),
-                            wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
-  next->SetToolTip(_("Find the next match (Enter)"));
-  next->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { Send(kForward); });
-  sizer->Add(previous, wxSizerFlags(0).CenterVertical().Border(wxALL, 2));
-  sizer->Add(next, wxSizerFlags(0).CenterVertical().Border(wxALL, 2));
-  if (withOptions) {
+  previous->Bind(wxEVT_BUTTON,
+                 [this](wxCommandEvent &) { Send(wxEVT_SEARCHBAR_FIND, 0); });
+  sizer->Add(m_find, flags);
+  sizer->Add(next, flags);
+  sizer->Add(previous, flags);
+
+  if (editor) {
     m_wholeWord = new wxCheckBox(this, wxID_ANY, _("Full word"));
     m_matchCase = new wxCheckBox(this, wxID_ANY, _("Case sensitive"));
-    sizer->Add(m_wholeWord, wxSizerFlags(0).CenterVertical().Border(wxALL, 4));
-    sizer->Add(m_matchCase, wxSizerFlags(0).CenterVertical().Border(wxALL, 4));
-    auto onOption = [this](wxCommandEvent &) { Send(kIncremental); };
+    auto onOption = [this](wxCommandEvent &) {
+      Send(wxEVT_SEARCHBAR_FIND, kIncremental);
+    };
     m_wholeWord->Bind(wxEVT_CHECKBOX, onOption);
     m_matchCase->Bind(wxEVT_CHECKBOX, onOption);
+    sizer->Add(m_wholeWord, flags);
+    sizer->Add(m_matchCase, flags);
+
+    m_replace = new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                               wxDefaultSize, wxTE_PROCESS_ENTER);
+    m_replace->SetHint(_("Replace with"));
+    m_replaceButton = new wxButton(this, wxID_ANY, _("Replace"));
+    m_replaceButton->SetToolTip(
+        _("Replace the selected match and find the next one (Enter)"));
+    m_replaceButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+      Send(wxEVT_SEARCHBAR_REPLACE, kForward);
+    });
+    m_replaceAllButton = new wxButton(this, wxID_ANY, _("Replace all"));
+    m_replaceAllButton->SetToolTip(_("Replace all the matches in the file"));
+    m_replaceAllButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+      Send(wxEVT_SEARCHBAR_REPLACE_ALL, kForward);
+    });
+    sizer->Add(m_replace, flags);
+    sizer->Add(m_replaceButton, flags);
+    sizer->Add(m_replaceAllButton, flags);
+    sizer->AddStretchSpacer();
+    sizer->AddStretchSpacer();
+
+    m_next = next;
+    m_previous = previous;
+    UpdateButtonWidths();
+    // The best size changes with the scale of the monitor.
+    Bind(wxEVT_DPI_CHANGED, [this](wxDPIChangedEvent &event) {
+      event.Skip();
+      UpdateButtonWidths();
+    });
   }
   SetSizer(sizer);
 
-  m_search->Bind(wxEVT_TEXT, [this](wxCommandEvent &) { Send(kIncremental); });
-  // The cancel button empties the text; a wxEVT_TEXT may not come with it.
-  m_search->Bind(wxEVT_SEARCH_CANCEL, [this](wxCommandEvent &) {
-    m_search->ChangeValue(wxEmptyString);
-    Send(kIncremental);
+  m_find->Bind(wxEVT_TEXT, [this](wxCommandEvent &) {
+    Send(wxEVT_SEARCHBAR_FIND, kIncremental);
   });
-  // A click on the search button (Enter is handled in OnCharHook, before the
-  // control sees it).
-  m_search->Bind(wxEVT_SEARCH, [this](wxCommandEvent &) {
-    Send(wxGetKeyState(WXK_SHIFT) ? 0 : kForward);
-  });
-  // wxEVT_CHAR_HOOK goes up from the window with the focus: the search control
-  // and the checkboxes.
+  // wxEVT_CHAR_HOOK goes up from the window with the focus: every control of
+  // the bar.
   Bind(wxEVT_CHAR_HOOK, &SearchBar::OnCharHook, this);
+}
+
+void SearchBar::UpdateButtonWidths() {
+  if (m_replaceAllButton == nullptr) {
+    return;
+  }
+  // All the buttons are as wide as the widest one, "Replace all".
+  for (wxButton *button : {m_next, m_previous, m_replaceButton}) {
+    button->SetMinSize(wxDefaultSize);
+  }
+  const int width = m_replaceAllButton->GetBestSize().GetWidth();
+  for (wxButton *button : {m_next, m_previous, m_replaceButton}) {
+    button->SetMinSize(wxSize(width, -1));
+  }
+  Layout();
 }
 
 void SearchBar::Activate(const wxString &text) {
   if (!text.empty()) {
-    m_search->ChangeValue(text);
+    m_find->ChangeValue(text);
   }
-  m_search->SetFocus();
-  m_search->SelectAll();
+  m_find->SetFocus();
+  m_find->SelectAll();
 }
 
-wxString SearchBar::GetText() const { return m_search->GetValue(); }
+wxString SearchBar::GetText() const { return m_find->GetValue(); }
+
+wxString SearchBar::GetReplaceText() const {
+  return m_replace != nullptr ? m_replace->GetValue() : wxString{};
+}
 
 int SearchBar::GetOptions() const {
   int options = 0;
@@ -88,12 +143,28 @@ void SearchBar::SetOptions(int options) {
   }
 }
 
-void SearchBar::Send(int flags) {
-  wxCommandEvent event(wxEVT_SEARCHBAR_FIND, GetId());
+void SearchBar::EnableReplace(bool enable) {
+  for (wxWindow *win : {static_cast<wxWindow *>(m_replace),
+                        static_cast<wxWindow *>(m_replaceButton),
+                        static_cast<wxWindow *>(m_replaceAllButton)}) {
+    if (win != nullptr) {
+      win->Enable(enable);
+    }
+  }
+}
+
+void SearchBar::Send(wxEventType type, int flags) {
+  wxCommandEvent event(type, GetId());
   event.SetEventObject(this);
-  event.SetString(m_search->GetValue());
+  event.SetString(m_find->GetValue());
   event.SetInt(flags | GetOptions());
   ProcessWindowEvent(event);
+}
+
+bool SearchBar::HasFocusIn(const wxWindow *ctrl) {
+  wxWindow *focus = wxWindow::FindFocus();
+  return ctrl != nullptr && focus != nullptr &&
+         (focus == ctrl || ctrl->IsDescendant(focus));
 }
 
 void SearchBar::OnCharHook(wxKeyEvent &event) {
@@ -104,19 +175,20 @@ void SearchBar::OnCharHook(wxKeyEvent &event) {
     ProcessWindowEvent(close);
     return;
   }
-  const bool enter = key == WXK_RETURN || key == WXK_NUMPAD_ENTER;
-  // Only in the search control: Enter on a checkbox is left alone.
-  wxWindow *focus = wxWindow::FindFocus();
-  const bool inSearch =
-      focus != nullptr && (focus == m_search || m_search->IsDescendant(focus));
-  if (enter && inSearch) {
+  // Enter in a text: the buttons and the checkboxes keep theirs.
+  if (key == WXK_RETURN || key == WXK_NUMPAD_ENTER) {
     const int modifiers = event.GetModifiers();
-    if (modifiers == wxMOD_NONE) {
-      Send(kForward);
-      return;
-    }
-    if (modifiers == wxMOD_SHIFT) {
-      Send(0);
+    if (HasFocusIn(m_find)) {
+      if (modifiers == wxMOD_NONE) {
+        Send(wxEVT_SEARCHBAR_FIND, kForward);
+        return;
+      }
+      if (modifiers == wxMOD_SHIFT) {
+        Send(wxEVT_SEARCHBAR_FIND, 0);
+        return;
+      }
+    } else if (HasFocusIn(m_replace) && modifiers == wxMOD_NONE) {
+      Send(wxEVT_SEARCHBAR_REPLACE, kForward);
       return;
     }
   }

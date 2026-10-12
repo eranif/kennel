@@ -100,11 +100,11 @@ public:
   bool CanRefreshCurrent() const;
   void RefreshCurrentSelection();
 
-  // Find and Replace in the page that is showing: a file (both) or a session
-  // (Find only). CanFind() is for the menu items.
-  void ShowFind(bool replace);
+  // Find in the page that is showing: a file (its bar also replaces) or a
+  // session. CanFind() is for the menu items.
+  void ShowFind();
   void FindNext(bool forward);
-  bool CanFind(bool replace) const;
+  bool CanFind() const;
   // Whether F3 / Shift+F3 are Find Next / Previous now: in a file, or in a
   // session that has a search. Otherwise a program in the terminal gets F3.
   bool CanFindNext() const;

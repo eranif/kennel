@@ -285,14 +285,6 @@ void MainView::ActivatePage(wxWindow *page, bool updateRecent,
     return;
   }
 
-  // The Find and Replace dialog works on the page that opened it: not on one
-  // that is hidden. (The search bars belong to their pages.)
-  if (wxWindow *outgoing = m_sessionsBook->GetCurrentPage(); outgoing != page) {
-    if (auto *file = dynamic_cast<FilePage *>(outgoing)) {
-      file->DestroyFindDialog();
-    }
-  }
-
   int where = m_sessionsBook->FindPage(page);
   if (where != wxNOT_FOUND) {
     m_sessionsBook->SetSelection(where);
@@ -1051,12 +1043,11 @@ bool MainView::CanRefreshCurrent() const {
   return group && group->IsSessionGroup() && GetActiveSessionPage() != nullptr;
 }
 
-void MainView::ShowFind(bool replace) {
+void MainView::ShowFind() {
   wxWindow *page = m_sessionsBook->GetCurrentPage();
   if (auto *file = dynamic_cast<FilePage *>(page)) {
-    file->ShowFind(replace);
-  } else if (auto *session = dynamic_cast<SessionPage *>(page);
-             session && !replace) {
+    file->ShowFind();
+  } else if (auto *session = dynamic_cast<SessionPage *>(page)) {
     session->ShowFind();
   }
 }
@@ -1070,12 +1061,10 @@ void MainView::FindNext(bool forward) {
   }
 }
 
-bool MainView::CanFind(bool replace) const {
+bool MainView::CanFind() const {
   wxWindow *page = m_sessionsBook->GetCurrentPage();
-  if (auto *file = dynamic_cast<FilePage *>(page)) {
-    return !replace || file->CanReplace();
-  }
-  return !replace && dynamic_cast<SessionPage *>(page) != nullptr;
+  return dynamic_cast<FilePage *>(page) != nullptr ||
+         dynamic_cast<SessionPage *>(page) != nullptr;
 }
 
 bool MainView::CanFindNext() const {
