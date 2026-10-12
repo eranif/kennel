@@ -1095,5 +1095,10 @@ void SessionPage::OnSearchBarClose(wxCommandEvent &event) {
   wxUnusedVar(event);
   m_searchBar->Hide();
   Layout();
+  // The matches stay highlighted otherwise: in both terminals, as the search
+  // may have run in either.
+  for (wxTerminalViewCtrl *terminal : GetTerminals()) {
+    terminal->ClearUserSelection();
+  }
   SetFocus();
 }
