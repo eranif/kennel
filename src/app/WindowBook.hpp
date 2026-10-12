@@ -5,6 +5,12 @@
 #include <wx/vector.h>
 #include <wx/withimages.h>
 
+#if 1
+
+#include <wx/simplebook.h>
+using WindowBook = wxSimplebook;
+
+#else
 // A page container without a user-visible controller. Its page-management API
 // follows wxSimplebook, but it derives directly from wxControl.
 class WindowBook : public wxControl {
@@ -223,4 +229,5 @@ private:
   wxDECLARE_NO_COPY_CLASS(WindowBook);
 };
 
+#endif
 #endif // KENNEL_WINDOWBOOK_HPP
