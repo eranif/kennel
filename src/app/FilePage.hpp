@@ -11,6 +11,8 @@
 #include <wx/fdrepdlg.h>
 #include <wx/panel.h>
 
+class SearchBar;
+
 // A file shown in the main view, opened from a path clicked in a terminal.
 // Both kinds are edited here and saved with Save / Ctrl+S: a local file is
 // written to disk, a remote file is written back over SFTP.
@@ -56,20 +58,26 @@ public:
   void PublishStatus();
 
   // ---- Find and Replace ------------------------------------------------
-  // Opens the (non-modal) Find dialog, or the Find and Replace dialog when
-  // `replace` is set and the file can be edited. The selected text, if it is
-  // on one line, is what it looks for.
-  void ShowFindDialog(bool replace);
+  // Shows the search bar above the editor, or the (non-modal) Find and Replace
+  // dialog when `replace` is set and the file can be edited. The selected
+  // text, if it is on one line, is what it looks for.
+  void ShowFind(bool replace);
   // Selects the next (or previous) match of the last search, with wrap around.
-  // Opens the dialog if there was no search yet.
+  // Shows the search bar if there was no search yet.
   void FindNext(bool forward);
   bool CanReplace() const { return m_editor->IsEditable(); }
-  // Closes the dialog, if it is open. MainView calls it when another page is
-  // selected: the dialog works on this page only.
+  // Closes the Find and Replace dialog, if it is open. MainView calls it when
+  // another page is selected: the dialog works on this page only.
   void DestroyFindDialog();
 
 private:
   void OnEditorUpdateUI(wxStyledTextEvent &event);
+
+  // The search bar sends these to its parent, this page.
+  void OnSearchBarFind(wxCommandEvent &event);
+  void OnSearchBarClose(wxCommandEvent &event);
+  // The selected text, if it is on one line; empty otherwise.
+  wxString SelectedSearchText() const;
 
   // The dialog sends these to its parent, this page.
   void OnFind(wxFindDialogEvent &event);
@@ -79,8 +87,10 @@ private:
   // Takes the text, the replacement and the options of the dialog.
   void TakeFindData(const wxFindDialogEvent &event);
   // Selects the next match from the selection, in the given direction, and
-  // wraps around once. False if there is none.
-  bool FindIn(bool forward);
+  // wraps around once. False if there is none. `incremental` (the text is
+  // being typed) looks from the start of the selection: the match it has
+  // stays if it still matches.
+  bool FindIn(bool forward, bool incremental = false);
   int FindSearchFlags() const;
   void FileSaved(const Status &status);
   void OnSave(wxCommandEvent &event);
@@ -101,6 +111,7 @@ private:
   std::thread m_saveThread;
   Editor *m_editor{nullptr};
   wxAuiToolBar *m_toolbar{nullptr};
+  SearchBar *m_searchBar{nullptr}; // Hidden until Find
   wxFindReplaceData m_findData{wxFR_DOWN};
   wxFindReplaceDialog *m_findDlg{nullptr};
   bool m_findDlgReplace{false};

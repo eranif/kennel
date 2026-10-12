@@ -17,7 +17,6 @@
 #include <functional>
 #include <memory>
 #include <vector>
-#include <wx/fdrepdlg.h>
 #include <wx/timer.h>
 
 class wxTerminalViewCtrl;
@@ -26,6 +25,7 @@ class wxSplitterWindow;
 class wxPanel;
 class wxContextMenuEvent;
 class ReviewBuddy;
+class SearchBar;
 
 enum class SessionStatus { Starting, Running, Idle, Exited, Error };
 
@@ -57,17 +57,15 @@ public:
   // page is showing). Also called when the page is selected.
   void PublishStatus();
 
-  // Opens the (non-modal) Find dialog for the terminal that has the focus (or
-  // had it last). The selected text of the terminal is what it looks for.
-  void ShowFindDialog();
-  // Selects the next (or previous) match of the last search. Opens the dialog
-  // if there was no search yet.
+  // Shows the search bar above the terminals. It searches the terminal that
+  // has the focus (or had it last). The selected text of the terminal is what
+  // it looks for.
+  void ShowFind();
+  // Selects the next (or previous) match of the last search. Shows the search
+  // bar if there was no search yet.
   void FindNext(bool forward);
   // Whether there is a search for FindNext() to repeat.
-  bool HasSearch() const { return !m_findData.GetFindString().empty(); }
-  // Closes the dialog, if it is open. MainView calls it when another page is
-  // selected: the dialog works on this page only.
-  void DestroyFindDialog();
+  bool HasSearch() const { return !m_findText.empty(); }
 
 private:
   void CreateTerminal();
@@ -109,9 +107,13 @@ private:
   void OnTitleChanged(wxTerminalEvent &evt);
   void OnTerminalLink(wxTerminalEvent &evt);
 
-  // The dialog sends these to its parent, this page.
-  void OnFind(wxFindDialogEvent &event);
-  void OnFindClose(wxFindDialogEvent &event);
+  // The search bar sends these to its parent, this page.
+  void OnSearchBarFind(wxCommandEvent &event);
+  void OnSearchBarClose(wxCommandEvent &event);
+  // The terminal the search works on.
+  wxTerminalViewCtrl *SearchTerminal() const {
+    return m_lastFocused != nullptr ? m_lastFocused : m_terminal;
+  }
   void FindIn(bool forward);
 
   // ---- Context menu and review buddy -----------------------------------
@@ -166,8 +168,8 @@ private:
   wxTimer m_noticeTimer{this};
   bool m_endNoticeShown{false}; // For the review that ended
 
-  wxFindReplaceData m_findData{wxFR_DOWN};
-  wxFindReplaceDialog *m_findDlg{nullptr};
+  wxString m_findText;             // What the last search looked for
+  SearchBar *m_searchBar{nullptr}; // Hidden until Find
 
   // The agent's pane is the only child of the splitter until a review buddy
   // opens its pane next to it. Each pane holds one terminal with a border.

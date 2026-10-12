@@ -285,12 +285,11 @@ void MainView::ActivatePage(wxWindow *page, bool updateRecent,
     return;
   }
 
-  // A Find dialog works on the page that opened it: not on one that is hidden.
+  // The Find and Replace dialog works on the page that opened it: not on one
+  // that is hidden. (The search bars belong to their pages.)
   if (wxWindow *outgoing = m_sessionsBook->GetCurrentPage(); outgoing != page) {
     if (auto *file = dynamic_cast<FilePage *>(outgoing)) {
       file->DestroyFindDialog();
-    } else if (auto *session = dynamic_cast<SessionPage *>(outgoing)) {
-      session->DestroyFindDialog();
     }
   }
 
@@ -1055,10 +1054,10 @@ bool MainView::CanRefreshCurrent() const {
 void MainView::ShowFind(bool replace) {
   wxWindow *page = m_sessionsBook->GetCurrentPage();
   if (auto *file = dynamic_cast<FilePage *>(page)) {
-    file->ShowFindDialog(replace);
+    file->ShowFind(replace);
   } else if (auto *session = dynamic_cast<SessionPage *>(page);
              session && !replace) {
-    session->ShowFindDialog();
+    session->ShowFind();
   }
 }
 

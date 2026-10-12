@@ -289,6 +289,7 @@ set(KENNEL_APP_SOURCES
     src/app/MainFrame.cpp
     src/app/MainView.cpp
     src/app/SessionPage.cpp
+    src/app/SearchBar.cpp
     src/app/StartAgentDialog.cpp
     src/app/AssetBootstrap.cpp
     src/app/AboutDialog.cpp
