@@ -1,8 +1,9 @@
 #include "app/FilePage.hpp"
 
 #include "app/EditFileDlg.hpp"
+#include "app/MainFrame.h"
+#include "core/AppManager.h"
 #include "core/SftpClient.h"
-
 #include <wx/app.h>
 #include <wx/filename.h>
 #include <wx/frame.h>
@@ -11,13 +12,37 @@
 #include <wx/utils.h>
 
 #include <thread>
+namespace {
+const int ID_SAVER = wxWindow::NewControlId();
+const int ID_RELOAD = wxWindow::NewControlId();
+const int ID_CLOSE = wxWindow::NewControlId();
+} // namespace
 
 FilePage::FilePage(wxWindow *parent, const wxString &path,
                    const wxTerminalTheme &theme,
                    const RemoteHostDetails &remoteHost)
     : wxPanel(parent), m_path{path}, m_remoteHost{remoteHost} {
+  m_toolbar = new wxAuiToolBar(this);
+  AppManager::Get().GetBitmaps().Get("save", false);
+  m_toolbar->AddTool(ID_CLOSE, _("Close"),
+                     AppManager::Get().GetBitmaps().Get("close", false),
+                     _("Close The Current File"));
+  m_toolbar->AddSeparator();
+  m_toolbar->AddTool(ID_SAVER, _("Save"),
+                     AppManager::Get().GetBitmaps().Get("save", false),
+                     _("Save File Modifications"));
+  m_toolbar->AddTool(ID_RELOAD, _("Reload"),
+                     AppManager::Get().GetBitmaps().Get("reload", false),
+                     _("Reload The Current File"));
+  m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnSave, this, ID_SAVER);
+  m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnReload, this, ID_RELOAD);
+  m_toolbar->Bind(wxEVT_UPDATE_UI, &FilePage::OnSaveUI, this, ID_SAVER);
+  m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnClose, this, ID_CLOSE);
+  m_toolbar->Realize();
+
   m_editor = new Editor(this, EditFileDlg::LangFromPath(path), theme);
   SetSizer(new wxBoxSizer(wxVERTICAL));
+  GetSizer()->Add(m_toolbar, wxSizerFlags(0).Expand());
   GetSizer()->Add(m_editor, wxSizerFlags(1).Expand());
 
   wxStyledTextCtrl *ctrl = m_editor->GetCtrl();
@@ -147,4 +172,44 @@ void FilePage::OnSavePointChanged(wxStyledTextEvent &event) {
                        ? wxString::FromUTF8("💾 ") // U+1F4BE floppy disk
                        : wxString{}) +
                   m_path);
+}
+
+void FilePage::OnSave(wxCommandEvent &event) {
+  wxUnusedVar(event);
+  if (m_editor && m_editor->IsModified())
+    m_editor->Save();
+}
+
+void FilePage::OnSaveUI(wxUpdateUIEvent &event) {
+  event.Enable(m_editor && m_editor->IsModified());
+}
+
+void FilePage::OnReload(wxCommandEvent &event) {
+  wxUnusedVar(event);
+  if (m_saving) {
+    return; // The upload is not done: what is reloaded now may be the old copy.
+  }
+  if (IsModified() &&
+      ::wxMessageBox(
+          wxString::Format(_("Discard your changes to %s and reload it?"),
+                           GetDisplayName()),
+          "Kennel", wxYES_NO | wxNO_DEFAULT | wxICON_QUESTION, this) != wxYES) {
+    return;
+  }
+
+  if (IsRemote()) {
+    // Read on a worker thread by MainView, which then replaces the text.
+    GetMainView()->ReloadRemoteFile(m_remoteHost, m_path);
+    return;
+  }
+
+  if (!LoadLocal()) {
+    ::wxMessageBox(wxString::Format(_("Could not open %s"), m_path), "Kennel",
+                   wxOK | wxICON_ERROR, this);
+  }
+}
+
+void FilePage::OnClose(wxCommandEvent &event) {
+  wxUnusedVar(event);
+  GetMainView()->CallAfter(&MainView::CloseFileByKey, GetKey());
 }

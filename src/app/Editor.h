@@ -61,6 +61,7 @@ public:
     m_ctrl->SetSavePoint();
   }
 
+  bool IsModified() const { return m_ctrl->IsModified(); }
   wxString GetText() const { return m_ctrl->GetText(); }
   bool CanSave() const {
     return m_filepath.has_value() && m_ctrl->IsEditable();

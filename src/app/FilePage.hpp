@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <thread>
+#include <wx/aui/auibar.h>
 #include <wx/panel.h>
 
 // A file shown in the main view, opened from a path clicked in a terminal.
@@ -51,6 +52,10 @@ public:
 
 private:
   void FileSaved(const Status &status);
+  void OnSave(wxCommandEvent &event);
+  void OnSaveUI(wxUpdateUIEvent &event);
+  void OnClose(wxCommandEvent &event);
+  void OnReload(wxCommandEvent &event);
 
   // Puts the document back into the "has unsaved changes" state.
   void MarkModified();
@@ -64,6 +69,7 @@ private:
   // as long as the thread runs: the destructor joins it.
   std::thread m_saveThread;
   Editor *m_editor{nullptr};
+  wxAuiToolBar *m_toolbar{nullptr};
   // Lets Ctrl+Tab (and the other global shortcuts) work while the
   // editor has focus.
   std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor;

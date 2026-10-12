@@ -517,9 +517,21 @@ void MainView::OpenRemoteFile(const RemoteHostDetails &remoteHost,
   }).detach();
 }
 
+void MainView::ReloadRemoteFile(const RemoteHostDetails &remoteHost,
+                                const wxString &path) {
+  const wxString key = FileEvent::MakeKey(path, remoteHost);
+  if (m_fetchingRemote.count(key) != 0) {
+    return; // Already being fetched.
+  }
+  m_reloadingRemote.insert(key);
+  OpenRemoteFile(remoteHost, path, {});
+}
+
 void MainView::OnRemoteFileRead(const RemoteReadResult &result) {
-  m_fetchingRemote.erase(
-      FileEvent::MakeKey(result.clickedPath, result.remoteHost));
+  const wxString fetchKey =
+      FileEvent::MakeKey(result.clickedPath, result.remoteHost);
+  m_fetchingRemote.erase(fetchKey);
+  const bool reload = m_reloadingRemote.erase(fetchKey) != 0;
 
   if (!result.ok) {
     KLOG_WARN() << "Remote open failed for '" << result.clickedPath
@@ -543,7 +555,7 @@ void MainView::OnRemoteFileRead(const RemoteReadResult &result) {
     text = wxString::From8BitData(result.content.data(), result.content.size());
     editable = false;
   }
-  ShowRemoteFile(result.remoteHost, path, text, editable);
+  ShowRemoteFile(result.remoteHost, path, text, editable, reload);
 }
 
 void MainView::OpenLocalFile(const wxString &path) {
@@ -568,14 +580,17 @@ void MainView::OpenLocalFile(const wxString &path) {
 
 void MainView::ShowRemoteFile(const RemoteHostDetails &remoteHost,
                               const wxString &path, const wxString &text,
-                              bool editable) {
+                              bool editable, bool reload) {
   const wxString key = FileEvent::MakeKey(path, remoteHost);
   if (auto *existing = m_treeView->FindFile(key)) {
-    // The remote copy may have changed, but never clobber unsaved edits.
-    if (!existing->IsModified()) {
+    // The remote copy may have changed, but only a reload (the user agreed)
+    // replaces unsaved edits.
+    if (reload || !existing->IsModified()) {
       existing->LoadRemote(text, editable);
     }
-    SelectFilePage(existing);
+    if (!reload) {
+      SelectFilePage(existing);
+    }
     return;
   }
 
@@ -1375,6 +1390,15 @@ void MainView::LoadBitmaps() {
 
   bmps.Load("pin.svg");
   bmps.AddAlias("pin.svg", "pin");
+
+  bmps.Load("save.svg");
+  bmps.AddAlias("save.svg", "save");
+
+  bmps.Load("reload.svg");
+  bmps.AddAlias("reload.svg", "reload");
+
+  bmps.Load("close.svg");
+  bmps.AddAlias("close.svg", "close");
 
   // Load file*.svg
   wxArrayString files;

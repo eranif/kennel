@@ -144,8 +144,17 @@ public:
   // Shows `text`, fetched from `path` on `remoteHost`, in an editor page under
   // the "Files" container. Saving writes it back over SFTP. An already-open
   // page is refreshed, unless it has unsaved changes.
+  // `reload` is for a page that asked for the new copy: it replaces unsaved
+  // edits too (the user agreed), and the page is not selected.
   void ShowRemoteFile(const RemoteHostDetails &remoteHost, const wxString &path,
-                      const wxString &text, bool editable);
+                      const wxString &text, bool editable, bool reload = false);
+
+  // Fetches `path` again from `remoteHost` and replaces the text of its open
+  // page with it, edits included. The caller has asked the user already.
+  void ReloadRemoteFile(const RemoteHostDetails &remoteHost,
+                        const wxString &path);
+
+  void CloseFileByKey(const wxString &key);
 
 private:
   void LoadBitmaps();
@@ -248,7 +257,6 @@ private:
   void CloseSessionByName(const wxString &sessionName);
   // Closes `page` (offering to save unsaved changes) and removes its leaf.
   void CloseFile(FilePage *page);
-  void CloseFileByKey(const wxString &key);
   void CloseAllFiles();
 
   void OnSessionIdle(wxCommandEvent &e);
@@ -287,6 +295,8 @@ private:
 
   // Keys (see FileEvent::MakeKey) of remote files currently being fetched.
   std::set<wxString> m_fetchingRemote;
+  // The ones of those that are a reload (see ReloadRemoteFile()).
+  std::set<wxString> m_reloadingRemote;
 
   std::array<wxBitmapBundle, kSpinnerFrameCount> m_spinnerFrames;
   int m_pendingIdle{0};
