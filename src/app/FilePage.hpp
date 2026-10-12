@@ -8,6 +8,7 @@
 #include <memory>
 #include <thread>
 #include <wx/aui/auibar.h>
+#include <wx/fdrepdlg.h>
 #include <wx/panel.h>
 
 // A file shown in the main view, opened from a path clicked in a terminal.
@@ -54,8 +55,33 @@ public:
   // while this page is showing) and when the page is selected.
   void PublishStatus();
 
+  // ---- Find and Replace ------------------------------------------------
+  // Opens the (non-modal) Find dialog, or the Find and Replace dialog when
+  // `replace` is set and the file can be edited. The selected text, if it is
+  // on one line, is what it looks for.
+  void ShowFindDialog(bool replace);
+  // Selects the next (or previous) match of the last search, with wrap around.
+  // Opens the dialog if there was no search yet.
+  void FindNext(bool forward);
+  bool CanReplace() const { return m_editor->IsEditable(); }
+  // Closes the dialog, if it is open. MainView calls it when another page is
+  // selected: the dialog works on this page only.
+  void DestroyFindDialog();
+
 private:
   void OnEditorUpdateUI(wxStyledTextEvent &event);
+
+  // The dialog sends these to its parent, this page.
+  void OnFind(wxFindDialogEvent &event);
+  void OnFindReplace(wxFindDialogEvent &event);
+  void OnFindReplaceAll(wxFindDialogEvent &event);
+  void OnFindClose(wxFindDialogEvent &event);
+  // Takes the text, the replacement and the options of the dialog.
+  void TakeFindData(const wxFindDialogEvent &event);
+  // Selects the next match from the selection, in the given direction, and
+  // wraps around once. False if there is none.
+  bool FindIn(bool forward);
+  int FindSearchFlags() const;
   void FileSaved(const Status &status);
   void OnSave(wxCommandEvent &event);
   void OnSaveUI(wxUpdateUIEvent &event);
@@ -75,6 +101,9 @@ private:
   std::thread m_saveThread;
   Editor *m_editor{nullptr};
   wxAuiToolBar *m_toolbar{nullptr};
+  wxFindReplaceData m_findData{wxFR_DOWN};
+  wxFindReplaceDialog *m_findDlg{nullptr};
+  bool m_findDlgReplace{false};
   // Lets Ctrl+Tab (and the other global shortcuts) work while the
   // editor has focus.
   std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor;

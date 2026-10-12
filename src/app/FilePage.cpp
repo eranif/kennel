@@ -51,9 +51,15 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
   ctrl->Bind(wxEVT_STC_SAVEPOINTLEFT, &FilePage::OnSavePointChanged, this);
   ctrl->Bind(wxEVT_STC_SAVEPOINTREACHED, &FilePage::OnSavePointChanged, this);
   ctrl->Bind(wxEVT_STC_UPDATEUI, &FilePage::OnEditorUpdateUI, this);
+  Bind(wxEVT_FIND, &FilePage::OnFind, this);
+  Bind(wxEVT_FIND_NEXT, &FilePage::OnFind, this);
+  Bind(wxEVT_FIND_REPLACE, &FilePage::OnFindReplace, this);
+  Bind(wxEVT_FIND_REPLACE_ALL, &FilePage::OnFindReplaceAll, this);
+  Bind(wxEVT_FIND_CLOSE, &FilePage::OnFindClose, this);
 }
 
 FilePage::~FilePage() {
+  DestroyFindDialog();
   if (m_saveThread.joinable()) {
     m_saveThread.join();
   }
@@ -163,6 +169,18 @@ void FilePage::OnKeyDown(wxKeyEvent &event) {
     }
     return;
   }
+  // Replace (Ctrl+H). Find (Ctrl+F) is in AcceleratorInterceptor, as it is
+  // the same for the terminals. On macOS both are menu items, which get the
+  // keys first (and Cmd+H hides the application).
+#ifndef __WXOSX__
+  if (event.GetModifiers() == wxMOD_CONTROL && event.GetKeyCode() == 'H') {
+    // As the menu item: nothing to replace in a read-only file.
+    if (CanReplace()) {
+      ShowFindDialog(true);
+    }
+    return;
+  }
+#endif
   event.Skip();
 }
 
@@ -237,4 +255,182 @@ void FilePage::OnReload(wxCommandEvent &event) {
 void FilePage::OnClose(wxCommandEvent &event) {
   wxUnusedVar(event);
   GetMainView()->CallAfter(&MainView::CloseFileByKey, GetKey());
+}
+
+// ---------------------------------------------------------------------------
+// Find and Replace
+// ---------------------------------------------------------------------------
+
+void FilePage::ShowFindDialog(bool replace) {
+  replace = replace && CanReplace();
+
+  // The selected text, when it is on one line, is what the user looks for.
+  const wxString selected = m_editor->GetCtrl()->GetSelectedText();
+  if (!selected.empty() && selected.Find('\n') == wxNOT_FOUND &&
+      selected.Find('\r') == wxNOT_FOUND) {
+    m_findData.SetFindString(selected);
+  }
+
+  // A new dialog every time: it reads the text to look for when it is created.
+  DestroyFindDialog();
+  m_findDlg = new wxFindReplaceDialog(
+      this, &m_findData, replace ? _("Find and Replace") : _("Find"),
+      replace ? wxFR_REPLACEDIALOG : 0);
+  m_findDlgReplace = replace;
+  m_findDlg->Show();
+}
+
+void FilePage::DestroyFindDialog() {
+  if (m_findDlg != nullptr) {
+    m_findDlg->Destroy();
+    m_findDlg = nullptr;
+  }
+}
+
+void FilePage::TakeFindData(const wxFindDialogEvent &event) {
+  m_findData.SetFindString(event.GetFindString());
+  m_findData.SetReplaceString(event.GetReplaceString());
+  m_findData.SetFlags(event.GetFlags());
+}
+
+int FilePage::FindSearchFlags() const {
+  const int flags = m_findData.GetFlags();
+  int result = 0;
+  if (flags & wxFR_MATCHCASE) {
+    result |= wxSTC_FIND_MATCHCASE;
+  }
+  if (flags & wxFR_WHOLEWORD) {
+    result |= wxSTC_FIND_WHOLEWORD;
+  }
+  return result;
+}
+
+bool FilePage::FindIn(bool forward) {
+  const wxString what = m_findData.GetFindString();
+  if (what.empty()) {
+    return false;
+  }
+
+  wxStyledTextCtrl *ctrl = m_editor->GetCtrl();
+  ctrl->SetSearchFlags(FindSearchFlags());
+  const int length = ctrl->GetLength();
+  // A target that ends before it starts is searched backwards.
+  auto search = [&](int start, int end) {
+    ctrl->SetTargetStart(start);
+    ctrl->SetTargetEnd(end);
+    return ctrl->SearchInTarget(what);
+  };
+
+  int found;
+  bool wrapped = false;
+  if (forward) {
+    found = search(ctrl->GetSelectionEnd(), length);
+    if (found == wxNOT_FOUND) {
+      wrapped = true;
+      found = search(0, length);
+    }
+  } else {
+    found = search(ctrl->GetSelectionStart(), 0);
+    if (found == wxNOT_FOUND) {
+      wrapped = true;
+      found = search(length, 0);
+    }
+  }
+
+  if (found == wxNOT_FOUND) {
+    GetMainFrame()->SetActivityText(
+        wxString::Format(_("\"%s\" was not found"), what));
+    return false;
+  }
+
+  ctrl->SetSelection(ctrl->GetTargetStart(), ctrl->GetTargetEnd());
+  ctrl->EnsureCaretVisible();
+  if (wrapped) {
+    GetMainFrame()->SetActivityText(
+        forward ? _("Search continued from the top")
+                : _("Search continued from the bottom"));
+  } else {
+    GetMainFrame()->ClearActivityText();
+  }
+  return true;
+}
+
+void FilePage::FindNext(bool forward) {
+  if (m_findData.GetFindString().empty()) {
+    ShowFindDialog(false);
+    return;
+  }
+  FindIn(forward);
+}
+
+void FilePage::OnFind(wxFindDialogEvent &event) {
+  TakeFindData(event);
+  FindIn((event.GetFlags() & wxFR_DOWN) != 0);
+}
+
+void FilePage::OnFindReplace(wxFindDialogEvent &event) {
+  TakeFindData(event);
+  if (!CanReplace()) {
+    return;
+  }
+
+  // The match that is selected is replaced; with anything else selected this
+  // finds the next match first, as the user expects.
+  wxStyledTextCtrl *ctrl = m_editor->GetCtrl();
+  const wxString what = m_findData.GetFindString();
+  // Search the selection with the options of the dialog (whole word, case):
+  // it is a match only if the match is all of it.
+  bool matches = false;
+  if (!what.empty()) {
+    const int from = ctrl->GetSelectionStart();
+    const int to = ctrl->GetSelectionEnd();
+    ctrl->SetSearchFlags(FindSearchFlags());
+    ctrl->SetTargetStart(from);
+    ctrl->SetTargetEnd(to);
+    matches = from != to && ctrl->SearchInTarget(what) != wxNOT_FOUND &&
+              ctrl->GetTargetStart() == from && ctrl->GetTargetEnd() == to;
+  }
+  if (matches) {
+    ctrl->ReplaceSelection(m_findData.GetReplaceString());
+  }
+  FindIn(true);
+}
+
+void FilePage::OnFindReplaceAll(wxFindDialogEvent &event) {
+  TakeFindData(event);
+  const wxString what = m_findData.GetFindString();
+  if (!CanReplace() || what.empty()) {
+    return;
+  }
+
+  wxStyledTextCtrl *ctrl = m_editor->GetCtrl();
+  ctrl->SetSearchFlags(FindSearchFlags());
+  int count = 0;
+  int from = 0;
+  // One undo step for all of them.
+  ctrl->BeginUndoAction();
+  for (;;) {
+    ctrl->SetTargetStart(from);
+    ctrl->SetTargetEnd(ctrl->GetLength());
+    if (ctrl->SearchInTarget(what) == wxNOT_FOUND) {
+      break;
+    }
+    const int start = ctrl->GetTargetStart();
+    // The length (in bytes) of the replacement: the search goes on after it.
+    from = start + ctrl->ReplaceTarget(m_findData.GetReplaceString());
+    ++count;
+  }
+  ctrl->EndUndoAction();
+
+  GetMainFrame()->SetActivityText(
+      count == 0 ? wxString::Format(_("\"%s\" was not found"), what)
+                 : wxString::Format(wxPLURAL("Replaced %d occurrence",
+                                             "Replaced %d occurrences", count),
+                                    count));
+}
+
+void FilePage::OnFindClose(wxFindDialogEvent &event) {
+  wxUnusedVar(event);
+  DestroyFindDialog();
+  FocusEditor();
 }

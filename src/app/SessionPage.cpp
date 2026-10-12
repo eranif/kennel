@@ -98,6 +98,9 @@ SessionPage::SessionPage(WindowBook *parent, std::optional<AgentDef> agent,
   InitStatus();
   Bind(wxEVT_TIMER, &SessionPage::OnNoticeTimer, this, m_noticeTimer.GetId());
   Bind(wxEVT_REVIEW_CHANGED, &SessionPage::OnReviewChanged, this);
+  Bind(wxEVT_FIND, &SessionPage::OnFind, this);
+  Bind(wxEVT_FIND_NEXT, &SessionPage::OnFind, this);
+  Bind(wxEVT_FIND_CLOSE, &SessionPage::OnFindClose, this);
   Bind(wxEVT_REVIEW_BUDDY_CLOSE, [this](wxCommandEvent &event) {
     // The buddy that asked may be closed already, and a new one started.
     if (m_review && m_review->LoopId() == event.GetString()) {
@@ -200,6 +203,7 @@ void SessionPage::ClearNotice() {
 
 SessionPage::~SessionPage() {
   m_alive->store(false);
+  DestroyFindDialog();
   // The review folder is deleted with the ReviewBuddy: do it after the
   // reviewer's pane is asked to go, not as a member destroyed before it. No
   // notice, focus or unsplit here: the page is being torn down.
@@ -596,6 +600,9 @@ void SessionPage::ShowTerminalMenu(wxTerminalViewCtrl *terminal) {
       wxEVT_MENU, [terminal](wxCommandEvent &) { terminal->Paste(); },
       wxID_PASTE);
   menu.AppendSeparator();
+  menu.Append(wxID_FIND, _("Find..."));
+  menu.Bind(
+      wxEVT_MENU, [this](wxCommandEvent &) { ShowFindDialog(); }, wxID_FIND);
   menu.Append(wxID_CLEAR, _("Clear buffer"));
   menu.Bind(
       wxEVT_MENU, [terminal](wxCommandEvent &) { terminal->ClearAll(); },
@@ -910,4 +917,67 @@ void SessionPage::OpenLatestReview() {
   const wxString hostDir = HostWorkingDir();
   CHECK_NOT_EMPTY_OR_RETURN(hostDir);
   mainView->OpenLocalFile(wxFileName(hostDir, relative).GetFullPath());
+}
+
+// ---------------------------------------------------------------------------
+// Find
+// ---------------------------------------------------------------------------
+
+void SessionPage::ShowFindDialog() {
+  // The text selected in the terminal is what the user looks for.
+  if (wxTerminalViewCtrl *terminal =
+          m_lastFocused != nullptr ? m_lastFocused : m_terminal) {
+    if (auto selected = terminal->GetMouseSelection();
+        selected && !selected->empty() && selected->Find('\n') == wxNOT_FOUND) {
+      m_findData.SetFindString(*selected);
+    }
+  }
+
+  // A new dialog every time: it reads the text to look for when it is created.
+  DestroyFindDialog();
+  // The terminal cannot search for whole words.
+  m_findDlg =
+      new wxFindReplaceDialog(this, &m_findData, _("Find"), wxFR_NOWHOLEWORD);
+  m_findDlg->Show();
+}
+
+void SessionPage::DestroyFindDialog() {
+  if (m_findDlg != nullptr) {
+    m_findDlg->Destroy();
+    m_findDlg = nullptr;
+  }
+}
+
+void SessionPage::FindIn(bool forward) {
+  wxTerminalViewCtrl *terminal =
+      m_lastFocused != nullptr ? m_lastFocused : m_terminal;
+  if (terminal == nullptr || m_findData.GetFindString().empty()) {
+    return;
+  }
+  size_t flags =
+      forward ? wxTerminalViewCtrl::kForward : wxTerminalViewCtrl::kBackward;
+  if (!(m_findData.GetFlags() & wxFR_MATCHCASE)) {
+    flags |= wxTerminalViewCtrl::kCaseInSensitive;
+  }
+  terminal->FindText(m_findData.GetFindString(), flags);
+}
+
+void SessionPage::FindNext(bool forward) {
+  if (m_findData.GetFindString().empty()) {
+    ShowFindDialog();
+    return;
+  }
+  FindIn(forward);
+}
+
+void SessionPage::OnFind(wxFindDialogEvent &event) {
+  m_findData.SetFindString(event.GetFindString());
+  m_findData.SetFlags(event.GetFlags());
+  FindIn((event.GetFlags() & wxFR_DOWN) != 0);
+}
+
+void SessionPage::OnFindClose(wxFindDialogEvent &event) {
+  wxUnusedVar(event);
+  DestroyFindDialog();
+  SetFocus();
 }

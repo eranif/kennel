@@ -136,6 +136,14 @@ The editor used for opened files (and the job log viewer) gained:
   `Rakefile`, `Gemfile` and shell dotfiles such as `.bashrc` and `.zshrc`.
 - **Language-appropriate indentation** — Makefiles use real tab characters (recipe lines
   require them) and Python uses 4-space indentation.
+- **Find and Replace** — Ctrl+F (Cmd+F on macOS) opens a Find dialog, and Ctrl+H (Cmd+Option+F)
+  a Find and Replace dialog, with Match case, Whole word, Up/Down, Replace and Replace All
+  (one undo step). F3 and Shift+F3 find the next and the previous match. The dialog closes
+  when you select another page. The same entries are in the **Search** menu.
+- **Find in the terminal** — Ctrl+F (Cmd+F on macOS) and **Find...** in the terminal's context
+  menu open a Find dialog for the terminal (Match case and Up/Down; F3 and Shift+F3 work
+  too). Ctrl+F no longer reaches the program in the terminal on Windows and Linux, so
+  readline's "forward one character" does not work there.
 
 ### Daily scheduled jobs
 

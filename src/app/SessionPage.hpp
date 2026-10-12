@@ -17,6 +17,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <wx/fdrepdlg.h>
 #include <wx/timer.h>
 
 class wxTerminalViewCtrl;
@@ -55,6 +56,16 @@ public:
   // Sends what the status bar of the main window should show (only when this
   // page is showing). Also called when the page is selected.
   void PublishStatus();
+
+  // Opens the (non-modal) Find dialog for the terminal that has the focus (or
+  // had it last). The selected text of the terminal is what it looks for.
+  void ShowFindDialog();
+  // Selects the next (or previous) match of the last search. Opens the dialog
+  // if there was no search yet.
+  void FindNext(bool forward);
+  // Closes the dialog, if it is open. MainView calls it when another page is
+  // selected: the dialog works on this page only.
+  void DestroyFindDialog();
 
 private:
   void CreateTerminal();
@@ -95,6 +106,11 @@ private:
   void OnTerminated(wxTerminalEvent &evt);
   void OnTitleChanged(wxTerminalEvent &evt);
   void OnTerminalLink(wxTerminalEvent &evt);
+
+  // The dialog sends these to its parent, this page.
+  void OnFind(wxFindDialogEvent &event);
+  void OnFindClose(wxFindDialogEvent &event);
+  void FindIn(bool forward);
 
   // ---- Context menu and review buddy -----------------------------------
   // Replaces the terminal's own Copy / Paste / Clear menu.
@@ -147,6 +163,9 @@ private:
   wxString m_notice;
   wxTimer m_noticeTimer{this};
   bool m_endNoticeShown{false}; // For the review that ended
+
+  wxFindReplaceData m_findData{wxFR_DOWN};
+  wxFindReplaceDialog *m_findDlg{nullptr};
 
   // The agent's pane is the only child of the splitter until a review buddy
   // opens its pane next to it. Each pane holds one terminal with a border.

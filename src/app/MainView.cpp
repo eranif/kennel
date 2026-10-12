@@ -285,6 +285,15 @@ void MainView::ActivatePage(wxWindow *page, bool updateRecent,
     return;
   }
 
+  // A Find dialog works on the page that opened it: not on one that is hidden.
+  if (wxWindow *outgoing = m_sessionsBook->GetCurrentPage(); outgoing != page) {
+    if (auto *file = dynamic_cast<FilePage *>(outgoing)) {
+      file->DestroyFindDialog();
+    } else if (auto *session = dynamic_cast<SessionPage *>(outgoing)) {
+      session->DestroyFindDialog();
+    }
+  }
+
   int where = m_sessionsBook->FindPage(page);
   if (where != wxNOT_FOUND) {
     m_sessionsBook->SetSelection(where);
@@ -1041,6 +1050,33 @@ size_t MainView::PageCount() const { return m_treeView->GetPages().size(); }
 bool MainView::CanRefreshCurrent() const {
   auto *group = GetSelectedGroup();
   return group && group->IsSessionGroup() && GetActiveSessionPage() != nullptr;
+}
+
+void MainView::ShowFind(bool replace) {
+  wxWindow *page = m_sessionsBook->GetCurrentPage();
+  if (auto *file = dynamic_cast<FilePage *>(page)) {
+    file->ShowFindDialog(replace);
+  } else if (auto *session = dynamic_cast<SessionPage *>(page);
+             session && !replace) {
+    session->ShowFindDialog();
+  }
+}
+
+void MainView::FindNext(bool forward) {
+  wxWindow *page = m_sessionsBook->GetCurrentPage();
+  if (auto *file = dynamic_cast<FilePage *>(page)) {
+    file->FindNext(forward);
+  } else if (auto *session = dynamic_cast<SessionPage *>(page)) {
+    session->FindNext(forward);
+  }
+}
+
+bool MainView::CanFind(bool replace) const {
+  wxWindow *page = m_sessionsBook->GetCurrentPage();
+  if (auto *file = dynamic_cast<FilePage *>(page)) {
+    return !replace || file->CanReplace();
+  }
+  return !replace && dynamic_cast<SessionPage *>(page) != nullptr;
 }
 
 bool MainView::IsSelectionSessionGroup() const {

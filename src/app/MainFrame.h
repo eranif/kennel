@@ -107,6 +107,10 @@ private:
   void OnPrevSession(wxCommandEvent &e);
   void OnPrevSessionUI(wxUpdateUIEvent &e);
   void OnNextSessionUI(wxUpdateUIEvent &e);
+  // Find and Replace: the page that is showing handles them.
+  void OnFind(wxCommandEvent &e);
+  void OnFindNext(wxCommandEvent &e);
+  void OnFindUI(wxUpdateUIEvent &e);
 
   // Build the search menu
   void BuildSearchMenu(wxMenuBar *menuBar);

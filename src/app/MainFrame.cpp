@@ -366,6 +366,32 @@ void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnPrevSessionUI, this, wxID_BACKWARD);
   Bind(wxEVT_MENU, &MainFrame::OnPrevSession, this, wxID_BACKWARD);
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnNextSessionUI, this, wxID_FORWARD);
+  searchMenu->AppendSeparator();
+#ifdef __WXOSX__
+  searchMenu->Append(wxID_FIND, _("Find...\tCtrl+F"),
+                     _("Find text in the file or the terminal"));
+  searchMenu->Append(XRCID("find-next"), _("Find Next\tF3"));
+  searchMenu->Append(XRCID("find-previous"), _("Find Previous\tShift+F3"));
+  searchMenu->Append(wxID_REPLACE, _("Replace...\tCtrl+Alt+F"),
+                     _("Find and replace text in the file"));
+#else
+  // No accelerator text: the keys are handled by AcceleratorInterceptor (and
+  // by the editor for Ctrl+H), as a terminal needs Ctrl+H itself.
+  searchMenu->Append(wxID_FIND, _("Find... (Ctrl+F)"),
+                     _("Find text in the file or the terminal"));
+  searchMenu->Append(XRCID("find-next"), _("Find Next (F3)"));
+  searchMenu->Append(XRCID("find-previous"), _("Find Previous (Shift+F3)"));
+  searchMenu->Append(wxID_REPLACE, _("Replace... (Ctrl+H)"),
+                     _("Find and replace text in the file"));
+#endif
+  Bind(wxEVT_MENU, &MainFrame::OnFind, this, wxID_FIND);
+  Bind(wxEVT_MENU, &MainFrame::OnFind, this, wxID_REPLACE);
+  Bind(wxEVT_MENU, &MainFrame::OnFindNext, this, XRCID("find-next"));
+  Bind(wxEVT_MENU, &MainFrame::OnFindNext, this, XRCID("find-previous"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnFindUI, this, wxID_FIND);
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnFindUI, this, wxID_REPLACE);
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnFindUI, this, XRCID("find-next"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnFindUI, this, XRCID("find-previous"));
   menuBar->Append(searchMenu, _("Search"));
 }
 
@@ -572,6 +598,18 @@ void MainFrame::OnPrevSessionUI(wxUpdateUIEvent &e) {
 
 void MainFrame::OnNextSessionUI(wxUpdateUIEvent &e) {
   e.Enable(m_mainView->PageCount() > 1);
+}
+
+void MainFrame::OnFind(wxCommandEvent &e) {
+  m_mainView->ShowFind(e.GetId() == wxID_REPLACE);
+}
+
+void MainFrame::OnFindNext(wxCommandEvent &e) {
+  m_mainView->FindNext(e.GetId() == XRCID("find-next"));
+}
+
+void MainFrame::OnFindUI(wxUpdateUIEvent &e) {
+  e.Enable(m_mainView->CanFind(e.GetId() == wxID_REPLACE));
 }
 
 void MainFrame::OnEditAgents(wxCommandEvent &evt) {

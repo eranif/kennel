@@ -32,6 +32,19 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(
         evtRefreshSession);
     return;
+  } else if (keyEvent.GetKeyCode() == WXK_F3) {
+    // Find Next / Find Previous
+    wxCommandEvent evtFindNext{wxEVT_MENU, keyEvent.ShiftDown()
+                                               ? XRCID("find-previous")
+                                               : XRCID("find-next")};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtFindNext);
+    return;
+  } else if (keyEvent.GetUnicodeKey() == 'F' &&
+             keyEvent.GetModifiers() == wxMOD_CONTROL) {
+    // Find, in the terminal too (the terminal does not get Ctrl+F).
+    wxCommandEvent evtFind{wxEVT_MENU, wxID_FIND};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtFind);
+    return;
   } else if (keyEvent.GetUnicodeKey() == 'N' &&
              keyEvent.GetModifiers() == wxMOD_CONTROL) {
     wxCommandEvent evtConfigureAgent{wxEVT_MENU, wxID_NEW};

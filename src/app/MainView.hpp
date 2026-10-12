@@ -100,6 +100,12 @@ public:
   bool CanRefreshCurrent() const;
   void RefreshCurrentSelection();
 
+  // Find and Replace in the page that is showing: a file (both) or a session
+  // (Find only). CanFind() is for the menu items.
+  void ShowFind(bool replace);
+  void FindNext(bool forward);
+  bool CanFind(bool replace) const;
+
   // Shows the Ctrl+Tab page switcher (every open session and file, most
   // recently used first) and activates the page chosen when Ctrl is released.
   // If Ctrl is already up, activates the next/previous page directly.
