@@ -9,9 +9,10 @@
 
 // Every open page (session, terminal, file) in one list: "icon + name |
 // group". It is a projection of what TreeView holds, so it never owns
-// anything; MainView feeds it with SetPages(). It keeps no state of its own:
-// each row carries its page's name in a hidden column, and the selection is
-// the list's selection.
+// anything; MainView feeds it with SetPages(). Each row carries its page's name
+// in a hidden column. The selected page is also kept here: sorting keeps the
+// selected row number, not the selected item (on macOS and in the generic
+// control), so the selection is put back after a sort.
 //
 // A click on the Name or Group header sorts the list by that column (a second
 // click turns the order around). The choice is kept in the UI prefs, so it is
@@ -47,4 +48,5 @@ private:
   std::optional<SessionRef> RefOf(const wxDataViewItem &item) const;
 
   wxDataViewListCtrl *m_list{nullptr};
+  std::optional<SessionRef> m_selected; // The page whose row is selected
 };

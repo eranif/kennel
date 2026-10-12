@@ -114,6 +114,15 @@ void FlatView::RestoreSortOrder() {
 
 void FlatView::OnColumnSorted(wxDataViewEvent &event) {
   event.Skip();
+  // After the sort the same row number is selected, which now holds another
+  // page (on macOS this event comes before the rows move). Select the page
+  // again, and keep it in sight: it may have moved far away.
+  CallAfter([this] {
+    if (m_selected) {
+      SelectPage(*m_selected);
+    }
+  });
+
   const wxDataViewColumn *column = event.GetDataViewColumn();
   if (column == nullptr) {
     column = m_list->GetSortingColumn();
@@ -140,14 +149,6 @@ void FlatView::OnColumnSorted(wxDataViewEvent &event) {
   if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
     KLOG_WARN() << "Could not save the flat list sort order: " << st.message();
   }
-
-  // Keep the selected page in sight: it may have moved far away.
-  CallAfter([this] {
-    const wxDataViewItem selected = m_list->GetSelection();
-    if (selected.IsOk()) {
-      m_list->EnsureVisible(selected);
-    }
-  });
 }
 
 void FlatView::SetPages(const std::vector<PageInfo> &pages,
@@ -156,6 +157,7 @@ void FlatView::SetPages(const std::vector<PageInfo> &pages,
   // macOS a programmatic selection does send the event.
   wxEventBlocker blocker(m_list, wxEVT_DATAVIEW_SELECTION_CHANGED);
   m_list->DeleteAllItems();
+  m_selected = selected;
   for (const auto &info : pages) {
     wxVector<wxVariant> row;
     row.push_back(wxVariant(wxDataViewIconText(info.label, info.icon)));
@@ -171,11 +173,17 @@ void FlatView::SetPages(const std::vector<PageInfo> &pages,
 void FlatView::Clear() {
   wxEventBlocker blocker(m_list, wxEVT_DATAVIEW_SELECTION_CHANGED);
   m_list->DeleteAllItems();
+  m_selected.reset();
 }
 
 void FlatView::SelectPage(const SessionRef &ref) {
+  m_selected = ref;
   auto item = FindRow(ref);
-  if (!item || m_list->GetSelection() == *item) {
+  if (!item) {
+    return;
+  }
+  if (m_list->GetSelection() == *item) {
+    m_list->EnsureVisible(*item);
     return;
   }
   wxEventBlocker blocker(m_list, wxEVT_DATAVIEW_SELECTION_CHANGED);
@@ -196,6 +204,7 @@ void FlatView::OnSelectionChanged(wxDataViewEvent &event) {
   if (!ref) {
     return;
   }
+  m_selected = ref;
   // Picking a page here (mouse or keyboard) does not change the Ctrl+Tab
   // order.
   PageViewEvent evtSelected(wxEVT_PAGEVIEW_SELECTED);
