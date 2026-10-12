@@ -205,11 +205,11 @@ void FlatView::OnSelectionChanged(wxDataViewEvent &event) {
     return;
   }
   m_selected = ref;
-  // Picking a page here (mouse or keyboard) does not change the Ctrl+Tab
-  // order.
+  // A page picked here (mouse or keyboard) is the most recently used one, as
+  // in the tree: Ctrl+Tab goes back to the page shown before it.
   PageViewEvent evtSelected(wxEVT_PAGEVIEW_SELECTED);
   evtSelected.SetEventObject(this);
-  evtSelected.SetUpdateRecent(false);
+  evtSelected.SetUpdateRecent(true);
   evtSelected.SetRef(*ref);
   EventNotifier::Get()->AddPendingEvent(evtSelected);
 }
