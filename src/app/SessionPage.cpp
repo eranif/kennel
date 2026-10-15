@@ -562,6 +562,9 @@ void SessionPage::SetStatus(SessionStatus status) {
 
 void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
   wxString text = evt.GetClickedText();
+  while (text.EndsWith(".") || text.EndsWith(":"))
+    text.RemoveLast();
+
   wxString textLower = text.Lower();
 
   if (textLower.StartsWith("http://") || textLower.StartsWith("https://")) {
