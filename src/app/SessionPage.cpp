@@ -1,4 +1,5 @@
 #include "SessionPage.hpp"
+#include "app/ToolBarUtils.h"
 
 #include "MainFrame.h"
 #include "ThemeManager.h"
@@ -17,6 +18,8 @@
 #include "terminal_view.h"
 
 #include <wx/arrstr.h>
+#include <wx/aui/auibar.h>
+#include <wx/clipbrd.h>
 #include <wx/dir.h>
 #include <wx/file.h>
 #include <wx/filefn.h>
@@ -160,6 +163,10 @@ SessionPage::SessionPage(wxSimplebook *parent, std::optional<AgentDef> agent,
   InitStatus();
   Bind(wxEVT_TIMER, &SessionPage::OnNoticeTimer, this, m_noticeTimer.GetId());
   Bind(wxEVT_REVIEW_CHANGED, &SessionPage::OnReviewChanged, this);
+  // The toolbar is the first item; CreateTerminal() puts the splitter after it
+  // and the search bar comes last.
+  CreateToolBar();
+  GetSizer()->Add(m_toolbar, wxSizerFlags(0).Expand());
   // Below the terminals: CreateTerminal() puts the splitter before it.
   m_searchBar = new SearchBar(this, SearchBar::Kind::kFindOnly);
   m_searchBar->Hide();
@@ -383,7 +390,7 @@ void SessionPage::CreateTerminal() {
                              wxSP_LIVE_UPDATE | wxSP_3DSASH);
     m_splitter->SetSashGravity(0.5);
     m_splitter->SetMinimumPaneSize(150);
-    GetSizer()->Insert(0, m_splitter, wxSizerFlags(1).Expand());
+    GetSizer()->Insert(1, m_splitter, wxSizerFlags(1).Expand());
   }
   m_mainPane = NewTerminalPane();
   m_terminal = new wxTerminalViewCtrl(m_mainPane, shellCommand, env, cwd);
@@ -398,8 +405,9 @@ void SessionPage::CreateTerminal() {
 
   m_terminal->SetOutputCallback(
       [this](const std::string &chunk) { m_monitor->OnOutput(chunk); });
-  m_terminal->RegisterTextClickedFilter(
-      [](const std::string &) -> bool { return false; });
+  m_terminal->RegisterTextClickedFilter([](const std::string &) -> bool {
+    return true; /* consumed */
+  });
   m_terminal->Bind(wxEVT_TERMINAL_TERMINATED, &SessionPage::OnTerminated, this);
   m_terminal->Bind(wxEVT_TERMINAL_TITLE_CHANGED, &SessionPage::OnTitleChanged,
                    this);
@@ -699,87 +707,193 @@ void SessionPage::ApplyTitle() {
 // ---------------------------------------------------------------------------
 
 void SessionPage::OnTerminalContextMenu(wxContextMenuEvent &evt) {
-  if (auto *terminal =
-          dynamic_cast<wxTerminalViewCtrl *>(evt.GetEventObject())) {
-    ShowTerminalMenu(terminal);
+  // There is no context menu: all the actions are in the toolbar. The event is
+  // not skipped, which also hides the default menu of the terminal (this
+  // handler is bound after the terminal's own, so it runs first).
+  wxUnusedVar(evt);
+}
+
+void SessionPage::CreateToolBar() {
+  auto &bmps = AppManager::Get().GetBitmaps();
+  m_toolbar = new wxAuiToolBar(this);
+  toolbar::AddTool(m_toolbar, ID_RESTART, _("Restart"),
+                   bmps.Get("restart", false), _("Restart the session"));
+  // A drop-down button: the button and its arrow both open the menu.
+  toolbar::AddTool(m_toolbar, ID_REVIEW_BUDDY, _("Review Buddy"),
+                   bmps.Get("code-reviewer", false), _("Run Review Buddy"),
+                   wxITEM_DROPDOWN);
+  m_toolbar->AddSeparator();
+  toolbar::AddTool(m_toolbar, ID_COPY, _("Copy"), bmps.Get("copy", false),
+                   _("Copy the selected text"));
+  toolbar::AddTool(m_toolbar, ID_PASTE, _("Paste"), bmps.Get("paste", false),
+                   _("Paste the clipboard text"));
+  m_toolbar->AddSeparator();
+  toolbar::AddTool(m_toolbar, ID_FIND, _("Find"), bmps.Get("find", false),
+                   _("Find text in the terminal (Ctrl+F)"));
+  m_toolbar->Realize();
+
+  m_toolbar->Bind(wxEVT_TOOL, &SessionPage::OnToolRestart, this, ID_RESTART);
+  m_toolbar->Bind(wxEVT_AUITOOLBAR_TOOL_DROPDOWN,
+                  &SessionPage::OnToolReviewBuddy, this, ID_REVIEW_BUDDY);
+  m_toolbar->Bind(wxEVT_TOOL, &SessionPage::OnToolReviewBuddy, this,
+                  ID_REVIEW_BUDDY);
+  m_toolbar->Bind(wxEVT_TOOL, &SessionPage::OnToolCopy, this, ID_COPY);
+  m_toolbar->Bind(wxEVT_TOOL, &SessionPage::OnToolPaste, this, ID_PASTE);
+  m_toolbar->Bind(wxEVT_TOOL, &SessionPage::OnToolFind, this, ID_FIND);
+  m_toolbar->Bind(wxEVT_UPDATE_UI, &SessionPage::OnToolCopyUI, this, ID_COPY);
+  m_toolbar->Bind(wxEVT_UPDATE_UI, &SessionPage::OnToolHasTerminalUI, this,
+                  ID_PASTE);
+  m_toolbar->Bind(wxEVT_UPDATE_UI, &SessionPage::OnToolHasTerminalUI, this,
+                  ID_RESTART);
+  m_toolbar->Bind(wxEVT_UPDATE_UI, &SessionPage::OnToolHasTerminalUI, this,
+                  ID_FIND);
+  m_toolbar->Bind(wxEVT_UPDATE_UI, &SessionPage::OnToolReviewBuddyUI, this,
+                  ID_REVIEW_BUDDY);
+}
+
+wxTerminalViewCtrl *SessionPage::ActionTerminal() const {
+  // The terminal that has the focus, or had it last (the agent's by default).
+  for (auto *terminal : GetTerminals()) {
+    if (terminal->HasFocus()) {
+      return terminal;
+    }
+  }
+  return SearchTerminal();
+}
+
+void SessionPage::OnToolRestart(wxCommandEvent &) {
+  // Deferred: leave the toolbar's callback first, the restart destroys the
+  // terminal.
+  CallAfter(&SessionPage::Restart);
+}
+
+void SessionPage::OnToolCopy(wxCommandEvent &) {
+  wxTerminalViewCtrl *terminal = CopyTerminal();
+  if (terminal == nullptr) {
+    return;
+  }
+  if (terminal->CanCopy()) {
+    // The text the user selected comes first.
+    terminal->Copy();
+  } else if (auto selection = terminal->GetAppSelection()) {
+    // Otherwise the text the application copied (tmux, TUI apps like claude):
+    // all of it, not only the first line.
+    if (wxTheClipboard->Open()) {
+      wxTheClipboard->SetData(new wxTextDataObject(*selection));
+      wxTheClipboard->Close();
+    }
+  }
+  // The toolbar click may have moved the focus.
+  terminal->CallAfter(&wxWindow::SetFocus);
+}
+
+void SessionPage::OnToolPaste(wxCommandEvent &) {
+  if (wxTerminalViewCtrl *terminal = ActionTerminal()) {
+    terminal->Paste();
+    terminal->CallAfter(&wxWindow::SetFocus);
   }
 }
 
-void SessionPage::ShowTerminalMenu(wxTerminalViewCtrl *terminal) {
-  wxMenu menu;
-  if (terminal->CanCopy()) {
-    menu.Append(wxID_COPY, _("Copy"));
-    menu.Bind(
-        wxEVT_MENU, [terminal](wxCommandEvent &) { terminal->Copy(); },
-        wxID_COPY);
-  }
-  menu.Append(wxID_PASTE, _("Paste"));
-  menu.Bind(
-      wxEVT_MENU, [terminal](wxCommandEvent &) { terminal->Paste(); },
-      wxID_PASTE);
-  menu.AppendSeparator();
-  menu.Append(wxID_FIND, _("Find..."));
-  menu.Bind(wxEVT_MENU, [this](wxCommandEvent &) { ShowFind(); }, wxID_FIND);
-  menu.Append(wxID_CLEAR, _("Clear buffer"));
-  menu.Bind(
-      wxEVT_MENU, [terminal](wxCommandEvent &) { terminal->ClearAll(); },
-      wxID_CLEAR);
+void SessionPage::OnToolFind(wxCommandEvent &) { ShowFind(); }
 
-  if (m_review) {
-    menu.AppendSeparator();
-    menu.Append(wxID_ANY, _("Review Buddy: ") + m_review->Describe())
-        ->Enable(false);
-    if (m_review->IsRunning() || m_review->HasStalled()) {
-      menu.Append(kIdResend, _("Send the Request Again"))
-          ->Enable(!m_review->IsBusy());
-      menu.Bind(
-          wxEVT_MENU, [this](wxCommandEvent &) { m_review->Resend(); },
-          kIdResend);
-      menu.Append(kIdStop, _("Stop the Review"));
-      menu.Bind(
-          wxEVT_MENU, [this](wxCommandEvent &) { m_review->Stop(); }, kIdStop);
+wxTerminalViewCtrl *SessionPage::CopyTerminal() const {
+  // The one with the focus first, then the agent's, then the reviewer's.
+  std::vector<wxTerminalViewCtrl *> terminals{ActionTerminal()};
+  for (auto *terminal : GetTerminals()) {
+    terminals.push_back(terminal);
+  }
+  for (auto *terminal : terminals) {
+    if (terminal == nullptr) {
+      continue;
     }
-    menu.Append(kIdOpen, _("Open the Latest Review"))
-        ->Enable(!m_review->CommentsPath().empty());
-    menu.Bind(
-        wxEVT_MENU, [this](wxCommandEvent &) { OpenLatestReview(); }, kIdOpen);
-    menu.Append(kIdClose, _("Close Review Buddy"));
-    menu.Bind(
-        wxEVT_MENU,
-        [this](wxCommandEvent &) { CallAfter(&SessionPage::CloseReviewBuddy); },
-        kIdClose);
-  } else if (terminal == m_terminal && m_agent && !m_session.IsJobRun()) {
-    menu.AppendSeparator();
+    const auto appSelection = terminal->GetAppSelection();
+    if (terminal->CanCopy() || (appSelection && !appSelection->empty())) {
+      return terminal;
+    }
+  }
+  return nullptr;
+}
+
+void SessionPage::OnToolCopyUI(wxUpdateUIEvent &event) {
+  event.Enable(CopyTerminal() != nullptr);
+}
+
+void SessionPage::OnToolHasTerminalUI(wxUpdateUIEvent &event) {
+  event.Enable(m_terminal != nullptr);
+}
+
+void SessionPage::OnToolReviewBuddyUI(wxUpdateUIEvent &event) {
+  // Only an agent can have a buddy (not a plain terminal or a scheduled job).
+  event.Enable(m_terminal != nullptr && m_agent && !m_session.IsJobRun());
+}
+
+void SessionPage::OnToolReviewBuddy(wxCommandEvent &) {
+  // Not skipped: the button and its arrow both open the menu.
+  wxMenu menu;
+  if (m_review) {
+    // There is a review: the menu to manage it.
+    AppendReviewControls(menu);
+  } else if (m_agent && !m_session.IsJobRun()) {
     RefreshGitState();
     wxString whyNot;
     const auto candidates = GetReviewerCandidates();
     if (!CanHaveReviewBuddy(whyNot)) {
-      menu.Append(wxID_ANY, _("Launch Review Buddy") + " (" + whyNot + ")")
+      menu.Append(wxID_ANY,
+                  _("Review Buddy is not available") + " (" + whyNot + ")")
           ->Enable(false);
     } else if (candidates.empty()) {
-      menu.Append(wxID_ANY, _("Launch Review Buddy (no agent on this host)"))
+      menu.Append(wxID_ANY, _("No agent on this host to review with"))
           ->Enable(false);
     } else {
-      auto *submenu = new wxMenu();
+      // Pick the agent of the review.
       std::map<int, AgentDef> byId;
       int id = wxID_HIGHEST + 1;
       for (const AgentDef &candidate : candidates) {
-        submenu->Append(id, candidate.name);
+        menu.Append(id, wxString::Format(_("Review with %s"), candidate.name));
         byId.emplace(id++, candidate);
       }
-      // Bound on the submenu: its items send their events there first.
-      submenu->Bind(wxEVT_MENU, [this, byId](wxCommandEvent &event) {
+      menu.Bind(wxEVT_MENU, [this, byId](wxCommandEvent &event) {
         auto it = byId.find(event.GetId());
         if (it != byId.end()) {
           // Deferred: leave the menu's callback first.
           CallAfter(&SessionPage::LaunchReviewBuddy, it->second);
         }
       });
-      menu.AppendSubMenu(submenu, _("Launch Review Buddy"));
     }
   }
+  if (menu.GetMenuItemCount() == 0) {
+    return;
+  }
+  // Line up the menu with the button.
+  m_toolbar->SetToolSticky(ID_REVIEW_BUDDY, true);
+  const wxRect rect = m_toolbar->GetToolRect(ID_REVIEW_BUDDY);
+  m_toolbar->PopupMenu(&menu, rect.GetBottomLeft());
+  m_toolbar->SetToolSticky(ID_REVIEW_BUDDY, false);
+  m_toolbar->Refresh();
+}
 
-  terminal->PopupMenu(&menu);
+void SessionPage::AppendReviewControls(wxMenu &menu) {
+  menu.Append(wxID_ANY, _("Review Buddy: ") + m_review->Describe())
+      ->Enable(false);
+  if (m_review->IsRunning() || m_review->HasStalled()) {
+    menu.Append(kIdResend, _("Send the Request Again"))
+        ->Enable(!m_review->IsBusy());
+    menu.Bind(
+        wxEVT_MENU, [this](wxCommandEvent &) { m_review->Resend(); },
+        kIdResend);
+    menu.Append(kIdStop, _("Stop the Review"));
+    menu.Bind(
+        wxEVT_MENU, [this](wxCommandEvent &) { m_review->Stop(); }, kIdStop);
+  }
+  menu.Append(kIdOpen, _("Open the Latest Review"))
+      ->Enable(!m_review->CommentsPath().empty());
+  menu.Bind(
+      wxEVT_MENU, [this](wxCommandEvent &) { OpenLatestReview(); }, kIdOpen);
+  menu.Append(kIdClose, _("Close Review Buddy"));
+  menu.Bind(
+      wxEVT_MENU,
+      [this](wxCommandEvent &) { CallAfter(&SessionPage::CloseReviewBuddy); },
+      kIdClose);
 }
 
 std::vector<AgentDef> SessionPage::GetReviewerCandidates() const {

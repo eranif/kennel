@@ -1,4 +1,5 @@
 #include "MainView.hpp"
+#include "app/ToolBarUtils.h"
 
 #include "MainFrame.h"
 #include "StartAgentDialog.hpp"
@@ -807,10 +808,10 @@ const int kIdShowTreeView = XRCID("show-tree-view");
 void MainView::CreateLeftToolBar() {
   wxAuiToolBar *bar = GetAuibar();
   const auto &bmps = AppManager::Get().GetBitmaps();
-  bar->AddTool(kIdShowListView, _("List View"), bmps.Get("list-view", false),
-               _("List View"), wxITEM_RADIO);
-  bar->AddTool(kIdShowTreeView, _("Tree View"), bmps.Get("tree-view", false),
-               _("Tree View"), wxITEM_RADIO);
+  toolbar::AddTool(bar, kIdShowListView, _("List View"),
+                   bmps.Get("list-view", false), _("List View"), wxITEM_RADIO);
+  toolbar::AddTool(bar, kIdShowTreeView, _("Tree View"),
+                   bmps.Get("tree-view", false), _("Tree View"), wxITEM_RADIO);
   bar->Realize();
   bar->Bind(wxEVT_TOOL, &MainView::OnShowListView, this, kIdShowListView);
   bar->Bind(wxEVT_TOOL, &MainView::OnShowTreeView, this, kIdShowTreeView);
@@ -1433,6 +1434,18 @@ void MainView::LoadBitmaps() {
 
   bmps.Load("close.svg");
   bmps.AddAlias("close.svg", "close");
+
+  bmps.Load("copy.svg");
+  bmps.AddAlias("copy.svg", "copy");
+
+  bmps.Load("paste.svg");
+  bmps.AddAlias("paste.svg", "paste");
+
+  bmps.Load("find.svg");
+  bmps.AddAlias("find.svg", "find");
+
+  bmps.Load("code-reviewer.svg");
+  bmps.AddAlias("code-reviewer.svg", "code-reviewer");
 
   bmps.LoadMimeIcons();
 

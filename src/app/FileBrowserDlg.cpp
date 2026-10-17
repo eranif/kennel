@@ -1,4 +1,5 @@
 #include "FileBrowserDlg.hpp"
+#include "app/ToolBarUtils.h"
 #include "core/AppManager.h"
 #include <wx/msgdlg.h>
 
@@ -174,8 +175,9 @@ FileBrowserDlg::FileBrowserDlg(wxWindow *parent,
   }
 
   auto &bmps = AppManager::Get().GetBitmaps();
-  m_auibar->AddTool(wxID_UP, _("Up"), bmps.GetByAlias("up", false));
-  m_auibar->AddTool(wxID_HOME, _("Home"), bmps.GetByAlias("home", false));
+  toolbar::AddTool(m_auibar, wxID_UP, _("Up"), bmps.GetByAlias("up", false));
+  toolbar::AddTool(m_auibar, wxID_HOME, _("Home"),
+                   bmps.GetByAlias("home", false));
   m_auibar->Realize();
 
   Bind(wxEVT_TOOL, &FileBrowserDlg::OnUp, this, wxID_UP);

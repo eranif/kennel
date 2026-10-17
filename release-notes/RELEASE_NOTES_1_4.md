@@ -96,8 +96,8 @@ you are looking at that session, with the buttons **Ok** and **Ok, Close Review 
 when Kennel is in the background, a bouncing Dock icon (macOS) or a flashing taskbar button
 (Windows). Kennel remembers your last answer and makes it the default button next time. If a
 dialog is open already, a second one is not shown on top of it.
-The context menu shows the state and offers **Send the Request Again**, **Stop the Review**,
-**Open the Latest Review** and **Close Review Buddy**.
+The **Review Buddy** button in the terminal toolbar shows the state and offers **Send the Request Again**,
+**Stop the Review**, **Open the Latest Review** and **Close Review Buddy**.
 After 20 minutes without an answer, Kennel notifies you the same way but keeps waiting.
 
 The status bar of the window follows the session you are looking at: the terminal's title in
@@ -119,8 +119,8 @@ happens while you are working in that session: not when another page is showing,
 focus is elsewhere in the application, and not within 3 seconds of a key you pressed in the
 session's other terminal. Clicking a terminal or its border also focuses it.
 
-- **New terminal context menu** — the terminal's right-click menu is now Kennel's own (Copy,
-  Paste, Clear buffer, and the review entries).
+- **Terminal toolbar** — a toolbar above every session has Restart, Review Buddy, Copy, Paste
+  and Find. The terminal has no right-click menu any more.
 - **Border around terminals** — every terminal has a 5 pixel border in the theme's background
   color.
 
@@ -141,8 +141,8 @@ The editor used for opened files (and the job log viewer) gained:
   (one undo step). F3 finds the next match and Shift+F3 the previous one, whatever
   Up/Down is set to. The dialog closes when you select another page. The same entries are in
   the **Search** menu.
-- **Find in the terminal** — Ctrl+F (Cmd+F on macOS) and **Find...** in the terminal's context
-  menu open a Find dialog for the terminal (Match case and Up/Down). F3 and Shift+F3
+- **Find in the terminal** — Ctrl+F (Cmd+F on macOS) and the **Find** button of the terminal toolbar
+  open a Find dialog for the terminal (Match case and Up/Down). F3 and Shift+F3
   repeat the search once there is one; before that, programs in the terminal keep F3.
   Ctrl+F no longer reaches the program in the terminal on Windows and Linux, so
   readline's "forward one character" does not work there.

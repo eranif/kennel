@@ -25,6 +25,9 @@ class wxPanel;
 class wxContextMenuEvent;
 class ReviewBuddy;
 class SearchBar;
+class wxAuiToolBar;
+class wxMenu;
+class wxUpdateUIEvent;
 
 enum class SessionStatus { Starting, Running, Idle, Exited, Error };
 
@@ -115,10 +118,26 @@ private:
   }
   void FindIn(bool forward);
 
-  // ---- Context menu and review buddy -----------------------------------
-  // Replaces the terminal's own Copy / Paste / Clear menu.
+  // ---- Toolbar and review buddy ----------------------------------------
+  // The terminals have no context menu: the actions are in the toolbar.
+  // This handler only hides the terminal's own menu.
   void OnTerminalContextMenu(wxContextMenuEvent &evt);
-  void ShowTerminalMenu(wxTerminalViewCtrl *terminal);
+  void CreateToolBar();
+  // The terminal the Paste and Find buttons work on: the one with the focus,
+  // or the one that had it last.
+  wxTerminalViewCtrl *ActionTerminal() const;
+  // The terminal the Copy button works on: one that has a selection.
+  wxTerminalViewCtrl *CopyTerminal() const;
+  void OnToolRestart(wxCommandEvent &event);
+  void OnToolReviewBuddy(wxCommandEvent &event);
+  void OnToolCopy(wxCommandEvent &event);
+  void OnToolPaste(wxCommandEvent &event);
+  void OnToolFind(wxCommandEvent &event);
+  void OnToolCopyUI(wxUpdateUIEvent &event);
+  void OnToolHasTerminalUI(wxUpdateUIEvent &event);
+  void OnToolReviewBuddyUI(wxUpdateUIEvent &event);
+  // The items that manage a review buddy that is open.
+  void AppendReviewControls(wxMenu &menu);
   // Agents the review buddy can be: the ones on the same host as this session.
   std::vector<AgentDef> GetReviewerCandidates() const;
   // Whether this session can have a review buddy at all, and if not, why. May
@@ -148,6 +167,15 @@ private:
   wxBookCtrlBase *GetBook() const {
     return dynamic_cast<wxBookCtrlBase *>(GetParent());
   }
+
+  enum {
+    ID_RESTART = wxID_HIGHEST + 1000,
+    ID_REVIEW_BUDDY,
+    ID_COPY,
+    ID_PASTE,
+    ID_FIND,
+  };
+  wxAuiToolBar *m_toolbar{nullptr};
 
   AppPaths m_paths;
   std::optional<AgentDef> m_agent{std::nullopt};

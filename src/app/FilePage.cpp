@@ -1,4 +1,5 @@
 #include "app/FilePage.hpp"
+#include "app/ToolBarUtils.h"
 
 #include "app/EditFileDlg.hpp"
 #include "app/MainFrame.h"
@@ -25,16 +26,16 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
     : wxPanel(parent), m_path{path}, m_remoteHost{remoteHost} {
   m_toolbar = new wxAuiToolBar(this);
   AppManager::Get().GetBitmaps().Get("save", false);
-  m_toolbar->AddTool(ID_CLOSE, _("Close"),
-                     AppManager::Get().GetBitmaps().Get("close", false),
-                     _("Close The Current File"));
+  toolbar::AddTool(m_toolbar, ID_CLOSE, _("Close"),
+                   AppManager::Get().GetBitmaps().Get("close", false),
+                   _("Close The Current File"));
   m_toolbar->AddSeparator();
-  m_toolbar->AddTool(ID_SAVER, _("Save"),
-                     AppManager::Get().GetBitmaps().Get("save", false),
-                     _("Save File Modifications"));
-  m_toolbar->AddTool(ID_RELOAD, _("Reload"),
-                     AppManager::Get().GetBitmaps().Get("reload", false),
-                     _("Reload The Current File"));
+  toolbar::AddTool(m_toolbar, ID_SAVER, _("Save"),
+                   AppManager::Get().GetBitmaps().Get("save", false),
+                   _("Save File Modifications"));
+  toolbar::AddTool(m_toolbar, ID_RELOAD, _("Reload"),
+                   AppManager::Get().GetBitmaps().Get("reload", false),
+                   _("Reload The Current File"));
   m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnSave, this, ID_SAVER);
   m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnReload, this, ID_RELOAD);
   m_toolbar->Bind(wxEVT_UPDATE_UI, &FilePage::OnSaveUI, this, ID_SAVER);

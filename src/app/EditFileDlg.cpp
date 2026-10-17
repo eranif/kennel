@@ -1,4 +1,5 @@
 #include "EditFileDlg.hpp"
+#include "app/ToolBarUtils.h"
 #include "core/Helpers.h"
 #include "terminal_theme.h"
 
@@ -22,8 +23,8 @@ EditFileDlg::EditFileDlg(wxWindow *parent, const wxTerminalTheme &theme)
   // and Realize() must bracket the AddTool calls.
   const wxSize toolSize(24, 24);
   m_toolbar->SetToolBitmapSize(toolSize);
-  m_toolbar->AddTool(
-      wxID_SAVE, _("Save"),
+  toolbar::AddTool(
+      m_toolbar, wxID_SAVE, _("Save"),
       wxArtProvider::GetBitmapBundle(wxART_FILE_SAVE, wxART_TOOLBAR, toolSize),
       _("Save the file"));
   m_toolbar->Realize();

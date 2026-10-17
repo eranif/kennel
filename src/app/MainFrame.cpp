@@ -1,4 +1,5 @@
 #include "app/MainFrame.h"
+#include "app/ToolBarUtils.h"
 
 #include "SettingsDlg.hpp"
 #include "app/AboutDialog.hpp"
@@ -250,14 +251,15 @@ void MainFrame::BuildToolBar() {
   Bind(wxEVT_TOOL, &MainFrame::OnManageJobs, this, XRCID("manage-jobs"));
 
   // Static content first...
-  m_toolBar->AddTool(XRCID("start-agent"), _("Start a New Agent"),
-                     bmps.Get("agent", true), _("Start a New Agent"));
-  m_toolBar->AddTool(XRCID("start-terminal"), _("Start a New Terminal"),
-                     bmps.Get("terminal", true), _("Start a New Terminal"));
-  m_toolBar->AddTool(wxID_REFRESH, _("Refresh"), bmps.Get("restart", true),
-                     _("Refresh the Current Agent"));
-  m_toolBar->AddTool(XRCID("manage-jobs"), _("Manage Jobs"),
-                     bmps.Get("job", true), _("Manage Jobs"));
+  toolbar::AddTool(m_toolBar, XRCID("start-agent"), _("Start a New Agent"),
+                   bmps.Get("agent", true), _("Start a New Agent"));
+  toolbar::AddTool(m_toolBar, XRCID("start-terminal"),
+                   _("Start a New Terminal"), bmps.Get("terminal", true),
+                   _("Start a New Terminal"));
+  toolbar::AddTool(m_toolBar, wxID_REFRESH, _("Refresh"),
+                   bmps.Get("restart", true), _("Refresh the Current Agent"));
+  toolbar::AddTool(m_toolBar, XRCID("manage-jobs"), _("Manage Jobs"),
+                   bmps.Get("job", true), _("Manage Jobs"));
   m_toolBar->AddSeparator();
   BuildLaunchTools();
   m_toolBar->Realize();
@@ -289,8 +291,8 @@ void MainFrame::BuildLaunchTools() {
     wxBitmapBundle icon = bmps.Get(iconName, true);
 
     int toolId = wxXmlResource::GetXRCID(agent->name);
-    m_toolBar->AddTool(toolId, agent->name, icon,
-                       wxString::Format("Launch %s", agent->name));
+    toolbar::AddTool(m_toolBar, toolId, agent->name, icon,
+                     wxString::Format("Launch %s", agent->name));
     m_clientToolIdToName.insert({toolId, agent->name});
     Bind(wxEVT_TOOL, &MainFrame::OnStartAgentFromToolBar, this, toolId);
   }
