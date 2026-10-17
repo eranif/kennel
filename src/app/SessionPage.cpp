@@ -398,6 +398,8 @@ void SessionPage::CreateTerminal() {
 
   m_terminal->SetOutputCallback(
       [this](const std::string &chunk) { m_monitor->OnOutput(chunk); });
+  m_terminal->RegisterTextClickedFilter(
+      [](const std::string &) -> bool { return false; });
   m_terminal->Bind(wxEVT_TERMINAL_TERMINATED, &SessionPage::OnTerminated, this);
   m_terminal->Bind(wxEVT_TERMINAL_TITLE_CHANGED, &SessionPage::OnTitleChanged,
                    this);
