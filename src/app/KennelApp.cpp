@@ -2,6 +2,7 @@
 #include <wx/cmdline.h>
 #include <wx/log.h>
 
+#include "app/AppTheme.h"
 #include "app/AssetBootstrap.h"
 #include "app/MainFrame.h"
 #include "core/AppManager.h"
@@ -34,8 +35,6 @@ public:
     if (!wxApp::OnInit()) {
       return false;
     }
-    SetAppearance(Appearance::Dark);
-
     // Resolve ~/.kennel (or <-d value>/.kennel) and create its directory
     // tree before anything else touches config/workspace/log files.
     const AppPaths paths = m_homeOverride.empty()
@@ -66,6 +65,9 @@ public:
     // Load config, workspace, and UI prefs into the process-wide AppManager.
     // UI code reaches all of these via AppManager::Get().
     AppManager::Get().Initialize(paths);
+
+    // Before the first window is created.
+    ApplyAppTheme(AppManager::Get().GetPrefs().appTheme);
 
     auto *frame = new MainFrame();
     frame->Show(true);

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "UI.hpp"
+#include "app/AppTheme.h"
+#include <wx/app.h>
 
 class SettingsDlg : public SettingsDlgBase {
 public:
@@ -30,7 +32,20 @@ public:
     return m_spinCtrlScrollBackLines->GetValue();
   }
 
+  // "system", "dark" or "light", as saved in the preferences.
+  wxString GetAppThemeName() const { return AppThemeName(GetAppTheme()); }
   void RestoreThemeAndFont();
+  wxApp::Appearance GetAppTheme() const {
+    switch (m_choiceAppTheme->GetSelection()) {
+    case 1:
+      return wxApp::Appearance::Dark;
+    case 2:
+      return wxApp::Appearance::Light;
+    case 0:
+    default:
+      return wxApp::Appearance::System;
+    }
+  }
 
 protected:
   void OnBrowseForShellWorkingDir(wxCommandEvent &event) override;

@@ -3,6 +3,7 @@
 
 #include "SettingsDlg.hpp"
 #include "app/AboutDialog.hpp"
+#include "app/AppTheme.h"
 #include "app/AssetBootstrap.h"
 #include "app/EditAgentsDlg.hpp"
 #include "app/EditHosts.hpp"
@@ -478,12 +479,14 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.terminalFontDesc =
         settingsDlg.GetSelectedFont().GetNativeFontInfoDesc();
     prefs.terminalTheme = settingsDlg.GetTheme();
+    prefs.appTheme = settingsDlg.GetAppThemeName();
     prefs.blockCursor = settingsDlg.GetUseBlockCursor();
     prefs.terminalLoginShell = settingsDlg.GetDefaultLoginShell();
     prefs.terminalHomeDir = settingsDlg.GetDefaultHomeDir();
     prefs.terminalOptimizedDrawing = settingsDlg.OptimizeTerminalDrawing();
     prefs.checkForUpdatesOnStartup = settingsDlg.GetCheckForUpdatesOnStartup();
     prefs.scrollbackLines = settingsDlg.GetScrollBackLines();
+    ApplyAppTheme(prefs.appTheme);
     AppManager::Get().SavePrefs();
     m_mainView->ApplyPrefs();
   } else {

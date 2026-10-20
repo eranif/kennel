@@ -40,6 +40,17 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
     m_choiceShell->Append(shell_name, new wxStringClientData(shell_cmd));
   }
   m_choiceShell->SetSelection(selection);
+  switch (ParseAppTheme(prefs.appTheme)) {
+  case wxApp::Appearance::Dark:
+    m_choiceAppTheme->SetSelection(1);
+    break;
+  case wxApp::Appearance::Light:
+    m_choiceAppTheme->SetSelection(2);
+    break;
+  case wxApp::Appearance::System:
+    m_choiceAppTheme->SetSelection(0);
+    break;
+  }
   m_checkBoxBlockCaret->SetValue(prefs.blockCursor);
   m_checkBoxForNewVersionOnStartup->SetValue(prefs.checkForUpdatesOnStartup);
   m_spinCtrlScrollBackLines->SetValue(prefs.scrollbackLines);

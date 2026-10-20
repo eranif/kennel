@@ -404,6 +404,7 @@ protected:
   wxChoice *m_choiceTheme;
   wxStaticText *m_staticText357;
   wxFontPickerCtrl *m_fontPicker;
+  wxChoice *m_choiceAppTheme;
   wxPanel *m_panel361;
   wxStaticText *m_staticText365;
   wxChoice *m_choiceShell;
@@ -431,6 +432,7 @@ public:
   wxChoice *GetChoiceTheme() { return m_choiceTheme; }
   wxStaticText *GetStaticText357() { return m_staticText357; }
   wxFontPickerCtrl *GetFontPicker() { return m_fontPicker; }
+  wxChoice *GetChoiceAppTheme() { return m_choiceAppTheme; }
   wxPanel *GetPanel353() { return m_panel353; }
   wxStaticText *GetStaticText365() { return m_staticText365; }
   wxChoice *GetChoiceShell() { return m_choiceShell; }

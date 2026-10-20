@@ -38,6 +38,7 @@ json ToJson(const UiPrefs &p) {
       {"lastSelectedSession", ToUtf8(p.lastSelectedSession)},
       {"terminalTheme", ToUtf8(p.terminalTheme)},
       {"terminalFontDesc", ToUtf8(p.terminalFontDesc)},
+      {"appTheme", ToUtf8(p.appTheme)},
       {"terminalOptimizedDrawing", p.terminalOptimizedDrawing},
       {"checkForUpdatesOnStartup", p.checkForUpdatesOnStartup},
       {"closeReviewBuddyOnDismiss", p.closeReviewBuddyOnDismiss},
@@ -69,6 +70,7 @@ void ParsePrefs(const json &root, UiPrefs &p) {
       GetStr(root, "lastSelectedSession", p.lastSelectedSession);
   p.terminalTheme = GetStr(root, "terminalTheme", p.terminalTheme);
   p.terminalFontDesc = GetStr(root, "terminalFontDesc", p.terminalFontDesc);
+  p.appTheme = GetStr(root, "appTheme", p.appTheme);
   p.terminalLoginShell =
       GetStr(root, "terminalLoginShell", p.terminalLoginShell);
   p.terminalHomeDir = GetStr(root, "terminalHomeDir", p.terminalHomeDir);

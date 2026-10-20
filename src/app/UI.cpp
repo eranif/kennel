@@ -50,11 +50,11 @@ static void wxCrafterFiTVkcInitBitmapResources() {
 
   XRC_ADD_FILE(
       wxT("XRC_resource/"
-          "UI.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"),
+          "UI.cpp$C__msys64_home_eran_devl_kennel_src_app_UI_app_bitmaps.xrc"),
       xml_res_file_0, xml_res_size_0, wxT("text/xml"));
   wxXmlResource::Get()->Load(
       wxT("memory:XRC_resource/"
-          "UI.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"));
+          "UI.cpp$C__msys64_home_eran_devl_kennel_src_app_UI_app_bitmaps.xrc"));
 }
 
 #ifdef WXC_MAYBE_UNUSED
@@ -1413,7 +1413,7 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
       new wxStaticBox(m_panel353, wxID_ANY, _("Colours and Fonts:")),
       wxVERTICAL);
 
-  boxSizer360->Add(staticBoxSizer359, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+  boxSizer360->Add(staticBoxSizer359, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
   wxFlexGridSizer *flexGridSizer354 = new wxFlexGridSizer(0, 2, 0, 0);
   flexGridSizer354->SetFlexibleDirection(wxBOTH);
@@ -1451,6 +1451,23 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
       wxDLG_UNIT(m_panel353, wxSize(-1, -1)), wxFNTP_DEFAULT_STYLE);
 
   flexGridSizer354->Add(m_fontPicker, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
+  wxStaticBoxSizer *staticBoxSizer569 = new wxStaticBoxSizer(
+      new wxStaticBox(m_panel353, wxID_ANY, _("Theme:")), wxVERTICAL);
+
+  boxSizer360->Add(staticBoxSizer569, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
+  wxArrayString m_choiceAppThemeArr;
+  m_choiceAppThemeArr.Add(_("System"));
+  m_choiceAppThemeArr.Add(_("Dark"));
+  m_choiceAppThemeArr.Add(_("Light"));
+  m_choiceAppTheme = new wxChoice(m_panel353, wxID_ANY, wxDefaultPosition,
+                                  wxDLG_UNIT(m_panel353, wxSize(-1, -1)),
+                                  m_choiceAppThemeArr, 0);
+  m_choiceAppTheme->SetSelection(0);
+
+  staticBoxSizer569->Add(m_choiceAppTheme, 0, wxALL | wxEXPAND,
+                         WXC_FROM_DIP(5));
 
   m_panel361 =
       new wxPanel(m_notebook352, wxID_ANY, wxDefaultPosition,
