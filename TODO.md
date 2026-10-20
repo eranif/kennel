@@ -1,4 +1,4 @@
-TODO tasks before version 1.4.0 is released.
+TODO tasks before version 2.0.0 is released.
 ===
 
 - Settings dialog:

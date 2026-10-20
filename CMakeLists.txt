@@ -24,7 +24,7 @@ include(FetchContent)
 FetchContent_Declare(
   wxTerminalEmulator
   GIT_REPOSITORY https://github.com/eranif/wxTerminalEmulator.git
-  GIT_TAG f8ab3a1a99a96025a165f8cb4fb0b13b16ff21e0)
+  GIT_TAG 253be71a9e80e5f6bf516652521a1a3b70f0dc2a)
 
 set(BUILD_WXTERMINAL_DEMO
     OFF
@@ -461,6 +461,25 @@ if(NOT APPLE)
               "$<TARGET_FILE_DIR:kennel>/"
       COMMENT "Copying wxWidgets DLL next to kennel executable"
       VERBATIM)
+
+    # The newer ConPTY (conpty.dll and OpenConsole.exe) from wxTerminalEmulator.
+    # The terminal loads conpty.dll from the folder of the executable, and
+    # falls back to the ConPTY of Windows when it is missing.
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
+      set(KENNEL_CONPTY_ARCH "arm64")
+    else()
+      set(KENNEL_CONPTY_ARCH "x64")
+    endif()
+    set(KENNEL_CONPTY_DIR
+        "${wxterminalemulator_SOURCE_DIR}/assets/conpty/${KENNEL_CONPTY_ARCH}")
+    add_custom_command(
+      TARGET kennel
+      POST_BUILD
+      COMMAND
+        ${CMAKE_COMMAND} -E copy_if_different "${KENNEL_CONPTY_DIR}/conpty.dll"
+        "${KENNEL_CONPTY_DIR}/OpenConsole.exe" "$<TARGET_FILE_DIR:kennel>/"
+      COMMENT "Copying conpty.dll and OpenConsole.exe next to kennel executable"
+      VERBATIM)
   endif()
 endif()
 
@@ -637,6 +656,10 @@ if(WIN32)
     # Copy wxWidgets DLL
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:wx::wxmono>"
             "${_INSTALLER_DIR}/bin/"
+    # Copy the newer ConPTY: it must be in the folder of the executable
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${KENNEL_CONPTY_DIR}/conpty.dll"
+            "${KENNEL_CONPTY_DIR}/OpenConsole.exe" "${_INSTALLER_DIR}/bin/"
     # Copy LICENSE
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/LICENSE"
             "${_INSTALLER_DIR}/"
