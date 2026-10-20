@@ -5,6 +5,9 @@ BUILD_DIR=${ROOT_DIR}/.build-release
 MACOS_DEPLOYMENT_TARGET=${MACOS_DEPLOYMENT_TARGET:-13.0}
 OS_NAME="$(uname -s)"
 FORCE_CMAKE=0
+# The wxWidgets tag to build. Override with WX_VERSION. Keep it the same as the
+# one wxTerminalEmulator is tested with: colour emoji (Direct2D) need 3.3.4.
+WX_VERSION=${WX_VERSION:-v3.3.4}
 
 . ${ROOT_DIR}/scripts/functions.rc
 
@@ -47,7 +50,7 @@ function build_wx_widgets_Linux() {
   INFO "Building wxWidgets"
   mkdir -p ${BUILD_DIR}
   cd $_
-  git clone --depth 1 https://github.com/wxWidgets/wxWidgets.git
+  git clone --depth 1 --branch "${WX_VERSION}" https://github.com/wxWidgets/wxWidgets.git
   cd wxWidgets
   git submodule update --init --depth 1
   mkdir .build-release
@@ -69,7 +72,7 @@ function build_wx_widgets_macOS() {
   INFO "Building wxWidgets"
   mkdir -p ${BUILD_DIR}
   cd $_
-  git clone --depth 1 https://github.com/wxWidgets/wxWidgets.git
+  git clone --depth 1 --branch "${WX_VERSION}" https://github.com/wxWidgets/wxWidgets.git
   cd wxWidgets
   git submodule update --init --depth 1
   mkdir .build-release
@@ -99,7 +102,7 @@ function build_wx_widgets_MSW() {
   mkdir -p ${BUILD_DIR}
   cd $_
   rm -fr wxWidgets # in case we aborted earlier
-  git clone --depth 1 https://github.com/wxWidgets/wxWidgets.git
+  git clone --depth 1 --branch "${WX_VERSION}" https://github.com/wxWidgets/wxWidgets.git
   cd wxWidgets
   git submodule update --init --depth 1
   mkdir .build-release
