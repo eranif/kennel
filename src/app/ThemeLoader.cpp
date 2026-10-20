@@ -8,19 +8,37 @@
 #include <wx/textfile.h>
 
 #include <algorithm>
+#include <cstdlib>
 
 namespace {
 
-// Strips a leading/trailing pair of matching single or double quotes.
+// Strips a leading/trailing pair of matching single or double quotes, and a
+// comment after them (`'#303446' # base`).
 wxString Unquote(wxString s) {
   s.Trim(true).Trim(false);
-  if (s.length() >= 2) {
-    const wxUniChar f = s[0];
-    if ((f == '\'' || f == '"') && s.Last() == f) {
-      s = s.Mid(1, s.length() - 2);
+  if (s.length() >= 2 && (s[0] == '\'' || s[0] == '"')) {
+    const int end = s.find(s[0], 1);
+    if (end != wxNOT_FOUND) {
+      return s.Mid(1, end - 1);
     }
   }
   return s;
+}
+
+// How bright a colour looks, 0 (black) to 255 (white).
+int Brightness(const wxColour &c) {
+  return (c.Red() * 299 + c.Green() * 587 + c.Blue() * 114) / 1000;
+}
+
+// A colour for text on `bg`: `preferred` if it contrasts enough, otherwise
+// black or white.
+wxColour TextOn(const wxColour &bg, const wxColour &preferred) {
+  constexpr int kMinContrast = 110;
+  if (std::abs(Brightness(preferred) - Brightness(bg)) >= kMinContrast) {
+    return preferred;
+  }
+  return Brightness(bg) < 128 ? wxColour(0xFF, 0xFF, 0xFF)
+                              : wxColour(0x00, 0x00, 0x00);
 }
 
 // Assigns a parsed colour to the right wxTerminalTheme field given the current
@@ -43,6 +61,25 @@ bool Assign(wxTerminalTheme *t, const wxString &table, const wxString &key,
       return true;
     }
     // "text" (cursor text colour) has no dedicated field; ignore.
+  } else if (table == "colors.selection") {
+    // The text colour is "text" or "foreground", depending on the theme.
+    if (key == "background") {
+      t->selectionBg = c;
+      return true;
+    }
+    if (key == "text" || key == "foreground") {
+      t->selectionFg = c;
+      return true;
+    }
+  } else if (table == "colors.search.matches") {
+    if (key == "background") {
+      t->highlightBg = c;
+      return true;
+    }
+    if (key == "foreground") {
+      t->highlightFg = c;
+      return true;
+    }
   } else if (table == "colors.normal") {
     if (key == "black") {
       t->black = c;
@@ -126,6 +163,12 @@ bool ParseThemeTomlFile(const wxString &path, wxTerminalTheme *out) {
   wxTerminalTheme theme = *out;
   wxString table;
   int assigned = 0;
+  bool cursorAssigned = false;
+  // The colours of the selection and of the search matches come in pairs.
+  bool selectionBgAssigned = false;
+  bool selectionFgAssigned = false;
+  bool highlightBgAssigned = false;
+  bool highlightFgAssigned = false;
 
   for (wxString line = file.GetFirstLine(); !file.Eof();
        line = file.GetNextLine()) {
@@ -152,6 +195,15 @@ bool ParseThemeTomlFile(const wxString &path, wxTerminalTheme *out) {
     }
     if (Assign(&theme, table, key, c)) {
       ++assigned;
+      if (table == "colors.cursor" && key == "cursor") {
+        cursorAssigned = true;
+      } else if (table == "colors.selection") {
+        (key == "background" ? selectionBgAssigned : selectionFgAssigned) =
+            true;
+      } else if (table == "colors.search.matches") {
+        (key == "background" ? highlightBgAssigned : highlightFgAssigned) =
+            true;
+      }
     }
   }
 
@@ -159,6 +211,24 @@ bool ParseThemeTomlFile(const wxString &path, wxTerminalTheme *out) {
     KLOG_WARN() << "Theme: no usable colours parsed from " << path;
     return false;
   }
+
+  // The default cursor colour is white: it cannot be seen on a light theme. A
+  // cursor in the colour of the text shows on any background.
+  if (!cursorAssigned) {
+    theme.cursorColour = theme.fg;
+  }
+  // A theme that sets only one colour of a pair ("CellForeground" is not a
+  // colour): the default of the other one (white) may not fit it.
+  if (selectionBgAssigned && !selectionFgAssigned) {
+    theme.selectionFg = TextOn(theme.selectionBg, theme.fg);
+  }
+  if (highlightBgAssigned && !highlightFgAssigned) {
+    theme.highlightFg = TextOn(theme.highlightBg, theme.fg);
+  }
+  // No theme has a link colour. The default (light blue) is hard to read on a
+  // light background: take the blue of the theme (the bright one on a dark
+  // background).
+  theme.linkColour = Brightness(theme.bg) < 128 ? theme.brightBlue : theme.blue;
   *out = theme;
   return true;
 }
