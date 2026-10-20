@@ -411,8 +411,13 @@ void SessionPage::CreateTerminal() {
   m_terminal->Bind(wxEVT_TERMINAL_TERMINATED, &SessionPage::OnTerminated, this);
   m_terminal->Bind(wxEVT_TERMINAL_TITLE_CHANGED, &SessionPage::OnTitleChanged,
                    this);
+  m_terminal->Bind(wxEVT_TERMINAL_CWD_CHANGED, &SessionPage::OnCwdChanged,
+                   this);
 
   ConfigureTerminal(m_terminal);
+  // After the theme (the text colour follows the background) and before the
+  // terminal starts, so the program gets the right number of rows.
+  UpdateHeader();
   m_terminal->EnsureStarted();
   SetStatus(SessionStatus::Running);
   CheckGitRepo();
@@ -534,11 +539,57 @@ void SessionPage::OnTerminated(wxTerminalEvent &evt) {
   SetStatus(SessionStatus::Exited);
 }
 
+void SessionPage::UpdateHeader(bool force) {
+  if (m_terminal == nullptr) {
+    return;
+  }
+  // "Agent name | Title | Working directory"; a plain terminal is a
+  // "Terminal". Parts that are empty are left out.
+  wxString text = m_session.plainTerminal || m_session.agentName.empty()
+                      ? wxString(_("Terminal"))
+                      : m_session.agentName;
+  wxString title = m_terminalTitle;
+  title.Replace("\n", " ");
+  title.Trim().Trim(false);
+  if (!title.empty()) {
+    text << " | " << title;
+  }
+  // The folder the shell is in now, or the one the session started in.
+  const wxString dir = m_terminal->GetCurrentDir().empty()
+                           ? m_session.workingDir
+                           : m_terminal->GetCurrentDir();
+  if (!dir.empty()) {
+    text << " | " << dir;
+  }
+
+  // On a dark background the text is yellow on a darker strip; otherwise the
+  // strip has the colours of the theme.
+  const wxColour &bg = m_terminal->GetTheme().bg;
+  const bool dark =
+      (bg.Red() * 299 + bg.Green() * 587 + bg.Blue() * 114) / 1000 < 128;
+  const wxColour fg = dark ? wxColour(0xE6, 0xC8, 0x4C) : wxNullColour;
+  // Darker than the terminal, so the strip stands out from it (the default is
+  // lighter).
+  const wxColour stripBg = dark ? bg.ChangeLightness(60) : wxNullColour;
+
+  // A title that changes often (a spinner) must not lay the strip out again.
+  if (force || !m_terminal->HasHeader() ||
+      m_terminal->GetHeaderText() != text) {
+    m_terminal->AddHeader(text, fg, stripBg);
+  }
+}
+
+void SessionPage::OnCwdChanged(wxTerminalEvent &evt) {
+  evt.Skip();
+  UpdateHeader();
+}
+
 void SessionPage::OnTitleChanged(wxTerminalEvent &evt) {
   evt.Skip();
   // The status bar shows it (not while a review is in progress).
   m_terminalTitle = evt.GetTitle();
   UpdateStatus();
+  UpdateHeader();
 }
 
 void SessionPage::SetStatus(SessionStatus status) {
@@ -586,8 +637,8 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
   // follows "cd"), then the folder the session started in.
   std::vector<wxString> baseDirs;
   if (auto *terminal = dynamic_cast<wxTerminalViewCtrl *>(evt.GetEventObject());
-      terminal != nullptr && !terminal->GetCurrentDirectory().empty()) {
-    baseDirs.push_back(terminal->GetCurrentDirectory());
+      terminal != nullptr && !terminal->GetCurrentDir().empty()) {
+    baseDirs.push_back(terminal->GetCurrentDir());
   }
   if (!m_session.workingDir.empty() &&
       (baseDirs.empty() || baseDirs.back() != m_session.workingDir)) {
@@ -686,6 +737,7 @@ void SessionPage::ApplyTheme(const wxTerminalTheme &theme) {
   for (auto *terminal : GetTerminals()) {
     terminal->SetTheme(theme);
   }
+  UpdateHeader(/*force=*/true); // The colour depends on the background.
   // The border around each terminal has the theme's background.
   for (wxPanel *pane : {m_mainPane, m_reviewPane}) {
     if (pane != nullptr) {

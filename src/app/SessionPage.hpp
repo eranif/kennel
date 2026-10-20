@@ -89,6 +89,10 @@ private:
   // Works out where the agent runs and the session label.
   void InitStatus();
   void UpdateSessionLabel();
+  // Shows "agent name | terminal title | working directory" in the header of
+  // the agent's terminal. `force` shows it again when the text did not change.
+  void UpdateHeader(bool force = false);
+  void OnCwdChanged(wxTerminalEvent &evt);
   // Fills the title (the terminal title; not followed while a review is in
   // progress), the review text and the busy flag, then publishes. The review
   // text is:
