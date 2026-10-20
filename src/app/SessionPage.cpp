@@ -5,6 +5,7 @@
 #include "ThemeManager.h"
 #include "app/AssetBootstrap.h"
 #include "app/ReviewBuddy.hpp"
+#include "app/ReviewBuddyHeader.hpp"
 #include "app/SearchBar.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
@@ -162,7 +163,13 @@ SessionPage::SessionPage(wxSimplebook *parent, std::optional<AgentDef> agent,
   SetDefaultSessionName(m_session.name);
   InitStatus();
   Bind(wxEVT_TIMER, &SessionPage::OnNoticeTimer, this, m_noticeTimer.GetId());
-  Bind(wxEVT_REVIEW_CHANGED, &SessionPage::OnReviewChanged, this);
+  // Every change of the status of the review buddy shows in the status bar.
+  for (const auto &type :
+       {wxEVT_REVIEW_BUDDY_STARTED, wxEVT_REVIEW_BUDDY_WAITING_FOR_FINDINGS,
+        wxEVT_REVIEW_BUDDY_ADDRESSING_FINDINGS, wxEVT_REVIEW_BUDDY_FINISHED,
+        wxEVT_REVIEW_BUDDY_ERROR, wxEVT_REVIEW_BUDDY_STOPPED}) {
+    Bind(type, &SessionPage::OnReviewChanged, this);
+  }
   // The toolbar is the first item; CreateTerminal() puts the splitter after it
   // and the search bar comes last.
   CreateToolBar();
@@ -173,7 +180,7 @@ SessionPage::SessionPage(wxSimplebook *parent, std::optional<AgentDef> agent,
   GetSizer()->Add(m_searchBar, wxSizerFlags(0).Expand());
   Bind(wxEVT_SEARCHBAR_FIND, &SessionPage::OnSearchBarFind, this);
   Bind(wxEVT_SEARCHBAR_CLOSE, &SessionPage::OnSearchBarClose, this);
-  Bind(wxEVT_REVIEW_BUDDY_CLOSE, [this](wxCommandEvent &event) {
+  Bind(wxEVT_REVIEW_BUDDY_CLOSE, [this](ReviewBuddyEvent &event) {
     // The buddy that asked may be closed already, and a new one started.
     if (m_review && m_review->LoopId() == event.GetString()) {
       CallAfter(&SessionPage::CloseReviewBuddy);
@@ -543,6 +550,13 @@ void SessionPage::UpdateHeader(bool force) {
   if (m_terminal == nullptr) {
     return;
   }
+  // While a review buddy is open, its header shows the state of the review.
+  if (m_reviewHeader) {
+    if (force) {
+      m_reviewHeader->Refresh();
+    }
+    return;
+  }
   // "Agent name | Title | Working directory"; a plain terminal is a
   // "Terminal". Parts that are empty are left out.
   wxString text = m_session.plainTerminal || m_session.agentName.empty()
@@ -561,22 +575,7 @@ void SessionPage::UpdateHeader(bool force) {
   if (!dir.empty()) {
     text << " | " << dir;
   }
-
-  // On a dark background the text is yellow on a darker strip; otherwise the
-  // strip has the colours of the theme.
-  const wxColour &bg = m_terminal->GetTheme().bg;
-  const bool dark =
-      (bg.Red() * 299 + bg.Green() * 587 + bg.Blue() * 114) / 1000 < 128;
-  const wxColour fg = dark ? wxColour(0xE6, 0xC8, 0x4C) : wxNullColour;
-  // Darker than the terminal, so the strip stands out from it (the default is
-  // lighter).
-  const wxColour stripBg = dark ? bg.ChangeLightness(60) : wxNullColour;
-
-  // A title that changes often (a spinner) must not lay the strip out again.
-  if (force || !m_terminal->HasHeader() ||
-      m_terminal->GetHeaderText() != text) {
-    m_terminal->AddHeader(text, fg, stripBg);
-  }
+  ReviewBuddyHeader::SetText(m_terminal, text, force);
 }
 
 void SessionPage::OnCwdChanged(wxTerminalEvent &evt) {
@@ -1097,6 +1096,9 @@ void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
       },
       [this](wxTerminalViewCtrl *terminal) { FocusTerminal(terminal); });
   m_review->SetEventTarget(this);
+  // Before Begin(): it gets the first event. It shows the review in the header
+  // of the agent's terminal until the review buddy is closed.
+  m_reviewHeader = std::make_unique<ReviewBuddyHeader>(m_terminal, this);
   m_review->Begin();
 }
 
@@ -1162,6 +1164,9 @@ void SessionPage::CloseReviewBuddy() {
   // reviewer ran in.
   const std::unique_ptr<ReviewBuddy> review = std::move(m_review);
   ClearNotice();
+  // The header shows the session again.
+  m_reviewHeader.reset();
+  UpdateHeader(/*force=*/true);
   if (m_reviewTerminal == nullptr) {
     return;
   }

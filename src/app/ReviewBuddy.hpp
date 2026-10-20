@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/AsyncGuard.hpp"
+#include "app/ReviewBuddyEvent.hpp"
 #include "core/ReviewLoop.h"
 
 #include <wx/event.h>
@@ -14,13 +15,6 @@
 #include <vector>
 
 class wxTerminalViewCtrl;
-
-wxDECLARE_EVENT(wxEVT_REVIEW_CHANGED, wxCommandEvent);
-// Sent to the event target when the user asks, in the dialog at the end of a
-// review, to close the Review Buddy. The string of the event is the
-// LoopId() of that ReviewBuddy; the owner closes it later (CallAfter), not
-// inside the handler.
-wxDECLARE_EVENT(wxEVT_REVIEW_BUDDY_CLOSE, wxCommandEvent);
 
 // Runs a ReviewLoop for one SessionPage: the main agent's terminal plus the
 // reviewer's terminal next to it. It writes the request files and checks every
@@ -63,12 +57,16 @@ public:
   bool IsInProgress() const;
   // A file is being written or checked over SSH; Resend() waits for that.
   bool IsBusy() const { return m_ioBusy; }
+  // The review ended because the reviewer found nothing (not the round limit).
+  bool IsClean() const { return m_loop && m_loop->IsClean(); }
   wxString Describe() const;
   // A short state for the status bar, e.g. "Waiting for review (round 1/5)" or
   // "Addressing comments (round 1/5)".
   wxString StatusText() const;
-  // Where wxEVT_REVIEW_CHANGED is sent whenever the state may have changed
-  // (StatusText() is up to date). The event object is this ReviewBuddy.
+  // Where the ReviewBuddyEvents are sent (see ReviewBuddyEvent.hpp). One is
+  // sent whenever the status changes (StatusText() is up to date): when the
+  // review starts, when the reviewer or the main agent is working on a round,
+  // when it finishes, stops or fails. The event object is this ReviewBuddy.
   void SetEventTarget(wxEvtHandler *target) { m_eventTarget = target; }
   void Resend();
   void Stop();
@@ -90,11 +88,15 @@ private:
   void Execute(Actions actions, size_t from = 0);
   void PasteLine(wxTerminalViewCtrl *terminal, const wxString &line);
   void Finished();
+  // Sends the event of the current status to the event target, unless it was
+  // sent already (the status is the state, the round, the "slow" flag and the
+  // message).
   void NotifyChanged();
+  void SendEvent(wxEventType type, const wxString &message = wxEmptyString);
   // Tells the user about the loop: when they are not looking at this session, a
   // system notification. The Dock icon / taskbar button also asks for attention
   // when Kennel is in the background. (The status bar follows the state of the
-  // loop through wxEVT_REVIEW_CHANGED, see SessionPage.)
+  // loop through its events, see SessionPage.)
   void NotifyUser(const wxString &title, const wxString &message);
 
   bool WriteLocal(const wxString &relPath, const wxString &text);
@@ -119,6 +121,7 @@ private:
   LaunchFn m_launchReviewer;
   FocusFn m_focusTerminal;
   wxEvtHandler *m_eventTarget{nullptr};
+  wxString m_lastStatus; // What NotifyChanged() sent last
 
   std::unique_ptr<ReviewLoop> m_loop;
   wxTimer m_pollTimer;

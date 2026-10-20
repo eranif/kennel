@@ -3,6 +3,7 @@
 #include "UI.hpp"
 #include "app/AcceleratorInterceptor.h"
 #include "app/AsyncGuard.hpp"
+#include "app/ReviewBuddyEvent.hpp"
 #include "app/SessionStatusEvent.hpp"
 #include "core/ActivityMonitor.h"
 #include "core/AppPaths.h"
@@ -24,6 +25,7 @@ class wxSplitterWindow;
 class wxPanel;
 class wxContextMenuEvent;
 class ReviewBuddy;
+class ReviewBuddyHeader;
 class SearchBar;
 class wxAuiToolBar;
 class wxMenu;
@@ -91,6 +93,7 @@ private:
   void UpdateSessionLabel();
   // Shows "agent name | terminal title | working directory" in the header of
   // the agent's terminal. `force` shows it again when the text did not change.
+  // While a review buddy is open, ReviewBuddyHeader owns the header.
   void UpdateHeader(bool force = false);
   void OnCwdChanged(wxTerminalEvent &evt);
   // Fills the title (the terminal title; not followed while a review is in
@@ -103,7 +106,13 @@ private:
   // Shows `text` in the review text for a while (see UpdateStatus()).
   void ShowNotice(const wxString &text);
   void ClearNotice();
-  void OnReviewChanged(wxCommandEvent &) { UpdateStatus(); }
+  // A status change of the review buddy: the status bar shows it (and the
+  // header, see ReviewBuddyHeader).
+  void OnReviewChanged(ReviewBuddyEvent &event) {
+    // Skipped: the header of the review gets the event too.
+    event.Skip();
+    UpdateStatus();
+  }
   void OnNoticeTimer(wxTimerEvent &) {
     // Does not depend on the port stopping a one-shot timer before this runs.
     m_noticeTimer.Stop();
@@ -215,6 +224,7 @@ private:
   std::chrono::steady_clock::time_point m_lastKeyTime;
   std::unique_ptr<AcceleratorInterceptor> m_reviewAcceleratorInterceptor;
   std::unique_ptr<ReviewBuddy> m_review;
+  std::unique_ptr<ReviewBuddyHeader> m_reviewHeader;
   GitState m_gitState{GitState::Unknown};
   bool m_gitCheckBusy{false};
   std::chrono::steady_clock::time_point m_lastGitCheck;

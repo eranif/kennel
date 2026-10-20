@@ -122,6 +122,7 @@ ReviewLoop::OnMarkerFound(const wxString &content) {
       auto actions = Finish(
           State::Done,
           wxString::Format(_("Review is clean after %d round(s)"), m_round));
+      m_clean = true;
       actions.push_back({Action::Kind::RemoveFolder, Folder(), wxEmptyString});
       return actions;
     }

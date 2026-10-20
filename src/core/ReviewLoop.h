@@ -65,6 +65,9 @@ public:
   }
   // Why the loop ended or stalled. Empty otherwise.
   const wxString &Message() const { return m_message; }
+  // The loop is Done because the reviewer found nothing (not because the round
+  // limit was reached).
+  bool IsClean() const { return m_clean; }
   // Nothing happened for a long time (cleared by the next marker).
   bool IsSlow() const { return m_slow; }
   // One line for the user, e.g. "Round 2 of 5: waiting for the review".
@@ -120,5 +123,6 @@ private:
   int m_round{0};
   int m_dir{0}; // The number in the current file names, see Build...Request()
   bool m_slow{false};
+  bool m_clean{false};
   wxString m_message;
 };

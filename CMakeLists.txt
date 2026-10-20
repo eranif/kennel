@@ -300,6 +300,8 @@ set(KENNEL_APP_SOURCES
     src/app/PageSwitcherDlg.cpp
     src/app/PageViewEvent.cpp
     src/app/ReviewBuddy.cpp
+    src/app/ReviewBuddyEvent.cpp
+    src/app/ReviewBuddyHeader.cpp
     src/app/TreeView.cpp
     src/app/FlatView.cpp
     src/app/MainViewMenus.cpp

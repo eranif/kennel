@@ -32,9 +32,6 @@ wxString JoinPath(const wxString &dir, const wxString &name) {
 }
 } // namespace
 
-wxDEFINE_EVENT(wxEVT_REVIEW_CHANGED, wxCommandEvent);
-wxDEFINE_EVENT(wxEVT_REVIEW_BUDDY_CLOSE, wxCommandEvent);
-
 ReviewBuddy::ReviewBuddy(const Target &target, wxTerminalViewCtrl *main,
                          LaunchFn launchReviewer, FocusFn focusTerminal)
     : m_target(target), m_remote(!target.remoteHost.empty()), m_main(main),
@@ -91,8 +88,54 @@ void ReviewBuddy::NotifyChanged() {
   if (m_eventTarget == nullptr) {
     return;
   }
-  wxCommandEvent event(wxEVT_REVIEW_CHANGED);
+  wxEventType type = wxEVT_REVIEW_BUDDY_STARTED;
+  wxString message;
+  wxString status;
+  if (!m_loop) {
+    // Stopped before it began.
+    type = wxEVT_REVIEW_BUDDY_STOPPED;
+    status = "stopped";
+  } else {
+    switch (m_loop->GetState()) {
+    case ReviewLoop::State::Idle:
+      type = wxEVT_REVIEW_BUDDY_STARTED;
+      break;
+    case ReviewLoop::State::Reviewing:
+      type = wxEVT_REVIEW_BUDDY_WAITING_FOR_FINDINGS;
+      break;
+    case ReviewLoop::State::Fixing:
+      type = wxEVT_REVIEW_BUDDY_ADDRESSING_FINDINGS;
+      break;
+    case ReviewLoop::State::Done:
+      type = wxEVT_REVIEW_BUDDY_FINISHED;
+      message = m_loop->Message();
+      break;
+    case ReviewLoop::State::Stalled:
+      type = wxEVT_REVIEW_BUDDY_ERROR;
+      message = m_loop->Message();
+      break;
+    case ReviewLoop::State::Stopped:
+      type = wxEVT_REVIEW_BUDDY_STOPPED;
+      break;
+    }
+    status = wxString::Format(
+        "%d|%d|%d|%s", static_cast<int>(m_loop->GetState()), m_loop->Round(),
+        m_loop->IsSlow() ? 1 : 0, m_loop->Message());
+  }
+  if (status == m_lastStatus) {
+    return;
+  }
+  m_lastStatus = status;
+  SendEvent(type, message);
+}
+
+void ReviewBuddy::SendEvent(wxEventType type, const wxString &message) {
+  if (m_eventTarget == nullptr) {
+    return;
+  }
+  ReviewBuddyEvent event(type);
   event.SetEventObject(this);
+  event.SetString(message);
   m_eventTarget->ProcessEvent(event);
 }
 
@@ -136,6 +179,7 @@ void ReviewBuddy::Begin() {
               << m_target.workingDir << "'" << (m_remote ? " (remote)" : "");
   AddIgnoreRule();
   m_pollTimer.Start(m_remote ? kRemotePollMs : kLocalPollMs);
+  SendEvent(wxEVT_REVIEW_BUDDY_STARTED);
   Execute(m_loop->Start());
 }
 
@@ -432,7 +476,8 @@ void ReviewBuddy::NotifyUser(const wxString &title, const wxString &message) {
                   << st.message();
     }
     if (closeBuddy && alive->load() && m_eventTarget != nullptr) {
-      wxCommandEvent event(wxEVT_REVIEW_BUDDY_CLOSE);
+      ReviewBuddyEvent event(wxEVT_REVIEW_BUDDY_CLOSE);
+      // No event object: this ReviewBuddy may be gone when it is handled.
       event.SetString(loopId);
       m_eventTarget->AddPendingEvent(event);
     }
