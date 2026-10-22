@@ -43,6 +43,22 @@ wxBitmapBundle MakeDisabledBundle(const wxBitmapBundle &bundle) {
   return wxBitmapBundle::FromImpl(new DisabledBundleImpl(bundle));
 }
 
+void ApplyStyle(wxAuiToolBar *toolbar) {
+  const long style = toolbar->GetWindowStyle();
+  const bool dark = wxSystemSettings::GetAppearance().IsDark();
+  const long newStyle = dark ? (style & ~wxAUI_TB_PLAIN_BACKGROUND)
+                             : (style | wxAUI_TB_PLAIN_BACKGROUND);
+  if (newStyle == style) {
+    return;
+  }
+  toolbar->SetWindowStyleFlag(newStyle);
+  // Not before the tools are added: Realize() is called by the owner then.
+  if (toolbar->GetToolCount() > 0) {
+    toolbar->Realize();
+    toolbar->Refresh();
+  }
+}
+
 wxAuiToolBarItem *AddTool(wxAuiToolBar *toolbar, int toolId,
                           const wxString &label, const wxBitmapBundle &bitmap,
                           const wxString &shortHelp, wxItemKind kind) {

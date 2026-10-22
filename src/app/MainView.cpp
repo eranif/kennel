@@ -807,6 +807,7 @@ const int kIdShowTreeView = XRCID("show-tree-view");
 
 void MainView::CreateLeftToolBar() {
   wxAuiToolBar *bar = GetAuibar();
+  toolbar::ApplyStyle(bar);
   const auto &bmps = AppManager::Get().GetBitmaps();
   toolbar::AddTool(bar, kIdShowListView, _("List View"),
                    bmps.Get("list-view", false), _("List View"), wxITEM_RADIO);
@@ -959,6 +960,12 @@ void MainView::ApplyPrefs() {
   font.SetNativeFontInfo(prefs.terminalFontDesc);
   ApplyFont(font);
   ApplyOptimizedDrawing();
+
+  // The theme of the application may have changed.
+  toolbar::ApplyStyle(GetAuibar());
+  for (auto *page : m_treeView->GetAllSessions()) {
+    page->ApplyToolBarStyle();
+  }
 
   for (auto *page : m_treeView->GetAllSessions()) {
     for (auto *terminal : page->GetTerminals()) {

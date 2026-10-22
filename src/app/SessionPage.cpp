@@ -764,9 +764,13 @@ void SessionPage::OnTerminalContextMenu(wxContextMenuEvent &evt) {
   wxUnusedVar(evt);
 }
 
+void SessionPage::ApplyToolBarStyle() { toolbar::ApplyStyle(m_toolbar); }
+
 void SessionPage::CreateToolBar() {
   auto &bmps = AppManager::Get().GetBitmaps();
-  m_toolbar = new wxAuiToolBar(this);
+  m_toolbar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                               wxAUI_TB_DEFAULT_STYLE);
+  toolbar::ApplyStyle(m_toolbar);
   toolbar::AddTool(m_toolbar, ID_RESTART, _("Restart"),
                    bmps.Get("restart", false), _("Restart the session"));
   // A drop-down button: the button and its arrow both open the menu.

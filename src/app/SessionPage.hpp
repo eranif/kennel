@@ -51,6 +51,9 @@ public:
   // The agent's terminal, plus the review buddy's while it is open.
   std::vector<wxTerminalViewCtrl *> GetTerminals() const;
   void ApplyTheme(const wxTerminalTheme &theme);
+  // Gives the toolbar the style of the theme of the application (see
+  // toolbar::ApplyStyle()). Called when the theme changes.
+  void ApplyToolBarStyle();
   // Focuses the terminal that had the focus last (the agent's by default).
   void SetFocus() override;
 
