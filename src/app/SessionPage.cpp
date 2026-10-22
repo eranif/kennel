@@ -467,6 +467,9 @@ void SessionPage::AddToPane(wxPanel *pane, wxTerminalViewCtrl *terminal) {
     terminal->SetFocus();
   });
   pane->GetSizer()->Add(terminal, wxSizerFlags(1).Expand());
+  // A thin progress bar for what the program reports (OSC 9;4 and 7501). It
+  // needs the sizer of the pane, so it comes after the terminal is added.
+  terminal->ShowProgressBar(true);
 }
 
 void SessionPage::ConfigureTerminal(wxTerminalViewCtrl *terminal) {
