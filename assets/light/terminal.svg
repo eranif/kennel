@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <g transform="matrix(1.1428571,0,0,1.148052,-1.1428568,-1.184416)" fill="#5f5f5f">
+    <!-- Screen frame with a see-through screen (even-odd: the inner shape is a hole) -->
+    <path fill-rule="evenodd" d="M 2.5,2 H 13.5 A 1.5 1.5 0 0 1 15,3.5 V 10.5 A 1.5 1.5 0 0 1 13.5,12 H 2.5 A 1.5 1.5 0 0 1 1,10.5 V 3.5 A 1.5 1.5 0 0 1 2.5,2 Z M 2.5,3 H 13.5 A 0.5 0.5 0 0 1 14,3.5 V 10.5 A 0.5 0.5 0 0 1 13.5,11 H 2.5 A 0.5 0.5 0 0 1 2,10.5 V 3.5 A 0.5 0.5 0 0 1 2.5,3 Z"/>
+    <!-- Prompt chevron > -->
+    <path d="M 4,5.5 6.2,7 4,8.5 4.8,9.2 7.8,7 4.8,4.8 Z"/>
+    <!-- Cursor bar -->
+    <rect x="7.5" y="8" width="3.5" height="1.2" rx="0.3"/>
+    <!-- Stand -->
+    <rect x="6" y="12" width="4" height="1"/>
+    <!-- Base -->
+    <rect x="4.5" y="13" width="7" height="1" rx="0.5"/>
+  </g>
+</svg>

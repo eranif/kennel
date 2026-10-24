@@ -4,6 +4,7 @@
 #include <wx/artprov.h>
 #include <wx/dir.h>
 #include <wx/filename.h>
+#include <wx/settings.h>
 
 #ifdef __WXMSW__
 constexpr int kToolIconSize = 24;
@@ -33,6 +34,52 @@ const wxBitmapBundle &Bitmaps::Get(const wxString &name,
   return table.find(fixedName)->second;
 }
 
+namespace {
+// A bitmap with one version for a dark UI and one for a light UI (see
+// Bitmaps::Load()). It picks the version when the bitmap is asked for, so the
+// toolbars and the lists follow the theme of the application when they are
+// drawn again.
+class ThemedBundleImpl : public wxBitmapBundleImpl {
+public:
+  ThemedBundleImpl(const wxBitmapBundle &dark, const wxBitmapBundle &light)
+      : m_dark(dark), m_light(light) {}
+
+  wxSize GetDefaultSize() const override { return Current().GetDefaultSize(); }
+
+  wxSize GetPreferredBitmapSizeAtScale(double scale) const override {
+    return Current().GetPreferredBitmapSizeAtScale(scale);
+  }
+
+  wxBitmap GetBitmap(const wxSize &size) override {
+    return Current().GetBitmap(size);
+  }
+
+private:
+  const wxBitmapBundle &Current() const {
+    return wxSystemSettings::GetAppearance().IsDark() ? m_dark : m_light;
+  }
+
+  wxBitmapBundle m_dark;
+  wxBitmapBundle m_light;
+};
+
+// The SVG `fn` at `size` DIP. When the folders dark/ and light/ next to it both
+// have a file of the same name, a bundle that picks the one of the two for the
+// theme.
+wxBitmapBundle LoadIcon(const wxFileName &fn, const wxSize &size) {
+  wxFileName dark{fn.GetPath() + wxFileName::GetPathSeparator() + "dark",
+                  fn.GetFullName()};
+  wxFileName light{fn.GetPath() + wxFileName::GetPathSeparator() + "light",
+                   fn.GetFullName()};
+  if (dark.FileExists() && light.FileExists()) {
+    return wxBitmapBundle::FromImpl(new ThemedBundleImpl(
+        wxBitmapBundle::FromSVGFile(dark.GetFullPath(), size),
+        wxBitmapBundle::FromSVGFile(light.GetFullPath(), size)));
+  }
+  return wxBitmapBundle::FromSVGFile(fn.GetFullPath(), size);
+}
+} // namespace
+
 void Bitmaps::Load(const wxString &filename) {
   wxString fixedName = FixName(filename);
   const wxString icon_path = ResolveIconPath(filename);
@@ -51,10 +98,8 @@ void Bitmaps::Load(const wxString &filename) {
 
   m_menuBitmaps.erase(fixedName);
   m_toolbarBitmaps.erase(fixedName);
-  m_menuBitmaps.insert(std::make_pair(
-      fixedName, wxBitmapBundle::FromSVGFile(fn.GetFullPath(), menuSize)));
-  m_toolbarBitmaps.insert(std::make_pair(
-      fixedName, wxBitmapBundle::FromSVGFile(fn.GetFullPath(), iconSize)));
+  m_menuBitmaps.insert(std::make_pair(fixedName, LoadIcon(fn, menuSize)));
+  m_toolbarBitmaps.insert(std::make_pair(fixedName, LoadIcon(fn, iconSize)));
 }
 
 wxSize Bitmaps::GetToolBarIconSize() {

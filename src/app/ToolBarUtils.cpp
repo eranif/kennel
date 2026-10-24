@@ -23,7 +23,7 @@ public:
     }
     // Fade to the background: black on a dark theme, white on a light one.
     const unsigned char brightness =
-        wxSystemSettings::GetAppearance().IsDark() ? 0 : 255;
+        wxSystemSettings::GetAppearance().IsDark() ? 50 : 150;
     // ConvertToDisabled() keeps the size and the scale factor: do not rescale
     // the result, that would give a blurry image on a high DPI display.
     wxBitmap disabled = bitmap.ConvertToDisabled(brightness);

@@ -1,10 +1,10 @@
 #include "EditFileDlg.hpp"
 #include "app/ToolBarUtils.h"
+#include "core/AppManager.h"
 #include "core/Helpers.h"
 #include "terminal_theme.h"
 
 #include <wx/accel.h>
-#include <wx/artprov.h>
 #include <wx/msgdlg.h>
 
 EditFileDlg::EditFileDlg(wxWindow *parent, const wxTerminalTheme &theme)
@@ -19,13 +19,13 @@ EditFileDlg::EditFileDlg(wxWindow *parent, const wxTerminalTheme &theme)
 
   // Use larger toolbar buttons than the wxCrafter default (16px). Override the
   // bitmap size at runtime (UI.cpp is generated, so not edited by hand) and
-  // request the art at that size so the icon fills the cell. SetToolBitmapSize
+  // the icon (an SVG bundle) is drawn at that size. SetToolBitmapSize
   // and Realize() must bracket the AddTool calls.
   const wxSize toolSize(24, 24);
   m_toolbar->SetToolBitmapSize(toolSize);
   toolbar::AddTool(
       m_toolbar, wxID_SAVE, _("Save"),
-      wxArtProvider::GetBitmapBundle(wxART_FILE_SAVE, wxART_TOOLBAR, toolSize),
+      AppManager::Get().GetBitmaps().Get("save", false), // as the file page
       _("Save the file"));
   m_toolbar->Realize();
   Bind(wxEVT_TOOL, &EditFileDlg::OnSave, this, wxID_SAVE);
