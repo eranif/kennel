@@ -43,20 +43,35 @@ wxBitmapBundle MakeDisabledBundle(const wxBitmapBundle &bundle) {
   return wxBitmapBundle::FromImpl(new DisabledBundleImpl(bundle));
 }
 
+void Redraw(wxAuiToolBar *toolbar) {
+  // Not before the tools are added: Realize() is called by the owner then.
+  if (toolbar->GetToolCount() == 0) {
+    return;
+  }
+  // The tool images (the disabled ones follow the theme), the sizes.
+  toolbar->Realize();
+  // The toolbar makes its colours and its background image again when the
+  // system colours change. Without this a toolbar that is not changed by the
+  // system event (it is hidden, or the style changed after it) keeps the old
+  // ones until the next resize.
+  wxSysColourChangedEvent event;
+  event.SetEventObject(toolbar);
+  toolbar->ProcessWindowEvent(event);
+  toolbar->Refresh();
+  if (wxWindow *parent = toolbar->GetParent()) {
+    parent->SendSizeEvent(); // The toolbar may have another best size
+  }
+}
+
 void ApplyStyle(wxAuiToolBar *toolbar) {
   const long style = toolbar->GetWindowStyle();
   const bool dark = wxSystemSettings::GetAppearance().IsDark();
   const long newStyle = dark ? (style & ~wxAUI_TB_PLAIN_BACKGROUND)
                              : (style | wxAUI_TB_PLAIN_BACKGROUND);
-  if (newStyle == style) {
-    return;
+  if (newStyle != style) {
+    toolbar->SetWindowStyleFlag(newStyle);
   }
-  toolbar->SetWindowStyleFlag(newStyle);
-  // Not before the tools are added: Realize() is called by the owner then.
-  if (toolbar->GetToolCount() > 0) {
-    toolbar->Realize();
-    toolbar->Refresh();
-  }
+  Redraw(toolbar);
 }
 
 wxAuiToolBarItem *AddTool(wxAuiToolBar *toolbar, int toolId,

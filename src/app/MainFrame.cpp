@@ -230,6 +230,13 @@ void MainFrame::OnClose(wxCloseEvent &evt) {
   evt.Skip(); // continue with the default close (destroys the frame)
 }
 
+void MainFrame::ApplyToolBarStyle() {
+#ifdef __WXMSW__
+  // Its style does not change: the background is always plain.
+  toolbar::Redraw(m_toolBar);
+#endif
+}
+
 void MainFrame::BuildToolBar() {
 #ifdef __WXMSW__
   m_toolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,

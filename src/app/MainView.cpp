@@ -5,6 +5,7 @@
 #include "StartAgentDialog.hpp"
 #include "ThemeLoader.h"
 #include "ThemeManager.h"
+#include "app/AppTheme.h"
 #include "app/AssetBootstrap.h"
 #include "app/FilePage.hpp"
 #include "app/FlatView.hpp"
@@ -976,16 +977,24 @@ void MainView::ApplyPrefs() {
   ApplyOptimizedDrawing();
 
   // The theme of the application may have changed.
-  toolbar::ApplyStyle(GetAuibar());
-  for (auto *page : m_treeView->GetAllSessions()) {
-    page->ApplyToolBarStyle();
-  }
+  ApplyToolBarStyles();
 
   for (auto *page : m_treeView->GetAllSessions()) {
     for (auto *terminal : page->GetTerminals()) {
       terminal->SetBufferSize(prefs.scrollbackLines);
     }
   }
+}
+
+void MainView::ApplyToolBarStyles() {
+  toolbar::ApplyStyle(GetAuibar());
+  for (auto *page : m_treeView->GetAllSessions()) {
+    page->ApplyToolBarStyle();
+  }
+  for (auto *page : m_treeView->GetFilePages()) {
+    page->ApplyToolBarStyle();
+  }
+  GetMainFrame()->ApplyToolBarStyle();
 }
 
 void MainView::ApplyTheme(const wxString &themeName) {
@@ -1009,6 +1018,12 @@ void MainView::ApplyTheme(const wxString &themeName) {
   }
   m_sessionsBook->SendSizeEvent();
   SavePrefs();
+
+  // The application looks like the terminal theme: light or dark with it.
+  if (AppManager::Get().GetPrefs().appTheme == kAppThemeFollowTerminal) {
+    ApplyAppTheme(kAppThemeFollowTerminal);
+    ApplyToolBarStyles();
+  }
 }
 
 void MainView::SavePrefs() {

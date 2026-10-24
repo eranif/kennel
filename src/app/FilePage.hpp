@@ -50,6 +50,8 @@ public:
   bool IsSaving() const { return m_saving; }
 
   void ApplyTheme(const wxTerminalTheme &theme) { m_editor->SetTheme(theme); }
+  // Gives the toolbar the style of the theme of the application.
+  void ApplyToolBarStyle();
   void FocusEditor();
   // Shows the caret position and the size of the selection in the status bar
   // of the main window. Called when the caret or the selection moves (only

@@ -285,6 +285,8 @@ private:
   void OnRemoteFileRead(const RemoteReadResult &result);
 
   void SavePrefs();
+  // Gives the toolbars the style of the theme of the application.
+  void ApplyToolBarStyles();
 
   const AdapterRegistry *m_registry{nullptr};
   WorkspaceStore *m_workspaceStore{nullptr};

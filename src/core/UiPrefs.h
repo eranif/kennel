@@ -32,9 +32,10 @@ struct UiPrefs {
   wxString terminalFontDesc;    // wxFont native info desc (empty => default)
   bool blockCursor{true};
   bool terminalOptimizedDrawing{false}; // Enable optimized drawing?
-  // The theme of the application: "system", "dark" or "light". It was always
-  // dark before it could be chosen.
-  wxString appTheme{"dark"};
+  // The theme of the application: "system", "dark", "light", or "terminal" (it
+  // looks like the terminal theme). It was always dark before it could be
+  // chosen.
+  wxString appTheme{"terminal"};
   bool checkForUpdatesOnStartup{true};
   // The last answer to the dialog at the end of a review: also close the
   // Review Buddy?

@@ -26,6 +26,9 @@ public:
 
   MainView *GetMainView() { return m_mainView; }
 
+  // Draws the toolbar again after the theme of the application changed.
+  void ApplyToolBarStyle();
+
   JobScheduler *GetJobScheduler() { return m_jobScheduler.get(); }
 
   // A message in the main text of the status bar, until something else is

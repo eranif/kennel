@@ -32,8 +32,16 @@ public:
     return m_spinCtrlScrollBackLines->GetValue();
   }
 
-  // "system", "dark" or "light", as saved in the preferences.
-  wxString GetAppThemeName() const { return AppThemeName(GetAppTheme()); }
+  // The index of the "Follow terminal theme" choice of the application theme.
+  static constexpr int kChoiceFollowTerminal = 3;
+
+  // "system", "dark", "light" or "terminal", as saved in the preferences.
+  wxString GetAppThemeName() const {
+    if (m_choiceAppTheme->GetSelection() == kChoiceFollowTerminal) {
+      return kAppThemeFollowTerminal;
+    }
+    return AppThemeName(GetAppTheme());
+  }
   void RestoreThemeAndFont();
   wxApp::Appearance GetAppTheme() const {
     switch (m_choiceAppTheme->GetSelection()) {

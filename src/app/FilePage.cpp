@@ -41,6 +41,7 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
   m_toolbar->Bind(wxEVT_UPDATE_UI, &FilePage::OnSaveUI, this, ID_SAVER);
   m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnClose, this, ID_CLOSE);
   m_toolbar->Realize();
+  toolbar::ApplyStyle(m_toolbar); // As the toolbar of a session page
 
   m_editor = new Editor(this, EditFileDlg::LangFromPath(path), theme);
   m_searchBar = new SearchBar(this, SearchBar::Kind::kEditor);
@@ -61,6 +62,8 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
   Bind(wxEVT_SEARCHBAR_REPLACE, &FilePage::OnSearchBarReplace, this);
   Bind(wxEVT_SEARCHBAR_REPLACE_ALL, &FilePage::OnSearchBarReplaceAll, this);
 }
+
+void FilePage::ApplyToolBarStyle() { toolbar::ApplyStyle(m_toolbar); }
 
 FilePage::~FilePage() {
   if (m_saveThread.joinable()) {

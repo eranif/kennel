@@ -18,8 +18,12 @@ wxBitmapBundle MakeDisabledBundle(const wxBitmapBundle &bundle);
 // The style of a toolbar that fits the theme of the application: a plain
 // background on a light theme, the default one on a dark theme. Call it when
 // the toolbar is created, and again when the theme changes (the toolbar is
-// laid out and drawn again).
+// laid out and drawn again, see Redraw()).
 void ApplyStyle(wxAuiToolBar *toolbar);
+
+// Makes the toolbar take the colours of the theme of the application again and
+// draws it. For a toolbar that keeps its style (ApplyStyle() does this too).
+void Redraw(wxAuiToolBar *toolbar);
 
 // Adds a tool with a disabled image made by MakeDisabledBundle(). The help
 // string is the label when it is empty. A drop-down tool (wxITEM_DROPDOWN) is a
