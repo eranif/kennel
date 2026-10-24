@@ -44,6 +44,7 @@
 wxDEFINE_EVENT(wxEVT_SESSION_IDLE, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_ACTIVE, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_EXITED, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_SESSION_PROGRAM, wxCommandEvent);
 
 namespace {
 
@@ -420,6 +421,8 @@ void SessionPage::CreateTerminal() {
                    this);
   m_terminal->Bind(wxEVT_TERMINAL_CWD_CHANGED, &SessionPage::OnCwdChanged,
                    this);
+  m_terminal->Bind(wxEVT_TERMINAL_PROGRAM_STATUS, &SessionPage::OnProgramStatus,
+                   this);
 
   ConfigureTerminal(m_terminal);
   // After the theme (the text colour follows the background) and before the
@@ -539,6 +542,7 @@ void SessionPage::Restart() {
     m_lastKeyTerminal = nullptr;
     m_acceleratorInterceptor.reset();
   }
+  SetProgramActivity(ProgramActivity::None);
   m_status = SessionStatus::Starting;
   m_resume = true;
   CallAfter(&SessionPage::CreateTerminal);
@@ -546,7 +550,37 @@ void SessionPage::Restart() {
 
 void SessionPage::OnTerminated(wxTerminalEvent &evt) {
   evt.Skip();
+  SetProgramActivity(ProgramActivity::None);
   SetStatus(SessionStatus::Exited);
+}
+
+void SessionPage::OnProgramStatus(wxTerminalEvent &evt) {
+  evt.Skip();
+  // Only the root record (no id) says what the program as a whole is doing.
+  if (!evt.GetProgramId().empty()) {
+    return;
+  }
+  switch (evt.GetProgramState()) {
+  case wxTerminalProgramState::Working:
+    SetProgramActivity(ProgramActivity::Working);
+    break;
+  case wxTerminalProgramState::Done:
+    SetProgramActivity(ProgramActivity::Done);
+    break;
+  default:
+    SetProgramActivity(ProgramActivity::None);
+    break;
+  }
+}
+
+void SessionPage::SetProgramActivity(ProgramActivity activity) {
+  if (m_programActivity == activity) {
+    return;
+  }
+  m_programActivity = activity;
+  wxCommandEvent e{wxEVT_SESSION_PROGRAM};
+  e.SetEventObject(this);
+  GetParent()->GetEventHandler()->AddPendingEvent(e);
 }
 
 void SessionPage::UpdateHeader(bool force) {

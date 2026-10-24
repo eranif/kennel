@@ -271,6 +271,14 @@ private:
   void OnSessionIdle(wxCommandEvent &e);
   void OnSessionActive(wxCommandEvent &e);
   void OnSessionExited(wxCommandEvent &e);
+  // A page started / stopped working, or is done (OSC 7501).
+  void OnSessionProgram(wxCommandEvent &e);
+  void OnSpinnerTimer(wxTimerEvent &e);
+  // Shows the icon that fits what `page` is doing (its own icon, the spinner
+  // or the hand) on its row in both views.
+  void ApplyPageIcon(SessionPage *page);
+  // Runs the spinner timer while at least one page is working.
+  void UpdateSpinnerTimer();
   void OnIdleEvent(wxIdleEvent &e);
   void OnFileSaveStarted(FileEvent &e);
   void OnFileSaveDone(FileEvent &e);
@@ -308,6 +316,9 @@ private:
   std::set<wxString> m_reloadingRemote;
 
   std::array<wxBitmapBundle, kSpinnerFrameCount> m_spinnerFrames;
+  wxBitmapBundle m_handIcon;
+  wxTimer m_spinnerTimer{this};
+  int m_spinnerFrame{0};
   int m_pendingIdle{0};
   std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor{nullptr};
   bool m_idleHandled{false};

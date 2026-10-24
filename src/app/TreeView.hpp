@@ -4,6 +4,7 @@
 #include "app/SessionGroup.h"
 
 #include <wx/arrstr.h>
+#include <wx/bmpbndl.h>
 #include <wx/clntdata.h>
 #include <wx/dataview.h>
 #include <wx/intl.h>
@@ -46,9 +47,16 @@ public:
   std::unique_ptr<SessionGroup> group;
 };
 
+// Client data on each page leaf. It keeps the icon the leaf shows: the tree
+// only hands back a wxIcon, which has lost its size for the DPI.
+class PageItemData : public wxClientData {
+public:
+  wxBitmapBundle icon;
+};
+
 // Client data on each session leaf tree item. Non-owning: the SessionPage
 // window is owned by MainView's book.
-class SessionItemData : public wxClientData {
+class SessionItemData : public PageItemData {
 public:
   explicit SessionItemData(SessionPage *p) : page{p} {}
   SessionPage *page{nullptr};
@@ -56,7 +64,7 @@ public:
 
 // Client data on each file leaf under the "Files" container. Non-owning: the
 // FilePage window is owned by MainView's book.
-class FileItemData : public wxClientData {
+class FileItemData : public PageItemData {
 public:
   explicit FileItemData(FilePage *p) : page{p} {}
   FilePage *page{nullptr};
@@ -113,6 +121,8 @@ public:
   void MoveSession(SessionPage *page, const wxString &toGroup);
   // Re-reads `page`'s name into its leaf (after a rename).
   void UpdateLabel(SessionPage *page);
+  // Gives `page`'s leaf another icon (the spinner, the hand, ...).
+  void SetPageIcon(wxWindow *page, const wxBitmapBundle &icon);
 
   SessionPage *FindSession(const wxString &group, const wxString &name) const;
   // The session or file `ref` names, or nullptr.
@@ -157,7 +167,8 @@ private:
   wxDataViewItem FindPageItem(wxWindow *page) const;
   // Appends a leaf for `data`'s page under `group` and gives it `icon`.
   void AppendLeaf(const wxDataViewItem &group, const wxString &label,
-                  wxClientData *data, const wxBitmapBundle &icon);
+                  PageItemData *data, const wxBitmapBundle &icon);
+  PageItemData *GetPageData(const wxDataViewItem &item) const;
 
   wxDataViewTreeCtrl *m_tree{nullptr};
 };

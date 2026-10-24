@@ -152,8 +152,16 @@ wxDataViewItem TreeView::FindPageItem(wxWindow *page) const {
   return wxDataViewItem{};
 }
 
+PageItemData *TreeView::GetPageData(const wxDataViewItem &item) const {
+  if (auto *session = GetSessionData(item)) {
+    return session;
+  }
+  return GetFileData(item);
+}
+
 void TreeView::AppendLeaf(const wxDataViewItem &group, const wxString &label,
-                          wxClientData *data, const wxBitmapBundle &icon) {
+                          PageItemData *data, const wxBitmapBundle &icon) {
+  data->icon = icon;
   auto leaf =
       m_tree->AppendItem(group, label, wxDataViewTreeCtrl::NO_IMAGE, data);
   if (icon.IsOk()) {
@@ -382,6 +390,16 @@ void TreeView::UpdateLabel(SessionPage *page) {
   }
 }
 
+void TreeView::SetPageIcon(wxWindow *page, const wxBitmapBundle &icon) {
+  auto leaf = FindPageItem(page);
+  if (leaf.IsOk() && icon.IsOk()) {
+    m_tree->SetItemIcon(leaf, icon);
+    if (auto *data = GetPageData(leaf)) {
+      data->icon = icon;
+    }
+  }
+}
+
 SessionPage *TreeView::FindSession(const wxString &group,
                                    const wxString &name) const {
   for (const auto &leaf : LeavesOf(group)) {
@@ -445,8 +463,9 @@ std::vector<PageInfo> TreeView::GetPages() const {
     const wxString groupName = m_tree->GetItemText(group);
     for (const auto &leaf : Children(group)) {
       if (auto ref = RefOf(leaf)) {
+        auto *data = GetPageData(leaf);
         result.push_back({m_tree->GetItemText(leaf), groupName, ref->name,
-                          m_tree->GetItemIcon(leaf)});
+                          data ? data->icon : wxBitmapBundle{}});
       }
     }
   }

@@ -170,6 +170,22 @@ void FlatView::SetPages(const std::vector<PageInfo> &pages,
   }
 }
 
+void FlatView::SetPageIcon(const SessionRef &ref, const wxBitmapBundle &icon) {
+  auto item = FindRow(ref);
+  if (!item || !icon.IsOk()) {
+    return;
+  }
+  const int row = m_list->ItemToRow(*item);
+  wxVariant value;
+  m_list->GetValue(value, row, kColumnName);
+  wxDataViewIconText iconText;
+  iconText << value;
+  iconText.SetBitmapBundle(icon);
+  // On macOS a change of a value can send a selection event.
+  wxEventBlocker blocker(m_list, wxEVT_DATAVIEW_SELECTION_CHANGED);
+  m_list->SetValue(wxVariant(iconText), row, kColumnName);
+}
+
 void FlatView::Clear() {
   wxEventBlocker blocker(m_list, wxEVT_DATAVIEW_SELECTION_CHANGED);
   m_list->DeleteAllItems();

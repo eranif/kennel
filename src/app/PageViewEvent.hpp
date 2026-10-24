@@ -1,8 +1,8 @@
 #pragma once
 
+#include <wx/bmpbndl.h>
 #include <wx/dataview.h>
 #include <wx/event.h>
-#include <wx/icon.h>
 #include <wx/string.h>
 
 #include "core/Workspace.h"
@@ -10,10 +10,10 @@
 // What a view (TreeView / FlatView) shows for one page of the main view: a
 // terminal / agent session (SessionPage) or an open file (FilePage).
 struct PageInfo {
-  wxString label; // The leaf / row label
-  wxString group; // The group, or the Terminals / Files container
-  wxString key;   // The session name, or the file key for a file
-  wxIcon icon;
+  wxString label;      // The leaf / row label
+  wxString group;      // The group, or the Terminals / Files container
+  wxString key;        // The session name, or the file key for a file
+  wxBitmapBundle icon; // A bundle, not an icon: it keeps its size on any DPI
 
   SessionRef Ref() const { return SessionRef{group, key}; }
 };

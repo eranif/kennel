@@ -110,6 +110,10 @@ MainView::MainView(wxWindow *parent)
       m_spinnerFrames[i] = wxBitmapBundle::FromSVGFile(path, wxSize(16, 16));
     }
   }
+  if (const wxString path = ResolveIconPath("hand.svg");
+      !path.empty() && wxFileName::FileExists(path)) {
+    m_handIcon = wxBitmapBundle::FromSVGFile(path, wxSize(16, 16));
+  }
 
   EventNotifier::Get()->Bind(wxEVT_PAGEVIEW_SELECTED, &MainView::OnPageSelected,
                              this);
@@ -118,6 +122,8 @@ MainView::MainView(wxWindow *parent)
   Bind(wxEVT_PAGE_SWITCHER_DONE, &MainView::OnPageSwitcherDone, this);
   Bind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
   Bind(wxEVT_SESSION_EXITED, &MainView::OnSessionExited, this);
+  Bind(wxEVT_SESSION_PROGRAM, &MainView::OnSessionProgram, this);
+  Bind(wxEVT_TIMER, &MainView::OnSpinnerTimer, this, m_spinnerTimer.GetId());
   Bind(wxEVT_IDLE, &MainView::OnIdleEvent, this);
   // A FilePage handles its own save events first and then Skip()s them, so
   // they propagate up to wxTheApp, where MainView does its part (activity
@@ -133,6 +139,9 @@ MainView::~MainView() {
   Unbind(wxEVT_SESSION_IDLE, &MainView::OnSessionIdle, this);
   Unbind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
   Unbind(wxEVT_SESSION_EXITED, &MainView::OnSessionExited, this);
+  Unbind(wxEVT_SESSION_PROGRAM, &MainView::OnSessionProgram, this);
+  m_spinnerTimer.Stop();
+  Unbind(wxEVT_TIMER, &MainView::OnSpinnerTimer, this, m_spinnerTimer.GetId());
   Unbind(wxEVT_IDLE, &MainView::OnIdleEvent, this);
   if (wxTheApp) {
     wxTheApp->Unbind(wxEVT_FILE_SAVE_STARTED, &MainView::OnFileSaveStarted,
@@ -293,6 +302,11 @@ void MainView::ActivatePage(wxWindow *page, bool updateRecent,
   if (auto *session = dynamic_cast<SessionPage *>(page)) {
     if (auto *group = m_treeView->GetGroup(session->GetSession().groupName)) {
       group->SetLastActive(session->GetSession().name);
+    }
+    // The user sees the page now: the hand goes away.
+    if (session->GetProgramActivity() == SessionPage::ProgramActivity::Done) {
+      session->AcknowledgeDone();
+      ApplyPageIcon(session);
     }
   }
 
@@ -1323,6 +1337,7 @@ void MainView::MoveSessionToGroup(const wxString &sessionName,
   RenameRecent(SessionRef{fromGroupName, sessionName},
                SessionRef{toGroupName, sessionName});
   m_treeView->MoveSession(page, toGroupName);
+  ApplyPageIcon(page); // The new leaf got the plain icon.
   // The old group may be empty now. Deferred, see RemovePage().
   CallAfter(&MainView::RemoveEmptyGroups);
 
@@ -1350,6 +1365,69 @@ void MainView::OnSessionIdle(wxCommandEvent &e) {
 }
 
 void MainView::OnSessionActive(wxCommandEvent &e) { e.Skip(); }
+
+void MainView::OnSessionProgram(wxCommandEvent &e) {
+  e.Skip();
+  // The event is pending: the page may be gone. Compare the pointer only.
+  for (auto *page : m_treeView->GetAllSessions()) {
+    if (page == e.GetEventObject()) {
+      // Nobody needs a hand on the page that is showing.
+      if (page == GetActiveSessionPage()) {
+        page->AcknowledgeDone();
+      }
+      ApplyPageIcon(page);
+      break;
+    }
+  }
+  UpdateSpinnerTimer();
+}
+
+void MainView::OnSpinnerTimer(wxTimerEvent &) {
+  m_spinnerFrame = (m_spinnerFrame + 1) % kSpinnerFrameCount;
+  bool working = false;
+  for (auto *page : m_treeView->GetAllSessions()) {
+    if (page->GetProgramActivity() == SessionPage::ProgramActivity::Working) {
+      working = true;
+      ApplyPageIcon(page);
+    }
+  }
+  if (!working) {
+    m_spinnerTimer.Stop();
+  }
+}
+
+void MainView::UpdateSpinnerTimer() {
+  if (m_spinnerTimer.IsRunning()) {
+    return; // It stops itself when nobody is working any more.
+  }
+  for (auto *page : m_treeView->GetAllSessions()) {
+    if (page->GetProgramActivity() == SessionPage::ProgramActivity::Working) {
+      constexpr int kSpinnerMs = 100;
+      m_spinnerTimer.Start(kSpinnerMs);
+      return;
+    }
+  }
+}
+
+void MainView::ApplyPageIcon(SessionPage *page) {
+  wxBitmapBundle icon;
+  switch (page->GetProgramActivity()) {
+  case SessionPage::ProgramActivity::Working:
+    icon = m_spinnerFrames[m_spinnerFrame];
+    break;
+  case SessionPage::ProgramActivity::Done:
+    icon = m_handIcon;
+    break;
+  case SessionPage::ProgramActivity::None:
+    break;
+  }
+  if (!icon.IsOk()) {
+    icon = SessionIconFor(page->GetSession());
+  }
+  m_treeView->SetPageIcon(page, icon);
+  const Session &session = page->GetSession();
+  m_flatView->SetPageIcon(SessionRef{session.groupName, session.name}, icon);
+}
 
 void MainView::OnSessionExited(wxCommandEvent &e) {
   const wxString &sessionName = e.GetString();

@@ -41,6 +41,17 @@ public:
               Session session, bool resume = false);
   ~SessionPage() override;
 
+  // What the program in the agent's terminal reports with OSC 7501: "working"
+  // gets a spinner on the page's row, "done" a hand. Everything else is None.
+  enum class ProgramActivity { None, Working, Done };
+  ProgramActivity GetProgramActivity() const { return m_programActivity; }
+  // The user has seen that the program is done: the hand goes away.
+  void AcknowledgeDone() {
+    if (m_programActivity == ProgramActivity::Done) {
+      SetProgramActivity(ProgramActivity::None);
+    }
+  }
+
   SessionStatus Status() const { return m_status; }
   const Session &GetSession() const { return m_session; }
   Session &GetSession() { return m_session; }
@@ -90,6 +101,9 @@ private:
   wxPanel *NewTerminalPane();
   void AddToPane(wxPanel *pane, wxTerminalViewCtrl *terminal);
   void SetStatus(SessionStatus status);
+  void OnProgramStatus(wxTerminalEvent &evt);
+  // Tells MainView (wxEVT_SESSION_PROGRAM) when the activity changed.
+  void SetProgramActivity(ProgramActivity activity);
   // ---- Status (shown in the status bar of the main window) --------------
   // Works out where the agent runs and the session label.
   void InitStatus();
@@ -235,6 +249,7 @@ private:
   AliveFlag m_alive{MakeAliveFlag()};
   std::unique_ptr<ActivityMonitor> m_monitor;
   SessionStatus m_status = SessionStatus::Starting;
+  ProgramActivity m_programActivity{ProgramActivity::None};
   wxString m_defaultTitle;  // The window title
   wxString m_terminalTitle; // The title the terminal set; in the status bar
   std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor{nullptr};
@@ -243,4 +258,7 @@ private:
 wxDECLARE_EVENT(wxEVT_SESSION_IDLE, wxCommandEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_ACTIVE, wxCommandEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_EXITED, wxCommandEvent);
+// The program activity of a page changed (see SessionPage::ProgramActivity).
+// The event object is the page; read the state from it.
+wxDECLARE_EVENT(wxEVT_SESSION_PROGRAM, wxCommandEvent);
 #endif // SESSIONPAGE_HPP

@@ -1,9 +1,9 @@
 #pragma once
 
 #include <vector>
+#include <wx/bmpbndl.h>
 #include <wx/dialog.h>
 #include <wx/event.h>
-#include <wx/icon.h>
 #include <wx/timer.h>
 
 class wxDataViewEvent;
@@ -12,7 +12,7 @@ class wxDataViewListCtrl;
 // One row of the switcher.
 struct PageSwitcherItem {
   wxString label;
-  wxIcon icon;
+  wxBitmapBundle icon;
 };
 
 // Sent to the sink when the switcher is done. GetInt() is the chosen row, or
