@@ -42,10 +42,16 @@ public:
   ~SessionPage() override;
 
   // What the program in the agent's terminal reports with OSC 7501: "working"
-  // gets a spinner on the page's row, "done" a hand. Everything else is None.
-  enum class ProgramActivity { None, Working, Done };
+  // gets a spinner on the page's row, "done" a check mark and "blocked" a
+  // hand. Everything else is None.
+  enum class ProgramActivity {
+    None,
+    Working,
+    Done,
+    Blocked,
+  };
   ProgramActivity GetProgramActivity() const { return m_programActivity; }
-  // The user has seen that the program is done: the hand goes away.
+  // The user has seen that the program is done: the check mark goes away.
   void AcknowledgeDone() {
     if (m_programActivity == ProgramActivity::Done) {
       SetProgramActivity(ProgramActivity::None);

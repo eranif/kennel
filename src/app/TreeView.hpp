@@ -121,7 +121,7 @@ public:
   void MoveSession(SessionPage *page, const wxString &toGroup);
   // Re-reads `page`'s name into its leaf (after a rename).
   void UpdateLabel(SessionPage *page);
-  // Gives `page`'s leaf another icon (the spinner, the hand, ...).
+  // Gives `page`'s leaf another icon (the spinner, the check mark, ...).
   void SetPageIcon(wxWindow *page, const wxBitmapBundle &icon);
 
   SessionPage *FindSession(const wxString &group, const wxString &name) const;

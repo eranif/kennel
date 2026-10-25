@@ -275,7 +275,7 @@ private:
   void OnSessionProgram(wxCommandEvent &e);
   void OnSpinnerTimer(wxTimerEvent &e);
   // Shows the icon that fits what `page` is doing (its own icon, the spinner
-  // or the hand) on its row in both views.
+  // or the check mark) on its row in both views.
   void ApplyPageIcon(SessionPage *page);
   // Runs the spinner timer while at least one page is working.
   void UpdateSpinnerTimer();
@@ -319,6 +319,7 @@ private:
 
   std::array<wxBitmapBundle, kSpinnerFrameCount> m_spinnerFrames;
   wxBitmapBundle m_handIcon;
+  wxBitmapBundle m_checkIcon;
   wxTimer m_spinnerTimer{this};
   int m_spinnerFrame{0};
   int m_pendingIdle{0};

@@ -567,6 +567,10 @@ void SessionPage::OnProgramStatus(wxTerminalEvent &evt) {
   case wxTerminalProgramState::Done:
     SetProgramActivity(ProgramActivity::Done);
     break;
+  case wxTerminalProgramState::Blocked:
+    SetProgramActivity(ProgramActivity::Blocked);
+    break;
+  case wxTerminalProgramState::Idle:
   default:
     SetProgramActivity(ProgramActivity::None);
     break;

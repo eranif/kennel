@@ -31,8 +31,8 @@ public:
   void SetPages(const std::vector<PageInfo> &pages,
                 const std::optional<SessionRef> &selected);
 
-  // Gives the row of `ref` another icon (the spinner, the hand, ...), without
-  // a rebuild of the list. Never sends events.
+  // Gives the row of `ref` another icon (the spinner, the check mark, ...),
+  // without a rebuild of the list. Never sends events.
   void SetPageIcon(const SessionRef &ref, const wxBitmapBundle &icon);
 
   void Clear();

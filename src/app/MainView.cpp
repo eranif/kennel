@@ -115,6 +115,10 @@ MainView::MainView(wxWindow *parent)
       !path.empty() && wxFileName::FileExists(path)) {
     m_handIcon = wxBitmapBundle::FromSVGFile(path, wxSize(16, 16));
   }
+  if (const wxString path = ResolveIconPath("check.svg");
+      !path.empty() && wxFileName::FileExists(path)) {
+    m_checkIcon = wxBitmapBundle::FromSVGFile(path, wxSize(16, 16));
+  }
 
   EventNotifier::Get()->Bind(wxEVT_PAGEVIEW_SELECTED, &MainView::OnPageSelected,
                              this);
@@ -304,7 +308,7 @@ void MainView::ActivatePage(wxWindow *page, bool updateRecent,
     if (auto *group = m_treeView->GetGroup(session->GetSession().groupName)) {
       group->SetLastActive(session->GetSession().name);
     }
-    // The user sees the page now: the hand goes away.
+    // The user sees the page now: the check mark goes away.
     if (session->GetProgramActivity() == SessionPage::ProgramActivity::Done) {
       session->AcknowledgeDone();
       ApplyPageIcon(session);
@@ -1386,7 +1390,7 @@ void MainView::OnSessionProgram(wxCommandEvent &e) {
   // The event is pending: the page may be gone. Compare the pointer only.
   for (auto *page : m_treeView->GetAllSessions()) {
     if (page == e.GetEventObject()) {
-      // Nobody needs a hand on the page that is showing.
+      // Nobody needs a check mark on the page that is showing.
       if (page == GetActiveSessionPage()) {
         page->AcknowledgeDone();
       }
@@ -1431,6 +1435,10 @@ void MainView::ApplyPageIcon(SessionPage *page) {
     icon = m_spinnerFrames[m_spinnerFrame];
     break;
   case SessionPage::ProgramActivity::Done:
+    icon = m_checkIcon;
+    break;
+  case SessionPage::ProgramActivity::Blocked:
+    // The program needs the user: it raises its hand.
     icon = m_handIcon;
     break;
   case SessionPage::ProgramActivity::None:
