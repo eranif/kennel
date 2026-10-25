@@ -464,7 +464,11 @@ std::vector<PageInfo> TreeView::GetPages() const {
     for (const auto &leaf : Children(group)) {
       if (auto ref = RefOf(leaf)) {
         auto *data = GetPageData(leaf);
-        result.push_back({m_tree->GetItemText(leaf), groupName, ref->name,
+        wxString dir;
+        if (auto *session = GetSessionData(leaf)) {
+          dir = session->page->GetCurrentDir();
+        }
+        result.push_back({m_tree->GetItemText(leaf), groupName, ref->name, dir,
                           data ? data->icon : wxBitmapBundle{}});
       }
     }

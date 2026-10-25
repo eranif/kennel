@@ -1,5 +1,7 @@
 #include "PageSwitcherDlg.hpp"
 
+#include "app/PageViewEvent.hpp"
+
 #include <wx/dataview.h>
 #include <wx/sizer.h>
 #include <wx/utils.h>
@@ -12,7 +14,7 @@ namespace {
 constexpr int kMaxVisibleRows = 12;
 constexpr int kMinWidth = 500;
 constexpr int kMinHeight = 300;
-constexpr int kMaxWidth = 700;
+constexpr int kMaxWidth = 1000;
 constexpr int kPollMs = 30;
 constexpr int kIconSize = 16;
 #ifdef __WXOSX__
@@ -29,21 +31,41 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
       m_sink(sink), m_timer(this) {
   m_list =
       new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                             wxDV_NO_HEADER | wxDV_SINGLE | wxBORDER_NONE);
+                             wxDV_NO_HEADER | wxDV_SINGLE | wxDV_ROW_LINES |
+                                 wxDV_VERT_RULES | wxBORDER_NONE);
+  StylePageView(m_list);
 
-  int width = kMinWidth;
+  int labelWidth = 0;
+  int dirWidth = 0;
+  int groupWidth = 0;
   for (const auto &item : items) {
-    width = std::max(width, GetTextExtent(item.label).GetWidth() + 80);
+    labelWidth = std::max(labelWidth, GetTextExtent(item.label).GetWidth());
+    dirWidth = std::max(dirWidth, GetTextExtent(item.dir).GetWidth());
+    groupWidth = std::max(groupWidth, GetTextExtent(item.group).GetWidth());
   }
-  width = std::min(width, kMaxWidth);
+  // The icon and the paddings of the two columns.
+  labelWidth += kIconSize + 40;
+  dirWidth += 30;
+  groupWidth += 30;
+  const int width =
+      std::clamp(labelWidth + dirWidth + groupWidth + 24, kMinWidth, kMaxWidth);
+  // The name and the group keep what they need (up to a share of the width),
+  // the folder gets the rest.
+  const int nameColumn = std::min(labelWidth, width * 4 / 10);
+  const int groupColumn = std::min(groupWidth, width * 2 / 10);
+  const int dirColumn = width - 24 - nameColumn - groupColumn;
   const int rowHeight = std::max(m_list->GetCharHeight(), kIconSize) + 10;
   const int rows = std::min(static_cast<int>(items.size()), kMaxVisibleRows);
 
   m_list->AppendIconTextColumn(wxEmptyString, wxDATAVIEW_CELL_INERT,
-                               width - 24);
+                               nameColumn);
+  m_list->AppendTextColumn(wxEmptyString, wxDATAVIEW_CELL_INERT, dirColumn);
+  m_list->AppendTextColumn(wxEmptyString, wxDATAVIEW_CELL_INERT, groupColumn);
   for (const auto &item : items) {
     wxVector<wxVariant> row;
     row.push_back(wxVariant(wxDataViewIconText(item.label, item.icon)));
+    row.push_back(wxVariant(item.dir));
+    row.push_back(wxVariant(item.group));
     m_list->AppendItem(row);
   }
   m_list->SetMinSize(wxSize(width, std::max(rows * rowHeight, kMinHeight)));

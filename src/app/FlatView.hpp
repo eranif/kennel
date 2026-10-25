@@ -7,6 +7,8 @@
 #include <wx/dataview.h>
 #include <wx/panel.h>
 
+class wxSplitterWindow;
+
 // Every open page (session, terminal, file) in one list: "icon + name |
 // group". It is a projection of what TreeView holds, so it never owns
 // anything; MainView feeds it with SetPages(). Each row carries its page's name
@@ -36,7 +38,15 @@ public:
   void SetPageIcon(const SessionRef &ref, const wxBitmapBundle &icon);
 
   void Clear();
-  size_t GetItemCount() const { return m_list->GetItemCount(); }
+
+  // The height of the upper list (the sessions and files), in DIP. Needs a
+  // list that has its final size to take effect.
+  int GetSashPosition() const;
+  void SetSashPosition(int dip);
+  bool HasSize() const;
+  size_t GetItemCount() const {
+    return m_list->GetItemCount() + m_terminalList->GetItemCount();
+  }
 
 private:
   void OnSelectionChanged(wxDataViewEvent &event);
@@ -49,8 +59,14 @@ private:
   // Selects the row of `ref`, without sending events.
   void SelectPage(const SessionRef &ref);
   std::optional<wxDataViewItem> FindRow(const SessionRef &ref) const;
-  std::optional<SessionRef> RefOf(const wxDataViewItem &item) const;
+  static bool IsTerminalGroup(const wxString &group);
+  // The list that shows the pages of `group`.
+  wxDataViewListCtrl *ListFor(const wxString &group) const;
+  std::optional<SessionRef> RefOf(wxDataViewListCtrl *list,
+                                  const wxDataViewItem &item) const;
 
+  wxSplitterWindow *m_splitter{nullptr};
   wxDataViewListCtrl *m_list{nullptr};
+  wxDataViewListCtrl *m_terminalList{nullptr};
   std::optional<SessionRef> m_selected; // The page whose row is selected
 };

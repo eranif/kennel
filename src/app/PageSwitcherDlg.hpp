@@ -12,6 +12,8 @@ class wxDataViewListCtrl;
 // One row of the switcher.
 struct PageSwitcherItem {
   wxString label;
+  wxString dir;   // The folder of the page (empty for a file)
+  wxString group; // The group, or the Terminals / Files container
   wxBitmapBundle icon;
 };
 

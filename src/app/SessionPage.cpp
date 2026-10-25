@@ -45,6 +45,7 @@ wxDEFINE_EVENT(wxEVT_SESSION_IDLE, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_ACTIVE, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_EXITED, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_PROGRAM, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_SESSION_CWD, wxCommandEvent);
 
 namespace {
 
@@ -609,19 +610,27 @@ void SessionPage::UpdateHeader(bool force) {
   if (!title.empty()) {
     text << " | " << title;
   }
-  // The folder the shell is in now, or the one the session started in.
-  const wxString dir = m_terminal->GetCurrentDir().empty()
-                           ? m_session.workingDir
-                           : m_terminal->GetCurrentDir();
+  const wxString dir = GetCurrentDir();
   if (!dir.empty()) {
     text << " | " << dir;
   }
   ReviewBuddyHeader::SetText(m_terminal, text, force);
 }
 
+wxString SessionPage::GetCurrentDir() const {
+  if (m_terminal != nullptr && !m_terminal->GetCurrentDir().empty()) {
+    return m_terminal->GetCurrentDir();
+  }
+  return m_session.workingDir;
+}
+
 void SessionPage::OnCwdChanged(wxTerminalEvent &evt) {
   evt.Skip();
   UpdateHeader();
+  // The list of the terminals shows the folder.
+  wxCommandEvent e{wxEVT_SESSION_CWD};
+  e.SetEventObject(this);
+  GetParent()->GetEventHandler()->AddPendingEvent(e);
 }
 
 void SessionPage::OnTitleChanged(wxTerminalEvent &evt) {

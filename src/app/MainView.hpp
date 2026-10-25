@@ -273,6 +273,7 @@ private:
   void OnSessionExited(wxCommandEvent &e);
   // A page started / stopped working, or is done (OSC 7501).
   void OnSessionProgram(wxCommandEvent &e);
+  void OnSessionCwd(wxCommandEvent &e);
   void OnSpinnerTimer(wxTimerEvent &e);
   // Shows the icon that fits what `page` is doing (its own icon, the spinner
   // or the check mark) on its row in both views.

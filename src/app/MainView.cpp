@@ -128,6 +128,7 @@ MainView::MainView(wxWindow *parent)
   Bind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
   Bind(wxEVT_SESSION_EXITED, &MainView::OnSessionExited, this);
   Bind(wxEVT_SESSION_PROGRAM, &MainView::OnSessionProgram, this);
+  Bind(wxEVT_SESSION_CWD, &MainView::OnSessionCwd, this);
   Bind(wxEVT_TIMER, &MainView::OnSpinnerTimer, this, m_spinnerTimer.GetId());
   Bind(wxEVT_IDLE, &MainView::OnIdleEvent, this);
   // A FilePage handles its own save events first and then Skip()s them, so
@@ -145,6 +146,7 @@ MainView::~MainView() {
   Unbind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
   Unbind(wxEVT_SESSION_EXITED, &MainView::OnSessionExited, this);
   Unbind(wxEVT_SESSION_PROGRAM, &MainView::OnSessionProgram, this);
+  Unbind(wxEVT_SESSION_CWD, &MainView::OnSessionCwd, this);
   m_spinnerTimer.Stop();
   Unbind(wxEVT_TIMER, &MainView::OnSpinnerTimer, this, m_spinnerTimer.GetId());
   Unbind(wxEVT_IDLE, &MainView::OnIdleEvent, this);
@@ -372,7 +374,7 @@ void MainView::SwitchPage(bool forward) {
   if (wxGetMouseState().RawControlDown()) {
     std::vector<PageSwitcherItem> items;
     for (const auto &info : ordered) {
-      items.push_back({info.label + "  -  " + info.group, info.icon});
+      items.push_back({info.label, info.dir, info.group, info.icon});
     }
     // Modeless on purpose: a modal loop left the app lagging after closing.
     m_switcherPages = ordered;
@@ -881,6 +883,7 @@ void MainView::RestoreLayout() {
   CallAfter([this] {
     const auto &prefs = AppManager::Get().GetPrefs();
     ApplySashPosition(GetSplitterMain(), prefs.sidebarWidth);
+    m_flatView->SetSashPosition(prefs.flatViewSashPosition);
     m_layoutRestored = true;
   });
 }
@@ -896,6 +899,9 @@ void MainView::SaveLayout() {
   if (m_layoutRestored && GetSplitterMain()->IsSplit()) {
     prefs.sidebarWidth =
         GetSplitterMain()->ToDIP(GetSplitterMain()->GetSashPosition());
+  }
+  if (m_layoutRestored && m_flatView->HasSize()) {
+    prefs.flatViewSashPosition = m_flatView->GetSashPosition();
   }
 }
 
@@ -1384,6 +1390,11 @@ void MainView::OnSessionIdle(wxCommandEvent &e) {
 }
 
 void MainView::OnSessionActive(wxCommandEvent &e) { e.Skip(); }
+
+void MainView::OnSessionCwd(wxCommandEvent &e) {
+  e.Skip();
+  RefreshFlatView();
+}
 
 void MainView::OnSessionProgram(wxCommandEvent &e) {
   e.Skip();

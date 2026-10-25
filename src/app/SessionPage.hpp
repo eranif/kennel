@@ -61,6 +61,8 @@ public:
   SessionStatus Status() const { return m_status; }
   const Session &GetSession() const { return m_session; }
   Session &GetSession() { return m_session; }
+  // The folder the shell is in now, or the one the session started in.
+  wxString GetCurrentDir() const;
   inline bool IsPlainTerminal() const { return !m_agent.has_value(); }
   void Restart();
   // The agent's own terminal.
@@ -264,6 +266,8 @@ private:
 wxDECLARE_EVENT(wxEVT_SESSION_IDLE, wxCommandEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_ACTIVE, wxCommandEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_EXITED, wxCommandEvent);
+// The folder of a page changed. The event object is the page.
+wxDECLARE_EVENT(wxEVT_SESSION_CWD, wxCommandEvent);
 // The program activity of a page changed (see SessionPage::ProgramActivity).
 // The event object is the page; read the state from it.
 wxDECLARE_EVENT(wxEVT_SESSION_PROGRAM, wxCommandEvent);

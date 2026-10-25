@@ -31,6 +31,7 @@ json ToJson(const UiPrefs &p) {
         {"height", p.window.height},
         {"maximized", p.window.maximized}}},
       {"sidebarWidth", p.sidebarWidth},
+      {"flatViewSashPosition", p.flatViewSashPosition},
       {"leftTab", p.leftTab},
       {"scrollbackLines", p.scrollbackLines},
       {"flatViewSortColumn", ToUtf8(p.flatViewSortColumn)},
@@ -60,6 +61,8 @@ void ParsePrefs(const json &root, UiPrefs &p) {
     p.window.maximized = GetBool(*it, "maximized", p.window.maximized);
   }
   p.sidebarWidth = GetInt(root, "sidebarWidth", p.sidebarWidth);
+  p.flatViewSashPosition =
+      GetInt(root, "flatViewSashPosition", p.flatViewSashPosition);
   p.leftTab = GetInt(root, "leftTab", p.leftTab);
   p.flatViewSortColumn =
       GetStr(root, "flatViewSortColumn", p.flatViewSortColumn);
