@@ -4,11 +4,52 @@
    height="16px"
    viewBox="0 0 16 16"
    version="1.1"
-   xmlns="http://www.w3.org/2000/svg">
+   id="svg2"
+   sodipodi:docname="code-reviewer.svg"
+   inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs2" />
+  <sodipodi:namedview
+     id="namedview2"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="55"
+     inkscape:cx="8"
+     inkscape:cy="8.0090909"
+     inkscape:window-width="1727"
+     inkscape:window-height="1186"
+     inkscape:window-x="325"
+     inkscape:window-y="30"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg2" />
   <!-- Lens: teal ring with a light tint, readable on dark and light themes -->
-  <circle cx="6.8" cy="6.8" r="5.2" fill="#14b8a6" fill-opacity="0.18" stroke="#14b8a6" stroke-width="1.8" />
+  <circle
+     cx="6.8"
+     cy="6.8"
+     r="5.2"
+     fill="#14b8a6"
+     fill-opacity="0.18"
+     stroke="#14b8a6"
+     stroke-width="1.8"
+     id="circle1"
+     style="fill:#ffffff;stroke:#808080;fill-opacity:0;stroke-opacity:1" />
   <!-- Handle -->
-  <path d="M 10.8,10.8 14.6,14.6" fill="none" stroke="#14b8a6" stroke-width="2.2" stroke-linecap="round" />
+  <path
+     d="M 10.8,10.8 14.6,14.6"
+     fill="none"
+     stroke="#14b8a6"
+     stroke-width="2.2"
+     stroke-linecap="round"
+     id="path1"
+     style="fill:#808080;stroke:#808080" />
   <!-- Check mark: the code is approved -->
-  <path d="M 4.4,6.9 6.2,8.7 9.4,4.9" fill="none" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
 </svg>
