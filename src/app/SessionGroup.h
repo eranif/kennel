@@ -5,9 +5,9 @@
 
 // Data-only representation of a group: a name, a "kind" (agent sessions, the
 // "Terminals" container, or the "Files" container), and its persisted icon.
-// Holds no session list and no reference to the UI (tree item, notebook page,
-// ...) — MainView owns the tree/notebook and is the only source of truth for
-// which sessions belong to this group.
+// Holds no session list and no reference to the UI (notebook page, ...) —
+// PageRegistry is the only source of truth for which sessions belong to this
+// group.
 class SessionGroup {
 public:
   SessionGroup(const wxString &groupName, bool terminalsGroup,
@@ -26,9 +26,9 @@ public:
   inline bool IsDefaultGroup() const { return GetGroupName() == _("Default"); }
 
   // Name of the most recently shown session in this group; used when the
-  // user selects the group's tree node directly rather than a session leaf.
+  // user chooses the group rather than a session.
   // Stored by name (not a SessionPage*) since that session may since have
-  // been closed/renamed — resolve it back through the tree before use.
+  // been closed/renamed — resolve it back through the PageRegistry before use.
   inline const wxString &GetLastActive() const { return m_lastActive; }
   inline void SetLastActive(const wxString &sessionName) {
     m_lastActive = sessionName;

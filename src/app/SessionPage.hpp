@@ -98,8 +98,8 @@ private:
   void ConfigureTerminal(wxTerminalViewCtrl *terminal);
   // Gives `terminal` the keyboard focus, but only when the user is working in
   // this session: not when another page is showing, not when the focus is
-  // elsewhere in the application (the tree, a dialog, ...), and not while the
-  // user is typing in the session's other terminal.
+  // elsewhere in the application (the list of the sessions, a dialog, ...), and
+  // not while the user is typing in the session's other terminal.
   void FocusTerminal(wxTerminalViewCtrl *terminal);
   // A panel for the splitter that gives a terminal a border in the theme's
   // background color. Create the terminal with the pane as its parent, then

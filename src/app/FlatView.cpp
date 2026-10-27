@@ -1,6 +1,6 @@
 #include "app/FlatView.hpp"
 
-#include "app/TreeView.hpp"
+#include "app/PageRegistry.hpp"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
 #include "core/Logger.h"
@@ -16,12 +16,24 @@ enum Column { kColumnName = 0, kColumnGroup, kColumnKey };
 constexpr const char *kSortByName = "name";
 constexpr const char *kSortByGroup = "group";
 
+// The text of a cell that holds an icon with its text.
+wxString IconTextOf(const wxVariant &value) {
+  wxDataViewIconText iconText;
+  iconText << value;
+  return iconText.GetText();
+}
+
 // The list's model. The control sorts the rows itself (on every platform) and
 // asks Compare() for the order; the default Compare() cannot read the
 // icon-and-text of the Name column. Without a sort column the rows stay in
-// the order they were added: the tree order.
+// the order they were added: the group order.
 class FlatViewStore : public wxDataViewListStore {
 public:
+  // `secondIsIconText`: the second column shows an icon with its text (the
+  // group), not plain text.
+  explicit FlatViewStore(bool secondIsIconText)
+      : m_secondIsIconText(secondIsIconText) {}
+
   int Compare(const wxDataViewItem &item1, const wxDataViewItem &item2,
               unsigned int column, bool ascending) const override {
     if (column != kColumnName && column != kColumnGroup) {
@@ -46,13 +58,14 @@ private:
   wxString TextOf(unsigned row, unsigned column) const {
     wxVariant value;
     GetValueByRow(value, row, column);
-    if (column == kColumnName) {
-      wxDataViewIconText iconText;
-      iconText << value;
-      return iconText.GetText();
+    if (column == kColumnName ||
+        (column == kColumnGroup && m_secondIsIconText)) {
+      return IconTextOf(value);
     }
     return value.GetString();
   }
+
+  bool m_secondIsIconText;
 
   // Ignores case first, so "beta" comes before "Gamma".
   int CompareText(unsigned row1, unsigned row2, unsigned column) const {
@@ -63,22 +76,28 @@ private:
   }
 };
 
-// A list of "icon + name | second column", plus the hidden key column.
+// A list of "icon + name | second column", plus the hidden key column. The
+// second column has an icon too when `secondIsIconText` (the group).
 wxDataViewListCtrl *NewList(wxWindow *parent, const wxString &secondColumn,
-                            int secondWidth) {
+                            int secondWidth, bool secondIsIconText) {
   auto *list =
       new wxDataViewListCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                              wxDV_ROW_LINES | wxDV_SINGLE);
   // Before the columns: they are added to the model too.
-  auto *store = new FlatViewStore;
+  auto *store = new FlatViewStore(secondIsIconText);
   list->AssociateModel(store);
   store->DecRef();
 
   StylePageView(list);
   list->AppendIconTextColumn(_("Name"), wxDATAVIEW_CELL_INERT, 160)
       ->SetSortable(true);
-  list->AppendTextColumn(secondColumn, wxDATAVIEW_CELL_INERT, secondWidth)
-      ->SetSortable(true);
+  if (secondIsIconText) {
+    list->AppendIconTextColumn(secondColumn, wxDATAVIEW_CELL_INERT, secondWidth)
+        ->SetSortable(true);
+  } else {
+    list->AppendTextColumn(secondColumn, wxDATAVIEW_CELL_INERT, secondWidth)
+        ->SetSortable(true);
+  }
   // The page's name (session name or file key): the label is not unique.
   list->AppendTextColumn(wxEmptyString, wxDATAVIEW_CELL_INERT)->SetHidden(true);
   return list;
@@ -98,8 +117,9 @@ FlatView::FlatView(wxWindow *parent) : wxPanel(parent) {
   SetSizer(sizer);
 
   // The sessions and the files on top, the terminals below.
-  m_list = NewList(m_splitter, _("Group"), 100);
-  m_terminalList = NewList(m_splitter, _("Directory"), 200);
+  m_list = NewList(m_splitter, _("Group"), 100, /*secondIsIconText=*/true);
+  m_terminalList =
+      NewList(m_splitter, _("Directory"), 200, /*secondIsIconText=*/false);
   m_splitter->SplitHorizontally(m_list, m_terminalList);
   RestoreSortOrder();
 
@@ -111,7 +131,7 @@ FlatView::FlatView(wxWindow *parent) : wxPanel(parent) {
   }
   // Bound after RestoreSortOrder(): on macOS restoring sends this event too.
   // Only the top list is sorted (and the sort saved): the terminals keep the
-  // tree order.
+  // group order.
   m_list->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &FlatView::OnColumnSorted, this);
   EventNotifier::Get()->Bind(wxEVT_PAGEVIEW_SELECTED, &FlatView::OnPageSelected,
                              this);
@@ -187,7 +207,11 @@ void FlatView::SetPages(const std::vector<PageInfo> &pages,
     const bool terminal = IsTerminalGroup(info.group);
     wxVector<wxVariant> row;
     row.push_back(wxVariant(wxDataViewIconText(info.label, info.icon)));
-    row.push_back(wxVariant(terminal ? info.dir : info.group));
+    if (terminal) {
+      row.push_back(wxVariant(info.dir));
+    } else {
+      row.push_back(wxVariant(wxDataViewIconText(info.group, info.groupIcon)));
+    }
     row.push_back(wxVariant(info.key));
     ListFor(info.group)->AppendItem(row);
   }
@@ -271,8 +295,8 @@ void FlatView::OnSelectionChanged(wxDataViewEvent &event) {
     other->UnselectAll();
   }
   m_selected = ref;
-  // A page picked here (mouse or keyboard) is the most recently used one, as
-  // in the tree: Ctrl+Tab goes back to the page shown before it.
+  // A page picked here (mouse or keyboard) is the most recently used one:
+  // Ctrl+Tab goes back to the page shown before it.
   PageViewEvent evtSelected(wxEVT_PAGEVIEW_SELECTED);
   evtSelected.SetEventObject(this);
   evtSelected.SetUpdateRecent(true);
@@ -314,9 +338,12 @@ std::optional<SessionRef> FlatView::RefOf(wxDataViewListCtrl *list,
     return std::nullopt;
   }
   // The terminals have no group column: they all are in the same group.
-  const wxString group = list == m_terminalList
-                             ? kTerminalsGroupName
-                             : list->GetTextValue(row, kColumnGroup);
+  wxString group = kTerminalsGroupName;
+  if (list != m_terminalList) {
+    wxVariant value;
+    list->GetValue(value, row, kColumnGroup);
+    group = IconTextOf(value);
+  }
   return SessionRef{group, list->GetTextValue(row, kColumnKey)};
 }
 

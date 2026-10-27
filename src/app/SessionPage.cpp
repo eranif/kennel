@@ -867,7 +867,7 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
     ::wxLaunchDefaultApplication(fullPath);
     return;
   }
-  // Deferred: don't rebuild the tree from inside the terminal's mouse handler.
+  // Deferred: don't rebuild the list from inside the terminal's mouse handler.
   GetMainFrame()->GetMainView()->CallAfter(&MainView::OpenLocalFile, fullPath);
 }
 

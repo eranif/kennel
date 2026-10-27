@@ -24,10 +24,12 @@ struct UiPrefs {
   // Height of the list of the sessions and files above the list of the
   // terminals in the flat view.
   int flatViewSashPosition{0};
-  // The page of the left pane that was showing (0: the flat list, 1: the tree).
+  // The page of the left pane that was showing. Not used while the left pane
+  // has the list of the sessions as its only page; kept (and still saved) for
+  // the pages that will come.
   int leftTab{0};
   // The column the flat list is sorted by ("name" or "group"), empty => not
-  // sorted (tree order).
+  // sorted (group order).
   wxString flatViewSortColumn;
   bool flatViewSortAscending{true};
   wxString lastSelectedSession; // empty => no prior selection

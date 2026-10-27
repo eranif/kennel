@@ -114,8 +114,9 @@ Kennel has just three things to understand:
 | **Session** | A single, named, running instance of an agent in a working directory. Each session is a live terminal. |
 | **Group** | A folder in the sidebar that holds related sessions. There's always a **Default** group; create as many others as you want. |
 
-The sidebar on the left is a tree of **Groups → Sessions**. The large area on the
-right is the terminal for the currently selected session.
+The sidebar on the left is a list of every open session, terminal and file, with the
+**Group** of each (shown with its colour). The large area on the right is the page that is
+selected.
 
 ---
 
@@ -158,15 +159,13 @@ Right-click a session for the context menu:
   which always stays).
 - **Close** — permanently remove the session.
 
-Right-click a **group** header for:
+The context menu of an agent session also has a **Group** submenu for the group of that
+session:
 
 - **Start Agent…** — launch a new agent pre-assigned to that group.
 - **Rename Group…** — rename the group (Default can't be renamed).
 - **Close Group** — close every session in the group at once.
-- **Refresh** — restart every session in the group.
-
-Clicking a group header in the tree only expands or collapses it — the detail pane on
-the right always shows the currently selected session, not the group.
+- **Refresh Group** — restart every session in the group.
 
 ---
 

@@ -25,7 +25,7 @@
 
 class SessionPage;
 class FilePage;
-class TreeView;
+class PageRegistry;
 class FlatView;
 
 class AdapterRegistry;
@@ -45,12 +45,11 @@ struct RemoteReadResult {
   std::string content;  // The file's bytes; set when ok
 };
 
-// The left side shows the open pages twice: as a Groups -> Sessions tree
-// (TreeView, the source of truth for what exists) and as a flat list
-// (FlatView, a projection of the tree). The right side shows the selected
-// page. MainView owns the pages (m_sessionsBook) and acts on what the user
-// does in the views. The views keep their selections in sync themselves,
-// through wxEVT_PAGEVIEW_SELECTED on EventNotifier.
+// The left side shows the open pages as a flat list (FlatView, a projection of
+// the PageRegistry, the source of truth for which groups and pages exist). The
+// right side shows the selected page. MainView owns the pages (m_sessionsBook)
+// and acts on what the user does in the list. The list follows the page that
+// is showing through wxEVT_PAGEVIEW_SELECTED on EventNotifier.
 class MainView : public MainViewBase {
 public:
   explicit MainView(wxWindow *parent);
@@ -80,11 +79,10 @@ public:
   // Rebuilds UI from sessions persisted in workspace.json.
   void RestoreSessions();
 
-  // The splitter between the left pane and the terminal, and the tab of the
-  // left pane, are remembered between runs in the UI prefs. RestoreLayout()
-  // applies them (the splitter once the window has its final size);
-  // SaveLayout() records the current ones into the prefs (the caller saves the
-  // prefs).
+  // The splitters (between the left pane and the terminal, and in the list of
+  // the left pane) are remembered between runs in the UI prefs. RestoreLayout()
+  // applies them (once the window has its final size); SaveLayout() records
+  // the current ones into the prefs (the caller saves the prefs).
   void RestoreLayout();
   void SaveLayout();
 
@@ -96,7 +94,6 @@ public:
   void ApplyTheme(const wxString &themeName);
   void ApplyOptimizedDrawing();
   void ApplyFont(const wxFont &f);
-  void RefreshSelectedGroup();
   bool CanRefreshCurrent() const;
   void RefreshCurrentSelection();
 
@@ -121,12 +118,12 @@ public:
 
   // Prompts for confirmation, then closes every session in every group.
   void CloseAllSessions();
-  bool IsSelectionSessionGroup() const;
-  bool IsSelectionTerminalGroup() const;
+  // Renames the session that is showing.
   void RenameItem();
   // Whether `groupName` already contains a session named `name`. Names only
   // need to be unique within a group, not across the whole workspace.
   bool IsNameExist(const wxString &name, const wxString &groupName) const;
+  // The group of the session that is showing, or nullptr (also for a file).
   SessionGroup *GetSelectedGroup() const;
 
   bool IsEmpty() const;
@@ -168,15 +165,11 @@ public:
 private:
   void LoadBitmaps();
 
-  // The tools of the left pane that switch between the list and the tree.
+  // The tools of the left pane (they switch between its pages). Hidden while
+  // the list of the sessions is the only page.
   void CreateLeftToolBar();
-  void OnShowListView(wxCommandEvent &);
-  void OnShowTreeView(wxCommandEvent &);
-  void ShowLeftPage(wxWindow *page);
-  // Checks the tool of the page that is showing.
-  void UpdateLeftToolBar();
 
-  // ---- The two views ----------------------------------------------------
+  // ---- The flat list ----------------------------------------------------
   void OnPageSelected(PageViewEvent &event);
   void OnPageMenu(PageViewEvent &event);
   // Brings the flat list up to date. Coalesced and deferred: it is called
@@ -184,7 +177,7 @@ private:
   void RefreshFlatView();
   void DoRefreshFlatView();
   // Every page, most recently used first: `first` (if given), then m_recent,
-  // then the pages never used, in tree order.
+  // then the pages never used, in group order.
   std::vector<PageInfo>
   GetPagesByRecency(const std::optional<SessionRef> &first) const;
   void OnPageSwitcherDone(wxCommandEvent &event);
@@ -198,18 +191,20 @@ private:
   // Persists the workspace shortly (coalesced); for changes that only touch
   // the order of the recent list.
   void SyncWorkspaceSoon();
-  // Rebuilds a full Workspace snapshot from the current UI state (tree +
+  // Rebuilds a full Workspace snapshot from the current UI state (pages +
   // recent list) and writes it as the complete contents of workspace.json. No
   // caller ever incrementally patches the file — every mutation ends here.
   void SyncWorkspaceToDisk();
 
   // ---- Context menus (MainViewMenus.cpp) --------------------------------
   // `on` is the view to pop the menu up on.
-  void ShowGroupMenu(const wxString &groupName, wxWindow *on);
   void ShowPageMenu(wxWindow *page, wxWindow *on);
   void ShowSessionMenu(SessionPage *page, wxWindow *on);
   void ShowFileMenu(FilePage *page, wxWindow *on);
   void ShowBackgroundMenu(wxWindow *on);
+  // Adds the commands for the group `groupName` (Start Agent, Rename, Close
+  // and Refresh Group) to `menu`, under a "Group" sub menu.
+  void AppendGroupMenu(wxMenu &menu, const wxString &groupName);
 
   // ---- Showing pages ----------------------------------------------------
   // Makes `page` (a SessionPage or a FilePage) the one visible page. It also
@@ -226,10 +221,10 @@ private:
   // The part of showing a page that sessions and files have in common: the
   // book, the views and the recent list.
   void ActivatePage(wxWindow *page, bool updateRecent, bool notifyViews);
-  // Selects the group node and shows the group's default page, if any.
+  // Shows the group's default page, if any.
   void ActivateGroup(const wxString &groupName);
   // Shows some page after the active one was removed; see
-  // TreeView::GetFallbackPage().
+  // PageRegistry::GetFallbackPage().
   void SelectFallbackPage(const wxString &preferredGroup);
 
   // ---- Adding / removing pages ------------------------------------------
@@ -258,13 +253,13 @@ private:
                           const wxString &toGroupName);
 
   // Callers reached from a menu/native callback must go through these via
-  // CallAfter rather than removing pages directly — deleting a tree leaf
+  // CallAfter rather than removing pages directly — deleting a page
   // synchronously from inside such a callback can crash the native macOS
   // outline view mid-redraw.
   void CloseSession(const wxString &groupName, const wxString &sessionName);
   // Closes the first session called `sessionName`, whatever its group.
   void CloseSessionByName(const wxString &sessionName);
-  // Closes `page` (offering to save unsaved changes) and removes its leaf.
+  // Closes `page` (offering to save unsaved changes) and removes it.
   void CloseFile(FilePage *page);
   void CloseAllFiles();
 
@@ -293,7 +288,7 @@ private:
   WorkspaceStore *m_workspaceStore{nullptr};
   AppPaths m_paths;
 
-  TreeView *m_treeView{nullptr};
+  std::unique_ptr<PageRegistry> m_pages;
   FlatView *m_flatView{nullptr};
   bool m_flatRefreshPending{false};
   // Pages by name, most recently used first: the Ctrl+Tab order, persisted
@@ -302,7 +297,6 @@ private:
   std::vector<SessionRef> m_recent;
   bool m_syncPending{false};
   bool m_layoutRestored{false};
-  bool m_leftPageRestored{false};
 
   // Per-job run counter (job name -> next sequence number), so consecutive
   // runs of the same job get distinct tab names ("Test Job #1", "#2", ...)

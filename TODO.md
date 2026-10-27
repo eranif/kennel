@@ -13,3 +13,6 @@
 - [ ] Add filter on top of the flat view
 - [ ] Make the flat view "multi-select".
 - [ ] Add Size column to the flat view (useful for files)
+- [ ] wxCrafter: delete the left toolbar (`m_auibar` of `MainViewBase`) if the left pane does not need it
+      (the explorer and git views may use it), regenerate `UI.*`, then remove `MainView::CreateLeftToolBar()`
+      (and its `Show(bar, false)` workaround) and the `GetAuibar()` call in `ApplyToolBarStyles()`

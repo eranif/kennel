@@ -302,7 +302,7 @@ set(KENNEL_APP_SOURCES
     src/app/ReviewBuddy.cpp
     src/app/ReviewBuddyEvent.cpp
     src/app/ReviewBuddyHeader.cpp
-    src/app/TreeView.cpp
+    src/app/PageRegistry.cpp
     src/app/FlatView.cpp
     src/app/MainViewMenus.cpp
     src/app/EditAgentsDlg.cpp

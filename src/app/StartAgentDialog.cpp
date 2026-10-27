@@ -2,7 +2,7 @@
 
 #include "app/FileBrowserDlg.hpp"
 #include "app/MainFrame.h"
-#include "app/TreeView.hpp"
+#include "app/PageRegistry.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/UiPrefs.h"

@@ -15,7 +15,7 @@
 
 // Top-level application window. Hosts a menu bar (File, Launch), a toolbar with
 // one button per configured client/adapter (icon resolved from the adapter's
-// iconPath), and the main view (session tree + terminal area). Choosing a
+// iconPath), and the main view (session list + terminal area). Choosing a
 // client from the Launch menu or toolbar opens the New Client Launch dialog
 // with that client preselected. Shared state is reached via AppManager::Get().
 class SessionPage;

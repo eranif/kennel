@@ -63,561 +63,519 @@
 
 // clang-format on
 
-class SessionBasePage : public wxPanel {
+class SessionBasePage : public wxPanel
+{
 protected:
+
 protected:
+
 public:
-  SessionBasePage(wxWindow *parent, wxWindowID id = wxID_ANY,
-                  const wxPoint &pos = wxDefaultPosition,
-                  const wxSize &size = wxSize(500, 300),
-                  long style = wxTAB_TRAVERSAL);
-  virtual ~SessionBasePage();
+    SessionBasePage(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500,300), long style = wxTAB_TRAVERSAL);
+    virtual ~SessionBasePage();
 };
 
-class MainViewBase : public wxPanel {
+
+class MainViewBase : public wxPanel
+{
 protected:
-  wxSplitterWindow *m_splitterMain;
-  wxPanel *m_splitterPageLeft;
-  wxBoxSizer *m_leftPaneMainSizer;
-  wxAuiToolBar *m_auibar;
-  wxSimplebook *m_notebookLeft;
-  wxPanel *m_panelFlatView;
-  wxPanel *m_panelTreeView;
-  wxPanel *m_splitterPageRight;
-  wxSimplebook *m_sessionsBook;
+    wxSplitterWindow* m_splitterMain;
+    wxPanel* m_splitterPageLeft;
+    wxBoxSizer* m_leftPaneMainSizer;
+    wxAuiToolBar* m_auibar;
+    wxSimplebook* m_notebookLeft;
+    wxPanel* m_panelFlatView;
+    wxPanel* m_splitterPageRight;
+    wxSimplebook* m_sessionsBook;
 
 protected:
+
 public:
-  wxAuiToolBar *GetAuibar() { return m_auibar; }
-  wxPanel *GetPanelFlatView() { return m_panelFlatView; }
-  wxPanel *GetPanelTreeView() { return m_panelTreeView; }
-  wxSimplebook *GetNotebookLeft() { return m_notebookLeft; }
-  wxPanel *GetSplitterPageLeft() { return m_splitterPageLeft; }
-  wxSimplebook *GetSessionsBook() { return m_sessionsBook; }
-  wxPanel *GetSplitterPageRight() { return m_splitterPageRight; }
-  wxSplitterWindow *GetSplitterMain() { return m_splitterMain; }
-  MainViewBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-               const wxPoint &pos = wxDefaultPosition,
-               const wxSize &size = wxSize(-1, -1),
-               long style = wxTAB_TRAVERSAL);
-  virtual ~MainViewBase();
+    wxAuiToolBar* GetAuibar() { return m_auibar; }
+    wxPanel* GetPanelFlatView() { return m_panelFlatView; }
+    wxSimplebook* GetNotebookLeft() { return m_notebookLeft; }
+    wxPanel* GetSplitterPageLeft() { return m_splitterPageLeft; }
+    wxSimplebook* GetSessionsBook() { return m_sessionsBook; }
+    wxPanel* GetSplitterPageRight() { return m_splitterPageRight; }
+    wxSplitterWindow* GetSplitterMain() { return m_splitterMain; }
+    MainViewBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxTAB_TRAVERSAL);
+    virtual ~MainViewBase();
 };
 
-class StartAgentDialogBase : public wxDialog {
+
+class StartAgentDialogBase : public wxDialog
+{
 protected:
-  wxStaticText *m_staticText22;
-  wxChoice *m_choiceClients;
-  wxStaticText *m_staticTextName;
-  wxTextCtrl *m_textCtrlName;
-  wxStaticText *m_staticTextErrorMessage;
-  wxStaticText *m_staticText343;
-  wxComboBox *m_comboBoxGroup;
-  wxCheckBox *m_checkBoxResume;
-  wxCheckBox *m_checkBoxCustomWorkingDirectory;
-  wxComboBox *m_comboBoxWorkingDir;
-  wxButton *m_buttonBrowseWD;
-  wxStdDialogButtonSizer *m_stdBtnSizer17;
-  wxButton *m_buttonOk;
-  wxButton *m_buttonCancel;
+    wxStaticText* m_staticText22;
+    wxChoice* m_choiceClients;
+    wxStaticText* m_staticTextName;
+    wxTextCtrl* m_textCtrlName;
+    wxStaticText* m_staticTextErrorMessage;
+    wxStaticText* m_staticText343;
+    wxComboBox* m_comboBoxGroup;
+    wxCheckBox* m_checkBoxResume;
+    wxCheckBox* m_checkBoxCustomWorkingDirectory;
+    wxComboBox* m_comboBoxWorkingDir;
+    wxButton* m_buttonBrowseWD;
+    wxStdDialogButtonSizer* m_stdBtnSizer17;
+    wxButton* m_buttonOk;
+    wxButton* m_buttonCancel;
 
 protected:
-  virtual void OnNameUpdated(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnUseCustomWdUI(wxUpdateUIEvent &event) { event.Skip(); }
-  virtual void OnBrowseWdUI(wxUpdateUIEvent &event) { event.Skip(); }
-  virtual void OnBrowseWD(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnOkUI(wxUpdateUIEvent &event) { event.Skip(); }
+    virtual void OnNameUpdated(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnUseCustomWdUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnBrowseWdUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnBrowseWD(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnOkUI(wxUpdateUIEvent& event) { event.Skip(); }
 
 public:
-  wxStaticText *GetStaticText22() { return m_staticText22; }
-  wxChoice *GetChoiceClients() { return m_choiceClients; }
-  wxStaticText *GetStaticTextName() { return m_staticTextName; }
-  wxTextCtrl *GetTextCtrlName() { return m_textCtrlName; }
-  wxStaticText *GetStaticTextErrorMessage() { return m_staticTextErrorMessage; }
-  wxStaticText *GetStaticText343() { return m_staticText343; }
-  wxComboBox *GetComboBoxGroup() { return m_comboBoxGroup; }
-  wxCheckBox *GetCheckBoxResume() { return m_checkBoxResume; }
-  wxCheckBox *GetCheckBoxCustomWorkingDirectory() {
-    return m_checkBoxCustomWorkingDirectory;
-  }
-  wxComboBox *GetComboBoxWorkingDir() { return m_comboBoxWorkingDir; }
-  wxButton *GetButtonBrowseWD() { return m_buttonBrowseWD; }
-  StartAgentDialogBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-                       const wxString &title = _("Start Agent"),
-                       const wxPoint &pos = wxDefaultPosition,
-                       const wxSize &size = wxSize(-1, -1),
-                       long style = wxDEFAULT_DIALOG_STYLE);
-  virtual ~StartAgentDialogBase();
+    wxStaticText* GetStaticText22() { return m_staticText22; }
+    wxChoice* GetChoiceClients() { return m_choiceClients; }
+    wxStaticText* GetStaticTextName() { return m_staticTextName; }
+    wxTextCtrl* GetTextCtrlName() { return m_textCtrlName; }
+    wxStaticText* GetStaticTextErrorMessage() { return m_staticTextErrorMessage; }
+    wxStaticText* GetStaticText343() { return m_staticText343; }
+    wxComboBox* GetComboBoxGroup() { return m_comboBoxGroup; }
+    wxCheckBox* GetCheckBoxResume() { return m_checkBoxResume; }
+    wxCheckBox* GetCheckBoxCustomWorkingDirectory() { return m_checkBoxCustomWorkingDirectory; }
+    wxComboBox* GetComboBoxWorkingDir() { return m_comboBoxWorkingDir; }
+    wxButton* GetButtonBrowseWD() { return m_buttonBrowseWD; }
+    StartAgentDialogBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Start Agent"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);
+    virtual ~StartAgentDialogBase();
 };
 
-class EditFileDlgBase : public wxDialog {
+
+class EditFileDlgBase : public wxDialog
+{
 protected:
-  wxToolBar *m_toolbar;
+    wxToolBar* m_toolbar;
 
 protected:
+
 public:
-  wxToolBar *GetToolbar() { return m_toolbar; }
-  EditFileDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-                  const wxString &title = _("Edit File"),
-                  const wxPoint &pos = wxDefaultPosition,
-                  const wxSize &size = wxSize(500, 300),
-                  long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
-  virtual ~EditFileDlgBase();
+    wxToolBar* GetToolbar() { return m_toolbar; }
+    EditFileDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Edit File"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500,300), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    virtual ~EditFileDlgBase();
 };
 
-class EditHostsBase : public wxDialog {
+
+class EditHostsBase : public wxDialog
+{
 protected:
-  wxPanel *m_panel52;
-  wxDataViewListCtrl *m_dvListCtrlHosts;
-  wxButton *m_buttonNew;
-  wxButton *m_buttonDelete;
-  wxStdDialogButtonSizer *m_stdBtnSizer49;
-  wxButton *m_button50;
-  wxButton *m_button51;
+    wxPanel* m_panel52;
+    wxDataViewListCtrl* m_dvListCtrlHosts;
+    wxButton* m_buttonNew;
+    wxButton* m_buttonDelete;
+    wxStdDialogButtonSizer* m_stdBtnSizer49;
+    wxButton* m_button50;
+    wxButton* m_button51;
 
 protected:
-  virtual void OnHostActivated(wxDataViewEvent &event) { event.Skip(); }
-  virtual void OnHostSelected(wxDataViewEvent &event) { event.Skip(); }
-  virtual void OnNew(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnDelete(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnDeleteUI(wxUpdateUIEvent &event) { event.Skip(); }
+    virtual void OnHostActivated(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnHostSelected(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnNew(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnDelete(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnDeleteUI(wxUpdateUIEvent& event) { event.Skip(); }
 
 public:
-  wxDataViewListCtrl *GetDvListCtrlHosts() { return m_dvListCtrlHosts; }
-  wxButton *GetButtonNew() { return m_buttonNew; }
-  wxButton *GetButtonDelete() { return m_buttonDelete; }
-  wxPanel *GetPanel52() { return m_panel52; }
-  EditHostsBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-                const wxString &title = _("Edit Hosts"),
-                const wxPoint &pos = wxDefaultPosition,
-                const wxSize &size = wxSize(-1, -1),
-                long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
-  virtual ~EditHostsBase();
+    wxDataViewListCtrl* GetDvListCtrlHosts() { return m_dvListCtrlHosts; }
+    wxButton* GetButtonNew() { return m_buttonNew; }
+    wxButton* GetButtonDelete() { return m_buttonDelete; }
+    wxPanel* GetPanel52() { return m_panel52; }
+    EditHostsBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Edit Hosts"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    virtual ~EditHostsBase();
 };
 
-class EditAgentDlgBase : public wxDialog {
+
+class EditAgentDlgBase : public wxDialog
+{
 protected:
-  wxPanel *m_panel87;
-  wxFlexGridSizer *flexGridSizer82;
-  wxStaticText *m_staticText83;
-  wxTextCtrl *m_textCtrlName;
-  wxStaticText *m_staticText295;
-  wxComboBox *m_comboBoxExecutable;
-  wxStaticText *m_staticText89;
-  wxTextCtrl *m_textCtrlLaunchArgs;
-  wxStaticText *m_staticText372;
-  wxChoice *m_choiceShell;
-  wxStaticText *m_staticText99;
-  wxTextCtrl *m_textCtrlBitmap;
-  wxButton *m_button155;
-  wxStaticText *m_staticText289;
-  wxTextCtrl *m_textCtrlHost;
-  wxButton *m_button292;
-  wxStaticText *m_staticText329;
-  wxTextCtrl *m_textCtrlUser;
-  wxDataViewListCtrl *m_dvListCtrlEnv;
-  wxButton *m_buttonNewEnv;
-  wxButton *m_buttonDeleteEnv;
-  wxStdDialogButtonSizer *m_stdBtnSizer75;
-  wxButton *m_buttonOk;
-  wxButton *m_buttonCancel;
+    wxPanel* m_panel87;
+    wxFlexGridSizer* flexGridSizer82;
+    wxStaticText* m_staticText83;
+    wxTextCtrl* m_textCtrlName;
+    wxStaticText* m_staticText295;
+    wxComboBox* m_comboBoxExecutable;
+    wxStaticText* m_staticText89;
+    wxTextCtrl* m_textCtrlLaunchArgs;
+    wxStaticText* m_staticText372;
+    wxChoice* m_choiceShell;
+    wxStaticText* m_staticText99;
+    wxTextCtrl* m_textCtrlBitmap;
+    wxButton* m_button155;
+    wxStaticText* m_staticText289;
+    wxTextCtrl* m_textCtrlHost;
+    wxButton* m_button292;
+    wxStaticText* m_staticText329;
+    wxTextCtrl* m_textCtrlUser;
+    wxDataViewListCtrl* m_dvListCtrlEnv;
+    wxButton* m_buttonNewEnv;
+    wxButton* m_buttonDeleteEnv;
+    wxStdDialogButtonSizer* m_stdBtnSizer75;
+    wxButton* m_buttonOk;
+    wxButton* m_buttonCancel;
 
 protected:
-  virtual void OnBrowseBitmap(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnRemoteHost(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnEnvActivated(wxDataViewEvent &event) { event.Skip(); }
-  virtual void OnNewEnv(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnDeleteEnv(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnDeleteEnvUI(wxUpdateUIEvent &event) { event.Skip(); }
-  virtual void OnOkUI(wxUpdateUIEvent &event) { event.Skip(); }
-  virtual void OnOk(wxCommandEvent &event) { event.Skip(); }
+    virtual void OnBrowseBitmap(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnRemoteHost(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnEnvActivated(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnNewEnv(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnDeleteEnv(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnDeleteEnvUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnOkUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnOk(wxCommandEvent& event) { event.Skip(); }
 
 public:
-  wxStaticText *GetStaticText83() { return m_staticText83; }
-  wxTextCtrl *GetTextCtrlName() { return m_textCtrlName; }
-  wxStaticText *GetStaticText295() { return m_staticText295; }
-  wxComboBox *GetComboBoxExecutable() { return m_comboBoxExecutable; }
-  wxStaticText *GetStaticText89() { return m_staticText89; }
-  wxTextCtrl *GetTextCtrlLaunchArgs() { return m_textCtrlLaunchArgs; }
-  wxStaticText *GetStaticText372() { return m_staticText372; }
-  wxChoice *GetChoiceShell() { return m_choiceShell; }
-  wxStaticText *GetStaticText99() { return m_staticText99; }
-  wxTextCtrl *GetTextCtrlBitmap() { return m_textCtrlBitmap; }
-  wxButton *GetButton155() { return m_button155; }
-  wxStaticText *GetStaticText289() { return m_staticText289; }
-  wxTextCtrl *GetTextCtrlHost() { return m_textCtrlHost; }
-  wxButton *GetButton292() { return m_button292; }
-  wxStaticText *GetStaticText329() { return m_staticText329; }
-  wxTextCtrl *GetTextCtrlUser() { return m_textCtrlUser; }
-  wxDataViewListCtrl *GetDvListCtrlEnv() { return m_dvListCtrlEnv; }
-  wxButton *GetButtonNewEnv() { return m_buttonNewEnv; }
-  wxButton *GetButtonDeleteEnv() { return m_buttonDeleteEnv; }
-  wxPanel *GetPanel87() { return m_panel87; }
-  EditAgentDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-                   const wxString &title = _("Edit / New Agent"),
-                   const wxPoint &pos = wxDefaultPosition,
-                   const wxSize &size = wxSize(-1, -1),
-                   long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
-  virtual ~EditAgentDlgBase();
+    wxStaticText* GetStaticText83() { return m_staticText83; }
+    wxTextCtrl* GetTextCtrlName() { return m_textCtrlName; }
+    wxStaticText* GetStaticText295() { return m_staticText295; }
+    wxComboBox* GetComboBoxExecutable() { return m_comboBoxExecutable; }
+    wxStaticText* GetStaticText89() { return m_staticText89; }
+    wxTextCtrl* GetTextCtrlLaunchArgs() { return m_textCtrlLaunchArgs; }
+    wxStaticText* GetStaticText372() { return m_staticText372; }
+    wxChoice* GetChoiceShell() { return m_choiceShell; }
+    wxStaticText* GetStaticText99() { return m_staticText99; }
+    wxTextCtrl* GetTextCtrlBitmap() { return m_textCtrlBitmap; }
+    wxButton* GetButton155() { return m_button155; }
+    wxStaticText* GetStaticText289() { return m_staticText289; }
+    wxTextCtrl* GetTextCtrlHost() { return m_textCtrlHost; }
+    wxButton* GetButton292() { return m_button292; }
+    wxStaticText* GetStaticText329() { return m_staticText329; }
+    wxTextCtrl* GetTextCtrlUser() { return m_textCtrlUser; }
+    wxDataViewListCtrl* GetDvListCtrlEnv() { return m_dvListCtrlEnv; }
+    wxButton* GetButtonNewEnv() { return m_buttonNewEnv; }
+    wxButton* GetButtonDeleteEnv() { return m_buttonDeleteEnv; }
+    wxPanel* GetPanel87() { return m_panel87; }
+    EditAgentDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Edit / New Agent"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    virtual ~EditAgentDlgBase();
 };
 
-class EditAgentsDlgBase : public wxDialog {
+
+class EditAgentsDlgBase : public wxDialog
+{
 protected:
-  wxPanel *m_panel106;
-  wxDataViewListCtrl *m_dvListCtrlAgents;
-  wxButton *m_buttonNew;
-  wxButton *m_buttonEdit;
-  wxButton *m_buttonDelete;
-  wxStdDialogButtonSizer *m_stdBtnSizer103;
-  wxButton *m_buttonOk;
-  wxButton *m_buttonCancel;
+    wxPanel* m_panel106;
+    wxDataViewListCtrl* m_dvListCtrlAgents;
+    wxButton* m_buttonNew;
+    wxButton* m_buttonEdit;
+    wxButton* m_buttonDelete;
+    wxStdDialogButtonSizer* m_stdBtnSizer103;
+    wxButton* m_buttonOk;
+    wxButton* m_buttonCancel;
 
 protected:
-  virtual void OnItemActivated(wxDataViewEvent &event) { event.Skip(); }
-  virtual void OnNewAgent(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnEditAgent(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnEditAgentUI(wxUpdateUIEvent &event) { event.Skip(); }
-  virtual void OnDelete(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnOK(wxCommandEvent &event) { event.Skip(); }
+    virtual void OnItemActivated(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnNewAgent(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnEditAgent(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnEditAgentUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnDelete(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnOK(wxCommandEvent& event) { event.Skip(); }
 
 public:
-  wxDataViewListCtrl *GetDvListCtrlAgents() { return m_dvListCtrlAgents; }
-  wxButton *GetButtonNew() { return m_buttonNew; }
-  wxButton *GetButtonEdit() { return m_buttonEdit; }
-  wxButton *GetButtonDelete() { return m_buttonDelete; }
-  wxPanel *GetPanel106() { return m_panel106; }
-  EditAgentsDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-                    const wxString &title = _("Manage Agents"),
-                    const wxPoint &pos = wxDefaultPosition,
-                    const wxSize &size = wxSize(-1, -1),
-                    long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
-  virtual ~EditAgentsDlgBase();
+    wxDataViewListCtrl* GetDvListCtrlAgents() { return m_dvListCtrlAgents; }
+    wxButton* GetButtonNew() { return m_buttonNew; }
+    wxButton* GetButtonEdit() { return m_buttonEdit; }
+    wxButton* GetButtonDelete() { return m_buttonDelete; }
+    wxPanel* GetPanel106() { return m_panel106; }
+    EditAgentsDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Manage Agents"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    virtual ~EditAgentsDlgBase();
 };
 
-class AboutDialogBase : public wxDialog {
+
+class AboutDialogBase : public wxDialog
+{
 protected:
-  wxPanel *m_panel123;
-  wxNotebook *m_notebook125;
-  wxPanel *m_panel126;
-  wxStaticText *m_staticText129;
-  wxTextCtrl *m_textCtrlName;
-  wxStaticText *m_staticText132;
-  wxTextCtrl *m_textCtrlVersion;
-  wxStaticText *m_staticText134;
-  wxTextCtrl *m_textCtrlAuthor;
-  wxStaticText *m_staticText136;
-  wxTextCtrl *m_textCtrlDescription;
-  wxStaticBitmap *m_staticBitmapIcon;
-  wxPanel *m_panel127;
-  wxStyledTextCtrl *m_stcLicense;
-  wxStdDialogButtonSizer *m_stdBtnSizer120;
-  wxButton *m_button121;
+    wxPanel* m_panel123;
+    wxNotebook* m_notebook125;
+    wxPanel* m_panel126;
+    wxStaticText* m_staticText129;
+    wxTextCtrl* m_textCtrlName;
+    wxStaticText* m_staticText132;
+    wxTextCtrl* m_textCtrlVersion;
+    wxStaticText* m_staticText134;
+    wxTextCtrl* m_textCtrlAuthor;
+    wxStaticText* m_staticText136;
+    wxTextCtrl* m_textCtrlDescription;
+    wxStaticBitmap* m_staticBitmapIcon;
+    wxPanel* m_panel127;
+    wxStyledTextCtrl* m_stcLicense;
+    wxStdDialogButtonSizer* m_stdBtnSizer120;
+    wxButton* m_button121;
 
 protected:
+
 public:
-  wxStaticText *GetStaticText129() { return m_staticText129; }
-  wxTextCtrl *GetTextCtrlName() { return m_textCtrlName; }
-  wxStaticText *GetStaticText132() { return m_staticText132; }
-  wxTextCtrl *GetTextCtrlVersion() { return m_textCtrlVersion; }
-  wxStaticText *GetStaticText134() { return m_staticText134; }
-  wxTextCtrl *GetTextCtrlAuthor() { return m_textCtrlAuthor; }
-  wxStaticText *GetStaticText136() { return m_staticText136; }
-  wxTextCtrl *GetTextCtrlDescription() { return m_textCtrlDescription; }
-  wxStaticBitmap *GetStaticBitmapIcon() { return m_staticBitmapIcon; }
-  wxPanel *GetPanel126() { return m_panel126; }
-  wxStyledTextCtrl *GetStcLicense() { return m_stcLicense; }
-  wxPanel *GetPanel127() { return m_panel127; }
-  wxNotebook *GetNotebook125() { return m_notebook125; }
-  wxPanel *GetPanel123() { return m_panel123; }
-  AboutDialogBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-                  const wxString &title = _("About Kennel"),
-                  const wxPoint &pos = wxDefaultPosition,
-                  const wxSize &size = wxSize(-1, -1),
-                  long style = wxDEFAULT_DIALOG_STYLE);
-  virtual ~AboutDialogBase();
+    wxStaticText* GetStaticText129() { return m_staticText129; }
+    wxTextCtrl* GetTextCtrlName() { return m_textCtrlName; }
+    wxStaticText* GetStaticText132() { return m_staticText132; }
+    wxTextCtrl* GetTextCtrlVersion() { return m_textCtrlVersion; }
+    wxStaticText* GetStaticText134() { return m_staticText134; }
+    wxTextCtrl* GetTextCtrlAuthor() { return m_textCtrlAuthor; }
+    wxStaticText* GetStaticText136() { return m_staticText136; }
+    wxTextCtrl* GetTextCtrlDescription() { return m_textCtrlDescription; }
+    wxStaticBitmap* GetStaticBitmapIcon() { return m_staticBitmapIcon; }
+    wxPanel* GetPanel126() { return m_panel126; }
+    wxStyledTextCtrl* GetStcLicense() { return m_stcLicense; }
+    wxPanel* GetPanel127() { return m_panel127; }
+    wxNotebook* GetNotebook125() { return m_notebook125; }
+    wxPanel* GetPanel123() { return m_panel123; }
+    AboutDialogBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("About Kennel"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);
+    virtual ~AboutDialogBase();
 };
 
-class FileBrowserDlgBase : public wxDialog {
+
+class FileBrowserDlgBase : public wxDialog
+{
 protected:
-  wxAuiToolBar *m_auibar;
-  wxPanel *m_panel320;
-  wxDataViewListCtrl *m_dvListCtrl;
-  wxPanel *m_panelPreview;
-  wxStaticBitmap *m_staticBitmapPreview;
-  wxTextCtrl *m_textCtrlCurrnentDir;
-  wxButton *m_button323;
+    wxAuiToolBar* m_auibar;
+    wxPanel* m_panel320;
+    wxDataViewListCtrl* m_dvListCtrl;
+    wxPanel* m_panelPreview;
+    wxStaticBitmap* m_staticBitmapPreview;
+    wxTextCtrl* m_textCtrlCurrnentDir;
+    wxButton* m_button323;
 
 protected:
-  virtual void OnActivated(wxDataViewEvent &event) { event.Skip(); }
-  virtual void OnKeyDown(wxKeyEvent &event) { event.Skip(); }
-  virtual void OnSelectionChanged(wxDataViewEvent &event) { event.Skip(); }
-  virtual void OnSelect(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnSelectUI(wxUpdateUIEvent &event) { event.Skip(); }
+    virtual void OnActivated(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnKeyDown(wxKeyEvent& event) { event.Skip(); }
+    virtual void OnSelectionChanged(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnSelect(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnSelectUI(wxUpdateUIEvent& event) { event.Skip(); }
 
 public:
-  wxAuiToolBar *GetAuibar() { return m_auibar; }
-  wxDataViewListCtrl *GetDvListCtrl() { return m_dvListCtrl; }
-  wxStaticBitmap *GetStaticBitmapPreview() { return m_staticBitmapPreview; }
-  wxPanel *GetPanelPreview() { return m_panelPreview; }
-  wxTextCtrl *GetTextCtrlCurrnentDir() { return m_textCtrlCurrnentDir; }
-  wxButton *GetButton323() { return m_button323; }
-  wxPanel *GetPanel320() { return m_panel320; }
-  FileBrowserDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-                     const wxString &title = _("File Browser"),
-                     const wxPoint &pos = wxDefaultPosition,
-                     const wxSize &size = wxSize(-1, -1),
-                     long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
-  virtual ~FileBrowserDlgBase();
+    wxAuiToolBar* GetAuibar() { return m_auibar; }
+    wxDataViewListCtrl* GetDvListCtrl() { return m_dvListCtrl; }
+    wxStaticBitmap* GetStaticBitmapPreview() { return m_staticBitmapPreview; }
+    wxPanel* GetPanelPreview() { return m_panelPreview; }
+    wxTextCtrl* GetTextCtrlCurrnentDir() { return m_textCtrlCurrnentDir; }
+    wxButton* GetButton323() { return m_button323; }
+    wxPanel* GetPanel320() { return m_panel320; }
+    FileBrowserDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("File Browser"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    virtual ~FileBrowserDlgBase();
 };
 
-class NewEnvVarDlgBase : public wxDialog {
+
+class NewEnvVarDlgBase : public wxDialog
+{
 protected:
-  wxStaticText *m_staticText312;
-  wxTextCtrl *m_textCtrlName;
-  wxStaticText *m_staticText314;
-  wxTextCtrl *m_textCtrlValue;
-  wxStdDialogButtonSizer *m_stdBtnSizer308;
-  wxButton *m_buttonOK;
-  wxButton *m_buttonCancel;
+    wxStaticText* m_staticText312;
+    wxTextCtrl* m_textCtrlName;
+    wxStaticText* m_staticText314;
+    wxTextCtrl* m_textCtrlValue;
+    wxStdDialogButtonSizer* m_stdBtnSizer308;
+    wxButton* m_buttonOK;
+    wxButton* m_buttonCancel;
 
 protected:
-  virtual void OnOkUI(wxUpdateUIEvent &event) { event.Skip(); }
+    virtual void OnOkUI(wxUpdateUIEvent& event) { event.Skip(); }
 
 public:
-  wxStaticText *GetStaticText312() { return m_staticText312; }
-  wxTextCtrl *GetTextCtrlName() { return m_textCtrlName; }
-  wxStaticText *GetStaticText314() { return m_staticText314; }
-  wxTextCtrl *GetTextCtrlValue() { return m_textCtrlValue; }
-  NewEnvVarDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-                   const wxString &title = _("New / Edit Environment Variable"),
-                   const wxPoint &pos = wxDefaultPosition,
-                   const wxSize &size = wxSize(-1, -1),
-                   long style = wxDEFAULT_DIALOG_STYLE);
-  virtual ~NewEnvVarDlgBase();
+    wxStaticText* GetStaticText312() { return m_staticText312; }
+    wxTextCtrl* GetTextCtrlName() { return m_textCtrlName; }
+    wxStaticText* GetStaticText314() { return m_staticText314; }
+    wxTextCtrl* GetTextCtrlValue() { return m_textCtrlValue; }
+    NewEnvVarDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("New / Edit Environment Variable"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);
+    virtual ~NewEnvVarDlgBase();
 };
 
-class SettingsDlgBase : public wxDialog {
+
+class SettingsDlgBase : public wxDialog
+{
 protected:
-  wxPanel *m_panel350;
-  wxNotebook *m_notebook352;
-  wxPanel *m_panel353;
-  wxStaticText *m_staticText355;
-  wxChoice *m_choiceTheme;
-  wxStaticText *m_staticText357;
-  wxFontPickerCtrl *m_fontPicker;
-  wxChoice *m_choiceAppTheme;
-  wxPanel *m_panel361;
-  wxStaticText *m_staticText365;
-  wxChoice *m_choiceShell;
-  wxStaticText *m_staticText498;
-  wxTextCtrl *m_textCtrlShellWorkingDir;
-  wxButton *m_button508;
-  wxStaticText *m_staticText504;
-  wxSpinCtrl *m_spinCtrlScrollBackLines;
-  wxCheckBox *m_checkBoxBlockCaret;
-  wxCheckBox *m_checkBoxOptimizeDrawings;
-  wxCheckBox *m_checkBoxForNewVersionOnStartup;
-  wxStdDialogButtonSizer *m_stdBtnSizer347;
-  wxButton *m_buttonOk;
-  wxButton *m_buttonCancel;
+    wxPanel* m_panel350;
+    wxNotebook* m_notebook352;
+    wxPanel* m_panel353;
+    wxStaticText* m_staticText355;
+    wxChoice* m_choiceTheme;
+    wxStaticText* m_staticText357;
+    wxFontPickerCtrl* m_fontPicker;
+    wxChoice* m_choiceAppTheme;
+    wxPanel* m_panel361;
+    wxStaticText* m_staticText365;
+    wxChoice* m_choiceShell;
+    wxStaticText* m_staticText498;
+    wxTextCtrl* m_textCtrlShellWorkingDir;
+    wxButton* m_button508;
+    wxStaticText* m_staticText504;
+    wxSpinCtrl* m_spinCtrlScrollBackLines;
+    wxCheckBox* m_checkBoxBlockCaret;
+    wxCheckBox* m_checkBoxOptimizeDrawings;
+    wxCheckBox* m_checkBoxForNewVersionOnStartup;
+    wxStdDialogButtonSizer* m_stdBtnSizer347;
+    wxButton* m_buttonOk;
+    wxButton* m_buttonCancel;
 
 protected:
-  virtual void OnChoiceTheme(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnFontSelected(wxFontPickerEvent &event) { event.Skip(); }
-  virtual void OnBrowseForShellWorkingDir(wxCommandEvent &event) {
-    event.Skip();
-  }
+    virtual void OnChoiceTheme(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnFontSelected(wxFontPickerEvent& event) { event.Skip(); }
+    virtual void OnBrowseForShellWorkingDir(wxCommandEvent& event) { event.Skip(); }
 
 public:
-  wxStaticText *GetStaticText355() { return m_staticText355; }
-  wxChoice *GetChoiceTheme() { return m_choiceTheme; }
-  wxStaticText *GetStaticText357() { return m_staticText357; }
-  wxFontPickerCtrl *GetFontPicker() { return m_fontPicker; }
-  wxChoice *GetChoiceAppTheme() { return m_choiceAppTheme; }
-  wxPanel *GetPanel353() { return m_panel353; }
-  wxStaticText *GetStaticText365() { return m_staticText365; }
-  wxChoice *GetChoiceShell() { return m_choiceShell; }
-  wxStaticText *GetStaticText498() { return m_staticText498; }
-  wxTextCtrl *GetTextCtrlShellWorkingDir() { return m_textCtrlShellWorkingDir; }
-  wxButton *GetButton508() { return m_button508; }
-  wxStaticText *GetStaticText504() { return m_staticText504; }
-  wxSpinCtrl *GetSpinCtrlScrollBackLines() { return m_spinCtrlScrollBackLines; }
-  wxCheckBox *GetCheckBoxBlockCaret() { return m_checkBoxBlockCaret; }
-  wxCheckBox *GetCheckBoxOptimizeDrawings() {
-    return m_checkBoxOptimizeDrawings;
-  }
-  wxCheckBox *GetCheckBoxForNewVersionOnStartup() {
-    return m_checkBoxForNewVersionOnStartup;
-  }
-  wxPanel *GetPanel361() { return m_panel361; }
-  wxNotebook *GetNotebook352() { return m_notebook352; }
-  wxPanel *GetPanel350() { return m_panel350; }
-  SettingsDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-                  const wxString &title = _("Settings"),
-                  const wxPoint &pos = wxDefaultPosition,
-                  const wxSize &size = wxSize(-1, -1),
-                  long style = wxDEFAULT_DIALOG_STYLE);
-  virtual ~SettingsDlgBase();
+    wxStaticText* GetStaticText355() { return m_staticText355; }
+    wxChoice* GetChoiceTheme() { return m_choiceTheme; }
+    wxStaticText* GetStaticText357() { return m_staticText357; }
+    wxFontPickerCtrl* GetFontPicker() { return m_fontPicker; }
+    wxChoice* GetChoiceAppTheme() { return m_choiceAppTheme; }
+    wxPanel* GetPanel353() { return m_panel353; }
+    wxStaticText* GetStaticText365() { return m_staticText365; }
+    wxChoice* GetChoiceShell() { return m_choiceShell; }
+    wxStaticText* GetStaticText498() { return m_staticText498; }
+    wxTextCtrl* GetTextCtrlShellWorkingDir() { return m_textCtrlShellWorkingDir; }
+    wxButton* GetButton508() { return m_button508; }
+    wxStaticText* GetStaticText504() { return m_staticText504; }
+    wxSpinCtrl* GetSpinCtrlScrollBackLines() { return m_spinCtrlScrollBackLines; }
+    wxCheckBox* GetCheckBoxBlockCaret() { return m_checkBoxBlockCaret; }
+    wxCheckBox* GetCheckBoxOptimizeDrawings() { return m_checkBoxOptimizeDrawings; }
+    wxCheckBox* GetCheckBoxForNewVersionOnStartup() { return m_checkBoxForNewVersionOnStartup; }
+    wxPanel* GetPanel361() { return m_panel361; }
+    wxNotebook* GetNotebook352() { return m_notebook352; }
+    wxPanel* GetPanel350() { return m_panel350; }
+    SettingsDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Settings"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);
+    virtual ~SettingsDlgBase();
 };
 
-class NewAgentWizardBase : public wxWizard {
-protected:
-  std::vector<wxWizardPageSimple *> m_pages;
 
-  wxWizardPageSimple *m_wizardPageLocalOrRemote;
-  wxBannerWindow *m_banner473;
-  wxCheckBox *m_checkBoxLocalHost;
-  wxStaticText *m_staticText28930;
-  wxTextCtrl *m_textCtrlHost;
-  wxButton *m_button29233;
-  wxStaticText *m_staticText32934;
-  wxTextCtrl *m_textCtrlUser;
-  wxWizardPageSimple *m_wizardPageWhatToLaunch;
-  wxBannerWindow *m_banner436;
-  wxFlexGridSizer *flexGridSizer821;
-  wxStaticText *m_staticText832;
-  wxTextCtrl *m_textCtrlName;
-  wxStaticText *m_staticText2954;
-  wxComboBox *m_comboBoxExecutable;
-  wxStaticText *m_staticText896;
-  wxTextCtrl *m_textCtrlLaunchArgs;
-  wxStaticText *m_staticText9914;
-  wxTextCtrl *m_textCtrlBitmap;
-  wxButton *m_button15517;
-  wxWizardPageSimple *m_wizardPageAdvanced;
-  wxBannerWindow *m_banner474;
-  wxStaticText *m_staticTextLoginShell;
-  wxChoice *m_choiceShell;
-  wxDataViewListCtrl *m_dvListCtrlEnv;
-  wxButton *m_buttonNewEnv41;
-  wxButton *m_buttonDeleteEnv42;
+class NewAgentWizardBase : public wxWizard
+{
+protected:
+    std::vector<wxWizardPageSimple*> m_pages;
+
+    wxWizardPageSimple* m_wizardPageLocalOrRemote;
+    wxBannerWindow* m_banner473;
+    wxCheckBox* m_checkBoxLocalHost;
+    wxStaticText* m_staticText28930;
+    wxTextCtrl* m_textCtrlHost;
+    wxButton* m_button29233;
+    wxStaticText* m_staticText32934;
+    wxTextCtrl* m_textCtrlUser;
+    wxWizardPageSimple* m_wizardPageWhatToLaunch;
+    wxBannerWindow* m_banner436;
+    wxFlexGridSizer* flexGridSizer821;
+    wxStaticText* m_staticText832;
+    wxTextCtrl* m_textCtrlName;
+    wxStaticText* m_staticText2954;
+    wxComboBox* m_comboBoxExecutable;
+    wxStaticText* m_staticText896;
+    wxTextCtrl* m_textCtrlLaunchArgs;
+    wxStaticText* m_staticText9914;
+    wxTextCtrl* m_textCtrlBitmap;
+    wxButton* m_button15517;
+    wxWizardPageSimple* m_wizardPageAdvanced;
+    wxBannerWindow* m_banner474;
+    wxStaticText* m_staticTextLoginShell;
+    wxChoice* m_choiceShell;
+    wxDataViewListCtrl* m_dvListCtrlEnv;
+    wxButton* m_buttonNewEnv41;
+    wxButton* m_buttonDeleteEnv42;
 
 protected:
-  virtual void OnEnableRemoteUI(wxUpdateUIEvent &event) { event.Skip(); }
-  virtual void OnBrowseHosts(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnBrowseBitmap(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnNewEnv(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnDeleteEnv(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnDeleteEnvUI(wxUpdateUIEvent &event) { event.Skip(); }
+    virtual void OnEnableRemoteUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnBrowseHosts(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnBrowseBitmap(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnNewEnv(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnDeleteEnv(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnDeleteEnvUI(wxUpdateUIEvent& event) { event.Skip(); }
 
 public:
-  wxBannerWindow *GetBanner473() { return m_banner473; }
-  wxCheckBox *GetCheckBoxLocalHost() { return m_checkBoxLocalHost; }
-  wxStaticText *GetStaticText28930() { return m_staticText28930; }
-  wxTextCtrl *GetTextCtrlHost() { return m_textCtrlHost; }
-  wxButton *GetButton29233() { return m_button29233; }
-  wxStaticText *GetStaticText32934() { return m_staticText32934; }
-  wxTextCtrl *GetTextCtrlUser() { return m_textCtrlUser; }
-  wxWizardPageSimple *GetWizardPageLocalOrRemote() {
-    return m_wizardPageLocalOrRemote;
-  }
-  wxBannerWindow *GetBanner436() { return m_banner436; }
-  wxStaticText *GetStaticText832() { return m_staticText832; }
-  wxTextCtrl *GetTextCtrlName() { return m_textCtrlName; }
-  wxStaticText *GetStaticText2954() { return m_staticText2954; }
-  wxComboBox *GetComboBoxExecutable() { return m_comboBoxExecutable; }
-  wxStaticText *GetStaticText896() { return m_staticText896; }
-  wxTextCtrl *GetTextCtrlLaunchArgs() { return m_textCtrlLaunchArgs; }
-  wxStaticText *GetStaticText9914() { return m_staticText9914; }
-  wxTextCtrl *GetTextCtrlBitmap() { return m_textCtrlBitmap; }
-  wxButton *GetButton15517() { return m_button15517; }
-  wxWizardPageSimple *GetWizardPageWhatToLaunch() {
-    return m_wizardPageWhatToLaunch;
-  }
-  wxBannerWindow *GetBanner474() { return m_banner474; }
-  wxStaticText *GetStaticTextLoginShell() { return m_staticTextLoginShell; }
-  wxChoice *GetChoiceShell() { return m_choiceShell; }
-  wxDataViewListCtrl *GetDvListCtrlEnv() { return m_dvListCtrlEnv; }
-  wxButton *GetButtonNewEnv41() { return m_buttonNewEnv41; }
-  wxButton *GetButtonDeleteEnv42() { return m_buttonDeleteEnv42; }
-  wxWizardPageSimple *GetWizardPageAdvanced() { return m_wizardPageAdvanced; }
-  NewAgentWizardBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-                     const wxString &title = _("New Agent"),
-                     const wxBitmap &bmp = wxNullBitmap,
-                     const wxPoint &pos = wxDefaultPosition,
-                     long style = wxDEFAULT_DIALOG_STYLE);
-  wxWizardPageSimple *GetFirstPage() const {
-    if (!m_pages.empty())
-      return m_pages.at(0);
-    return nullptr;
-  }
-  virtual ~NewAgentWizardBase();
+    wxBannerWindow* GetBanner473() { return m_banner473; }
+    wxCheckBox* GetCheckBoxLocalHost() { return m_checkBoxLocalHost; }
+    wxStaticText* GetStaticText28930() { return m_staticText28930; }
+    wxTextCtrl* GetTextCtrlHost() { return m_textCtrlHost; }
+    wxButton* GetButton29233() { return m_button29233; }
+    wxStaticText* GetStaticText32934() { return m_staticText32934; }
+    wxTextCtrl* GetTextCtrlUser() { return m_textCtrlUser; }
+    wxWizardPageSimple* GetWizardPageLocalOrRemote() { return m_wizardPageLocalOrRemote; }
+    wxBannerWindow* GetBanner436() { return m_banner436; }
+    wxStaticText* GetStaticText832() { return m_staticText832; }
+    wxTextCtrl* GetTextCtrlName() { return m_textCtrlName; }
+    wxStaticText* GetStaticText2954() { return m_staticText2954; }
+    wxComboBox* GetComboBoxExecutable() { return m_comboBoxExecutable; }
+    wxStaticText* GetStaticText896() { return m_staticText896; }
+    wxTextCtrl* GetTextCtrlLaunchArgs() { return m_textCtrlLaunchArgs; }
+    wxStaticText* GetStaticText9914() { return m_staticText9914; }
+    wxTextCtrl* GetTextCtrlBitmap() { return m_textCtrlBitmap; }
+    wxButton* GetButton15517() { return m_button15517; }
+    wxWizardPageSimple* GetWizardPageWhatToLaunch() { return m_wizardPageWhatToLaunch; }
+    wxBannerWindow* GetBanner474() { return m_banner474; }
+    wxStaticText* GetStaticTextLoginShell() { return m_staticTextLoginShell; }
+    wxChoice* GetChoiceShell() { return m_choiceShell; }
+    wxDataViewListCtrl* GetDvListCtrlEnv() { return m_dvListCtrlEnv; }
+    wxButton* GetButtonNewEnv41() { return m_buttonNewEnv41; }
+    wxButton* GetButtonDeleteEnv42() { return m_buttonDeleteEnv42; }
+    wxWizardPageSimple* GetWizardPageAdvanced() { return m_wizardPageAdvanced; }
+    NewAgentWizardBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("New Agent"), const wxBitmap& bmp = wxNullBitmap, const wxPoint& pos = wxDefaultPosition, long style = wxDEFAULT_DIALOG_STYLE);
+    wxWizardPageSimple* GetFirstPage() const { if(!m_pages.empty()) return m_pages.at(0); return nullptr; }
+    virtual ~NewAgentWizardBase();
 };
 
-class JobDlgBase : public wxDialog {
+
+class JobDlgBase : public wxDialog
+{
 protected:
-  wxStaticText *m_staticText526;
-  wxTextCtrl *m_textCtrlName;
-  wxStaticText *m_staticText528;
-  wxChoice *m_choiceJobType;
-  wxStaticText *m_staticTextAgent;
-  wxChoice *m_choiceAgent;
-  wxStaticText *m_staticText532;
-  wxChoice *m_choiceScheduleMode;
-  wxTimePickerCtrl *m_timePickerRunAt;
-  wxSpinCtrl *m_spinIntervalHours;
-  wxStaticText *m_staticTextCommand;
-  wxStyledTextCtrl *m_textCtrlCommand;
-  wxCheckBox *m_checkBoxKeepTerminalOpen;
-  wxCheckBox *m_checkBoxEnabled;
-  wxStaticLine *m_staticLine538;
-  wxStdDialogButtonSizer *m_stdBtnSizer522;
-  wxButton *m_button523;
-  wxButton *m_button524;
+    wxStaticText* m_staticText526;
+    wxTextCtrl* m_textCtrlName;
+    wxStaticText* m_staticText528;
+    wxChoice* m_choiceJobType;
+    wxStaticText* m_staticTextAgent;
+    wxChoice* m_choiceAgent;
+    wxStaticText* m_staticText532;
+    wxChoice* m_choiceScheduleMode;
+    wxTimePickerCtrl* m_timePickerRunAt;
+    wxSpinCtrl* m_spinIntervalHours;
+    wxStaticText* m_staticTextCommand;
+    wxStyledTextCtrl* m_textCtrlCommand;
+    wxCheckBox* m_checkBoxKeepTerminalOpen;
+    wxCheckBox* m_checkBoxEnabled;
+    wxStaticLine* m_staticLine538;
+    wxStdDialogButtonSizer* m_stdBtnSizer522;
+    wxButton* m_button523;
+    wxButton* m_button524;
 
 protected:
-  virtual void OnJobTypeChanged(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnScheduleModeChanged(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnOk(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnOkUI(wxUpdateUIEvent &event) { event.Skip(); }
+    virtual void OnJobTypeChanged(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnScheduleModeChanged(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnOk(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnOkUI(wxUpdateUIEvent& event) { event.Skip(); }
 
 public:
-  wxStaticText *GetStaticText526() { return m_staticText526; }
-  wxTextCtrl *GetTextCtrlName() { return m_textCtrlName; }
-  wxStaticText *GetStaticText528() { return m_staticText528; }
-  wxChoice *GetChoiceJobType() { return m_choiceJobType; }
-  wxStaticText *GetStaticTextAgent() { return m_staticTextAgent; }
-  wxChoice *GetChoiceAgent() { return m_choiceAgent; }
-  wxStaticText *GetStaticText532() { return m_staticText532; }
-  wxChoice *GetChoiceScheduleMode() { return m_choiceScheduleMode; }
-  wxTimePickerCtrl *GetTimePickerRunAt() { return m_timePickerRunAt; }
-  wxSpinCtrl *GetSpinIntervalHours() { return m_spinIntervalHours; }
-  wxStaticText *GetStaticTextCommand() { return m_staticTextCommand; }
-  wxStyledTextCtrl *GetTextCtrlCommand() { return m_textCtrlCommand; }
-  wxCheckBox *GetCheckBoxKeepTerminalOpen() {
-    return m_checkBoxKeepTerminalOpen;
-  }
-  wxCheckBox *GetCheckBoxEnabled() { return m_checkBoxEnabled; }
-  wxStaticLine *GetStaticLine538() { return m_staticLine538; }
-  JobDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-             const wxString &title = wxT(""),
-             const wxPoint &pos = wxDefaultPosition,
-             const wxSize &size = wxSize(-1, -1),
-             long style = wxDEFAULT_DIALOG_STYLE);
-  virtual ~JobDlgBase();
+    wxStaticText* GetStaticText526() { return m_staticText526; }
+    wxTextCtrl* GetTextCtrlName() { return m_textCtrlName; }
+    wxStaticText* GetStaticText528() { return m_staticText528; }
+    wxChoice* GetChoiceJobType() { return m_choiceJobType; }
+    wxStaticText* GetStaticTextAgent() { return m_staticTextAgent; }
+    wxChoice* GetChoiceAgent() { return m_choiceAgent; }
+    wxStaticText* GetStaticText532() { return m_staticText532; }
+    wxChoice* GetChoiceScheduleMode() { return m_choiceScheduleMode; }
+    wxTimePickerCtrl* GetTimePickerRunAt() { return m_timePickerRunAt; }
+    wxSpinCtrl* GetSpinIntervalHours() { return m_spinIntervalHours; }
+    wxStaticText* GetStaticTextCommand() { return m_staticTextCommand; }
+    wxStyledTextCtrl* GetTextCtrlCommand() { return m_textCtrlCommand; }
+    wxCheckBox* GetCheckBoxKeepTerminalOpen() { return m_checkBoxKeepTerminalOpen; }
+    wxCheckBox* GetCheckBoxEnabled() { return m_checkBoxEnabled; }
+    wxStaticLine* GetStaticLine538() { return m_staticLine538; }
+    JobDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT(""), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);
+    virtual ~JobDlgBase();
 };
 
-class JobLogViewerBase : public wxDialog {
+
+class JobLogViewerBase : public wxDialog
+{
 protected:
-  wxSearchCtrl *m_searchCtrlFilter;
-  wxDataViewListCtrl *m_dvListCtrlEntries;
-  wxStdDialogButtonSizer *m_stdBtnSizer543;
-  wxButton *m_buttonClose;
+    wxSearchCtrl* m_searchCtrlFilter;
+    wxDataViewListCtrl* m_dvListCtrlEntries;
+    wxStdDialogButtonSizer* m_stdBtnSizer543;
+    wxButton* m_buttonClose;
 
 protected:
-  virtual void OnFilterUpdated(wxCommandEvent &event) { event.Skip(); }
-  virtual void OnKeyDown(wxKeyEvent &event) { event.Skip(); }
-  virtual void OnLogEntryActivated(wxDataViewEvent &event) { event.Skip(); }
-  virtual void OnCloseButton(wxCommandEvent &event) { event.Skip(); }
+    virtual void OnFilterUpdated(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnKeyDown(wxKeyEvent& event) { event.Skip(); }
+    virtual void OnLogEntryActivated(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnCloseButton(wxCommandEvent& event) { event.Skip(); }
 
 public:
-  wxSearchCtrl *GetSearchCtrlFilter() { return m_searchCtrlFilter; }
-  wxDataViewListCtrl *GetDvListCtrlEntries() { return m_dvListCtrlEntries; }
-  JobLogViewerBase(wxWindow *parent, wxWindowID id = wxID_ANY,
-                   const wxString &title = _("Log Viewer"),
-                   const wxPoint &pos = wxDefaultPosition,
-                   const wxSize &size = wxSize(-1, -1),
-                   long style = wxDEFAULT_DIALOG_STYLE);
-  virtual ~JobLogViewerBase();
+    wxSearchCtrl* GetSearchCtrlFilter() { return m_searchCtrlFilter; }
+    wxDataViewListCtrl* GetDvListCtrlEntries() { return m_dvListCtrlEntries; }
+    JobLogViewerBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Log Viewer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);
+    virtual ~JobLogViewerBase();
 };
 
 #endif

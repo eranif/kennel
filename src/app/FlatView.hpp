@@ -10,7 +10,7 @@
 class wxSplitterWindow;
 
 // Every open page (session, terminal, file) in one list: "icon + name |
-// group". It is a projection of what TreeView holds, so it never owns
+// group". It is a projection of what PageRegistry holds, so it never owns
 // anything; MainView feeds it with SetPages(). Each row carries its page's name
 // in a hidden column. The selected page is also kept here: sorting keeps the
 // selected row number, not the selected item (on macOS and in the generic
@@ -18,10 +18,10 @@ class wxSplitterWindow;
 //
 // A click on the Name or Group header sorts the list by that column (a second
 // click turns the order around). The choice is kept in the UI prefs, so it is
-// back on the next start. Never sorted, the list shows the tree order.
+// back on the next start. Never sorted, the list shows the group order.
 //
 // Sends wxEVT_PAGEVIEW_SELECTED (through EventNotifier) / wxEVT_PAGEVIEW_MENU
-// like TreeView does, and follows the selection made anywhere else.
+// and follows the selection made anywhere else.
 class FlatView : public wxPanel {
 public:
   explicit FlatView(wxWindow *parent);
