@@ -155,6 +155,20 @@ BuildEnvironment(const std::map<wxString, wxString> &overrides) {
   }
   return list;
 }
+
+// The text of a terminal's header: "head | title | dir". The title is on one
+// line; parts that are empty are left out.
+wxString JoinHeader(wxString head, wxString title, const wxString &dir) {
+  title.Replace("\n", " ");
+  title.Trim().Trim(false);
+  if (!title.empty()) {
+    head << " | " << title;
+  }
+  if (!dir.empty()) {
+    head << " | " << dir;
+  }
+  return head;
+}
 } // namespace
 
 SessionPage::SessionPage(wxSimplebook *parent, std::optional<AgentDef> agent,
@@ -297,6 +311,11 @@ void SessionPage::DestroyReviewPane() {
   }
   m_reviewPane = nullptr;
   m_reviewTerminal = nullptr;
+  // No update here: the page may be going away. CloseReviewBuddy() does it.
+  m_reviewActivity = ProgramActivity::None;
+  m_reviewerName.clear();
+  m_reviewTitle.clear();
+  m_reviewDir.clear();
   m_reviewAcceleratorInterceptor.reset();
 }
 
@@ -561,7 +580,8 @@ void SessionPage::Restart() {
     m_lastKeyTerminal = nullptr;
     m_acceleratorInterceptor.reset();
   }
-  SetProgramActivity(ProgramActivity::None);
+  m_terminalActivity = ProgramActivity::None;
+  UpdateProgramActivity();
   m_status = SessionStatus::Starting;
   m_resume = true;
   CallAfter(&SessionPage::CreateTerminal);
@@ -569,7 +589,8 @@ void SessionPage::Restart() {
 
 void SessionPage::OnTerminated(wxTerminalEvent &evt) {
   evt.Skip();
-  SetProgramActivity(ProgramActivity::None);
+  m_terminalActivity = ProgramActivity::None;
+  UpdateProgramActivity();
   SetStatus(SessionStatus::Exited);
 }
 
@@ -579,21 +600,53 @@ void SessionPage::OnProgramStatus(wxTerminalEvent &evt) {
   if (!evt.GetProgramId().empty()) {
     return;
   }
+  ProgramActivity activity = ProgramActivity::None;
   switch (evt.GetProgramState()) {
   case wxTerminalProgramState::Working:
-    SetProgramActivity(ProgramActivity::Working);
+    activity = ProgramActivity::Working;
     break;
   case wxTerminalProgramState::Done:
-    SetProgramActivity(ProgramActivity::Done);
+    activity = ProgramActivity::Done;
     break;
   case wxTerminalProgramState::Blocked:
-    SetProgramActivity(ProgramActivity::Blocked);
+    activity = ProgramActivity::Blocked;
     break;
   case wxTerminalProgramState::Idle:
   default:
-    SetProgramActivity(ProgramActivity::None);
     break;
   }
+  // The event is pending: the review buddy's terminal may be gone. Compare the
+  // pointer only.
+  if (m_reviewTerminal != nullptr && evt.GetEventObject() == m_reviewTerminal) {
+    m_reviewActivity = activity;
+  } else {
+    m_terminalActivity = activity;
+  }
+  UpdateProgramActivity();
+}
+
+void SessionPage::UpdateProgramActivity() {
+  // What needs the user first: Blocked, then Working, then Done.
+  constexpr ProgramActivity kPriority[] = {ProgramActivity::Blocked,
+                                           ProgramActivity::Working,
+                                           ProgramActivity::Done};
+  ProgramActivity result = ProgramActivity::None;
+  for (ProgramActivity candidate : kPriority) {
+    if (m_terminalActivity == candidate || m_reviewActivity == candidate) {
+      result = candidate;
+      break;
+    }
+  }
+  SetProgramActivity(result);
+}
+
+void SessionPage::AcknowledgeDone() {
+  for (ProgramActivity *activity : {&m_terminalActivity, &m_reviewActivity}) {
+    if (*activity == ProgramActivity::Done) {
+      *activity = ProgramActivity::None;
+    }
+  }
+  UpdateProgramActivity();
 }
 
 void SessionPage::SetProgramActivity(ProgramActivity activity) {
@@ -618,21 +671,37 @@ void SessionPage::UpdateHeader(bool force) {
     return;
   }
   // "Agent name | Title | Working directory"; a plain terminal is a
-  // "Terminal". Parts that are empty are left out.
-  wxString text = m_session.plainTerminal || m_session.agentName.empty()
-                      ? wxString(_("Terminal"))
-                      : m_session.agentName;
-  wxString title = m_terminalTitle;
-  title.Replace("\n", " ");
-  title.Trim().Trim(false);
-  if (!title.empty()) {
-    text << " | " << title;
+  // "Terminal".
+  const wxString head = m_session.plainTerminal || m_session.agentName.empty()
+                            ? wxString(_("Terminal"))
+                            : m_session.agentName;
+  ReviewBuddyHeader::SetText(
+      m_terminal, JoinHeader(head, m_terminalTitle, GetCurrentDir()), force);
+}
+
+void SessionPage::UpdateReviewHeader(bool force) {
+  if (m_reviewTerminal == nullptr) {
+    return;
   }
-  const wxString dir = GetCurrentDir();
-  if (!dir.empty()) {
-    text << " | " << dir;
-  }
-  ReviewBuddyHeader::SetText(m_terminal, text, force);
+  const wxString head = m_reviewerName.empty()
+                            ? wxString(_("Review Buddy"))
+                            : m_reviewerName + " (" + _("Review Buddy") + ")";
+  const wxString dir = !m_reviewTerminal->GetCurrentDir().empty()
+                           ? m_reviewTerminal->GetCurrentDir()
+                           : m_reviewDir;
+  ReviewBuddyHeader::SetText(m_reviewTerminal,
+                             JoinHeader(head, m_reviewTitle, dir), force);
+}
+
+void SessionPage::OnReviewCwdChanged(wxTerminalEvent &evt) {
+  evt.Skip();
+  UpdateReviewHeader();
+}
+
+void SessionPage::OnReviewTitleChanged(wxTerminalEvent &evt) {
+  evt.Skip();
+  m_reviewTitle = evt.GetTitle();
+  UpdateReviewHeader();
 }
 
 wxString SessionPage::GetCurrentDir() const {
@@ -805,6 +874,7 @@ void SessionPage::ApplyTheme(const wxTerminalTheme &theme) {
     terminal->SetTheme(theme);
   }
   UpdateHeader(/*force=*/true); // The colour depends on the background.
+  UpdateReviewHeader(/*force=*/true);
   // The border around each terminal has the theme's background.
   for (wxPanel *pane : {m_mainPane, m_reviewPane}) {
     if (pane != nullptr) {
@@ -1223,6 +1293,17 @@ wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
     // process exits.
     CallAfter(&SessionPage::CloseReviewBuddy);
   });
+  // What the reviewer's program is doing shows on the page, like the agent's.
+  m_reviewTerminal->Bind(wxEVT_TERMINAL_PROGRAM_STATUS,
+                         &SessionPage::OnProgramStatus, this);
+  m_reviewTerminal->Bind(wxEVT_TERMINAL_TITLE_CHANGED,
+                         &SessionPage::OnReviewTitleChanged, this);
+  m_reviewTerminal->Bind(wxEVT_TERMINAL_CWD_CHANGED,
+                         &SessionPage::OnReviewCwdChanged, this);
+  m_reviewerName = reviewer.name;
+  m_reviewDir = reviewerDir;
+  // After the theme and before the terminal starts, as for the agent's.
+  UpdateReviewHeader();
 
   m_splitter->SplitVertically(m_mainPane, m_reviewPane);
   m_reviewTerminal->EnsureStarted();
@@ -1252,6 +1333,8 @@ void SessionPage::CloseReviewBuddy() {
     m_splitter->Unsplit(m_reviewPane);
   }
   DestroyReviewPane();
+  // Only the agent's terminal counts again.
+  UpdateProgramActivity();
   if (m_terminal != nullptr) {
     m_terminal->SetFocus();
   }

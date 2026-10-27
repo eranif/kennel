@@ -43,7 +43,9 @@ public:
 
   // What the program in the agent's terminal reports with OSC 7501: "working"
   // gets a spinner on the page's row, "done" a check mark and "blocked" a
-  // hand. Everything else is None.
+  // hand. Everything else is None. While a review buddy is open, the page
+  // shows what both terminals report: Blocked wins over Working, and Working
+  // over Done.
   enum class ProgramActivity {
     None,
     Working,
@@ -52,11 +54,7 @@ public:
   };
   ProgramActivity GetProgramActivity() const { return m_programActivity; }
   // The user has seen that the program is done: the check mark goes away.
-  void AcknowledgeDone() {
-    if (m_programActivity == ProgramActivity::Done) {
-      SetProgramActivity(ProgramActivity::None);
-    }
-  }
+  void AcknowledgeDone();
 
   SessionStatus Status() const { return m_status; }
   const Session &GetSession() const { return m_session; }
@@ -112,6 +110,13 @@ private:
   void OnProgramStatus(wxTerminalEvent &evt);
   // Tells MainView (wxEVT_SESSION_PROGRAM) when the activity changed.
   void SetProgramActivity(ProgramActivity activity);
+  // Works out the activity of the page from the one of each terminal.
+  void UpdateProgramActivity();
+  // "Reviewer (Review Buddy) | title | folder" in the header of the review
+  // buddy's terminal. `force` shows it again when the text did not change.
+  void UpdateReviewHeader(bool force = false);
+  void OnReviewCwdChanged(wxTerminalEvent &evt);
+  void OnReviewTitleChanged(wxTerminalEvent &evt);
   // ---- Status (shown in the status bar of the main window) --------------
   // Works out where the agent runs and the session label.
   void InitStatus();
@@ -258,6 +263,11 @@ private:
   std::unique_ptr<ActivityMonitor> m_monitor;
   SessionStatus m_status = SessionStatus::Starting;
   ProgramActivity m_programActivity{ProgramActivity::None};
+  ProgramActivity m_terminalActivity{ProgramActivity::None};
+  ProgramActivity m_reviewActivity{ProgramActivity::None};
+  wxString m_reviewerName;  // The agent of the review buddy's terminal
+  wxString m_reviewTitle;   // The title that terminal set
+  wxString m_reviewDir;     // Where it started
   wxString m_defaultTitle;  // The window title
   wxString m_terminalTitle; // The title the terminal set; in the status bar
   std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor{nullptr};
