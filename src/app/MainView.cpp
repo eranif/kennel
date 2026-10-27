@@ -1408,8 +1408,17 @@ void MainView::OnSessionActive(wxCommandEvent &e) { e.Skip(); }
 void MainView::OnSessionCwd(wxCommandEvent &e) {
   e.Skip();
   RefreshFlatView();
-  // A restored terminal starts in the folder it was left in.
-  SyncWorkspaceSoon();
+  // A restored terminal starts in the folder it was left in. Agents are
+  // restored in their launch folder: nothing to save for them.
+  // The event is pending: the page may be gone. Compare the pointer only.
+  for (auto *page : m_treeView->GetAllSessions()) {
+    if (page == e.GetEventObject()) {
+      if (page->GetSession().plainTerminal) {
+        SyncWorkspaceSoon();
+      }
+      break;
+    }
+  }
 }
 
 void MainView::OnSessionProgram(wxCommandEvent &e) {

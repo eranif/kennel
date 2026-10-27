@@ -333,16 +333,29 @@ void SessionPage::CreateTerminal() {
   // Use the default login shell
   wxString shellCommand = prefs.terminalLoginShell;
 
-  if (m_session.plainTerminal && !m_session.loginShell.empty()) {
-    // A restored terminal runs the shell it had.
-    shellCommand = m_session.loginShell;
-  } else if (m_session.plainTerminal) {
+  if (m_session.plainTerminal) {
+    const auto &shells = ::FindShells().shells;
+    if (!m_session.loginShell.empty()) {
+      // A restored terminal runs the shell it had, as long as it is still
+      // there.
+      const bool found =
+          std::any_of(shells.begin(), shells.end(), [this](const auto &shell) {
+            return shell.second == m_session.loginShell;
+          });
+      if (found) {
+        shellCommand = m_session.loginShell;
+      } else {
+        KLOG_WARN() << "Shell of '" << m_session.name
+                    << "' is gone: " << m_session.loginShell;
+        m_session.loginShell.clear();
+      }
+    }
+
     // For plain terminals, we use the following logic to determine the
     // terminal: Assume the default terminal. If we have multiple terminals,
     // prompt the user to pick one (we set the default terminal as the default
     // terminal in the selection dialog).
-    const auto &shells = ::FindShells().shells;
-    if (shells.size() > 1) {
+    if (m_session.loginShell.empty() && shells.size() > 1) {
       wxArrayString shell_names_arr;
       std::unordered_map<wxString, wxString> m;
       wxString selectedShellName;
@@ -361,8 +374,9 @@ void SessionPage::CreateTerminal() {
         return; // user cancelled
       }
       shellCommand = m[selectionShell];
+      // Only a shell the user picked is kept: the default follows the prefs.
+      m_session.loginShell = shellCommand;
     }
-    m_session.loginShell = shellCommand;
   }
 
   if (m_agent) {
