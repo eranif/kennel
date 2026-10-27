@@ -4,6 +4,13 @@ ROOT_DIR=$(dirname $(readlink -f $0))
 BUILD_DIR=${ROOT_DIR}/.build-release
 MACOS_DEPLOYMENT_TARGET=${MACOS_DEPLOYMENT_TARGET:-13.0}
 OS_NAME="$(uname -s)"
+# The make to run. On Windows (MSYS2) it is mingw32-make, the make of the MinGW
+# toolchain, everywhere; the other platforms use make.
+if [[ "${OS_NAME}" == *MINGW* ]]; then
+  KENNEL_MAKE=mingw32-make
+else
+  KENNEL_MAKE=make
+fi
 FORCE_CMAKE=0
 # The wxWidgets tag to build. Override with WX_VERSION. Keep it the same as the
 # one wxTerminalEmulator is tested with: colour emoji (Direct2D) need 3.3.4.
@@ -24,7 +31,7 @@ function check_prerequistes() {
     compiler="clang++"
   fi
 
-  for tool in ${compiler} cmake git; do
+  for tool in ${compiler} cmake git ${KENNEL_MAKE}; do
     if command -v "${tool}" >/dev/null 2>&1; then
       INFO "Found ${tool}: $(command -v ${tool})"
     else
@@ -56,7 +63,7 @@ function build_wx_widgets_Linux() {
   mkdir .build-release
   cd .build-release
   ../configure --disable-debug_flag --with-gtk=3 --enable-stl --prefix=/home/eran/devl/kennel/.build-release/wxWidgets-install --disable-shared --enable-monolithic
-  make -j$(nproc) install
+  ${KENNEL_MAKE} -j$(nproc) install
   export PATH="${wx_install_dir}/bin":$PATH
   cd ${ROOT_DIR}
 }
@@ -85,7 +92,7 @@ function build_wx_widgets_macOS() {
     -DwxUSE_SYS_LIBS=OFF \
     -DwxUSE_LUNASVG=OFF \
     -DCMAKE_INSTALL_PREFIX=${BUILD_DIR}/wxWidgets-install
-  make -j$(sysctl -n hw.physicalcpu) install
+  ${KENNEL_MAKE} -j$(sysctl -n hw.physicalcpu) install
   export PATH="${wx_install_dir}/bin":$PATH
   cd ${ROOT_DIR}
 }
@@ -113,7 +120,7 @@ function build_wx_widgets_MSW() {
     -DCMAKE_TLS_VERIFY=OFF \
     -DCMAKE_INSTALL_PREFIX=${BUILD_DIR}/wxWidgets-install
 
-  make -j$(nproc) install
+  ${KENNEL_MAKE} -j$(nproc) install
   export WXWIN="${BUILD_DIR}/wxWidgets-install"
   INFO "WXWIN is set to '${WXWIN}'"
   cd ${ROOT_DIR}
@@ -141,7 +148,7 @@ function build_kennel_Linux() {
   else
     INFO "Kennel already configured; skipping cmake"
   fi
-  make -j$(nproc)
+  ${KENNEL_MAKE} -j$(nproc)
   INFO "Kennel built successfully"
   cd ${ROOT_DIR}
 
@@ -178,7 +185,7 @@ function build_kennel_macOS() {
   else
     INFO "Kennel already configured; skipping cmake"
   fi
-  make -j$(sysctl -n hw.physicalcpu)
+  ${KENNEL_MAKE} -j$(sysctl -n hw.physicalcpu)
   INFO "Kennel built successfully"
   cd ${ROOT_DIR}
 
@@ -204,7 +211,7 @@ function build_kennel_MSW() {
   else
     INFO "Kennel already configured; skipping cmake"
   fi
-  make -j$(nproc)
+  ${KENNEL_MAKE} -j$(nproc)
   INFO "Kennel built successfully"
   cd ${ROOT_DIR}
 
@@ -222,7 +229,7 @@ function clean() {
     return 0
   fi
   INFO "Cleaning build artifacts"
-  make -C "${BUILD_DIR}" clean
+  ${KENNEL_MAKE} -C "${BUILD_DIR}" clean
   INFO "Clean complete"
 }
 
@@ -269,7 +276,7 @@ function package() {
   build
   if [[ "${OS_NAME}" == *MINGW* ]]; then
     cd ${BUILD_DIR}
-    make -j$(nproc) setup/fast
+    ${KENNEL_MAKE} -j$(nproc) setup/fast
   elif [[ "${OS_NAME}" == "Darwin" ]]; then
     cd ${BUILD_DIR}
 
