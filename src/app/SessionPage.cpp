@@ -156,6 +156,11 @@ BuildEnvironment(const std::map<wxString, wxString> &overrides) {
   return list;
 }
 
+// A file or a folder of this machine, which a click on a path can open.
+bool LocalPathExists(const wxString &path) {
+  return ::wxFileExists(path) || ::wxDirExists(path);
+}
+
 // The text of a terminal's header: "head | title | dir". The title is on one
 // line; parts that are empty are left out.
 wxString JoinHeader(wxString head, wxString title, const wxString &dir) {
@@ -745,14 +750,24 @@ void SessionPage::SetStatus(SessionStatus status) {
 }
 
 void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
+  evt.Skip();
   wxString text = evt.GetClickedText();
-  while (text.EndsWith(".") || text.EndsWith(":"))
+  while (text.EndsWith(".") || text.EndsWith(":") || text.EndsWith(","))
     text.RemoveLast();
+
+  // Nothing is left of a click on "." or "..", for example.
+  if (text.empty()) {
+    return;
+  }
 
   wxString textLower = text.Lower();
 
   if (textLower.StartsWith("http://") || textLower.StartsWith("https://")) {
     ::wxLaunchDefaultBrowser(text);
+    return;
+  }
+  if (textLower.StartsWith("file://")) {
+    ::wxLaunchDefaultApplication(text);
     return;
   }
 
@@ -793,7 +808,7 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
         continue;
       }
       const wxString winPath = wsl::ToWindowsPath(distro, linuxPath);
-      if (::wxFileExists(winPath)) {
+      if (LocalPathExists(winPath)) {
         fullPath = winPath;
         break;
       }
@@ -804,7 +819,7 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
     }
     text = MsysToWindowsPath(text);
     if (IsAbsoluteLocalPath(text)) {
-      if (::wxFileExists(text)) {
+      if (LocalPathExists(text)) {
         fullPath = text;
       }
     } else if (text.StartsWith("/") || text.StartsWith("\\")) {
@@ -832,7 +847,7 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
           continue;
         }
         const wxString path = JoinLocalPath(base, text);
-        if (::wxFileExists(path)) {
+        if (LocalPathExists(path)) {
           fullPath = path;
           break;
         }
@@ -847,8 +862,8 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
             : wxString::Format(_("File not found: %s"), text));
     return;
   }
-  if (!LooksLikeTextFile(fullPath)) {
-    // Images, PDFs, archives, ...: the OS knows best.
+  if (::wxDirExists(fullPath) || !LooksLikeTextFile(fullPath)) {
+    // Folders, images, PDFs, archives, ...: the OS knows best.
     ::wxLaunchDefaultApplication(fullPath);
     return;
   }
