@@ -314,8 +314,7 @@ void SessionPage::DestroyReviewPane() {
   // No update here: the page may be going away. CloseReviewBuddy() does it.
   m_reviewActivity = ProgramActivity::None;
   m_reviewerName.clear();
-  m_reviewTitle.clear();
-  m_reviewDir.clear();
+  m_reviewerWorking = true;
   m_reviewAcceleratorInterceptor.reset();
 }
 
@@ -686,22 +685,10 @@ void SessionPage::UpdateReviewHeader(bool force) {
   const wxString head = m_reviewerName.empty()
                             ? wxString(_("Review Buddy"))
                             : m_reviewerName + " (" + _("Review Buddy") + ")";
-  const wxString dir = !m_reviewTerminal->GetCurrentDir().empty()
-                           ? m_reviewTerminal->GetCurrentDir()
-                           : m_reviewDir;
-  ReviewBuddyHeader::SetText(m_reviewTerminal,
-                             JoinHeader(head, m_reviewTitle, dir), force);
-}
-
-void SessionPage::OnReviewCwdChanged(wxTerminalEvent &evt) {
-  evt.Skip();
-  UpdateReviewHeader();
-}
-
-void SessionPage::OnReviewTitleChanged(wxTerminalEvent &evt) {
-  evt.Skip();
-  m_reviewTitle = evt.GetTitle();
-  UpdateReviewHeader();
+  // Not JoinHeader(): this header has a state, no title or folder.
+  const wxString state =
+      m_reviewerWorking ? _("Reviewing changes") : _("Waiting");
+  ReviewBuddyHeader::SetText(m_reviewTerminal, head + " | " + state, force);
 }
 
 wxString SessionPage::GetCurrentDir() const {
@@ -1296,12 +1283,8 @@ wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
   // What the reviewer's program is doing shows on the page, like the agent's.
   m_reviewTerminal->Bind(wxEVT_TERMINAL_PROGRAM_STATUS,
                          &SessionPage::OnProgramStatus, this);
-  m_reviewTerminal->Bind(wxEVT_TERMINAL_TITLE_CHANGED,
-                         &SessionPage::OnReviewTitleChanged, this);
-  m_reviewTerminal->Bind(wxEVT_TERMINAL_CWD_CHANGED,
-                         &SessionPage::OnReviewCwdChanged, this);
   m_reviewerName = reviewer.name;
-  m_reviewDir = reviewerDir;
+  m_reviewerWorking = true;
   // After the theme and before the terminal starts, as for the agent's.
   UpdateReviewHeader();
 

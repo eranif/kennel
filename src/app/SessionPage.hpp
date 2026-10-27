@@ -112,11 +112,10 @@ private:
   void SetProgramActivity(ProgramActivity activity);
   // Works out the activity of the page from the one of each terminal.
   void UpdateProgramActivity();
-  // "Reviewer (Review Buddy) | title | folder" in the header of the review
-  // buddy's terminal. `force` shows it again when the text did not change.
+  // "Reviewer (Review Buddy) | Reviewing changes" (or "Waiting", while the
+  // main agent addresses the comments) in the header of the review buddy's
+  // terminal. `force` shows it again when the text did not change.
   void UpdateReviewHeader(bool force = false);
-  void OnReviewCwdChanged(wxTerminalEvent &evt);
-  void OnReviewTitleChanged(wxTerminalEvent &evt);
   // ---- Status (shown in the status bar of the main window) --------------
   // Works out where the agent runs and the session label.
   void InitStatus();
@@ -141,6 +140,13 @@ private:
   void OnReviewChanged(ReviewBuddyEvent &event) {
     // Skipped: the header of the review gets the event too.
     event.Skip();
+    // The reviewer works on a round. Otherwise it is idle: it waits for the
+    // main agent to address the comments, or for the user after the review
+    // ended or stalled.
+    const wxEventType type = event.GetEventType();
+    m_reviewerWorking = type == wxEVT_REVIEW_BUDDY_STARTED ||
+                        type == wxEVT_REVIEW_BUDDY_WAITING_FOR_FINDINGS;
+    UpdateReviewHeader();
     UpdateStatus();
   }
   void OnNoticeTimer(wxTimerEvent &) {
@@ -265,11 +271,10 @@ private:
   ProgramActivity m_programActivity{ProgramActivity::None};
   ProgramActivity m_terminalActivity{ProgramActivity::None};
   ProgramActivity m_reviewActivity{ProgramActivity::None};
-  wxString m_reviewerName;  // The agent of the review buddy's terminal
-  wxString m_reviewTitle;   // The title that terminal set
-  wxString m_reviewDir;     // Where it started
-  wxString m_defaultTitle;  // The window title
-  wxString m_terminalTitle; // The title the terminal set; in the status bar
+  wxString m_reviewerName;      // The agent of the review buddy's terminal
+  bool m_reviewerWorking{true}; // Reviewing, as opposed to waiting
+  wxString m_defaultTitle;      // The window title
+  wxString m_terminalTitle;     // The title the terminal set; in the status bar
   std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor{nullptr};
 };
 
