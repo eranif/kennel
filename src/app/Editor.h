@@ -86,6 +86,12 @@ public:
 
 private:
   void AddProperty(int style, const wxColour &bg, const wxColour &fg);
+  // The colour of the line numbers: the text colour, dimmed towards the
+  // background (the theme's "bright black" can be close to the background).
+  wxColour LineNumberColour() const;
+  // The colour of every kind of comment: a muted green that suits a dark or a
+  // light background. Both colours keep a minimum contrast with the background.
+  wxColour CommentColour() const;
   void InitEditor();
   void InitJsonStyle();
   void InitTextStyle();

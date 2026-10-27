@@ -2,7 +2,65 @@
 #include "wx/sizer.h"
 
 #include <algorithm>
+#include <cmath>
 #include <string>
+
+namespace {
+// Same test as ReviewBuddyHeader::SetText(): a dark background.
+bool IsDarkColour(const wxColour &colour) {
+  return (colour.Red() * 299 + colour.Green() * 587 + colour.Blue() * 114) /
+             1000 <
+         128;
+}
+
+// Relative luminance, see https://www.w3.org/TR/WCAG21/#dfn-relative-luminance
+double Luminance(const wxColour &colour) {
+  auto linear = [](unsigned char channel) {
+    const double value = channel / 255.0;
+    return value <= 0.03928 ? value / 12.92
+                            : std::pow((value + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * linear(colour.Red()) + 0.7152 * linear(colour.Green()) +
+         0.0722 * linear(colour.Blue());
+}
+
+// Contrast ratio of two colours: 1 (the same) to 21 (black on white).
+double Contrast(const wxColour &a, const wxColour &b) {
+  const double la = Luminance(a);
+  const double lb = Luminance(b);
+  return (std::max(la, lb) + 0.05) / (std::min(la, lb) + 0.05);
+}
+
+// `a` moved `t` (0..1) of the way towards `b`.
+wxColour Mix(const wxColour &a, const wxColour &b, double t) {
+  auto channel = [t](unsigned char from, unsigned char to) {
+    return static_cast<unsigned char>(std::lround(from + (to - from) * t));
+  };
+  return wxColour(channel(a.Red(), b.Red()), channel(a.Green(), b.Green()),
+                  channel(a.Blue(), b.Blue()));
+}
+
+// Lightens `colour` on a dark background (darkens it on a light one) until it
+// has at least `minContrast` with `bg`.
+wxColour EnsureContrast(wxColour colour, const wxColour &bg,
+                        double minContrast) {
+  const bool dark = IsDarkColour(bg);
+  for (int i = 0; i < 30 && Contrast(colour, bg) < minContrast; ++i) {
+    colour = colour.ChangeLightness(dark ? 108 : 92);
+  }
+  return colour;
+}
+} // namespace
+
+wxColour Editor::LineNumberColour() const {
+  return EnsureContrast(Mix(m_theme.fg, m_theme.bg, 0.5), m_theme.bg, 3.0);
+}
+
+wxColour Editor::CommentColour() const {
+  const wxColour base = IsDarkColour(m_theme.bg) ? wxColour(0x6A, 0x99, 0x55)
+                                                 : wxColour(0x2E, 0x7D, 0x32);
+  return EnsureContrast(base, m_theme.bg, 4.0);
+}
 
 Editor::Editor(wxWindow *parent, EditorLang lang, const wxTerminalTheme &theme)
     : wxPanel(parent), m_lang{lang}, m_theme{theme} {
@@ -37,7 +95,7 @@ void Editor::InitEditor() {
 
   // Line numbers in margin 0, followed by a one-pixel separator line (margin 1)
   // between them and the text; margin 2 is unused.
-  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
   m_ctrl->SetMarginType(0, wxSTC_MARGIN_NUMBER);
   m_ctrl->SetMarginType(1, wxSTC_MARGIN_COLOUR);
   m_ctrl->SetMarginBackground(1, m_theme.brightBlack);
@@ -130,7 +188,7 @@ void Editor::InitTextStyle() {
   // Plain text: no syntax highlighting, just the default colours.
   m_ctrl->SetLexer(wxSTC_LEX_NULL);
   AddProperty(wxSTC_STYLE_DEFAULT, m_theme.bg, m_theme.fg);
-  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
@@ -187,10 +245,10 @@ void Editor::InitCppLikeStyle(const char *keywords) {
   m_ctrl->SetKeyWords(0, keywords);
 
   AddProperty(wxSTC_C_DEFAULT, m_theme.bg, m_theme.fg);
-  AddProperty(wxSTC_C_COMMENT, m_theme.bg, m_theme.brightBlack);
-  AddProperty(wxSTC_C_COMMENTLINE, m_theme.bg, m_theme.brightBlack);
-  AddProperty(wxSTC_C_COMMENTDOC, m_theme.bg, m_theme.brightBlack);
-  AddProperty(wxSTC_C_COMMENTLINEDOC, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_C_COMMENT, m_theme.bg, CommentColour());
+  AddProperty(wxSTC_C_COMMENTLINE, m_theme.bg, CommentColour());
+  AddProperty(wxSTC_C_COMMENTDOC, m_theme.bg, CommentColour());
+  AddProperty(wxSTC_C_COMMENTLINEDOC, m_theme.bg, CommentColour());
   AddProperty(wxSTC_C_COMMENTDOCKEYWORD, m_theme.bg, m_theme.cyan);
   AddProperty(wxSTC_C_COMMENTDOCKEYWORDERROR, m_theme.bg, m_theme.red);
   AddProperty(wxSTC_C_NUMBER, m_theme.bg, m_theme.green);
@@ -204,15 +262,15 @@ void Editor::InitCppLikeStyle(const char *keywords) {
   AddProperty(wxSTC_C_VERBATIM, m_theme.bg, m_theme.yellow);
   AddProperty(wxSTC_C_ESCAPESEQUENCE, m_theme.bg, m_theme.yellow);
   AddProperty(wxSTC_C_PREPROCESSOR, m_theme.bg, m_theme.cyan);
-  AddProperty(wxSTC_C_PREPROCESSORCOMMENT, m_theme.bg, m_theme.brightBlack);
-  AddProperty(wxSTC_C_PREPROCESSORCOMMENTDOC, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_C_PREPROCESSORCOMMENT, m_theme.bg, CommentColour());
+  AddProperty(wxSTC_C_PREPROCESSORCOMMENTDOC, m_theme.bg, CommentColour());
   AddProperty(wxSTC_C_OPERATOR, m_theme.bg, m_theme.fg);
   AddProperty(wxSTC_C_IDENTIFIER, m_theme.bg, m_theme.fg);
   AddProperty(wxSTC_C_UUID, m_theme.bg, m_theme.green);
   AddProperty(wxSTC_C_REGEX, m_theme.bg, m_theme.yellow);
   AddProperty(wxSTC_C_USERLITERAL, m_theme.bg, m_theme.green);
   AddProperty(wxSTC_C_TASKMARKER, m_theme.bg, m_theme.brightYellow);
-  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
@@ -228,15 +286,15 @@ void Editor::InitJsonStyle() {
   AddProperty(wxSTC_JSON_STRINGEOL, m_theme.bg, m_theme.yellow);
   AddProperty(wxSTC_JSON_PROPERTYNAME, m_theme.bg, m_theme.brightBlue);
   AddProperty(wxSTC_JSON_ESCAPESEQUENCE, m_theme.bg, m_theme.yellow);
-  AddProperty(wxSTC_JSON_LINECOMMENT, m_theme.bg, m_theme.cyan);
-  AddProperty(wxSTC_JSON_BLOCKCOMMENT, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_JSON_LINECOMMENT, m_theme.bg, CommentColour());
+  AddProperty(wxSTC_JSON_BLOCKCOMMENT, m_theme.bg, CommentColour());
   AddProperty(wxSTC_JSON_OPERATOR, m_theme.bg, m_theme.fg);
   AddProperty(wxSTC_JSON_URI, m_theme.bg, m_theme.blue);
   AddProperty(wxSTC_JSON_COMPACTIRI, m_theme.bg, m_theme.blue);
   AddProperty(wxSTC_JSON_KEYWORD, m_theme.bg, m_theme.magenta);
   AddProperty(wxSTC_JSON_LDKEYWORD, m_theme.bg, m_theme.magenta);
   AddProperty(wxSTC_JSON_ERROR, m_theme.bg, m_theme.red);
-  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
@@ -274,7 +332,7 @@ void Editor::InitCMakeStyle() {
          "ARCHIVE WORKING_DIRECTORY DEPENDS COMMENT VERBATIM");
 
   AddProperty(wxSTC_CMAKE_DEFAULT, m_theme.bg, m_theme.fg);
-  AddProperty(wxSTC_CMAKE_COMMENT, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_CMAKE_COMMENT, m_theme.bg, CommentColour());
   AddProperty(wxSTC_CMAKE_STRINGDQ, m_theme.bg, m_theme.yellow);
   AddProperty(wxSTC_CMAKE_STRINGLQ, m_theme.bg, m_theme.yellow);
   AddProperty(wxSTC_CMAKE_STRINGRQ, m_theme.bg, m_theme.yellow);
@@ -288,7 +346,7 @@ void Editor::InitCMakeStyle() {
   AddProperty(wxSTC_CMAKE_MACRODEF, m_theme.bg, m_theme.magenta);
   AddProperty(wxSTC_CMAKE_STRINGVAR, m_theme.bg, m_theme.cyan);
   AddProperty(wxSTC_CMAKE_NUMBER, m_theme.bg, m_theme.green);
-  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
@@ -304,7 +362,7 @@ void Editor::InitBashStyle() {
 
   AddProperty(wxSTC_SH_DEFAULT, m_theme.bg, m_theme.fg);
   AddProperty(wxSTC_SH_ERROR, m_theme.bg, m_theme.red);
-  AddProperty(wxSTC_SH_COMMENTLINE, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_SH_COMMENTLINE, m_theme.bg, CommentColour());
   AddProperty(wxSTC_SH_NUMBER, m_theme.bg, m_theme.green);
   AddProperty(wxSTC_SH_WORD, m_theme.bg, m_theme.magenta);
   AddProperty(wxSTC_SH_STRING, m_theme.bg, m_theme.yellow);
@@ -316,7 +374,7 @@ void Editor::InitBashStyle() {
   AddProperty(wxSTC_SH_BACKTICKS, m_theme.bg, m_theme.yellow);
   AddProperty(wxSTC_SH_HERE_DELIM, m_theme.bg, m_theme.yellow);
   AddProperty(wxSTC_SH_HERE_Q, m_theme.bg, m_theme.yellow);
-  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
@@ -350,7 +408,7 @@ void Editor::InitMarkdownStyle() {
   AddProperty(wxSTC_MARKDOWN_CODE, m_theme.bg, m_theme.yellow);
   AddProperty(wxSTC_MARKDOWN_CODE2, m_theme.bg, m_theme.yellow);
   AddProperty(wxSTC_MARKDOWN_CODEBK, m_theme.bg, m_theme.yellow);
-  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
@@ -368,13 +426,13 @@ void Editor::InitXmlStyle() {
   AddProperty(wxSTC_H_SINGLESTRING, m_theme.bg, m_theme.yellow);
   AddProperty(wxSTC_H_VALUE, m_theme.bg, m_theme.yellow);
   AddProperty(wxSTC_H_OTHER, m_theme.bg, m_theme.magenta);
-  AddProperty(wxSTC_H_COMMENT, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_H_COMMENT, m_theme.bg, CommentColour());
   AddProperty(wxSTC_H_ENTITY, m_theme.bg, m_theme.magenta);
   AddProperty(wxSTC_H_QUESTION, m_theme.bg, m_theme.magenta);
   AddProperty(wxSTC_H_XMLSTART, m_theme.bg, m_theme.magenta);
   AddProperty(wxSTC_H_XMLEND, m_theme.bg, m_theme.magenta);
   AddProperty(wxSTC_H_CDATA, m_theme.bg, m_theme.yellow);
-  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
@@ -391,9 +449,9 @@ void Editor::InitRubyStyle() {
 
   AddProperty(wxSTC_RB_DEFAULT, m_theme.bg, m_theme.fg);
   AddProperty(wxSTC_RB_ERROR, m_theme.bg, m_theme.red);
-  AddProperty(wxSTC_RB_COMMENTLINE, m_theme.bg, m_theme.brightBlack);
-  AddProperty(wxSTC_RB_POD, m_theme.bg, m_theme.brightBlack);
-  AddProperty(wxSTC_RB_DATASECTION, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_RB_COMMENTLINE, m_theme.bg, CommentColour());
+  AddProperty(wxSTC_RB_POD, m_theme.bg, CommentColour());
+  AddProperty(wxSTC_RB_DATASECTION, m_theme.bg, CommentColour());
   AddProperty(wxSTC_RB_NUMBER, m_theme.bg, m_theme.green);
   AddProperty(wxSTC_RB_WORD, m_theme.bg, m_theme.magenta);
   AddProperty(wxSTC_RB_WORD_DEMOTED, m_theme.bg, m_theme.magenta);
@@ -417,7 +475,7 @@ void Editor::InitRubyStyle() {
                     wxSTC_RB_STRING_QI, wxSTC_RB_STRING_QS}) {
     AddProperty(style, m_theme.bg, m_theme.yellow);
   }
-  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
@@ -442,8 +500,8 @@ void Editor::InitPythonStyle() {
          "type vars zip self cls Exception ValueError TypeError KeyError");
 
   AddProperty(wxSTC_P_DEFAULT, m_theme.bg, m_theme.fg);
-  AddProperty(wxSTC_P_COMMENTLINE, m_theme.bg, m_theme.brightBlack);
-  AddProperty(wxSTC_P_COMMENTBLOCK, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_P_COMMENTLINE, m_theme.bg, CommentColour());
+  AddProperty(wxSTC_P_COMMENTBLOCK, m_theme.bg, CommentColour());
   AddProperty(wxSTC_P_NUMBER, m_theme.bg, m_theme.green);
   AddProperty(wxSTC_P_WORD, m_theme.bg, m_theme.magenta);
   AddProperty(wxSTC_P_WORD2, m_theme.bg, m_theme.blue);
@@ -459,7 +517,7 @@ void Editor::InitPythonStyle() {
                     wxSTC_P_FTRIPLE, wxSTC_P_FTRIPLEDOUBLE}) {
     AddProperty(style, m_theme.bg, m_theme.yellow);
   }
-  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
@@ -472,13 +530,13 @@ void Editor::InitMakefileStyle() {
   m_ctrl->SetIndent(8);
 
   AddProperty(wxSTC_MAKE_DEFAULT, m_theme.bg, m_theme.fg);
-  AddProperty(wxSTC_MAKE_COMMENT, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_MAKE_COMMENT, m_theme.bg, CommentColour());
   AddProperty(wxSTC_MAKE_PREPROCESSOR, m_theme.bg, m_theme.magenta);
   AddProperty(wxSTC_MAKE_IDENTIFIER, m_theme.bg, m_theme.cyan);
   AddProperty(wxSTC_MAKE_OPERATOR, m_theme.bg, m_theme.fg);
   AddProperty(wxSTC_MAKE_TARGET, m_theme.bg, m_theme.blue);
   AddProperty(wxSTC_MAKE_IDEOL, m_theme.bg, m_theme.red);
-  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, m_theme.brightBlack);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
