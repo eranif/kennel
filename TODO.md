@@ -1,6 +1,9 @@
 ## TODO tasks before version 2.0.0 is released.
 
 - [ ] Update CI to include installer for Windows (Similar to CodeLite's MSYS2 CI installer stage)
+      Workflow added (`.github/workflows/msys2.yml`): check its first run on GitHub, then tick this. Later: attach
+      the installer to the GitHub release on `v*` tags; add Windows on ARM (clangarm64, `windows-11-arm`) back:
+      CMake hardcodes `libcrypto-3-x64.dll` and the `.iss` allows x64 only
 - [ ] Gather files in their view (FlatView) similar to how we group terminals.
 - [ ] Files should be saved as part of the session
 - [ ] Add goto line to file editor

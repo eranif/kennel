@@ -1,0 +1,99 @@
+name: msys2
+# Builds Kennel on Windows with MSYS2 (clang) and creates the installer
+# (Inno Setup, the "setup" target of CMake, run by `./build.sh package`).
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+    paths-ignore:
+      - '**.md'
+      - '.agents/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - '.agents/**'
+# A newer push to the same branch or pull request replaces the run in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  msys2:
+    name: msys2 (${{ matrix.arch.msystem }})
+    runs-on: ${{ matrix.arch.runs-on }}
+    # The first build compiles wxWidgets; later ones restore it from the cache.
+    timeout-minutes: 120
+    env:
+      CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - msystem: clang64
+            runs-on: windows-latest
+          # Windows on ARM (msystem clangarm64, runs-on windows-11-arm) is off for
+          # now: CMakeLists.txt copies libcrypto-3-x64.dll (a name that only exists
+          # on x64), and installer.iss.in allows x64 only.
+    steps:
+      - uses: msys2/setup-msys2@v2
+        id: msys2
+        with:
+          msystem: ${{ matrix.arch.msystem }}
+          update: true
+          cache: true
+          release: false
+          install: >-
+            git unzip
+          # The packages of BUILDING.md. glew and llvm-openmp are DLLs that the
+          # installer needs (see SYSTEM_DLLS in CMakeLists.txt).
+          pacboy: >-
+            toolchain:p cmake:p make:p python:p libffi:p jq:p libxml2:p llvm-openmp:p ntldd:p zlib:p openssl:p glew:p
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      # Building wxWidgets is by far the slowest step: keep the result. The key
+      # changes with build.sh, which says which wxWidgets version to build and
+      # how.
+      - name: Cache wxWidgets
+        uses: actions/cache@v4
+        with:
+          path: .build-release/wxWidgets-install
+          key: wxwidgets-${{ matrix.arch.msystem }}-${{ hashFiles('build.sh') }}
+      # CMake looks for the Inno Setup compiler in its default folder. It is
+      # part of the Windows runner image; install it if this image has none.
+      - name: Check Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          Get-Item $iscc
+      - name: Build Kennel and create the installer
+        shell: msys2 {0}
+        run: |
+          # CMake wants a path like C:/msys64 here
+          export MSYS2_BASE=$(cygpath -m '${{ steps.msys2.outputs.msys2-location }}')
+          echo "MSYS2_BASE=${MSYS2_BASE} MSYSTEM=${MSYSTEM}"
+          ./build.sh package
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: kennel-installer-${{ matrix.arch.msystem }}
+          path: .build-release/kennel-*-installer.exe
+          if-no-files-found: error
+      # The installer must install, and put the program where it says.
+      - name: Install
+        shell: pwsh
+        run: |
+          $installer = (Get-Item .\.build-release\kennel-*-installer.exe).FullName
+          Start-Process -Wait -FilePath $installer -ArgumentList "/SILENT /SP- /SUPPRESSMSGBOXES /NOICONS /NORESTART"
+          # No administrator rights: it installs in the profile of the user
+          $dir = Join-Path $env:LOCALAPPDATA "Programs\Kennel"
+          Get-ChildItem -Recurse $dir | Select-Object -First 80 FullName
+          if (-not (Test-Path (Join-Path $dir "kennel.exe"))) {
+            throw "kennel.exe was not installed in $dir"
+          }

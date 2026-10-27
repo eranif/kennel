@@ -69,6 +69,15 @@ cd kennel
 $HOME/devl/kennel/.build-release/installer/bin/kennel.exe
 ```
 
+### Installer and CI
+
+`./build.sh package` also creates the installer (`.build-release/kennel-<version>-<arch>-installer.exe`)
+with [Inno Setup](https://jrsoftware.org/). The GitHub Actions workflow
+`.github/workflows/msys2.yml` does the same on a Windows runner (MSYS2 clang64; Windows on ARM is off for now)
+for every push to `main`, pull request and `v*` tag. It uploads the installer as a build
+artifact and installs it silently as a smoke test. The first run builds wxWidgets (slow); later runs
+restore it from the cache, which changes whenever `build.sh` changes.
+
 ## Project Structure
 
 ```
