@@ -120,7 +120,9 @@ void CrashSignalHandler(int sig, siginfo_t * /*info*/, void * /*context*/) {
 
   // Re-raise with default handler so the process exits with a crash status
   // and core-dump generation is preserved.
+  // clang-format off
   struct sigaction sa {};
+  // clang-format on
   sa.sa_handler = SIG_DFL;
   sigemptyset(&sa.sa_mask);
   sigaction(sig, &sa, nullptr);
@@ -134,7 +136,9 @@ void CrashHandler::Install(const wxString &logDir) {
   strncpy(g_logDir, dir, sizeof(g_logDir) - 1);
   g_logDir[sizeof(g_logDir) - 1] = '\0';
 
+  // clang-format off
   struct sigaction sa {};
+  // clang-format on
   sa.sa_sigaction = CrashSignalHandler;
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = SA_SIGINFO | SA_RESETHAND;
