@@ -270,8 +270,9 @@ private:
   void OnSessionProgram(wxCommandEvent &e);
   void OnSessionCwd(wxCommandEvent &e);
   void OnSpinnerTimer(wxTimerEvent &e);
-  // Shows the icon that fits what `page` is doing (its own icon, the spinner
-  // or the check mark) on its row in both views.
+  // Shows what `page` is doing (the spinner, the check mark or the hand) on its
+  // row: as the status icon in the list of the sessions, in place of the icon
+  // of a terminal.
   void ApplyPageIcon(SessionPage *page);
   // Runs the spinner timer while at least one page is working.
   void UpdateSpinnerTimer();

@@ -9,12 +9,23 @@
 #include <wx/sizer.h>
 #include <wx/splitter.h>
 
+#include <utility>
+
 namespace {
-enum Column { kColumnName = 0, kColumnGroup, kColumnKey };
+// The model columns of both lists. The list of the sessions shows all of them
+// but the key: "icon + name | status | icon + group". The list of the
+// terminals shows "icon + name | directory" (its status column is hidden, and
+// its group column holds the directory).
+enum Column { kColumnName = 0, kColumnStatus, kColumnGroup, kColumnKey };
 
 // How a sorted column is named in the UI prefs.
 constexpr const char *kSortByName = "name";
 constexpr const char *kSortByGroup = "group";
+
+// The width of the status column, in DIP: room for one 16 pixel icon.
+constexpr int kStatusWidthDip = 28;
+// A fitted column is never narrower than this when it is capped, in DIP.
+constexpr int kMinCapDip = 60;
 
 // The text of a cell that holds an icon with its text.
 wxString IconTextOf(const wxVariant &value) {
@@ -76,10 +87,14 @@ private:
   }
 };
 
-// A list of "icon + name | second column", plus the hidden key column. The
-// second column has an icon too when `secondIsIconText` (the group).
+// A list of "icon + name | status | second column", plus the hidden key
+// column. The status column (an icon, no text) has a fixed width: it is the one
+// column that is not fitted to its content (see FlatView::FitColumns()). It is
+// hidden when the list has no status column. The second column has an icon too
+// when `secondIsIconText` (the group), and is plain text otherwise (the
+// directory).
 wxDataViewListCtrl *NewList(wxWindow *parent, const wxString &secondColumn,
-                            int secondWidth, bool secondIsIconText) {
+                            bool showStatus, bool secondIsIconText) {
   auto *list =
       new wxDataViewListCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                              wxDV_ROW_LINES | wxDV_SINGLE);
@@ -89,13 +104,21 @@ wxDataViewListCtrl *NewList(wxWindow *parent, const wxString &secondColumn,
   store->DecRef();
 
   StylePageView(list);
-  list->AppendIconTextColumn(_("Name"), wxDATAVIEW_CELL_INERT, 160)
+  list->AppendIconTextColumn(_("Name"), wxDATAVIEW_CELL_INERT,
+                             wxCOL_WIDTH_AUTOSIZE)
       ->SetSortable(true);
+  // No title, not resizable (flags 0), and centred: only an icon.
+  auto *status = list->AppendIconTextColumn(
+      wxEmptyString, wxDATAVIEW_CELL_INERT, parent->FromDIP(kStatusWidthDip),
+      wxALIGN_CENTER, 0);
+  status->SetHidden(!showStatus);
   if (secondIsIconText) {
-    list->AppendIconTextColumn(secondColumn, wxDATAVIEW_CELL_INERT, secondWidth)
+    list->AppendIconTextColumn(secondColumn, wxDATAVIEW_CELL_INERT,
+                               wxCOL_WIDTH_AUTOSIZE)
         ->SetSortable(true);
   } else {
-    list->AppendTextColumn(secondColumn, wxDATAVIEW_CELL_INERT, secondWidth)
+    list->AppendTextColumn(secondColumn, wxDATAVIEW_CELL_INERT,
+                           wxCOL_WIDTH_AUTOSIZE)
         ->SetSortable(true);
   }
   // The page's name (session name or file key): the label is not unique.
@@ -117,9 +140,10 @@ FlatView::FlatView(wxWindow *parent) : wxPanel(parent) {
   SetSizer(sizer);
 
   // The sessions and the files on top, the terminals below.
-  m_list = NewList(m_splitter, _("Group"), 100, /*secondIsIconText=*/true);
-  m_terminalList =
-      NewList(m_splitter, _("Directory"), 200, /*secondIsIconText=*/false);
+  m_list = NewList(m_splitter, _("Group"), /*showStatus=*/true,
+                   /*secondIsIconText=*/true);
+  m_terminalList = NewList(m_splitter, _("Directory"), /*showStatus=*/false,
+                           /*secondIsIconText=*/false);
   m_splitter->SplitHorizontally(m_list, m_terminalList);
   RestoreSortOrder();
 
@@ -128,6 +152,7 @@ FlatView::FlatView(wxWindow *parent) : wxPanel(parent) {
                this);
     list->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &FlatView::OnContextMenu,
                this);
+    list->Bind(wxEVT_SIZE, &FlatView::OnListSize, this);
   }
   // Bound after RestoreSortOrder(): on macOS restoring sends this event too.
   // Only the top list is sorted (and the sort saved): the terminals keep the
@@ -203,10 +228,16 @@ void FlatView::SetPages(const std::vector<PageInfo> &pages,
   m_list->DeleteAllItems();
   m_terminalList->DeleteAllItems();
   m_selected = selected;
+  std::vector<SessionRef> rows;
   for (const auto &info : pages) {
+    rows.push_back(info.Ref());
     const bool terminal = IsTerminalGroup(info.group);
     wxVector<wxVariant> row;
-    row.push_back(wxVariant(wxDataViewIconText(info.label, info.icon)));
+    // A terminal has no status column: its icon shows the status instead.
+    row.push_back(wxVariant(wxDataViewIconText(
+        info.label, terminal ? info.DisplayIcon() : info.icon)));
+    row.push_back(wxVariant(wxDataViewIconText(
+        wxEmptyString, terminal ? wxBitmapBundle{} : info.statusIcon)));
     if (terminal) {
       row.push_back(wxVariant(info.dir));
     } else {
@@ -218,23 +249,40 @@ void FlatView::SetPages(const std::vector<PageInfo> &pages,
   if (selected) {
     SelectPage(*selected);
   }
+  // Only a page that came or went (or was renamed or moved) changes the widths
+  // the columns need. A refresh that leaves the rows as they are (a new
+  // directory, say) keeps the widths, so a width the user dragged stays.
+  if (rows != m_rows) {
+    m_rows = std::move(rows);
+    FitColumnsSoon();
+  }
 }
 
-void FlatView::SetPageIcon(const SessionRef &ref, const wxBitmapBundle &icon) {
+void FlatView::SetPageStatusIcon(const SessionRef &ref,
+                                 const wxBitmapBundle &status,
+                                 const wxBitmapBundle &baseIcon) {
   auto item = FindRow(ref);
-  if (!item || !icon.IsOk()) {
+  if (!item) {
     return;
   }
   auto *list = ListFor(ref.groupName);
   const int row = list->ItemToRow(*item);
-  wxVariant value;
-  list->GetValue(value, row, kColumnName);
-  wxDataViewIconText iconText;
-  iconText << value;
-  iconText.SetBitmapBundle(icon);
   // On macOS a change of a value can send a selection event.
   wxEventBlocker blocker(list, wxEVT_DATAVIEW_SELECTION_CHANGED);
-  list->SetValue(wxVariant(iconText), row, kColumnName);
+  if (list == m_terminalList) {
+    // No status column: the status takes the place of the icon of the name.
+    wxVariant value;
+    list->GetValue(value, row, kColumnName);
+    wxDataViewIconText iconText;
+    iconText << value;
+    iconText.SetBitmapBundle(status.IsOk() ? status : baseIcon);
+    list->SetValue(wxVariant(iconText), row, kColumnName);
+    return;
+  }
+  // An icon that is not ok empties the cell. The column has a fixed width, so
+  // nothing needs to be fitted.
+  list->SetValue(wxVariant(wxDataViewIconText(wxEmptyString, status)), row,
+                 kColumnStatus);
 }
 
 void FlatView::Clear() {
@@ -243,6 +291,63 @@ void FlatView::Clear() {
   m_list->DeleteAllItems();
   m_terminalList->DeleteAllItems();
   m_selected.reset();
+  m_rows.clear();
+  FitColumnsSoon();
+}
+
+void FlatView::FitColumnsSoon() {
+  // Deferred: the lists have their final size by then (at start-up the rows are
+  // added before the window is laid out), and one pass serves a burst of
+  // changes.
+  if (m_fitPending) {
+    return;
+  }
+  m_fitPending = true;
+  CallAfter(&FlatView::FitColumns);
+}
+
+void FlatView::FitColumns() {
+  m_fitPending = false;
+  m_fitSizeUnknown = false;
+  for (auto *list : {m_list, m_terminalList}) {
+    // One long name or directory must not push the other column out of view:
+    // each fitted column gets at most half of the width that the status column
+    // (when it is shown) leaves. A list that is not laid out yet has a size
+    // that means nothing: no cap then, and OnListSize() fits again once the
+    // list has its size.
+    const bool statusShown = !list->GetColumn(kColumnStatus)->IsHidden();
+    const int status = statusShown ? list->FromDIP(kStatusWidthDip) : 0;
+    const int width = list->GetClientSize().x;
+    int cap = 0;
+    if (width >= status + 2 * list->FromDIP(kMinCapDip)) {
+      cap = (width - status) / 2;
+    } else {
+      m_fitSizeUnknown = true;
+    }
+    for (unsigned i = 0; i < list->GetColumnCount(); ++i) {
+      auto *column = list->GetColumn(i);
+      // The status column keeps its width, and the key is hidden.
+      if (column->GetModelColumn() == kColumnStatus ||
+          column->GetModelColumn() == kColumnKey) {
+        continue;
+      }
+      // The generic control keeps an autosized column fitted by itself; the
+      // native ones (macOS, GTK) fit it once, when this is called.
+      column->SetWidth(wxCOL_WIDTH_AUTOSIZE);
+      if (cap > 0 && column->GetWidth() > cap) {
+        column->SetWidth(cap);
+      }
+    }
+  }
+}
+
+void FlatView::OnListSize(wxSizeEvent &event) {
+  event.Skip();
+  // Only for a fit that had no size to go by. Later resizes of the window do
+  // not touch the widths, so a column the user dragged stays.
+  if (m_fitSizeUnknown) {
+    FitColumnsSoon();
+  }
 }
 
 bool FlatView::IsTerminalGroup(const wxString &group) {

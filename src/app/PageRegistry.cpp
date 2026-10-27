@@ -251,14 +251,12 @@ void PageRegistry::MoveSession(SessionPage *page, const wxString &toGroup) {
   AddLeaf(toGroup, page, SessionIconFor(page->GetSession()));
 }
 
-void PageRegistry::SetPageIcon(wxWindow *page, const wxBitmapBundle &icon) {
-  if (!icon.IsOk()) {
-    return;
-  }
+void PageRegistry::SetPageStatusIcon(wxWindow *page,
+                                     const wxBitmapBundle &icon) {
   if (auto *entry = FindEntryOf(page)) {
     for (auto &leaf : entry->leaves) {
       if (leaf.page == page) {
-        leaf.icon = icon;
+        leaf.statusIcon = icon;
       }
     }
   }
@@ -340,7 +338,7 @@ std::vector<PageInfo> PageRegistry::GetPages() const {
         dir = session->GetCurrentDir();
       }
       result.push_back({LabelOf(leaf.page), groupName, KeyOf(leaf.page), dir,
-                        leaf.icon, groupIcon});
+                        leaf.icon, groupIcon, leaf.statusIcon});
     }
   }
   return result;

@@ -73,8 +73,9 @@ public:
   // Moves a session to another group (created if needed) and updates the
   // session's group name.
   void MoveSession(SessionPage *page, const wxString &toGroup);
-  // Gives `page` another icon (the spinner, the check mark, ...).
-  void SetPageIcon(wxWindow *page, const wxBitmapBundle &icon);
+  // Sets what `page` shows as its status (the spinner, the check mark, the
+  // hand); an icon that is not ok clears it.
+  void SetPageStatusIcon(wxWindow *page, const wxBitmapBundle &icon);
 
   SessionPage *FindSession(const wxString &group, const wxString &name) const;
   // The session or file `ref` names, or nullptr.
@@ -95,6 +96,7 @@ private:
   struct Leaf {
     wxWindow *page{nullptr}; // A SessionPage or a FilePage; not owned
     wxBitmapBundle icon;
+    wxBitmapBundle statusIcon;
   };
   struct Entry {
     std::unique_ptr<SessionGroup> group;

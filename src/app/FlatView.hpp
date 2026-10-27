@@ -9,12 +9,17 @@
 
 class wxSplitterWindow;
 
-// Every open page (session, terminal, file) in one list: "icon + name |
-// group". It is a projection of what PageRegistry holds, so it never owns
-// anything; MainView feeds it with SetPages(). Each row carries its page's name
-// in a hidden column. The selected page is also kept here: sorting keeps the
-// selected row number, not the selected item (on macOS and in the generic
-// control), so the selection is put back after a sort.
+// Every open page (session, terminal, file) in two lists. The sessions and the
+// files: "icon + name | status | icon + group", where the status is the
+// spinner, the check mark or the hand (an icon in a column of its own, always
+// the same width). The terminals: "icon + name | directory" (the status
+// replaces the icon of the name). After every change of the rows each column
+// but the status is fitted to its content. It is a projection of what
+// PageRegistry holds, so it never owns anything; MainView feeds it with
+// SetPages(). Each row carries its page's name in a hidden column. The selected
+// page is also kept here: sorting keeps the selected row number, not the
+// selected item (on macOS and in the generic control), so the selection is put
+// back after a sort.
 //
 // A click on the Name or Group header sorts the list by that column (a second
 // click turns the order around). The choice is kept in the UI prefs, so it is
@@ -33,9 +38,11 @@ public:
   void SetPages(const std::vector<PageInfo> &pages,
                 const std::optional<SessionRef> &selected);
 
-  // Gives the row of `ref` another icon (the spinner, the check mark, ...),
-  // without a rebuild of the list. Never sends events.
-  void SetPageIcon(const SessionRef &ref, const wxBitmapBundle &icon);
+  // Shows `status` (the spinner, the check mark, the hand; not ok for none) on
+  // the row of `ref`, without a rebuild of the list. A terminal has no status
+  // column: its row shows `status` in place of `baseIcon`. Never sends events.
+  void SetPageStatusIcon(const SessionRef &ref, const wxBitmapBundle &status,
+                         const wxBitmapBundle &baseIcon);
 
   void Clear();
 
@@ -64,9 +71,21 @@ private:
   wxDataViewListCtrl *ListFor(const wxString &group) const;
   std::optional<SessionRef> RefOf(wxDataViewListCtrl *list,
                                   const wxDataViewItem &item) const;
+  // Fits the width of the columns (all but the status) to their content, once
+  // the pending changes are done.
+  void FitColumnsSoon();
+  void FitColumns();
+  // A list got a new size: fits again if the last fit had no size to go by.
+  void OnListSize(wxSizeEvent &event);
 
   wxSplitterWindow *m_splitter{nullptr};
   wxDataViewListCtrl *m_list{nullptr};
   wxDataViewListCtrl *m_terminalList{nullptr};
   std::optional<SessionRef> m_selected; // The page whose row is selected
+  // The pages shown now, in order: when they change, the columns are fitted.
+  std::vector<SessionRef> m_rows;
+  bool m_fitPending{false};
+  // The last fit ran before the lists had a size, so it could not cap the
+  // width.
+  bool m_fitSizeUnknown{false};
 };

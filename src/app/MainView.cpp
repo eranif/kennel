@@ -376,7 +376,7 @@ void MainView::SwitchPage(bool forward) {
   if (wxGetMouseState().RawControlDown()) {
     std::vector<PageSwitcherItem> items;
     for (const auto &info : ordered) {
-      items.push_back({info.label, info.dir, info.group, info.icon});
+      items.push_back({info.label, info.dir, info.group, info.DisplayIcon()});
     }
     // Modeless on purpose: a modal loop left the app lagging after closing.
     m_switcherPages = ordered;
@@ -1312,7 +1312,8 @@ void MainView::MoveSessionToGroup(const wxString &sessionName,
   RenameRecent(SessionRef{fromGroupName, sessionName},
                SessionRef{toGroupName, sessionName});
   m_pages->MoveSession(page, toGroupName);
-  ApplyPageIcon(page); // The new leaf got the plain icon.
+  // MoveSession re-created the leaf without its status: put it back.
+  ApplyPageIcon(page);
   // The old group may be empty now. Deferred, see RemovePage().
   CallAfter(&MainView::RemoveEmptyGroups);
 
@@ -1401,27 +1402,26 @@ void MainView::UpdateSpinnerTimer() {
 }
 
 void MainView::ApplyPageIcon(SessionPage *page) {
-  wxBitmapBundle icon;
+  // Not ok when the program does nothing.
+  wxBitmapBundle status;
   switch (page->GetProgramActivity()) {
   case SessionPage::ProgramActivity::Working:
-    icon = m_spinnerFrames[m_spinnerFrame];
+    status = m_spinnerFrames[m_spinnerFrame];
     break;
   case SessionPage::ProgramActivity::Done:
-    icon = m_checkIcon;
+    status = m_checkIcon;
     break;
   case SessionPage::ProgramActivity::Blocked:
     // The program needs the user: it raises its hand.
-    icon = m_handIcon;
+    status = m_handIcon;
     break;
   case SessionPage::ProgramActivity::None:
     break;
   }
-  if (!icon.IsOk()) {
-    icon = SessionIconFor(page->GetSession());
-  }
-  m_pages->SetPageIcon(page, icon);
+  m_pages->SetPageStatusIcon(page, status);
   const Session &session = page->GetSession();
-  m_flatView->SetPageIcon(SessionRef{session.groupName, session.name}, icon);
+  m_flatView->SetPageStatusIcon(SessionRef{session.groupName, session.name},
+                                status, SessionIconFor(session));
 }
 
 void MainView::OnSessionExited(wxCommandEvent &e) {

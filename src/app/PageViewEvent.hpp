@@ -16,8 +16,15 @@ struct PageInfo {
   wxString dir;        // The folder of a terminal (empty for the others)
   wxBitmapBundle icon; // A bundle, not an icon: it keeps its size on any DPI
   wxBitmapBundle groupIcon; // The icon of the group
+  // What the program in the page is doing now: the spinner, the check mark or
+  // the hand. Not ok when it does nothing.
+  wxBitmapBundle statusIcon;
 
   SessionRef Ref() const { return SessionRef{group, key}; }
+  // The status when there is one, otherwise the icon of the page.
+  const wxBitmapBundle &DisplayIcon() const {
+    return statusIcon.IsOk() ? statusIcon : icon;
+  }
 };
 
 // Sent when the user interacts with a view. The page is named by GetRef() (a
