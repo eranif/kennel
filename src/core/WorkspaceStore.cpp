@@ -19,14 +19,19 @@ json ToJson(const Workspace &ws) {
   json sessions = json::array();
   for (const Session &s : ws.sessions) {
     if (!s.IsPersistent())
-      // do not persist terminals or one-shot job runs
+      // do not persist one-shot job runs
       continue;
-    sessions.push_back({
+    json entry = {
         {"name", ToUtf8(s.name)},
         {"agentName", ToUtf8(s.agentName)},
         {"workingDir", ToUtf8(s.workingDir)},
         {"groupName", ToUtf8(s.groupName)},
-    });
+    };
+    if (s.plainTerminal) {
+      entry["plainTerminal"] = true;
+      entry["loginShell"] = ToUtf8(s.loginShell);
+    }
+    sessions.push_back(std::move(entry));
   }
   json groups = json::array();
   for (const GroupMeta &g : ws.groups) {
@@ -55,6 +60,10 @@ Session ParseSession(const json &j) {
   s.agentName = GetStr(j, "agentName");
   s.workingDir = GetStr(j, "workingDir");
   s.groupName = GetStr(j, "groupName", _("Default"));
+  if (auto it = j.find("plainTerminal"); it != j.end() && it->is_boolean()) {
+    s.plainTerminal = it->get<bool>();
+  }
+  s.loginShell = GetStr(j, "loginShell");
   return s;
 }
 

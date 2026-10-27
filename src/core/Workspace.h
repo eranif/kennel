@@ -11,6 +11,8 @@ struct Session {
   wxString workingDir; // cwd the client runs in
   wxString groupName;
   bool plainTerminal{false}; // This session represents a plain terminal
+  // The shell a plain terminal runs. Empty: the default one (or ask, when
+  // there are several). Saved so that a restored terminal does not ask again.
   wxString loginShell;
 
   // Transient, never persisted: set when this session is a one-shot job run.
@@ -24,9 +26,9 @@ struct Session {
   // session name is "<jobName> #N", but the name alone isn't parsed back).
   wxString jobName;
   inline bool IsJobRun() const { return !jobCommands.empty(); }
-  // Whether the session is written to workspace.json: plain terminals and
-  // one-shot job runs are not.
-  inline bool IsPersistent() const { return !plainTerminal && !IsJobRun(); }
+  // Whether the session is written to workspace.json: everything but one-shot
+  // job runs (plain terminals are restored too).
+  inline bool IsPersistent() const { return !IsJobRun(); }
 };
 
 // Names a page of the main view by strings, never by pointer. A session:

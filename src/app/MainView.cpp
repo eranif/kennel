@@ -265,7 +265,16 @@ void MainView::SyncWorkspaceToDisk() {
       ws.groups.push_back(GroupMeta{group->GetGroupName(), group->GetIcon()});
     }
     for (auto *page : m_treeView->GetGroupSessions(group->GetGroupName())) {
-      ws.sessions.push_back(page->GetSession());
+      Session session = page->GetSession();
+      if (session.plainTerminal) {
+        // Where the user is now, if it is a folder of this machine (a shell in
+        // WSL, for one, reports a path that is not).
+        const wxString dir = page->GetCurrentDir();
+        if (!dir.empty() && wxDirExists(dir)) {
+          session.workingDir = dir;
+        }
+      }
+      ws.sessions.push_back(std::move(session));
     }
   }
 
@@ -678,10 +687,15 @@ void MainView::CloseAllFiles() {
 // ---------------------------------------------------------------------------
 
 void MainView::StartTerminal() {
+  // Restored terminals keep their names: skip the ones that are taken.
   static int terminalId{0};
+  wxString name;
+  do {
+    name = wxString::Format(_("Terminal %d"), ++terminalId);
+  } while (IsNameExist(name, kTerminalsGroupName));
   const auto &prefs = AppManager::Get().GetPrefs();
   NewSessionRequest request{
-      .name = wxString::Format(_("Terminal %d"), ++terminalId),
+      .name = name,
       .agentName = _("Terminals"), // Fake name
       .workingDir = prefs.terminalHomeDir,
       .groupName = kTerminalsGroupName,
@@ -1394,6 +1408,8 @@ void MainView::OnSessionActive(wxCommandEvent &e) { e.Skip(); }
 void MainView::OnSessionCwd(wxCommandEvent &e) {
   e.Skip();
   RefreshFlatView();
+  // A restored terminal starts in the folder it was left in.
+  SyncWorkspaceSoon();
 }
 
 void MainView::OnSessionProgram(wxCommandEvent &e) {

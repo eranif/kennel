@@ -333,7 +333,10 @@ void SessionPage::CreateTerminal() {
   // Use the default login shell
   wxString shellCommand = prefs.terminalLoginShell;
 
-  if (m_session.plainTerminal) {
+  if (m_session.plainTerminal && !m_session.loginShell.empty()) {
+    // A restored terminal runs the shell it had.
+    shellCommand = m_session.loginShell;
+  } else if (m_session.plainTerminal) {
     // For plain terminals, we use the following logic to determine the
     // terminal: Assume the default terminal. If we have multiple terminals,
     // prompt the user to pick one (we set the default terminal as the default
@@ -359,6 +362,7 @@ void SessionPage::CreateTerminal() {
       }
       shellCommand = m[selectionShell];
     }
+    m_session.loginShell = shellCommand;
   }
 
   if (m_agent) {
