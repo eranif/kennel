@@ -336,6 +336,8 @@ std::vector<PageInfo> PageRegistry::GetPages() const {
       wxString dir;
       if (auto *session = dynamic_cast<SessionPage *>(leaf.page)) {
         dir = session->GetCurrentDir();
+      } else if (auto *file = dynamic_cast<FilePage *>(leaf.page)) {
+        dir = file->GetFolder();
       }
       result.push_back({LabelOf(leaf.page), groupName, KeyOf(leaf.page), dir,
                         leaf.icon, groupIcon, leaf.statusIcon});

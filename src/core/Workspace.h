@@ -49,12 +49,24 @@ struct GroupMeta {
   wxString icon; // Bitmaps alias, e.g. "group-red"
 };
 
+// One open file (workspace.json -> files[]). Only the place of the file is
+// kept: edits that were not saved are not.
+struct SessionFile {
+  wxString path;       // A local file: its full path. A remote one: the path on
+                       // the host.
+  wxString remoteHost; // Empty for a local file
+  wxString remoteUser; // Empty: the ssh default
+};
+
 // The single implicit workspace and its sessions.
 struct Workspace {
   int version = 1;
   std::vector<Session> sessions;
   std::vector<GroupMeta> groups;
-  // Persistent sessions, most recently used first.
+  // The open files, in the order of the last run (new ones last).
+  std::vector<SessionFile> files;
+  // Persistent sessions and open files, most recently used first. A file is in
+  // the group of the Files container, named by its key.
   std::vector<SessionRef> recentSessions;
 };
 

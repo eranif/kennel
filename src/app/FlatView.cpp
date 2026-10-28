@@ -139,15 +139,23 @@ FlatView::FlatView(wxWindow *parent) : wxPanel(parent) {
   sizer->Add(m_splitter, wxSizerFlags(1).Expand());
   SetSizer(sizer);
 
-  // The sessions and the files on top, the terminals below.
+  // The sessions on top, then the files, the terminals at the bottom.
   m_list = NewList(m_splitter, _("Group"), /*showStatus=*/true,
                    /*secondIsIconText=*/true);
-  m_terminalList = NewList(m_splitter, _("Directory"), /*showStatus=*/false,
-                           /*secondIsIconText=*/false);
-  m_splitter->SplitHorizontally(m_list, m_terminalList);
+  m_lowerSplitter =
+      new wxSplitterWindow(m_splitter, wxID_ANY, wxDefaultPosition,
+                           wxDefaultSize, wxSP_LIVE_UPDATE | wxSP_3DSASH);
+  m_lowerSplitter->SetSashGravity(0.5);
+  m_lowerSplitter->SetMinimumPaneSize(FromDIP(60));
+  m_fileList = NewList(m_lowerSplitter, _("Folder"), /*showStatus=*/false,
+                       /*secondIsIconText=*/false);
+  m_terminalList = NewList(m_lowerSplitter, _("Directory"),
+                           /*showStatus=*/false, /*secondIsIconText=*/false);
+  m_lowerSplitter->SplitHorizontally(m_fileList, m_terminalList);
+  m_splitter->SplitHorizontally(m_list, m_lowerSplitter);
   RestoreSortOrder();
 
-  for (auto *list : {m_list, m_terminalList}) {
+  for (auto *list : Lists()) {
     list->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED, &FlatView::OnSelectionChanged,
                this);
     list->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &FlatView::OnContextMenu,
@@ -155,8 +163,8 @@ FlatView::FlatView(wxWindow *parent) : wxPanel(parent) {
     list->Bind(wxEVT_SIZE, &FlatView::OnListSize, this);
   }
   // Bound after RestoreSortOrder(): on macOS restoring sends this event too.
-  // Only the top list is sorted (and the sort saved): the terminals keep the
-  // group order.
+  // Only the top list is sorted (and the sort saved): the files and the
+  // terminals keep the group order.
   m_list->Bind(wxEVT_DATAVIEW_COLUMN_SORTED, &FlatView::OnColumnSorted, this);
   EventNotifier::Get()->Bind(wxEVT_PAGEVIEW_SELECTED, &FlatView::OnPageSelected,
                              this);
@@ -225,20 +233,24 @@ void FlatView::SetPages(const std::vector<PageInfo> &pages,
   // macOS a programmatic selection does send the event.
   wxEventBlocker blocker1(m_list, wxEVT_DATAVIEW_SELECTION_CHANGED);
   wxEventBlocker blocker2(m_terminalList, wxEVT_DATAVIEW_SELECTION_CHANGED);
-  m_list->DeleteAllItems();
-  m_terminalList->DeleteAllItems();
+  wxEventBlocker blocker3(m_fileList, wxEVT_DATAVIEW_SELECTION_CHANGED);
+  for (auto *list : Lists()) {
+    list->DeleteAllItems();
+  }
   m_selected = selected;
   std::vector<SessionRef> rows;
   for (const auto &info : pages) {
     rows.push_back(info.Ref());
+    // The terminals and the files have a directory, no group column and no
+    // status column (a terminal shows the status in place of its icon).
     const bool terminal = IsTerminalGroup(info.group);
+    const bool hasDir = terminal || IsFilesGroup(info.group);
     wxVector<wxVariant> row;
-    // A terminal has no status column: its icon shows the status instead.
     row.push_back(wxVariant(wxDataViewIconText(
         info.label, terminal ? info.DisplayIcon() : info.icon)));
     row.push_back(wxVariant(wxDataViewIconText(
-        wxEmptyString, terminal ? wxBitmapBundle{} : info.statusIcon)));
-    if (terminal) {
+        wxEmptyString, hasDir ? wxBitmapBundle{} : info.statusIcon)));
+    if (hasDir) {
       row.push_back(wxVariant(info.dir));
     } else {
       row.push_back(wxVariant(wxDataViewIconText(info.group, info.groupIcon)));
@@ -266,6 +278,9 @@ void FlatView::SetPageStatusIcon(const SessionRef &ref,
     return;
   }
   auto *list = ListFor(ref.groupName);
+  if (list == m_fileList) {
+    return; // A file has no status
+  }
   const int row = list->ItemToRow(*item);
   // On macOS a change of a value can send a selection event.
   wxEventBlocker blocker(list, wxEVT_DATAVIEW_SELECTION_CHANGED);
@@ -288,8 +303,10 @@ void FlatView::SetPageStatusIcon(const SessionRef &ref,
 void FlatView::Clear() {
   wxEventBlocker blocker1(m_list, wxEVT_DATAVIEW_SELECTION_CHANGED);
   wxEventBlocker blocker2(m_terminalList, wxEVT_DATAVIEW_SELECTION_CHANGED);
-  m_list->DeleteAllItems();
-  m_terminalList->DeleteAllItems();
+  wxEventBlocker blocker3(m_fileList, wxEVT_DATAVIEW_SELECTION_CHANGED);
+  for (auto *list : Lists()) {
+    list->DeleteAllItems();
+  }
   m_selected.reset();
   m_rows.clear();
   FitColumnsSoon();
@@ -309,7 +326,7 @@ void FlatView::FitColumnsSoon() {
 void FlatView::FitColumns() {
   m_fitPending = false;
   m_fitSizeUnknown = false;
-  for (auto *list : {m_list, m_terminalList}) {
+  for (auto *list : Lists()) {
     // One long name or directory must not push the other column out of view:
     // each fitted column gets at most half of the width that the status column
     // (when it is shown) leaves. A list that is not laid out yet has a size
@@ -354,8 +371,24 @@ bool FlatView::IsTerminalGroup(const wxString &group) {
   return group == kTerminalsGroupName;
 }
 
+bool FlatView::IsFilesGroup(const wxString &group) {
+  return group == kFilesGroupName;
+}
+
 wxDataViewListCtrl *FlatView::ListFor(const wxString &group) const {
-  return IsTerminalGroup(group) ? m_terminalList : m_list;
+  if (IsTerminalGroup(group)) {
+    return m_terminalList;
+  }
+  return IsFilesGroup(group) ? m_fileList : m_list;
+}
+
+void FlatView::UnselectOthers(wxDataViewListCtrl *list) {
+  for (auto *other : Lists()) {
+    if (other != list) {
+      wxEventBlocker blocker(other, wxEVT_DATAVIEW_SELECTION_CHANGED);
+      other->UnselectAll();
+    }
+  }
 }
 
 void FlatView::SelectPage(const SessionRef &ref) {
@@ -365,11 +398,8 @@ void FlatView::SelectPage(const SessionRef &ref) {
     return;
   }
   auto *list = ListFor(ref.groupName);
-  auto *other = list == m_list ? m_terminalList : m_list;
-  // One row is selected in the whole view.
-  wxEventBlocker blocker1(list, wxEVT_DATAVIEW_SELECTION_CHANGED);
-  wxEventBlocker blocker2(other, wxEVT_DATAVIEW_SELECTION_CHANGED);
-  other->UnselectAll();
+  wxEventBlocker blocker(list, wxEVT_DATAVIEW_SELECTION_CHANGED);
+  UnselectOthers(list);
   if (list->GetSelection() != *item) {
     list->Select(*item);
   }
@@ -393,12 +423,7 @@ void FlatView::OnSelectionChanged(wxDataViewEvent &event) {
   if (!ref) {
     return;
   }
-  // One row is selected in the whole view.
-  auto *other = list == m_list ? m_terminalList : m_list;
-  {
-    wxEventBlocker blocker(other, wxEVT_DATAVIEW_SELECTION_CHANGED);
-    other->UnselectAll();
-  }
+  UnselectOthers(list);
   m_selected = ref;
   // A page picked here (mouse or keyboard) is the most recently used one:
   // Ctrl+Tab goes back to the page shown before it.
@@ -442,9 +467,11 @@ std::optional<SessionRef> FlatView::RefOf(wxDataViewListCtrl *list,
   if (row < 0 || row >= static_cast<int>(list->GetItemCount())) {
     return std::nullopt;
   }
-  // The terminals have no group column: they all are in the same group.
+  // The terminals and the files have no group column: each list is one group.
   wxString group = kTerminalsGroupName;
-  if (list != m_terminalList) {
+  if (list == m_fileList) {
+    group = kFilesGroupName;
+  } else if (list != m_terminalList) {
     wxVariant value;
     list->GetValue(value, row, kColumnGroup);
     group = IconTextOf(value);
@@ -459,6 +486,16 @@ int FlatView::GetSashPosition() const {
 void FlatView::SetSashPosition(int dip) {
   if (dip > 0 && m_splitter->IsSplit()) {
     m_splitter->SetSashPosition(m_splitter->FromDIP(dip));
+  }
+}
+
+int FlatView::GetFilesSashPosition() const {
+  return m_lowerSplitter->ToDIP(m_lowerSplitter->GetSashPosition());
+}
+
+void FlatView::SetFilesSashPosition(int dip) {
+  if (dip > 0 && m_lowerSplitter->IsSplit()) {
+    m_lowerSplitter->SetSashPosition(m_lowerSplitter->FromDIP(dip));
   }
 }
 

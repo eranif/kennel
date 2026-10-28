@@ -35,6 +35,9 @@ public:
   const wxString &GetPath() const { return m_path; }
   const RemoteHostDetails &GetRemoteHostDetails() const { return m_remoteHost; }
   wxString GetDisplayName() const;
+  // The folder of the file: a path for a local file, "host:path" for a remote
+  // one.
+  wxString GetFolder() const;
   bool IsRemote() const { return !m_remoteHost.host.empty(); }
   bool IsModified() const { return m_editor->GetCtrl()->GetModify(); }
   bool CanSave() const {

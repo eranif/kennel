@@ -37,6 +37,11 @@
 #include <wx/xrc/xmlres.h>
 
 namespace {
+// The key of a file page (see FileEvent::MakeKey) for a saved file.
+wxString KeyOfFile(const SessionFile &file) {
+  return FileEvent::MakeKey(file.path, {file.remoteHost, file.remoteUser});
+}
+
 // Moves `splitter`'s sash to `dip` device-independent pixels, if there is a
 // saved one.
 void ApplySashPosition(wxSplitterWindow *splitter, int dip) {
@@ -275,11 +280,38 @@ void MainView::SyncWorkspaceToDisk() {
     }
   }
 
+  for (auto *file : m_pages->GetFilePages()) {
+    const auto &host = file->GetRemoteHostDetails();
+    ws.files.push_back(SessionFile{file->GetPath(), host.host, host.user});
+  }
+  // The remote files that are still coming back from the last run.
+  ws.files.insert(ws.files.end(), m_restoringFiles.begin(),
+                  m_restoringFiles.end());
+  // In the order of the last run (new files last): the remote files come back
+  // in the order the fetches finish.
+  {
+    std::map<wxString, size_t> rank; // The key of a file -> its saved place
+    for (const SessionFile &file : AppManager::Get().InitialWorkspace().files) {
+      rank.emplace(KeyOfFile(file), rank.size());
+    }
+    const auto rankOf = [&rank](const SessionFile &file) {
+      const auto it = rank.find(KeyOfFile(file));
+      return it == rank.end() ? rank.size() : it->second;
+    };
+    std::stable_sort(ws.files.begin(), ws.files.end(),
+                     [&rankOf](const SessionFile &a, const SessionFile &b) {
+                       return rankOf(a) < rankOf(b);
+                     });
+  }
+
   for (const auto &info : GetPagesByRecency(std::nullopt)) {
-    auto *session = dynamic_cast<SessionPage *>(m_pages->FindPage(info.Ref()));
+    auto *page = m_pages->FindPage(info.Ref());
+    auto *session = dynamic_cast<SessionPage *>(page);
     if (session && session->GetSession().IsPersistent()) {
       ws.recentSessions.push_back(SessionRef{session->GetSession().groupName,
                                              session->GetSession().name});
+    } else if (dynamic_cast<FilePage *>(page) != nullptr) {
+      ws.recentSessions.push_back(info.Ref());
     }
   }
 
@@ -450,6 +482,7 @@ void MainView::AddFilePage(FilePage *page) {
   m_sessionsBook->AddPage(page, page->GetDisplayName(), false);
   m_pages->AddFile(page);
   RefreshFlatView();
+  SyncWorkspaceSoon();
 }
 
 void MainView::RemovePage(wxWindow *page) {
@@ -515,9 +548,17 @@ void MainView::OpenRemoteFile(const RemoteHostDetails &remoteHost,
                               const wxString &clickedPath,
                               const std::vector<wxString> &searchDirs) {
   KLOG_DEBUG() << "Opening remote file: " << clickedPath;
-  if (!m_fetchingRemote.insert(FileEvent::MakeKey(clickedPath, remoteHost))
-           .second) {
-    return; // A previous click is still connecting/downloading.
+  const wxString key = FileEvent::MakeKey(clickedPath, remoteHost);
+  if (!m_fetchingRemote.insert(key).second) {
+    // A previous click, or the restore of the file, is still
+    // connecting/downloading. The file is shown and selected when it arrives,
+    // as the user asked for it now.
+    // The file stays in m_restoringFiles until the result is in.
+    if (IsRestoringFile(key)) {
+      m_selectWhenRestored.insert(key);
+    }
+    m_ignoreRemote.erase(key);
+    return;
   }
 
   // The worker gets copies of the data it needs and never touches the UI. It
@@ -551,23 +592,54 @@ void MainView::ReloadRemoteFile(const RemoteHostDetails &remoteHost,
   OpenRemoteFile(remoteHost, path, {});
 }
 
+bool MainView::IsRestoringFile(const wxString &key) const {
+  return std::any_of(
+      m_restoringFiles.begin(), m_restoringFiles.end(),
+      [&key](const SessionFile &file) { return KeyOfFile(file) == key; });
+}
+
+bool MainView::TakeRestoringFile(const wxString &key) {
+  return std::erase_if(m_restoringFiles, [&](const SessionFile &f) {
+           return KeyOfFile(f) == key;
+         }) != 0;
+}
+
 void MainView::OnRemoteFileRead(const RemoteReadResult &result) {
   const wxString fetchKey =
       FileEvent::MakeKey(result.clickedPath, result.remoteHost);
   m_fetchingRemote.erase(fetchKey);
   const bool reload = m_reloadingRemote.erase(fetchKey) != 0;
+  if (m_ignoreRemote.erase(fetchKey) != 0) {
+    return; // The workspace was cleared since
+  }
+  // A restore that the user asked for in the meantime is a plain open.
+  const bool wanted = m_selectWhenRestored.erase(fetchKey) != 0;
+  const bool taken = TakeRestoringFile(fetchKey);
+  const bool restoring = taken && !wanted;
 
   if (!result.ok) {
     KLOG_WARN() << "Remote open failed for '" << result.clickedPath
                 << "': " << result.error;
-    ::wxMessageBox(result.error, "Kennel", wxICON_WARNING | wxOK, this);
+    if (taken) {
+      SyncWorkspaceSoon(); // The file is not back: drop it from the workspace
+    }
+    if (!restoring) {
+      ::wxMessageBox(result.error, "Kennel", wxICON_WARNING | wxOK, this);
+    }
     return;
   }
 
   const wxString &path = result.path;
   if (result.content.find('\0') != std::string::npos) {
-    ::wxMessageBox(wxString::Format(_("%s is a binary file."), path), "Kennel",
-                   wxICON_INFORMATION | wxOK, this);
+    if (taken) {
+      SyncWorkspaceSoon();
+    }
+    if (restoring) {
+      KLOG_WARN() << path << " is a binary file; not restored";
+    } else {
+      ::wxMessageBox(wxString::Format(_("%s is a binary file."), path),
+                     "Kennel", wxICON_INFORMATION | wxOK, this);
+    }
     return;
   }
 
@@ -579,13 +651,15 @@ void MainView::OnRemoteFileRead(const RemoteReadResult &result) {
     text = wxString::From8BitData(result.content.data(), result.content.size());
     editable = false;
   }
-  ShowRemoteFile(result.remoteHost, path, text, editable, reload);
+  ShowRemoteFile(result.remoteHost, path, text, editable, reload, restoring);
 }
 
-void MainView::OpenLocalFile(const wxString &path) {
+void MainView::OpenLocalFile(const wxString &path, bool restoring) {
   const wxString key = wxFileName(path).GetFullPath();
   if (auto *existing = m_pages->FindFile(key)) {
-    SelectFilePage(existing);
+    if (!restoring) {
+      SelectFilePage(existing);
+    }
     return;
   }
 
@@ -594,17 +668,23 @@ void MainView::OpenLocalFile(const wxString &path) {
       ThemeManager::Get().ActiveTheme().value_or(wxTerminalTheme{}));
   if (!page->LoadLocal()) {
     page->Destroy();
-    wxMessageBox(wxString::Format(_("Could not open %s"), key), "Kennel",
-                 wxOK | wxICON_ERROR, this);
+    if (restoring) {
+      KLOG_WARN() << "Could not restore " << key;
+    } else {
+      wxMessageBox(wxString::Format(_("Could not open %s"), key), "Kennel",
+                   wxOK | wxICON_ERROR, this);
+    }
     return;
   }
   AddFilePage(page);
-  SelectFilePage(page);
+  if (!restoring) {
+    SelectFilePage(page);
+  }
 }
 
 void MainView::ShowRemoteFile(const RemoteHostDetails &remoteHost,
                               const wxString &path, const wxString &text,
-                              bool editable, bool reload) {
+                              bool editable, bool reload, bool restoring) {
   const wxString key = FileEvent::MakeKey(path, remoteHost);
   if (auto *existing = m_pages->FindFile(key)) {
     // The remote copy may have changed, but only a reload (the user agreed)
@@ -612,7 +692,7 @@ void MainView::ShowRemoteFile(const RemoteHostDetails &remoteHost,
     if (reload || !existing->IsModified()) {
       existing->LoadRemote(text, editable);
     }
-    if (!reload) {
+    if (!reload && !restoring) {
       SelectFilePage(existing);
     }
     return;
@@ -624,7 +704,9 @@ void MainView::ShowRemoteFile(const RemoteHostDetails &remoteHost,
       remoteHost);
   page->LoadRemote(text, editable);
   AddFilePage(page);
-  SelectFilePage(page);
+  if (!restoring) {
+    SelectFilePage(page);
+  }
 }
 
 void MainView::CloseFile(FilePage *page) {
@@ -656,6 +738,7 @@ void MainView::CloseFile(FilePage *page) {
 
   m_closeAfterSave.erase(page->GetKey());
   RemovePage(page);
+  SyncWorkspaceSoon();
 }
 
 void MainView::CloseFileByKey(const wxString &key) {
@@ -855,6 +938,7 @@ void MainView::RestoreLayout() {
     const auto &prefs = AppManager::Get().GetPrefs();
     ApplySashPosition(GetSplitterMain(), prefs.sidebarWidth);
     m_flatView->SetSashPosition(prefs.flatViewSashPosition);
+    m_flatView->SetFilesSashPosition(prefs.flatViewFilesSashPosition);
     m_layoutRestored = true;
   });
 }
@@ -869,12 +953,13 @@ void MainView::SaveLayout() {
   }
   if (m_layoutRestored && m_flatView->HasSize()) {
     prefs.flatViewSashPosition = m_flatView->GetSashPosition();
+    prefs.flatViewFilesSashPosition = m_flatView->GetFilesSashPosition();
   }
 }
 
 void MainView::RestoreSessions() {
   const auto &initial = AppManager::Get().InitialWorkspace();
-  if (initial.sessions.empty()) {
+  if (initial.sessions.empty() && initial.files.empty()) {
     return;
   }
 
@@ -888,11 +973,21 @@ void MainView::RestoreSessions() {
   }
   KLOG_INFO() << "Restored " << restored << " session(s)";
 
+  // The files, in the background: the page used last is shown below.
+  for (const SessionFile &file : initial.files) {
+    if (file.remoteHost.empty()) {
+      OpenLocalFile(file.path, /*restoring=*/true);
+    } else {
+      m_restoringFiles.push_back(file);
+      OpenRemoteFile({file.remoteHost, file.remoteUser}, file.path, {});
+    }
+  }
+
   // Bring back the recent order and show the page used last.
   m_recent.clear();
-  SessionPage *lastUsed = nullptr;
+  wxWindow *lastUsed = nullptr;
   for (const SessionRef &r : initial.recentSessions) {
-    if (auto *page = m_pages->FindSession(r.groupName, r.name)) {
+    if (auto *page = m_pages->FindPage(r)) {
       m_recent.push_back(r);
       if (lastUsed == nullptr) {
         lastUsed = page;
@@ -900,13 +995,14 @@ void MainView::RestoreSessions() {
     }
   }
   if (lastUsed != nullptr) {
-    SelectSessionPage(lastUsed);
+    ShowPage(lastUsed);
   } else if (m_pages->GroupCount() > 0) {
     ActivateGroup(m_pages->GetFirstGroupName());
   }
 
   // Anything that failed to restore into the UI (e.g. its agent no longer
-  // exists) must not be written back — the UI is the only source of truth.
+  // exists) must not be written back: the UI is the only source of truth (but
+  // for the remote files that are still coming back, see m_restoringFiles).
   SyncWorkspaceToDisk();
 }
 
@@ -1136,6 +1232,11 @@ void MainView::CloseAllSessions() {
 
 void MainView::DeleteAll() {
   m_closeAfterSave.clear();
+  for (const SessionFile &file : m_restoringFiles) {
+    m_ignoreRemote.insert(KeyOfFile(file));
+  }
+  m_restoringFiles.clear();
+  m_selectWhenRestored.clear();
   m_sessionsBook->DeleteAllPages();
   m_pages->Clear();
   m_flatView->Clear();

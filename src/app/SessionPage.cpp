@@ -868,7 +868,8 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
     return;
   }
   // Deferred: don't rebuild the list from inside the terminal's mouse handler.
-  GetMainFrame()->GetMainView()->CallAfter(&MainView::OpenLocalFile, fullPath);
+  GetMainFrame()->GetMainView()->CallAfter(&MainView::OpenLocalFile, fullPath,
+                                           false);
 }
 
 void SessionPage::ApplyTheme(const wxTerminalTheme &theme) {

@@ -10,10 +10,10 @@
 // What a view (FlatView) shows for one page of the main view: a terminal /
 // agent session (SessionPage) or an open file (FilePage).
 struct PageInfo {
-  wxString label;      // The row label
-  wxString group;      // The group, or the Terminals / Files container
-  wxString key;        // The session name, or the file key for a file
-  wxString dir;        // The folder of a terminal (empty for the others)
+  wxString label; // The row label
+  wxString group; // The group, or the Terminals / Files container
+  wxString key;   // The session name, or the file key for a file
+  wxString dir;   // The folder of a terminal or a file (empty for a session)
   wxBitmapBundle icon; // A bundle, not an icon: it keeps its size on any DPI
   wxBitmapBundle groupIcon; // The icon of the group
   // What the program in the page is doing now: the spinner, the check mark or

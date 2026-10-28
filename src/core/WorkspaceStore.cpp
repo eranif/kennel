@@ -40,6 +40,15 @@ json ToJson(const Workspace &ws) {
         {"icon", ToUtf8(g.icon)},
     });
   }
+  json files = json::array();
+  for (const SessionFile &f : ws.files) {
+    json entry = {{"path", ToUtf8(f.path)}};
+    if (!f.remoteHost.empty()) {
+      entry["remoteHost"] = ToUtf8(f.remoteHost);
+      entry["remoteUser"] = ToUtf8(f.remoteUser);
+    }
+    files.push_back(std::move(entry));
+  }
   json recent = json::array();
   for (const SessionRef &r : ws.recentSessions) {
     recent.push_back({
@@ -50,7 +59,10 @@ json ToJson(const Workspace &ws) {
   return json{
       {"version", ws.version},
       {"workspace",
-       {{"sessions", sessions}, {"groups", groups}, {"recent", recent}}},
+       {{"sessions", sessions},
+        {"groups", groups},
+        {"files", files},
+        {"recent", recent}}},
   };
 }
 
@@ -72,6 +84,14 @@ SessionRef ParseSessionRef(const json &j) {
   r.groupName = GetStr(j, "groupName", _("Default"));
   r.name = GetStr(j, "name");
   return r;
+}
+
+SessionFile ParseSessionFile(const json &j) {
+  SessionFile f;
+  f.path = GetStr(j, "path");
+  f.remoteHost = GetStr(j, "remoteHost");
+  f.remoteUser = GetStr(j, "remoteUser");
+  return f;
 }
 
 GroupMeta ParseGroupMeta(const json &j) {
@@ -99,6 +119,16 @@ Workspace ParseWorkspace(const json &root) {
       for (const auto &g : *gIt) {
         if (g.is_object()) {
           ws.groups.push_back(ParseGroupMeta(g));
+        }
+      }
+    }
+    if (auto fIt = wsIt->find("files"); fIt != wsIt->end() && fIt->is_array()) {
+      for (const auto &f : *fIt) {
+        if (f.is_object()) {
+          SessionFile file = ParseSessionFile(f);
+          if (!file.path.empty()) {
+            ws.files.push_back(std::move(file));
+          }
         }
       }
     }

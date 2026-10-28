@@ -21,9 +21,11 @@ struct UiPrefs {
   // Splitter positions, in device-independent pixels (so they survive a change
   // of display scaling). <= 0 => keep the default layout.
   int sidebarWidth{0}; // Width of the left pane (sessions) vs the terminal
-  // Height of the list of the sessions and files above the list of the
+  // Height of the list of the sessions above the lists of the files and the
   // terminals in the flat view.
   int flatViewSashPosition{0};
+  // Height of the list of the files, between the sessions and the terminals.
+  int flatViewFilesSashPosition{0};
   // The page of the left pane that was showing. Not used while the left pane
   // has the list of the sessions as its only page; kept (and still saved) for
   // the pages that will come.

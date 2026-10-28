@@ -2,6 +2,7 @@
 
 #include "app/PageViewEvent.hpp"
 
+#include <array>
 #include <optional>
 #include <vector>
 #include <wx/dataview.h>
@@ -9,21 +10,22 @@
 
 class wxSplitterWindow;
 
-// Every open page (session, terminal, file) in two lists. The sessions and the
-// files: "icon + name | status | icon + group", where the status is the
-// spinner, the check mark or the hand (an icon in a column of its own, always
-// the same width). The terminals: "icon + name | directory" (the status
-// replaces the icon of the name). After every change of the rows each column
-// but the status is fitted to its content. It is a projection of what
-// PageRegistry holds, so it never owns anything; MainView feeds it with
-// SetPages(). Each row carries its page's name in a hidden column. The selected
-// page is also kept here: sorting keeps the selected row number, not the
-// selected item (on macOS and in the generic control), so the selection is put
-// back after a sort.
+// Every open page (session, terminal, file) in three lists, one above the
+// other. The sessions: "icon + name | status | icon + group", where the status
+// is the spinner, the check mark or the hand (an icon in a column of its own,
+// always the same width). The files: "icon + name | folder". The terminals:
+// "icon + name | directory" (the status replaces the icon of the name). After
+// every change of the rows each column but the status is fitted to its content.
+// It is a projection of what PageRegistry holds, so it never owns anything;
+// MainView feeds it with SetPages(). Each row carries its page's name in a
+// hidden column. The selected page is also kept here: sorting keeps the
+// selected row number, not the selected item (on macOS and in the generic
+// control), so the selection is put back after a sort.
 //
-// A click on the Name or Group header sorts the list by that column (a second
-// click turns the order around). The choice is kept in the UI prefs, so it is
-// back on the next start. Never sorted, the list shows the group order.
+// A click on the Name or Group header of the list of the sessions sorts that
+// list by the column (a second click turns the order around). The choice is
+// kept in the UI prefs, so it is back on the next start. Never sorted, the list
+// shows the group order. The sort of the other lists is not kept.
 //
 // Sends wxEVT_PAGEVIEW_SELECTED (through EventNotifier) / wxEVT_PAGEVIEW_MENU
 // and follows the selection made anywhere else.
@@ -46,13 +48,17 @@ public:
 
   void Clear();
 
-  // The height of the upper list (the sessions and files), in DIP. Needs a
+  // The height of the list of the sessions, in DIP. Needs a
   // list that has its final size to take effect.
   int GetSashPosition() const;
   void SetSashPosition(int dip);
   bool HasSize() const;
+  // The height of the list of the files, in DIP (the one under the sessions).
+  int GetFilesSashPosition() const;
+  void SetFilesSashPosition(int dip);
   size_t GetItemCount() const {
-    return m_list->GetItemCount() + m_terminalList->GetItemCount();
+    return m_list->GetItemCount() + m_fileList->GetItemCount() +
+           m_terminalList->GetItemCount();
   }
 
 private:
@@ -67,6 +73,13 @@ private:
   void SelectPage(const SessionRef &ref);
   std::optional<wxDataViewItem> FindRow(const SessionRef &ref) const;
   static bool IsTerminalGroup(const wxString &group);
+  static bool IsFilesGroup(const wxString &group);
+  std::array<wxDataViewListCtrl *, 3> Lists() const {
+    return {m_list, m_fileList, m_terminalList};
+  }
+  // Clears the selection of every list but `list`: one row is selected in the
+  // whole view.
+  void UnselectOthers(wxDataViewListCtrl *list);
   // The list that shows the pages of `group`.
   wxDataViewListCtrl *ListFor(const wxString &group) const;
   std::optional<SessionRef> RefOf(wxDataViewListCtrl *list,
@@ -78,8 +91,10 @@ private:
   // A list got a new size: fits again if the last fit had no size to go by.
   void OnListSize(wxSizeEvent &event);
 
-  wxSplitterWindow *m_splitter{nullptr};
+  wxSplitterWindow *m_splitter{nullptr};      // Sessions above the rest
+  wxSplitterWindow *m_lowerSplitter{nullptr}; // Files above the terminals
   wxDataViewListCtrl *m_list{nullptr};
+  wxDataViewListCtrl *m_fileList{nullptr};
   wxDataViewListCtrl *m_terminalList{nullptr};
   std::optional<SessionRef> m_selected; // The page whose row is selected
   // The pages shown now, in order: when they change, the columns are fitted.

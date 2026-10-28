@@ -76,7 +76,11 @@ public:
   // doing; pass true (e.g. "Run Now") to switch to and focus the new tab.
   void RunJob(const JobDef &job, bool selectAfterLaunch = false);
 
-  // Rebuilds UI from sessions persisted in workspace.json.
+  // Rebuilds UI from the sessions and files persisted in workspace.json.
+  // Unsaved edits of a file are not kept. Remote files come back a moment later
+  // (they are fetched in the background, so they are not in the order of the
+  // recent pages yet: the page used last is only shown if it is a session or a
+  // local file).
   void RestoreSessions();
 
   // The splitters (between the left pane and the terminal, and in the list of
@@ -138,11 +142,14 @@ public:
 
   // Opens a local file in an editor page under the "Files" container (or
   // reselects it if it is already open).
-  void OpenLocalFile(const wxString &path);
+  // `restoring` (the file was open in the last run) keeps it in the background
+  // and only logs a failure.
+  void OpenLocalFile(const wxString &path, bool restoring = false);
 
   // Reads `clickedPath` (resolved against `searchDirs`) from `remoteHost` on
-  // a worker thread, then shows it via ShowRemoteFile(). Ignored while the same
-  // file is already being fetched.
+  // a worker thread, then shows it via ShowRemoteFile(). While the same file is
+  // already being fetched the call starts no second fetch; if that fetch is the
+  // restore of the file, the file is selected when it arrives.
   void OpenRemoteFile(const RemoteHostDetails &remoteHost,
                       const wxString &clickedPath,
                       const std::vector<wxString> &searchDirs);
@@ -152,8 +159,11 @@ public:
   // page is refreshed, unless it has unsaved changes.
   // `reload` is for a page that asked for the new copy: it replaces unsaved
   // edits too (the user agreed), and the page is not selected.
+  // `restoring` (the file was open in the last run) does not select the page
+  // either.
   void ShowRemoteFile(const RemoteHostDetails &remoteHost, const wxString &path,
-                      const wxString &text, bool editable, bool reload = false);
+                      const wxString &text, bool editable, bool reload = false,
+                      bool restoring = false);
 
   // Fetches `path` again from `remoteHost` and replaces the text of its open
   // page with it, edits included. The caller has asked the user already.
@@ -280,6 +290,9 @@ private:
   void OnFileSaveStarted(FileEvent &e);
   void OnFileSaveDone(FileEvent &e);
   void OnRemoteFileRead(const RemoteReadResult &result);
+  // Takes the file out of m_restoringFiles. Whether it was there.
+  bool TakeRestoringFile(const wxString &key);
+  bool IsRestoringFile(const wxString &key) const;
 
   void SavePrefs();
   // Gives the toolbars the style of the theme of the application.
@@ -297,6 +310,15 @@ private:
   // those.
   std::vector<SessionRef> m_recent;
   bool m_syncPending{false};
+  // The remote files of the last run that are being fetched again: they stay in
+  // workspace.json until the fetch is over, so a quit in between loses none.
+  std::vector<SessionFile> m_restoringFiles;
+  // Remote files that were being restored when the workspace was cleared: their
+  // results are dropped.
+  std::set<wxString> m_ignoreRemote;
+  // The restoring files that the user asked for while they were being fetched:
+  // they are selected when they arrive.
+  std::set<wxString> m_selectWhenRestored;
   bool m_layoutRestored{false};
 
   // Per-job run counter (job name -> next sequence number), so consecutive

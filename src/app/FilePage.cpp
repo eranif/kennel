@@ -85,6 +85,17 @@ wxString FilePage::GetDisplayName() const {
   return name.empty() ? m_path : name;
 }
 
+wxString FilePage::GetFolder() const {
+  if (IsRemote()) {
+    wxString dir = m_path.BeforeLast('/');
+    if (dir.empty() && m_path.StartsWith("/")) {
+      dir = "/"; // A file at the root
+    }
+    return m_remoteHost.host + ":" + dir;
+  }
+  return wxFileName(m_path).GetPath();
+}
+
 bool FilePage::SaveAsync() {
   if (!IsRemote() || m_saving || !m_editor->IsEditable()) {
     return false;
