@@ -177,6 +177,12 @@ bool FilePage::Save() {
 
 void FilePage::FocusEditor() { m_editor->GetCtrl()->SetFocus(); }
 
+void FilePage::GotoLine(int line, int column) {
+  m_editor->GotoLine(line, column);
+  // Deferred: a page that was not showing yet has no size to centre in.
+  CallAfter([this] { m_editor->GetCtrl()->VerticalCentreCaret(); });
+}
+
 void FilePage::OnKeyDown(wxKeyEvent &event) {
   // Cmd+S on macOS, Ctrl+S elsewhere.
   if (event.GetKeyCode() == 'S' && event.GetModifiers() == wxMOD_CONTROL) {

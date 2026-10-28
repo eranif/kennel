@@ -123,11 +123,6 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     m_leftPaneMainSizer = new wxBoxSizer(wxVERTICAL);
     m_splitterPageLeft->SetSizer(m_leftPaneMainSizer);
     
-    m_auibar = new wxAuiToolBar(m_splitterPageLeft, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_splitterPageLeft, wxSize(-1,-1)), wxAUI_TB_DEFAULT_STYLE);
-    m_auibar->SetToolBitmapSize(wxSize(16,16));
-    
-    m_leftPaneMainSizer->Add(m_auibar, 0, wxEXPAND, WXC_FROM_DIP(5));
-    
     m_notebookLeft = new wxSimplebook(m_splitterPageLeft, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_splitterPageLeft, wxSize(-1,-1)), 0);
     m_notebookLeft->SetName(wxT("m_notebookLeft"));
     m_notebookLeft->SetEffect(wxSHOW_EFFECT_NONE);

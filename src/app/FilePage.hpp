@@ -56,6 +56,11 @@ public:
   // Gives the toolbar the style of the theme of the application.
   void ApplyToolBarStyle();
   void FocusEditor();
+  // Puts the caret at `line` and `column` (both from 1; the column is a byte
+  // offset in the line, as compilers count it) and shows that line in the
+  // middle of the editor. A line or a column out of range goes to the nearest
+  // place that exists.
+  void GotoLine(int line, int column = 1);
   // Shows the caret position and the size of the selection in the status bar
   // of the main window. Called when the caret or the selection moves (only
   // while this page is showing) and when the page is selected.

@@ -540,6 +540,17 @@ void Editor::InitMakefileStyle() {
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
 
+void Editor::GotoLine(int line, int column) {
+  const int lastLine = std::max(m_ctrl->GetLineCount() - 1, 0);
+  const int row = std::clamp(line - 1, 0, lastLine);
+  const int start = m_ctrl->PositionFromLine(row);
+  const int end = m_ctrl->GetLineEndPosition(row);
+  const int pos = std::min(start + std::max(column - 1, 0), end);
+  m_ctrl->EnsureVisible(row);
+  m_ctrl->GotoPos(pos);
+  m_ctrl->ChooseCaretX();
+}
+
 void Editor::UpdateLineNumberMargin() {
   // Wide enough for the largest line number, with a minimum so the margin does
   // not jitter while a small file is edited.

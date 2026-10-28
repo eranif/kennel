@@ -47,10 +47,10 @@ moved to another container (left notebook, a docked pane, a dialog) by changing 
 - [x] **User task in wxCrafter:** delete the "Tree View" notebook page (`m_panelTreeView`) of `m_notebookLeft` in
   `UI.wxcp` and regenerate.
 - [x] Docs: README / BUILDING describe the list.
-- [ ] **User task in wxCrafter (left over):** delete the left toolbar (`m_auibar` of `MainViewBase`) if Phase 6
+- [x] **User task in wxCrafter (left over):** delete the left toolbar (`m_auibar` of `MainViewBase`) if Phase 6
   does not need it, regenerate, then remove `MainView::CreateLeftToolBar()` and the `GetAuibar()` call in
   `ApplyToolBarStyles()` (also in `TODO.md`).
-- [ ] The file `CLAUDE.md` line 47 still says `MainView` "owns the session tree" (the user's file; suggested text is in
+- [x] The file `CLAUDE.md` line 47 still says `MainView` "owns the session tree" (the user's file; suggested text is in
   the review response of round 4).
 
 ## Phase 1 - Flat view (all in `src/app/FlatView.cpp/.hpp`, `PageViewEvent.hpp`)

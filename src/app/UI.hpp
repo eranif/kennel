@@ -15,10 +15,6 @@
 #include <wx/artprov.h>
 #include <wx/sizer.h>
 #include <wx/splitter.h>
-#include <wx/pen.h>
-#include <wx/aui/auibar.h>
-#include <map>
-#include <wx/menu.h>
 #include <wx/simplebook.h>
 #include <wx/imaglist.h>
 #include <wx/dialog.h>
@@ -36,6 +32,10 @@
 #include <wx/notebook.h>
 #include <wx/statbmp.h>
 #include <wx/stc/stc.h>
+#include <wx/pen.h>
+#include <wx/aui/auibar.h>
+#include <map>
+#include <wx/menu.h>
 #include <wx/fontpicker.h>
 #include <wx/spinctrl.h>
 #include <wx/wizard.h>
@@ -81,7 +81,6 @@ protected:
     wxSplitterWindow* m_splitterMain;
     wxPanel* m_splitterPageLeft;
     wxBoxSizer* m_leftPaneMainSizer;
-    wxAuiToolBar* m_auibar;
     wxSimplebook* m_notebookLeft;
     wxPanel* m_panelFlatView;
     wxPanel* m_splitterPageRight;
@@ -90,7 +89,6 @@ protected:
 protected:
 
 public:
-    wxAuiToolBar* GetAuibar() { return m_auibar; }
     wxPanel* GetPanelFlatView() { return m_panelFlatView; }
     wxSimplebook* GetNotebookLeft() { return m_notebookLeft; }
     wxPanel* GetSplitterPageLeft() { return m_splitterPageLeft; }

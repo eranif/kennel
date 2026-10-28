@@ -43,10 +43,11 @@ find src -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) ! -name 'js
 
 ## Layout
 
-- `src/app/` — wxWidgets UI. `MainFrame` (window/menu/toolbar) -> `MainView` (owns the
-  session tree + the single visible `SessionPage`) -> `SessionGroup` (plain data: a
-  group's name + its sessions) -> `SessionPage` (wraps one `wxTerminalViewCtrl`/agent
-  process).
+- `src/app/` — wxWidgets UI. `MainFrame` (window/menu/toolbar) -> `MainView` (glue: owns the
+  `PageRegistry`, which holds the groups and their pages, the flat list `FlatView` and
+  the single visible page) -> `SessionGroup` (plain data: a group's name + its
+  sessions) -> `SessionPage` (wraps one `wxTerminalViewCtrl`/agent process) or
+  `FilePage` (an open file).
 - `src/core/` — GUI-free: paths, config, agent registry, workspace/session persistence
   (`workspace.json`), logging. Corrupt JSON self-recovers (backs up as
   `*.bak-<timestamp>`, falls back to defaults) — don't remove that behavior.

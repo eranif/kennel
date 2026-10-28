@@ -38,6 +38,9 @@ public:
   ~Editor() override;
 
   void SetEditorLanguage(EditorLang lang);
+  // Puts the caret at `line` and `column`, both from 1 (the column in bytes).
+  // Out of range goes to the nearest place that exists. Unfolds the line.
+  void GotoLine(int line, int column = 1);
   void SetTheme(const wxTerminalTheme &theme);
 
   wxStyledTextCtrl *GetCtrl() { return m_ctrl; }

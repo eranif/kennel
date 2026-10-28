@@ -105,7 +105,6 @@ MainView::MainView(wxWindow *parent)
   // The view needs the bitmaps (group icons) loaded first.
   m_flatView = new FlatView(GetPanelFlatView());
   FillPanel(GetPanelFlatView(), m_flatView);
-  CreateLeftToolBar();
 
   for (int i = 0; i < kSpinnerFrameCount; ++i) {
     wxString name;
@@ -546,9 +545,13 @@ void MainView::OnFileSaveDone(FileEvent &e) {
 
 void MainView::OpenRemoteFile(const RemoteHostDetails &remoteHost,
                               const wxString &clickedPath,
-                              const std::vector<wxString> &searchDirs) {
+                              const std::vector<wxString> &searchDirs, int line,
+                              int column) {
   KLOG_DEBUG() << "Opening remote file: " << clickedPath;
   const wxString key = FileEvent::MakeKey(clickedPath, remoteHost);
+  if (line > 0) {
+    m_gotoAfterFetch[key] = FileLocation{clickedPath, line, column};
+  }
   if (!m_fetchingRemote.insert(key).second) {
     // A previous click, or the restore of the file, is still
     // connecting/downloading. The file is shown and selected when it arrives,
@@ -608,6 +611,10 @@ void MainView::OnRemoteFileRead(const RemoteReadResult &result) {
   const wxString fetchKey =
       FileEvent::MakeKey(result.clickedPath, result.remoteHost);
   m_fetchingRemote.erase(fetchKey);
+  std::optional<FileLocation> target;
+  if (auto node = m_gotoAfterFetch.extract(fetchKey)) {
+    target = std::move(node.mapped());
+  }
   const bool reload = m_reloadingRemote.erase(fetchKey) != 0;
   if (m_ignoreRemote.erase(fetchKey) != 0) {
     return; // The workspace was cleared since
@@ -652,6 +659,12 @@ void MainView::OnRemoteFileRead(const RemoteReadResult &result) {
     editable = false;
   }
   ShowRemoteFile(result.remoteHost, path, text, editable, reload, restoring);
+  if (target) {
+    if (auto *page =
+            m_pages->FindFile(FileEvent::MakeKey(path, result.remoteHost))) {
+      page->GotoLine(target->line, target->column);
+    }
+  }
 }
 
 void MainView::OpenLocalFile(const wxString &path, bool restoring) {
@@ -679,6 +692,16 @@ void MainView::OpenLocalFile(const wxString &path, bool restoring) {
   AddFilePage(page);
   if (!restoring) {
     SelectFilePage(page);
+  }
+}
+
+void MainView::OpenFileAt(const FileLocation &where) {
+  OpenLocalFile(where.path);
+  if (where.line <= 0) {
+    return;
+  }
+  if (auto *page = m_pages->FindFile(wxFileName(where.path).GetFullPath())) {
+    page->GotoLine(where.line, where.column);
   }
 }
 
@@ -910,19 +933,6 @@ bool MainView::LaunchSession(const NewSessionRequest &req,
 // The left pane
 // ---------------------------------------------------------------------------
 
-void MainView::CreateLeftToolBar() {
-  // The tools switch between the pages of the left pane. With the list of the
-  // sessions as its only page there is nothing to switch: the bar stays out
-  // of sight.
-  wxAuiToolBar *bar = GetAuibar();
-  toolbar::ApplyStyle(bar);
-  bar->Realize();
-  if (wxSizer *sizer = bar->GetContainingSizer()) {
-    sizer->Show(bar, false);
-    sizer->Layout();
-  }
-}
-
 void MainView::RestoreLayout() {
   // The page of the sessions is the one to show (the left pane has no other).
   {
@@ -1060,7 +1070,6 @@ void MainView::ApplyPrefs() {
 }
 
 void MainView::ApplyToolBarStyles() {
-  toolbar::ApplyStyle(GetAuibar());
   for (auto *page : m_pages->GetAllSessions()) {
     page->ApplyToolBarStyle();
   }

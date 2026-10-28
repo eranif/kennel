@@ -10,6 +10,7 @@
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/ClientAdapter.h"
+#include "core/FileLocation.h"
 #include "core/Helpers.h"
 #include "core/Logger.h"
 #include "core/SftpClient.h"
@@ -159,6 +160,75 @@ BuildEnvironment(const std::map<wxString, wxString> &overrides) {
 // A file or a folder of this machine, which a click on a path can open.
 bool LocalPathExists(const wxString &path) {
   return ::wxFileExists(path) || ::wxDirExists(path);
+}
+
+// The file or folder of this machine that a click on `text` means, or empty.
+// A relative `text` is looked for under each of `baseDirs`. `foreignShell` is
+// set when `text` is a Linux path that this machine cannot reach (the shell
+// runs on another host).
+wxString ResolveLocalFile(const std::optional<AgentDef> &agent, wxString text,
+                          std::vector<wxString> baseDirs, bool *foreignShell) {
+  wxString fullPath;
+  if (agent && agent->IsWSL()) {
+    // The path is a Linux path inside the distro: reach it through the
+    // distro's file share.
+    const wxString distro = wsl::DistroOf(agent->loginShell);
+    if (baseDirs.empty()) {
+      baseDirs.push_back(wxEmptyString);
+    }
+    for (const wxString &base : baseDirs) {
+      const wxString linuxPath = wsl::ResolveLinuxPath(distro, text, base);
+      if (linuxPath.empty()) {
+        continue;
+      }
+      const wxString winPath = wsl::ToWindowsPath(distro, linuxPath);
+      if (LocalPathExists(winPath)) {
+        fullPath = winPath;
+        break;
+      }
+    }
+  } else {
+    if (text == "~" || text.StartsWith("~/")) {
+      text = wxGetHomeDir() + text.Mid(1);
+    }
+    text = MsysToWindowsPath(text);
+    if (IsAbsoluteLocalPath(text)) {
+      if (LocalPathExists(text)) {
+        fullPath = text;
+      }
+    } else if (text.StartsWith("/") || text.StartsWith("\\")) {
+      // A Linux path on Windows (an ssh shell, say): not a file of this
+      // machine.
+      *foreignShell = true;
+    } else {
+      // Terminal output is relative to the shell's folder, not Kennel's own.
+      // The home folder is the last resort, only when there is no other.
+      if (baseDirs.empty()) {
+        baseDirs.push_back(wxGetHomeDir());
+      }
+      for (const wxString &dir : baseDirs) {
+        wxString base = MsysToWindowsPath(dir);
+        if (base == "~" || base.StartsWith("~/")) {
+          // The session's folder as the user typed it.
+          base = wxGetHomeDir() + base.Mid(1);
+        }
+        if (!IsAbsoluteLocalPath(base)) {
+          // A Linux folder on Windows: the shell is on a host Kennel cannot
+          // reach as a file system (e.g. "ssh" from a Windows terminal into
+          // Linux). Joining it with a local path would find the wrong file.
+          // Any other relative folder is of no use either.
+          *foreignShell |= base.StartsWith("/") || base.StartsWith("\\");
+          continue;
+        }
+        const wxString path = JoinLocalPath(base, text);
+        if (LocalPathExists(path)) {
+          fullPath = path;
+          break;
+        }
+      }
+    }
+  }
+  return fullPath;
 }
 
 // The text of a terminal's header: "head | title | dir". The title is on one
@@ -787,72 +857,22 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
     // The path lives on the remote host: fetch it over SFTP.
     std::vector<wxString> searchDirs = baseDirs;
     searchDirs.push_back("$HOME/.kennel/sessions");
+    const FileLocation remote = ParseFileLocation(text);
     GetMainFrame()->GetMainView()->OpenRemoteFile(
-        RemoteHostDetails{m_agent->remoteHost, m_agent->remoteUser}, text,
-        searchDirs);
+        RemoteHostDetails{m_agent->remoteHost, m_agent->remoteUser},
+        remote.path, searchDirs, remote.line, remote.column);
     return;
   }
 
-  wxString fullPath;
+  // "path:line:column" (GCC, clang, ...): open the file at that place.
+  FileLocation location = ParseFileLocation(text);
   bool foreignShell = false;
-  if (m_agent && m_agent->IsWSL()) {
-    // The path is a Linux path inside the distro: reach it through the
-    // distro's file share.
-    const wxString distro = wsl::DistroOf(m_agent->loginShell);
-    if (baseDirs.empty()) {
-      baseDirs.push_back(wxEmptyString);
-    }
-    for (const wxString &base : baseDirs) {
-      const wxString linuxPath = wsl::ResolveLinuxPath(distro, text, base);
-      if (linuxPath.empty()) {
-        continue;
-      }
-      const wxString winPath = wsl::ToWindowsPath(distro, linuxPath);
-      if (LocalPathExists(winPath)) {
-        fullPath = winPath;
-        break;
-      }
-    }
-  } else {
-    if (text == "~" || text.StartsWith("~/")) {
-      text = wxGetHomeDir() + text.Mid(1);
-    }
-    text = MsysToWindowsPath(text);
-    if (IsAbsoluteLocalPath(text)) {
-      if (LocalPathExists(text)) {
-        fullPath = text;
-      }
-    } else if (text.StartsWith("/") || text.StartsWith("\\")) {
-      // A Linux path on Windows (an ssh shell, say): not a file of this
-      // machine.
-      foreignShell = true;
-    } else {
-      // Terminal output is relative to the shell's folder, not Kennel's own.
-      // The home folder is the last resort, only when there is no other.
-      if (baseDirs.empty()) {
-        baseDirs.push_back(wxGetHomeDir());
-      }
-      for (const wxString &dir : baseDirs) {
-        wxString base = MsysToWindowsPath(dir);
-        if (base == "~" || base.StartsWith("~/")) {
-          // The session's folder as the user typed it.
-          base = wxGetHomeDir() + base.Mid(1);
-        }
-        if (!IsAbsoluteLocalPath(base)) {
-          // A Linux folder on Windows: the shell is on a host Kennel cannot
-          // reach as a file system (e.g. "ssh" from a Windows terminal into
-          // Linux). Joining it with a local path would find the wrong file.
-          // Any other relative folder is of no use either.
-          foreignShell |= base.StartsWith("/") || base.StartsWith("\\");
-          continue;
-        }
-        const wxString path = JoinLocalPath(base, text);
-        if (LocalPathExists(path)) {
-          fullPath = path;
-          break;
-        }
-      }
-    }
+  wxString fullPath =
+      ResolveLocalFile(m_agent, location.path, baseDirs, &foreignShell);
+  if (fullPath.empty() && location.line > 0) {
+    // Maybe the colon and the digits are part of the name.
+    location = FileLocation{text};
+    fullPath = ResolveLocalFile(m_agent, text, baseDirs, &foreignShell);
   }
   if (fullPath.empty()) {
     ShowNotice(
@@ -868,8 +888,8 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
     return;
   }
   // Deferred: don't rebuild the list from inside the terminal's mouse handler.
-  GetMainFrame()->GetMainView()->CallAfter(&MainView::OpenLocalFile, fullPath,
-                                           false);
+  location.path = fullPath;
+  GetMainFrame()->GetMainView()->CallAfter(&MainView::OpenFileAt, location);
 }
 
 void SessionPage::ApplyTheme(const wxTerminalTheme &theme) {

@@ -255,6 +255,7 @@ add_library(
   src/core/JobLog.cpp
   src/core/JobScheduler.cpp
   src/core/JsonUtil.cpp
+  src/core/FileLocation.cpp
   src/core/WorkspaceStore.cpp
   src/core/UiPrefsStore.cpp
   src/core/UpdateChecker.cpp

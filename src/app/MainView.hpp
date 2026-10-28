@@ -8,6 +8,7 @@
 #include "app/SessionGroup.h"
 #include "app/ThemeManager.h"
 #include "core/AppPaths.h"
+#include "core/FileLocation.h"
 #include "core/Job.h"
 #include "core/Workspace.h"
 
@@ -145,14 +146,21 @@ public:
   // `restoring` (the file was open in the last run) keeps it in the background
   // and only logs a failure.
   void OpenLocalFile(const wxString &path, bool restoring = false);
+  // Opens the local file `where.path` (like OpenLocalFile()) and puts the caret
+  // at `where.line` and `where.column`, both counted from 1. No line (0 or
+  // less): the file is only opened.
+  void OpenFileAt(const FileLocation &where);
 
   // Reads `clickedPath` (resolved against `searchDirs`) from `remoteHost` on
   // a worker thread, then shows it via ShowRemoteFile(). While the same file is
   // already being fetched the call starts no second fetch; if that fetch is the
   // restore of the file, the file is selected when it arrives.
+  // `line` and `column` (from 1; no line: 0) say where the caret goes once the
+  // file is shown.
   void OpenRemoteFile(const RemoteHostDetails &remoteHost,
                       const wxString &clickedPath,
-                      const std::vector<wxString> &searchDirs);
+                      const std::vector<wxString> &searchDirs, int line = 0,
+                      int column = 0);
 
   // Shows `text`, fetched from `path` on `remoteHost`, in an editor page under
   // the "Files" container. Saving writes it back over SFTP. An already-open
@@ -174,10 +182,6 @@ public:
 
 private:
   void LoadBitmaps();
-
-  // The tools of the left pane (they switch between its pages). Hidden while
-  // the list of the sessions is the only page.
-  void CreateLeftToolBar();
 
   // ---- The flat list ----------------------------------------------------
   void OnPageSelected(PageViewEvent &event);
@@ -316,6 +320,8 @@ private:
   // Remote files that were being restored when the workspace was cleared: their
   // results are dropped.
   std::set<wxString> m_ignoreRemote;
+  // Where to put the caret of the remote files that are being fetched, by key.
+  std::map<wxString, FileLocation> m_gotoAfterFetch;
   // The restoring files that the user asked for while they were being fetched:
   // they are selected when they arrive.
   std::set<wxString> m_selectWhenRestored;
