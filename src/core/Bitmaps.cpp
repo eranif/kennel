@@ -150,24 +150,26 @@ wxString MimeNameFor(const wxString &path) {
   }
 
   static const std::unordered_map<wxString, wxString> kByExt = {
-      {"as", "as"},     {"bmp", "bmp"},    {"c", "c"},
-      {"cpp", "cpp"},   {"cc", "cpp"},     {"cxx", "cpp"},
-      {"c++", "cpp"},   {"cp", "cpp"},     {"h", "h"},
-      {"hpp", "h"},     {"hh", "h"},       {"hxx", "h"},
-      {"h++", "h"},     {"cs", "csharp"},  {"css", "css"},
-      {"scss", "css"},  {"less", "css"},   {"go", "go"},
-      {"html", "html"}, {"htm", "html"},   {"java", "java"},
-      {"js", "js"},     {"mjs", "js"},     {"cjs", "js"},
-      {"jsx", "js"},    {"md", "md"},      {"markdown", "md"},
-      {"php", "php"},   {"py", "python"},  {"pyw", "python"},
-      {"sh", "sh"},     {"bash", "sh"},    {"zsh", "sh"},
-      {"ksh", "sh"},    {"fish", "sh"},    {"sql", "sql"},
-      {"svg", "svg"},   {"ts", "ts"},      {"tsx", "ts"},
-      {"txt", "txt"},   {"log", "txt"},    {"text", "txt"},
-      {"xml", "xml"},   {"xsl", "xml"},    {"xslt", "xml"},
-      {"xsd", "xml"},   {"plist", "xml"},  {"cmake", "cmake"},
-      {"json", "json"}, {"jsonc", "json"},
+      {"as", "as"},       {"bmp", "bmp"},        {"c", "c"},
+      {"cpp", "cpp"},     {"cc", "cpp"},         {"cxx", "cpp"},
+      {"c++", "cpp"},     {"cp", "cpp"},         {"h", "h"},
+      {"hpp", "h"},       {"hh", "h"},           {"hxx", "h"},
+      {"h++", "h"},       {"cs", "csharp"},      {"css", "css"},
+      {"scss", "css"},    {"less", "css"},       {"go", "go"},
+      {"html", "html"},   {"htm", "html"},       {"java", "java"},
+      {"js", "js"},       {"mjs", "js"},         {"cjs", "js"},
+      {"jsx", "js"},      {"md", "md"},          {"markdown", "md"},
+      {"php", "php"},     {"py", "python"},      {"pyw", "python"},
+      {"sh", "sh"},       {"bash", "sh"},        {"zsh", "sh"},
+      {"ksh", "sh"},      {"fish", "sh"},        {"sql", "sql"},
+      {"svg", "svg"},     {"ts", "ts"},          {"tsx", "ts"},
+      {"txt", "txt"},     {"log", "txt"},        {"text", "txt"},
+      {"xml", "xml"},     {"xsl", "xml"},        {"xslt", "xml"},
+      {"xrc", "xml"},     {"xsd", "xml"},        {"plist", "xml"},
+      {"cmake", "cmake"}, {"json", "json"},      {"wxcp", "json"},
+      {"jsonl", "json"},  {"workspace", "json"}, {"jsonc", "json"},
   };
+
   const int dot = file.Find('.', /*fromEnd=*/true);
   if (dot > 0) {
     if (auto it = kByExt.find(file.Mid(dot + 1)); it != kByExt.end()) {
