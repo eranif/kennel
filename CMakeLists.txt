@@ -298,6 +298,7 @@ set(KENNEL_APP_SOURCES
     src/app/EditFileDlg.cpp
     src/app/FileEvent.cpp
     src/app/FilePage.cpp
+    src/app/GotoAnythingBar.cpp
     src/app/PageSwitcherDlg.cpp
     src/app/PageViewEvent.cpp
     src/app/ReviewBuddy.cpp

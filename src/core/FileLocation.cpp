@@ -45,3 +45,27 @@ FileLocation ParseFileLocation(const wxString &text) {
   }
   return location;
 }
+
+bool ParseLineColumn(const wxString &text, int *line, int *column) {
+  wxString lineText = text;
+  wxString columnText;
+  const int colon = text.Find(':');
+  if (colon != wxNOT_FOUND) {
+    lineText = text.Left(colon);
+    columnText = text.Mid(colon + 1);
+  }
+  lineText.Trim().Trim(false);
+  columnText.Trim().Trim(false);
+
+  int parsedLine = 0;
+  int parsedColumn = 0;
+  if (!ParseNumber(lineText, &parsedLine) || parsedLine < 1) {
+    return false;
+  }
+  if (!columnText.empty() && !ParseNumber(columnText, &parsedColumn)) {
+    return false;
+  }
+  *line = parsedLine;
+  *column = parsedColumn;
+  return true;
+}

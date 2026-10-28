@@ -1,0 +1,5 @@
+# Generated files: wxCrafter writes them, and a formatted copy is a hand edit.
+src/app/UI.cpp
+src/app/UI.hpp
+src/app/UI_app_bitmaps.cpp
+src/core/json.hpp

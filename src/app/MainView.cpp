@@ -10,6 +10,7 @@
 #include "app/FilePage.hpp"
 #include "app/FilesView.hpp"
 #include "app/FlatView.hpp"
+#include "app/GotoAnythingBar.hpp"
 #include "app/PageRegistry.hpp"
 #include "app/PageSwitcherDlg.hpp"
 #include "app/SessionGroup.h"
@@ -108,6 +109,10 @@ MainView::MainView(wxWindow *parent)
   m_terminalsView = new TerminalsView(GetPanelTerminals());
   GetPanelTerminals()->GetSizer()->Add(m_terminalsView,
                                        wxSizerFlags(1).Expand());
+  // Above the pages, in the sizer of the centre; hidden until it is asked for.
+  m_gotoBar = new GotoAnythingBar(m_mainPanel);
+  m_mainPanel->GetSizer()->Insert(0, m_gotoBar, wxSizerFlags(0).Expand());
+  m_gotoBar->Hide();
 
   for (int i = 0; i < kSpinnerFrameCount; ++i) {
     wxString name;
@@ -129,6 +134,8 @@ MainView::MainView(wxWindow *parent)
   EventNotifier::Get()->Bind(wxEVT_PAGEVIEW_SELECTED, &MainView::OnPageSelected,
                              this);
   Bind(wxEVT_PAGEVIEW_MENU, &MainView::OnPageMenu, this);
+  Bind(wxEVT_GOTOANYTHING_CHANGED, &MainView::OnGotoChanged, this);
+  Bind(wxEVT_GOTOANYTHING_CLOSED, &MainView::OnGotoClosed, this);
   Bind(wxEVT_SESSION_IDLE, &MainView::OnSessionIdle, this);
   Bind(wxEVT_PAGE_SWITCHER_DONE, &MainView::OnPageSwitcherDone, this);
   Bind(wxEVT_SESSION_ACTIVE, &MainView::OnSessionActive, this);
@@ -1214,6 +1221,61 @@ bool MainView::CanFindNext() const {
   }
   auto *session = dynamic_cast<SessionPage *>(page);
   return session != nullptr && session->HasSearch();
+}
+
+void MainView::GotoLine() {
+  auto *file = dynamic_cast<FilePage *>(m_sessionsBook->GetCurrentPage());
+  if (file == nullptr) {
+    return;
+  }
+  if (!m_gotoBar->IsShown()) {
+    // Not when it is open already (Ctrl+G in the box): the caret has followed
+    // the text by now, and Escape must go back to where the user was.
+    m_gotoFileKey = file->GetKey();
+    m_gotoView = file->GetViewState();
+    m_gotoBar->Show();
+    m_gotoBar->GetParent()->GetSizer()->Layout();
+  }
+  m_gotoBar->SetInitialText(":");
+}
+
+bool MainView::CanGotoLine() const {
+  return dynamic_cast<FilePage *>(m_sessionsBook->GetCurrentPage()) != nullptr;
+}
+
+void MainView::OnGotoChanged(wxCommandEvent &event) {
+  // ":12" or ":12:5": the caret follows as the user types.
+  const wxString text = event.GetString();
+  auto *file = dynamic_cast<FilePage *>(m_sessionsBook->GetCurrentPage());
+  int line = 0;
+  int column = 0;
+  if (file != nullptr && text.StartsWith(":") &&
+      ParseLineColumn(text.Mid(1), &line, &column)) {
+    file->GotoLine(line, std::max(column, 1));
+  }
+}
+
+void MainView::OnGotoClosed(wxCommandEvent &event) {
+  // The bar has hidden itself already: take its place back, whatever the page.
+  m_gotoBar->GetParent()->GetSizer()->Layout();
+  auto *file = dynamic_cast<FilePage *>(m_sessionsBook->GetCurrentPage());
+  if (file == nullptr) {
+    return;
+  }
+  switch (event.GetInt()) {
+  case GotoAnythingBar::kCancelled:
+    if (file->GetKey() == m_gotoFileKey) {
+      file->SetViewState(m_gotoView); // As it was before the box opened
+    }
+    file->FocusEditor();
+    break;
+  case GotoAnythingBar::kAccepted:
+    OnGotoChanged(event); // The last text, if it was not shown yet
+    file->FocusEditor();
+    break;
+  default:
+    break; // The user clicked somewhere: leave the caret and the focus
+  }
 }
 
 // ---------------------------------------------------------------------------

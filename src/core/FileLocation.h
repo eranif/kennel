@@ -16,3 +16,8 @@ struct FileLocation {
 // Linux path. Text that does not end with ":<number>" is all path, with line
 // and column 0. A drive letter is never taken for a line: "C:12" has no line.
 FileLocation ParseFileLocation(const wxString &text);
+
+// Reads "line" or "line:column" (the numbers start at 1; spaces around them are
+// ignored). Returns false if the text is not that, or the line is 0. `column`
+// is 0 when the text has none.
+bool ParseLineColumn(const wxString &text, int *line, int *column);

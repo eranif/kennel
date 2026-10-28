@@ -6,7 +6,7 @@
       CMake hardcodes `libcrypto-3-x64.dll` and the `.iss` allows x64 only
 - [x] Gather files in their view (FlatView) similar to how we group terminals.
 - [x] Files should be saved as part of the session
-- [ ] Add goto line to file editor
+- [x] Add goto line to file editor
 - [ ] Design and implement a file explorer view (maybe we can import clTreeCtrlPanel)
 - [ ] Design and implement a git view.
 - [ ] Settings dialog:

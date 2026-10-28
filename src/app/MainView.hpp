@@ -3,6 +3,7 @@
 #include "UI.hpp"
 #include "app/AcceleratorInterceptor.h"
 #include "app/FileEvent.hpp"
+#include "app/FileViewState.hpp"
 #include "app/PageSwitcherDlg.hpp"
 #include "app/PageViewEvent.hpp"
 #include "app/SessionGroup.h"
@@ -28,6 +29,7 @@ class SessionPage;
 class FilePage;
 class PageRegistry;
 class FilesView;
+class GotoAnythingBar;
 class FlatView;
 class TerminalsView;
 
@@ -114,6 +116,12 @@ public:
   // session that has a search. Otherwise a program in the terminal gets F3.
   bool CanFindNext() const;
 
+  // Go to a line of the file that is showing: opens the box on top of the page
+  // with ":" in it (GotoAnythingBar); the caret follows what the user types.
+  // CanGotoLine() is for the menu item and the key.
+  void GotoLine();
+  bool CanGotoLine() const;
+
   // Shows the Ctrl+Tab page switcher (every open session and file, most
   // recently used first) and activates the page chosen when Ctrl is released.
   // If Ctrl is already up, activates the next/previous page directly.
@@ -191,6 +199,9 @@ private:
   // ---- The lists of the pages ---------------------------------------------
   void OnPageSelected(PageViewEvent &event);
   void OnPageMenu(PageViewEvent &event);
+  // What the user types in the GotoAnythingBar, and how it closed.
+  void OnGotoChanged(wxCommandEvent &event);
+  void OnGotoClosed(wxCommandEvent &event);
   // Brings the lists of the pages (the sessions, the files, the terminals) up
   // to date. Coalesced and deferred: it is called from all over, often from
   // inside a view's own event handler.
@@ -316,6 +327,13 @@ private:
   FlatView *m_flatView{nullptr};
   FilesView *m_filesView{nullptr};
   TerminalsView *m_terminalsView{nullptr};
+  // The box on top of the page (Go to line, later quick open). It is the first
+  // item of the sizer of the centre panel, and shown only while it is open.
+  GotoAnythingBar *m_gotoBar{nullptr};
+  // The file the box was opened on, and what the user saw in it: Escape puts it
+  // back (only in that file).
+  wxString m_gotoFileKey;
+  FileViewState m_gotoView;
   bool m_viewsRefreshPending{false};
   // Pages by name, most recently used first: the Ctrl+Tab order, persisted
   // in workspace.json. May name pages that were closed since; the users skip

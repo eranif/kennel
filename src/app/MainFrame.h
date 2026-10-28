@@ -115,6 +115,9 @@ private:
   void OnFind(wxCommandEvent &e);
   void OnFindNext(wxCommandEvent &e);
   void OnFindUI(wxUpdateUIEvent &e);
+  // Go to Line: the box on top of the file that is showing.
+  void OnGotoLine(wxCommandEvent &e);
+  void OnGotoLineUI(wxUpdateUIEvent &e);
 
   // Build the search menu
   void BuildSearchMenu(wxMenuBar *menuBar);

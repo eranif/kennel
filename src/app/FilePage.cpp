@@ -177,10 +177,30 @@ bool FilePage::Save() {
 
 void FilePage::FocusEditor() { m_editor->GetCtrl()->SetFocus(); }
 
+FileViewState FilePage::GetViewState() const {
+  const wxStyledTextCtrl *ctrl = m_editor->GetCtrl();
+  return {ctrl->GetAnchor(), ctrl->GetCurrentPos(),
+          ctrl->GetFirstVisibleLine()};
+}
+
+void FilePage::SetViewState(const FileViewState &state) {
+  ++m_viewSerial; // A centring that is still pending would undo this
+  wxStyledTextCtrl *ctrl = m_editor->GetCtrl();
+  ctrl->SetAnchor(state.anchor);
+  ctrl->SetCurrentPos(state.caret);
+  ctrl->SetFirstVisibleLine(state.firstLine);
+}
+
 void FilePage::GotoLine(int line, int column) {
   m_editor->GotoLine(line, column);
-  // Deferred: a page that was not showing yet has no size to centre in.
-  CallAfter([this] { m_editor->GetCtrl()->VerticalCentreCaret(); });
+  // Deferred: a page that was not showing yet has no size to centre in. Only
+  // the last call centres.
+  const int serial = ++m_viewSerial;
+  CallAfter([this, serial] {
+    if (serial == m_viewSerial) {
+      m_editor->GetCtrl()->VerticalCentreCaret();
+    }
+  });
 }
 
 void FilePage::OnKeyDown(wxKeyEvent &event) {

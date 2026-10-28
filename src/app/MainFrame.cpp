@@ -395,6 +395,14 @@ void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnFindUI, this, wxID_FIND);
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnFindUI, this, XRCID("find-next"));
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnFindUI, this, XRCID("find-previous"));
+#ifdef __WXOSX__
+  searchMenu->Append(XRCID("goto-line"), _("Go to Line...\tRawCtrl+G"));
+#else
+  // No accelerator text: the key is handled by AcceleratorInterceptor.
+  searchMenu->Append(XRCID("goto-line"), _("Go to Line... (Ctrl+G)"));
+#endif
+  Bind(wxEVT_MENU, &MainFrame::OnGotoLine, this, XRCID("goto-line"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnGotoLineUI, this, XRCID("goto-line"));
   menuBar->Append(searchMenu, _("Search"));
 }
 
@@ -616,6 +624,12 @@ void MainFrame::OnFindNext(wxCommandEvent &e) {
 
 void MainFrame::OnFindUI(wxUpdateUIEvent &e) {
   e.Enable(m_mainView->CanFind());
+}
+
+void MainFrame::OnGotoLine(wxCommandEvent &) { m_mainView->GotoLine(); }
+
+void MainFrame::OnGotoLineUI(wxUpdateUIEvent &e) {
+  e.Enable(m_mainView->CanGotoLine());
 }
 
 void MainFrame::OnEditAgents(wxCommandEvent &evt) {

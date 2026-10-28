@@ -125,12 +125,16 @@ Kennel is layered:
 ### Naming & Style
 
 - **Methods:** PascalCase (`LogsDir()`, `Load()`, `OnSessionExited()`).
-- **Formatting:** all sources MUST be `clang-format`-clean before committing. The root
-  `.clang-format` uses `IndentWidth: 2`.
-  Format only Kennel's own files under `src/` and skip the vendored `src/core/json.hpp`:
+- **Formatting:** all sources MUST be `clang-format`-clean before committing, except the
+  generated wxCrafter files (`src/app/UI.cpp`, `UI.hpp`, `UI_app_bitmaps.cpp`) and the
+  vendored `src/core/json.hpp`: those must stay as their tool wrote them. The root
+  `.clang-format` uses `IndentWidth: 2`. `.clang-format-ignore` lists the files to skip
+  (clang-format 18 or newer reads it); the `! -name` filters below do the same with an
+  older clang-format:
 
 ```bash
-find src -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) ! -name 'json.hpp' \
+find src -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) \
+  ! -name 'json.hpp' ! -name 'UI.cpp' ! -name 'UI.hpp' ! -name 'UI_app_bitmaps.cpp' \
   | xargs clang-format -i
 ```
 

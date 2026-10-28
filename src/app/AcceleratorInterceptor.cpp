@@ -48,6 +48,15 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     wxCommandEvent evtFind{wxEVT_MENU, wxID_FIND};
     GetMainFrame()->GetEventHandler()->AddPendingEvent(evtFind);
     return;
+#ifndef __WXOSX__
+  } else if (keyEvent.GetUnicodeKey() == 'G' &&
+             keyEvent.GetModifiers() == wxMOD_CONTROL &&
+             GetMainFrame()->GetMainView()->CanGotoLine()) {
+    // Go to Line. A terminal keeps Ctrl+G (the bell) for the program in it.
+    wxCommandEvent evtGoto{wxEVT_MENU, XRCID("goto-line")};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtGoto);
+    return;
+#endif
   } else if (keyEvent.GetUnicodeKey() == 'N' &&
              keyEvent.GetModifiers() == wxMOD_CONTROL) {
     wxCommandEvent evtConfigureAgent{wxEVT_MENU, wxID_NEW};

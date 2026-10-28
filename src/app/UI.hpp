@@ -80,18 +80,20 @@ class MainViewBase : public wxPanel
 {
 protected:
     wxAuiManager* m_auimgr;
-    wxSimplebook* m_sessionsBook;
     wxPanel* m_panelFlatView;
     wxPanel* m_panelFiles;
     wxPanel* m_panelTerminals;
+    wxPanel* m_mainPanel;
+    wxSimplebook* m_sessionsBook;
 
 protected:
 
 public:
-    wxSimplebook* GetSessionsBook() { return m_sessionsBook; }
     wxPanel* GetPanelFlatView() { return m_panelFlatView; }
     wxPanel* GetPanelFiles() { return m_panelFiles; }
     wxPanel* GetPanelTerminals() { return m_panelTerminals; }
+    wxSimplebook* GetSessionsBook() { return m_sessionsBook; }
+    wxPanel* GetMainPanel() { return m_mainPanel; }
     wxAuiManager* GetAuimgr() { return m_auimgr; }
     MainViewBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxTAB_TRAVERSAL);
     virtual ~MainViewBase();

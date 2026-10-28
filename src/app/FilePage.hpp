@@ -3,6 +3,7 @@
 #include "app/AcceleratorInterceptor.h"
 #include "app/Editor.h"
 #include "app/FileEvent.hpp"
+#include "app/FileViewState.hpp"
 #include "terminal_theme.h"
 
 #include <memory>
@@ -61,6 +62,11 @@ public:
   // middle of the editor. A line or a column out of range goes to the nearest
   // place that exists.
   void GotoLine(int line, int column = 1);
+  // Saved before a move of the caret that may be taken back (GotoLine() as the
+  // user types), and put back with SetViewState(). That also cancels the
+  // centring that GotoLine() has still to do.
+  FileViewState GetViewState() const;
+  void SetViewState(const FileViewState &state);
   // Shows the caret position and the size of the selection in the status bar
   // of the main window. Called when the caret or the selection moves (only
   // while this page is showing) and when the page is selected.
@@ -108,6 +114,9 @@ private:
   wxString m_path;
   RemoteHostDetails m_remoteHost;
   bool m_saving{false};
+  // Counts the calls of GotoLine() and SetViewState(): the deferred centring of
+  // a call that is not the last one is dropped.
+  int m_viewSerial{0};
   // Joinable, and owned by the page so the page (the event sink) is alive for
   // as long as the thread runs: the destructor joins it.
   std::thread m_saveThread;
