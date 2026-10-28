@@ -85,6 +85,9 @@ jobs:
           name: kennel-installer-${{ matrix.arch.msystem }}
           path: .build-release/kennel-*-installer.exe
           if-no-files-found: error
+          # The build folder starts with a dot: without this, upload-artifact
+          # skips everything in it.
+          include-hidden-files: true
       # The installer must install, and put the program where it says.
       - name: Install
         shell: pwsh
