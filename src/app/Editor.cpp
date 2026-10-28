@@ -105,6 +105,13 @@ void Editor::InitEditor() {
   m_ctrl->SetMarginRight(4); // Breathing room between the line and the text.
   UpdateLineNumberMargin();
 
+  // The line of the caret: the background a little towards the text colour, so
+  // it shows on a dark or a light theme and keeps the text readable.
+  m_ctrl->SetCaretLineBackground(Mix(m_theme.bg, m_theme.fg, 0.12));
+  m_ctrl->SetCaretLineVisible(true);
+  m_ctrl->SetCaretLineVisibleAlways(true);
+  m_ctrl->SetCaretWidth(FromDIP(2));
+
   // Indentation
   m_ctrl->SetUseTabs(false);
   m_ctrl->SetTabWidth(2);

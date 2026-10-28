@@ -97,7 +97,7 @@ wxDataViewListCtrl *NewList(wxWindow *parent, const wxString &secondColumn,
                             bool showStatus, bool secondIsIconText) {
   auto *list =
       new wxDataViewListCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                             wxDV_ROW_LINES | wxDV_SINGLE);
+                             wxDV_ROW_LINES | wxDV_VERT_RULES | wxDV_SINGLE);
   // Before the columns: they are added to the model too.
   auto *store = new FlatViewStore(secondIsIconText);
   list->AssociateModel(store);

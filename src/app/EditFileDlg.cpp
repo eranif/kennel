@@ -98,6 +98,7 @@ EditorLang EditFileDlg::LangFromPath(const wxString &filepath) {
       {"cc", EditorLang::kCxx},         {"cxx", EditorLang::kCxx},
       {"h", EditorLang::kCxx},          {"hpp", EditorLang::kCxx},
       {"hxx", EditorLang::kCxx},        {"json", EditorLang::kJson},
+      {"wxcp", EditorLang::kJson},      {"workspace", EditorLang::kJson},
       {"java", EditorLang::kJava},      {"cmake", EditorLang::kCMake},
       {"sh", EditorLang::kBash},        {"bash", EditorLang::kBash},
       {"zsh", EditorLang::kBash},       {"ksh", EditorLang::kBash},
