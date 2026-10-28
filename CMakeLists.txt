@@ -304,7 +304,10 @@ set(KENNEL_APP_SOURCES
     src/app/ReviewBuddyEvent.cpp
     src/app/ReviewBuddyHeader.cpp
     src/app/PageRegistry.cpp
+    src/app/PageListView.cpp
     src/app/FlatView.cpp
+    src/app/TerminalsView.cpp
+    src/app/FilesView.cpp
     src/app/MainViewMenus.cpp
     src/app/EditAgentsDlg.cpp
     src/app/EditAgentDlg.cpp

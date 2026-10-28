@@ -1,6 +1,6 @@
-// The context menus of MainView, for the flat list: it asks for a menu for a
-// page (a session or a file), or for empty space. The commands of a group are
-// in the menu of each of its sessions (AppendGroupMenu()).
+// The context menus of MainView, for the lists of the pages: they ask for a
+// menu for a page (a session or a file), or for empty space. The commands of a
+// group are in the menu of each of its sessions (AppendGroupMenu()).
 #include "MainView.hpp"
 
 #include "app/FilePage.hpp"

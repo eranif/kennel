@@ -8,11 +8,13 @@
 #include "app/AppTheme.h"
 #include "app/AssetBootstrap.h"
 #include "app/FilePage.hpp"
+#include "app/FilesView.hpp"
 #include "app/FlatView.hpp"
 #include "app/PageRegistry.hpp"
 #include "app/PageSwitcherDlg.hpp"
 #include "app/SessionGroup.h"
 #include "app/SessionPage.hpp"
+#include "app/TerminalsView.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/ClientAdapter.h"
@@ -37,17 +39,14 @@
 #include <wx/xrc/xmlres.h>
 
 namespace {
+// The width the side panes start with when there is no saved layout, in DIP.
+constexpr int kSidePaneWidthDip = 300;
+// The names of the side panes (see MainViewBase).
+const wxString kSidePanes[] = {"SessionsPage", "Files", "Terminals"};
+
 // The key of a file page (see FileEvent::MakeKey) for a saved file.
 wxString KeyOfFile(const SessionFile &file) {
   return FileEvent::MakeKey(file.path, {file.remoteHost, file.remoteUser});
-}
-
-// Moves `splitter`'s sash to `dip` device-independent pixels, if there is a
-// saved one.
-void ApplySashPosition(wxSplitterWindow *splitter, int dip) {
-  if (dip > 0 && splitter->IsSplit()) {
-    splitter->SetSashPosition(splitter->FromDIP(dip));
-  }
 }
 
 void PushRecent(std::vector<wxString> &list, const wxString &value,
@@ -102,9 +101,13 @@ MainView::MainView(wxWindow *parent)
   LoadBitmaps();
 
   m_pages = std::make_unique<PageRegistry>();
-  // The view needs the bitmaps (group icons) loaded first.
   m_flatView = new FlatView(GetPanelFlatView());
-  FillPanel(GetPanelFlatView(), m_flatView);
+  GetPanelFlatView()->GetSizer()->Add(m_flatView, wxSizerFlags(1).Expand());
+  m_filesView = new FilesView(GetPanelFiles());
+  GetPanelFiles()->GetSizer()->Add(m_filesView, wxSizerFlags(1).Expand());
+  m_terminalsView = new TerminalsView(GetPanelTerminals());
+  GetPanelTerminals()->GetSizer()->Add(m_terminalsView,
+                                       wxSizerFlags(1).Expand());
 
   for (int i = 0; i < kSpinnerFrameCount; ++i) {
     wxString name;
@@ -191,18 +194,22 @@ void MainView::OnPageMenu(PageViewEvent &event) {
   }
 }
 
-void MainView::RefreshFlatView() {
-  if (m_flatRefreshPending) {
+void MainView::RefreshViews() {
+  if (m_viewsRefreshPending) {
     return;
   }
-  m_flatRefreshPending = true;
-  CallAfter(&MainView::DoRefreshFlatView);
+  m_viewsRefreshPending = true;
+  CallAfter(&MainView::DoRefreshViews);
 }
 
-void MainView::DoRefreshFlatView() {
-  m_flatRefreshPending = false;
-  // Group order; the list sorts it if the user picked a column.
-  m_flatView->SetPages(m_pages->GetPages(), GetActivePageRef());
+void MainView::DoRefreshViews() {
+  m_viewsRefreshPending = false;
+  // Group order; the list of the sessions sorts it if the user picked a column.
+  const auto pages = m_pages->GetPages();
+  const auto active = GetActivePageRef();
+  m_flatView->SetPages(pages, active);
+  m_filesView->SetPages(pages, active);
+  m_terminalsView->SetPages(pages, active);
 }
 
 std::vector<PageInfo>
@@ -442,7 +449,7 @@ SessionPage *MainView::AddSession(SessionPage *page) {
     return nullptr;
   }
   m_sessionsBook->AddPage(page, page->GetSession().name, false);
-  RefreshFlatView();
+  RefreshViews();
   return page;
 }
 
@@ -480,7 +487,7 @@ SessionPage *MainView::AddSessionPage(const Session &session, bool resume) {
 void MainView::AddFilePage(FilePage *page) {
   m_sessionsBook->AddPage(page, page->GetDisplayName(), false);
   m_pages->AddFile(page);
-  RefreshFlatView();
+  RefreshViews();
   SyncWorkspaceSoon();
 }
 
@@ -507,7 +514,7 @@ void MainView::RemovePage(wxWindow *page) {
   if (wasActive) {
     GetMainFrame()->ClearSessionStatus();
   }
-  RefreshFlatView();
+  RefreshViews();
 
   // Deferred: the page may be removed from inside one of its own handlers or
   // a menu callback (see OnSessionExited for the same issue).
@@ -934,36 +941,46 @@ bool MainView::LaunchSession(const NewSessionRequest &req,
 // ---------------------------------------------------------------------------
 
 void MainView::RestoreLayout() {
-  // The page of the sessions is the one to show (the left pane has no other).
-  {
-    const int where = GetNotebookLeft()->FindPage(GetPanelFlatView());
-    if (where != wxNOT_FOUND) {
-      GetNotebookLeft()->SetSelection(where);
-    }
-  }
-  // Deferred: the sash can only be moved to where the window is big enough
-  // for it, and the window is not at its final size (e.g. maximized) before
-  // the first pass of the event loop.
+  // Deferred: the docks can only get the size they had where the window is big
+  // enough for them, and the window is not at its final size (e.g. maximized)
+  // before the first pass of the event loop.
   CallAfter([this] {
-    const auto &prefs = AppManager::Get().GetPrefs();
-    ApplySashPosition(GetSplitterMain(), prefs.sidebarWidth);
-    m_flatView->SetSashPosition(prefs.flatViewSashPosition);
-    m_flatView->SetFilesSashPosition(prefs.flatViewFilesSashPosition);
+    const wxString &layout = AppManager::Get().GetPrefs().auiLayout;
+    bool restored = false;
+    if (!layout.empty()) {
+      restored = m_auimgr->LoadPerspective(layout, /*update=*/true);
+      if (!restored) {
+        KLOG_WARN() << "Could not restore the layout of the panes";
+      }
+    }
+    if (!restored) {
+      ApplyDefaultPaneWidths();
+    }
     m_layoutRestored = true;
   });
 }
 
-void MainView::SaveLayout() {
-  // Before the saved layout was applied the splitters still hold their
-  // defaults, which must not replace what was saved (see RestoreLayout()).
-  auto &prefs = AppManager::Get().GetPrefs();
-  if (m_layoutRestored && GetSplitterMain()->IsSplit()) {
-    prefs.sidebarWidth =
-        GetSplitterMain()->ToDIP(GetSplitterMain()->GetSashPosition());
+void MainView::ApplyDefaultPaneWidths() {
+  // A dock keeps the size it got when it was created (and a new dock is at most
+  // 30% of the window wide), so BestSize() cannot change it any more. A minimum
+  // size makes the dock at least that wide; it is dropped again so the user can
+  // make the pane narrower.
+  const int width = FromDIP(kSidePaneWidthDip);
+  for (const wxString &name : kSidePanes) {
+    m_auimgr->GetPane(name).BestSize(width, -1).MinSize(width, -1);
   }
-  if (m_layoutRestored && m_flatView->HasSize()) {
-    prefs.flatViewSashPosition = m_flatView->GetSashPosition();
-    prefs.flatViewFilesSashPosition = m_flatView->GetFilesSashPosition();
+  m_auimgr->Update();
+  for (const wxString &name : kSidePanes) {
+    m_auimgr->GetPane(name).MinSize(wxDefaultSize);
+  }
+  m_auimgr->Update();
+}
+
+void MainView::SaveLayout() {
+  // Before the saved layout was applied the panes still hold their defaults,
+  // which must not replace what was saved (see RestoreLayout()).
+  if (m_layoutRestored) {
+    AppManager::Get().GetPrefs().auiLayout = m_auimgr->SavePerspective();
   }
 }
 
@@ -1125,7 +1142,9 @@ void MainView::SavePrefs() {
 // Queries
 // ---------------------------------------------------------------------------
 bool MainView::IsEmpty() const {
-  return !m_flatView || m_flatView->GetItemCount() == 0;
+  return !m_flatView ||
+         (m_flatView->GetItemCount() == 0 && m_filesView->GetItemCount() == 0 &&
+          m_terminalsView->GetItemCount() == 0);
 }
 
 SessionGroup *MainView::GetSelectedGroup() const {
@@ -1249,6 +1268,8 @@ void MainView::DeleteAll() {
   m_sessionsBook->DeleteAllPages();
   m_pages->Clear();
   m_flatView->Clear();
+  m_filesView->Clear();
+  m_terminalsView->Clear();
   m_recent.clear();
   GetMainFrame()->ClearSessionStatus();
   // A page destroyed mid-save never delivers wxEVT_FILE_SAVE_DONE.
@@ -1284,7 +1305,7 @@ void MainView::DeleteGroupByName(const wxString &name) {
     }
   }
   m_pages->RemoveGroup(name); // deletes the group with its container
-  RefreshFlatView();
+  RefreshViews();
   if (activeDeleted) {
     GetMainFrame()->ClearSessionStatus();
   }
@@ -1329,7 +1350,7 @@ void MainView::RenameGroup(SessionGroup *group) {
                  SessionRef{newName, page->GetSession().name});
   }
   m_pages->RenameGroup(group, newName);
-  RefreshFlatView();
+  RefreshViews();
   SyncWorkspaceToDisk();
 }
 
@@ -1373,7 +1394,7 @@ void MainView::RenameSession(SessionPage *page) {
                SessionRef{page->GetSession().groupName, newName});
   page->GetSession().name = newName;
   page->SetDefaultSessionName(newName);
-  RefreshFlatView();
+  RefreshViews();
   SyncWorkspaceToDisk();
 }
 
@@ -1427,7 +1448,7 @@ void MainView::MoveSessionToGroup(const wxString &sessionName,
   // The old group may be empty now. Deferred, see RemovePage().
   CallAfter(&MainView::RemoveEmptyGroups);
 
-  RefreshFlatView();
+  RefreshViews();
   SyncWorkspaceToDisk();
 
   if (wasActive) {
@@ -1454,7 +1475,7 @@ void MainView::OnSessionActive(wxCommandEvent &e) { e.Skip(); }
 
 void MainView::OnSessionCwd(wxCommandEvent &e) {
   e.Skip();
-  RefreshFlatView();
+  RefreshViews();
   // A restored terminal starts in the folder it was left in. Agents are
   // restored in their launch folder: nothing to save for them.
   // The event is pending: the page may be gone. Compare the pointer only.
@@ -1530,8 +1551,11 @@ void MainView::ApplyPageIcon(SessionPage *page) {
   }
   m_pages->SetPageStatusIcon(page, status);
   const Session &session = page->GetSession();
-  m_flatView->SetPageStatusIcon(SessionRef{session.groupName, session.name},
-                                status, SessionIconFor(session));
+  // The view that shows the page shows the status; the others ignore it.
+  const SessionRef ref{session.groupName, session.name};
+  const wxBitmapBundle baseIcon = SessionIconFor(session);
+  m_flatView->SetPageStatusIcon(ref, status, baseIcon);
+  m_terminalsView->SetPageStatusIcon(ref, status, baseIcon);
 }
 
 void MainView::OnSessionExited(wxCommandEvent &e) {

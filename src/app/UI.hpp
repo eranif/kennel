@@ -14,9 +14,9 @@
 #include <wx/panel.h>
 #include <wx/artprov.h>
 #include <wx/sizer.h>
-#include <wx/splitter.h>
+#include <wx/aui/framemanager.h>
+#include <wx/aui/dockart.h>
 #include <wx/simplebook.h>
-#include <wx/imaglist.h>
 #include <wx/dialog.h>
 #include <wx/iconbndl.h>
 #include <wx/statbox.h>
@@ -30,6 +30,7 @@
 #include <wx/toolbar.h>
 #include <wx/dataview.h>
 #include <wx/notebook.h>
+#include <wx/imaglist.h>
 #include <wx/statbmp.h>
 #include <wx/stc/stc.h>
 #include <wx/pen.h>
@@ -78,23 +79,20 @@ public:
 class MainViewBase : public wxPanel
 {
 protected:
-    wxSplitterWindow* m_splitterMain;
-    wxPanel* m_splitterPageLeft;
-    wxBoxSizer* m_leftPaneMainSizer;
-    wxSimplebook* m_notebookLeft;
-    wxPanel* m_panelFlatView;
-    wxPanel* m_splitterPageRight;
+    wxAuiManager* m_auimgr;
     wxSimplebook* m_sessionsBook;
+    wxPanel* m_panelFlatView;
+    wxPanel* m_panelFiles;
+    wxPanel* m_panelTerminals;
 
 protected:
 
 public:
-    wxPanel* GetPanelFlatView() { return m_panelFlatView; }
-    wxSimplebook* GetNotebookLeft() { return m_notebookLeft; }
-    wxPanel* GetSplitterPageLeft() { return m_splitterPageLeft; }
     wxSimplebook* GetSessionsBook() { return m_sessionsBook; }
-    wxPanel* GetSplitterPageRight() { return m_splitterPageRight; }
-    wxSplitterWindow* GetSplitterMain() { return m_splitterMain; }
+    wxPanel* GetPanelFlatView() { return m_panelFlatView; }
+    wxPanel* GetPanelFiles() { return m_panelFiles; }
+    wxPanel* GetPanelTerminals() { return m_panelTerminals; }
+    wxAuiManager* GetAuimgr() { return m_auimgr; }
     MainViewBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxTAB_TRAVERSAL);
     virtual ~MainViewBase();
 };

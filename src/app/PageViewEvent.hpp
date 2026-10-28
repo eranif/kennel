@@ -7,8 +7,9 @@
 
 #include "core/Workspace.h"
 
-// What a view (FlatView) shows for one page of the main view: a terminal /
-// agent session (SessionPage) or an open file (FilePage).
+// What a view (FlatView, FilesView, TerminalsView) shows for one page of the
+// main view: a terminal / agent session (SessionPage) or an open file
+// (FilePage).
 struct PageInfo {
   wxString label; // The row label
   wxString group; // The group, or the Terminals / Files container
@@ -47,7 +48,7 @@ public:
   wxEvent *Clone() const override { return new PageViewEvent(*this); }
 
   // Whether showing the page makes it the most recently used one (the
-  // Ctrl+Tab order). False for a pick in the flat list.
+  // Ctrl+Tab order). False for a pick in a list.
   bool UpdateRecent() const { return m_updateRecent; }
   void SetUpdateRecent(bool b) { m_updateRecent = b; }
 
@@ -71,10 +72,6 @@ private:
 wxDECLARE_EVENT(wxEVT_PAGEVIEW_SELECTED, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_PAGEVIEW_MENU, PageViewEvent);
 
-// Settings of the flat list: alternating row colours (ignored by the native
-// implementations).
+// Settings of the lists of the pages: alternating row colours (ignored by the
+// native implementations).
 void StylePageView(wxDataViewCtrl *ctrl);
-
-// Adds `child` to `host`, filling it. Uses the sizer wxCrafter gave `host`, or
-// creates one.
-void FillPanel(wxWindow *host, wxWindow *child);

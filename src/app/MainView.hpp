@@ -27,7 +27,9 @@
 class SessionPage;
 class FilePage;
 class PageRegistry;
+class FilesView;
 class FlatView;
+class TerminalsView;
 
 class AdapterRegistry;
 class WorkspaceStore;
@@ -46,11 +48,12 @@ struct RemoteReadResult {
   std::string content;  // The file's bytes; set when ok
 };
 
-// The left side shows the open pages as a flat list (FlatView, a projection of
-// the PageRegistry, the source of truth for which groups and pages exist). The
-// right side shows the selected page. MainView owns the pages (m_sessionsBook)
-// and acts on what the user does in the list. The list follows the page that
-// is showing through wxEVT_PAGEVIEW_SELECTED on EventNotifier.
+// The side panes show the open pages in three lists (FlatView: the sessions,
+// FilesView, TerminalsView; each one a projection of the PageRegistry, the
+// source of truth for which groups and pages exist). The centre shows the
+// selected page. MainView owns the pages (m_sessionsBook) and acts on what the
+// user does in the lists. The lists follow the page that is showing through
+// wxEVT_PAGEVIEW_SELECTED on EventNotifier.
 class MainView : public MainViewBase {
 public:
   explicit MainView(wxWindow *parent);
@@ -84,10 +87,10 @@ public:
   // local file).
   void RestoreSessions();
 
-  // The splitters (between the left pane and the terminal, and in the list of
-  // the left pane) are remembered between runs in the UI prefs. RestoreLayout()
-  // applies them (once the window has its final size); SaveLayout() records
-  // the current ones into the prefs (the caller saves the prefs).
+  // The layout of the panes (the AUI perspective) is remembered between runs in
+  // the UI prefs. RestoreLayout() applies it (once the window has its final
+  // size); SaveLayout() records the current one into the prefs (the caller
+  // saves the prefs).
   void RestoreLayout();
   void SaveLayout();
 
@@ -182,14 +185,17 @@ public:
 
 private:
   void LoadBitmaps();
+  // Gives the side panes their default width (kSidePaneWidthDip).
+  void ApplyDefaultPaneWidths();
 
-  // ---- The flat list ----------------------------------------------------
+  // ---- The lists of the pages ---------------------------------------------
   void OnPageSelected(PageViewEvent &event);
   void OnPageMenu(PageViewEvent &event);
-  // Brings the flat list up to date. Coalesced and deferred: it is called
-  // from all over, often from inside a view's own event handler.
-  void RefreshFlatView();
-  void DoRefreshFlatView();
+  // Brings the lists of the pages (the sessions, the files, the terminals) up
+  // to date. Coalesced and deferred: it is called from all over, often from
+  // inside a view's own event handler.
+  void RefreshViews();
+  void DoRefreshViews();
   // Every page, most recently used first: `first` (if given), then m_recent,
   // then the pages never used, in group order.
   std::vector<PageInfo>
@@ -223,7 +229,7 @@ private:
   // ---- Showing pages ----------------------------------------------------
   // Makes `page` (a SessionPage or a FilePage) the one visible page. It also
   // becomes the most recently used one, unless `updateRecent` is false (what
-  // choosing a page in the flat list does). `notifyViews` sends
+  // choosing a page in a list does). `notifyViews` sends
   // wxEVT_PAGEVIEW_SELECTED so the views select it; false when a view's own
   // event got us here.
   void ShowPage(wxWindow *page, bool updateRecent = true,
@@ -308,7 +314,9 @@ private:
 
   std::unique_ptr<PageRegistry> m_pages;
   FlatView *m_flatView{nullptr};
-  bool m_flatRefreshPending{false};
+  FilesView *m_filesView{nullptr};
+  TerminalsView *m_terminalsView{nullptr};
+  bool m_viewsRefreshPending{false};
   // Pages by name, most recently used first: the Ctrl+Tab order, persisted
   // in workspace.json. May name pages that were closed since; the users skip
   // those.

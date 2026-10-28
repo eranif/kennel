@@ -36,8 +36,9 @@ inline constexpr const char *kGroupIconAliases[] = {
 // Which groups and pages exist: the groups (plus the "Terminals" and "Files"
 // containers) and the pages in each of them, in the order they were added. It
 // is the only source of truth for that; MainView owns the pages themselves
-// (the windows) and tells this registry about them. The views (FlatView)
-// show what it holds. It has no widgets, no selection and sends no events.
+// (the windows) and tells this registry about them. The views (FlatView,
+// FilesView, TerminalsView) show what it holds. It has no widgets, no selection
+// and sends no events.
 class PageRegistry {
 public:
   PageRegistry() = default;

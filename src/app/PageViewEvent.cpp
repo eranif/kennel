@@ -1,7 +1,6 @@
 #include "app/PageViewEvent.hpp"
 
 #include <wx/settings.h>
-#include <wx/sizer.h>
 #include <wx/window.h>
 
 wxDEFINE_EVENT(wxEVT_PAGEVIEW_SELECTED, PageViewEvent);
@@ -25,14 +24,4 @@ void StylePageView(wxDataViewCtrl *ctrl) {
     event.Skip();
     ctrl->SetAlternateRowColour(AlternateRowColour());
   });
-}
-
-void FillPanel(wxWindow *host, wxWindow *child) {
-  wxSizer *sizer = host->GetSizer();
-  if (sizer == nullptr) {
-    sizer = new wxBoxSizer(wxVERTICAL);
-    host->SetSizer(sizer);
-  }
-  sizer->Add(child, wxSizerFlags(1).Expand());
-  host->Layout();
 }
