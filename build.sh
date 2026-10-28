@@ -207,7 +207,10 @@ function build_kennel_MSW() {
     [ ! -f "${kennel_build_dir}/CMakeCache.txt" ] ||
     [ "${ROOT_DIR}/CMakeLists.txt" -nt "${kennel_build_dir}/Makefile" ]; then
     INFO "Configuring Kennel"
-    cmake ${ROOT_DIR} -DCMAKE_BUILD_TYPE=Release -DWXWIN="${BUILD_DIR}/wxWidgets-install"
+    # The generator is named: without it CMake uses its default, which is not
+    # always Makefiles (Ninja on a CI runner), and mingw32-make finds nothing.
+    cmake ${ROOT_DIR} -G"MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release \
+      -DWXWIN="${BUILD_DIR}/wxWidgets-install"
   else
     INFO "Kennel already configured; skipping cmake"
   fi
