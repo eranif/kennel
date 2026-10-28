@@ -315,9 +315,9 @@
           "gbPosition": "0,0",
           "m_styles": [
             "wxAUI_MGR_LIVE_RESIZE",
+            "wxAUI_MGR_HINT_FADE",
             "wxAUI_MGR_TRANSPARENT_HINT",
             "wxAUI_MGR_TRANSPARENT_DRAG",
-            "wxAUI_MGR_ALLOW_ACTIVE_PANE",
             "wxAUI_MGR_ALLOW_FLOATING"
           ],
           "m_sizerFlags": [],

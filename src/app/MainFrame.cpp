@@ -362,11 +362,11 @@ void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
                      _("Select Previous Page\tRawCtrl+Shift+Tab"),
                      _("Select the previous session or file"));
 #else
-  // No accelerator text: Ctrl+Tab / Ctrl+Shift+Tab are handled by
-  // AcceleratorInterceptor.
-  searchMenu->Append(wxID_FORWARD, _("Select Next Page (Ctrl+Tab)"),
+  // AcceleratorInterceptor handles Ctrl+Tab / Ctrl+Shift+Tab before the menu
+  // sees them; the text after the tab shows them.
+  searchMenu->Append(wxID_FORWARD, _("Select Next Page\tCtrl+Tab"),
                      _("Select the next session or file"));
-  searchMenu->Append(wxID_BACKWARD, _("Select Previous Page (Ctrl+Shift+Tab)"),
+  searchMenu->Append(wxID_BACKWARD, _("Select Previous Page\tCtrl+Shift+Tab"),
                      _("Select the previous session or file"));
 #endif
 
@@ -377,18 +377,12 @@ void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
   Bind(wxEVT_MENU, &MainFrame::OnPrevSession, this, wxID_BACKWARD);
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnNextSessionUI, this, wxID_FORWARD);
   searchMenu->AppendSeparator();
-#ifdef __WXOSX__
+  // AcceleratorInterceptor handles these keys before the menu sees them (the
+  // terminal would get them otherwise); the text after the tab shows them.
   searchMenu->Append(wxID_FIND, _("Find...\tCtrl+F"),
                      _("Find text in the file or the terminal"));
   searchMenu->Append(XRCID("find-next"), _("Find Next\tF3"));
   searchMenu->Append(XRCID("find-previous"), _("Find Previous\tShift+F3"));
-#else
-  // No accelerator text: the keys are handled by AcceleratorInterceptor.
-  searchMenu->Append(wxID_FIND, _("Find... (Ctrl+F)"),
-                     _("Find text in the file or the terminal"));
-  searchMenu->Append(XRCID("find-next"), _("Find Next (F3)"));
-  searchMenu->Append(XRCID("find-previous"), _("Find Previous (Shift+F3)"));
-#endif
   Bind(wxEVT_MENU, &MainFrame::OnFind, this, wxID_FIND);
   Bind(wxEVT_MENU, &MainFrame::OnFindNext, this, XRCID("find-next"));
   Bind(wxEVT_MENU, &MainFrame::OnFindNext, this, XRCID("find-previous"));
@@ -398,8 +392,9 @@ void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
 #ifdef __WXOSX__
   searchMenu->Append(XRCID("goto-line"), _("Go to Line...\tRawCtrl+G"));
 #else
-  // No accelerator text: the key is handled by AcceleratorInterceptor.
-  searchMenu->Append(XRCID("goto-line"), _("Go to Line... (Ctrl+G)"));
+  // AcceleratorInterceptor handles the key (a terminal keeps Ctrl+G); the text
+  // after the tab shows it.
+  searchMenu->Append(XRCID("goto-line"), _("Go to Line...\tCtrl+G"));
 #endif
   Bind(wxEVT_MENU, &MainFrame::OnGotoLine, this, XRCID("goto-line"));
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnGotoLineUI, this, XRCID("goto-line"));

@@ -42,6 +42,10 @@
 namespace {
 // The width the side panes start with when there is no saved layout, in DIP.
 constexpr int kSidePaneWidthDip = 300;
+// The size of a side pane that is dragged out of the window, in DIP. A saved
+// layout has the size the user gave it.
+constexpr int kFloatingPaneWidthDip = 400;
+constexpr int kFloatingPaneHeightDip = 600;
 // The names of the side panes (see MainViewBase).
 const wxString kSidePanes[] = {"SessionsPage", "Files", "Terminals"};
 
@@ -109,6 +113,11 @@ MainView::MainView(wxWindow *parent)
   m_terminalsView = new TerminalsView(GetPanelTerminals());
   GetPanelTerminals()->GetSizer()->Add(m_terminalsView,
                                        wxSizerFlags(1).Expand());
+  // The size a pane gets when it floats (it only matters then, so no Update()).
+  for (const wxString &name : kSidePanes) {
+    m_auimgr->GetPane(name).FloatingSize(
+        FromDIP(wxSize(kFloatingPaneWidthDip, kFloatingPaneHeightDip)));
+  }
   // Above the pages, in the sizer of the centre; hidden until it is asked for.
   m_gotoBar = new GotoAnythingBar(m_mainPanel);
   m_mainPanel->GetSizer()->Insert(0, m_gotoBar, wxSizerFlags(0).Expand());
