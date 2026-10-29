@@ -7,7 +7,7 @@
 - [x] Gather files in their view (FlatView) similar to how we group terminals.
 - [x] Files should be saved as part of the session
 - [x] Add goto line to file editor
-- [ ] Design and implement a file explorer view (maybe we can import clTreeCtrlPanel)
+- [x] Design and implement a file explorer view (maybe we can import clTreeCtrlPanel)
 - [ ] Design and implement a git view.
 - [ ] Settings dialog:
   - [ ] Review timeout.
@@ -17,4 +17,4 @@
 - [ ] Make the flat view "multi-select".
 - [ ] Add Size column to the flat view (useful for files)
 - [x] Notebook: closing a tab, selects the first one. We should select the next one from the MRU.
-
+- [x] Update the `File Browser` with the following: add `Refresh` context menu. `Open with Default App`.

@@ -5,11 +5,47 @@
 Kennel 2.0.0 makes the terminal page a tool you can work with: every session has a toolbar
 (Restart, Review Buddy, Copy, Paste, Find) instead of a right-click menu, a header that shows
 what the session is, a search bar, and a thin progress bar. Review Buddy reports its progress
-right in that header. You can now choose a dark or a light theme for the whole application,
-file links from the terminal follow `cd`, and Windows gets a newer ConPTY and a newer
-wxWidgets.
+right in that header. The main window has a new layout: one notebook for all your sessions
+and files, a **File Explorer** with a tree for each session, and an **Activity** pane that
+tells you which sessions are working, done or blocked. The application can follow the theme of
+the terminal, file links from the terminal follow `cd` and open at the right line, open files
+come back with the session, and Windows gets a newer ConPTY, a newer wxWidgets and an
+installer built on GitHub Actions.
 
 ## Major Improvements
+
+### A new main window
+
+- **One notebook for sessions and files** — the session tree, the flat list and the lists of
+  files and terminals are gone. Every session, terminal and file is a tab of one notebook.
+  The tabs are painted in the colors of the terminal theme (and follow it when you change
+  it), the close button is on every tab, a middle click closes a tab, and the tooltip of a
+  tab shows its full title. **Ctrl+Tab** still switches between the pages, most recent first.
+  - **Closing a tab shows the page you used before it** — the next one in the recent order,
+    as Ctrl+Tab would, and not the tab next to it. The same goes for closing a group.
+  - **Program status on the tabs** — a program that reports its state with OSC 7501 gets a
+    spinner (working), a green check mark (done) or a hand (blocked, it needs you) on its tab.
+    The mark goes away when you look at the page. The reviewer's terminal is followed too.
+- **File Explorer** — a new pane with the files of your sessions: a choice of the sessions
+  and one tree for each of them. Double click a file to open it.
+  - **Link with Session** (a tool on top of the pane) makes the tree follow the session you
+    work in, and select the file that is open in the editor (local and WSL sessions).
+  - A **WSL** session shows the files of its distribution; a session on a **remote host**
+    shows the files of the host. A remote tree connects in the background and shows
+    `Connecting...` until it is ready, so the window does not wait for a slow host.
+  - Choosing a session in the pane shows that session.
+- **Activity** — a new pane that lists the sessions whose program is working, done or
+  blocked, with an icon (a turning spinner, a check mark, a hand). Blocked sessions come
+  first, then done, then working. A working or blocked row stays while the program is in
+  that state, also for the page you are looking at. A done row goes when you are in that
+  session. Click a row to show the session.
+- **View → Reset Kennel Layout** — puts the panes back to the layout they have at the first
+  start. The layout of the panes is saved between runs; a saved layout that does not know a
+  new pane shows that pane again. The side panes start 300 DIP wide, and float at 400x600 DIP.
+- **The application can follow the terminal theme** — see "A theme for the whole application".
+- **Faster remote files** — Kennel keeps its SFTP connections open (one pool for each host)
+  instead of making a new SSH connection for every call. Opening a remote file no longer
+  waits for a new handshake, which took seconds on a host far away.
 
 ### A toolbar and a header for every terminal
 
@@ -48,16 +84,23 @@ wxWidgets.
 
 ### A theme for the whole application
 
-- **System, Dark or Light** — a new **Theme** choice in **Settings** sets the look of the
-  application. It is saved in `.persist.json` (`appTheme`) and applied when Kennel starts and
-  when you confirm the settings. The default is **Dark**, as before. It is separate from the
-  terminal color theme.
+- **Follow terminal theme, System, Dark or Light** — a new **Theme** choice in **Settings**
+  sets the look of the application. It is saved in `.persist.json` (`appTheme`) and applied
+  when Kennel starts and when you confirm the settings. The default is **Follow terminal
+  theme**: the application is dark or light as the background of the terminal theme is, also
+  while you pick a terminal theme.
 - **Toolbars follow the theme** — a light theme gets a plain toolbar background and a dark
-  theme the default one. A change in Settings updates the left toolbar and the toolbars of
-  the open sessions at once.
-- **Stripes on a light theme** — the alternating row colour of the session tree and the flat
-  list was a lightened window colour, which does nothing on white. A light background now gets
-  darker rows, so the stripes show.
+  theme the default one. A change in Settings updates the toolbars of the open sessions and
+  files at once.
+- **A dark and a light set of icons** — the icons of the toolbars, menus and lists (agent,
+  terminal, job, code reviewer, reload, save, close, find, copy, paste, up, home) have a shade
+  of grey for each theme and follow the theme of the application.
+- **Stripes on a light theme** — the alternating row colour of the lists was a lightened
+  window colour, which does nothing on white. A light background now gets darker rows, so the
+  stripes show.
+- **The editor** — the line numbers and the comments are readable on any theme (a dimmed text
+  colour and a muted green, with a minimum contrast), the line of the caret is highlighted,
+  and the caret is wider.
 - **Terminal themes fit light backgrounds** — many theme files have no cursor colour, and the
   default is white: the block cursor could not be seen on a light theme. Now:
   - a theme without a cursor colour uses its foreground colour;
@@ -94,6 +137,20 @@ wxWidgets.
   (also over `ssh`) and cmd.exe, and an existing `PROMPT_COMMAND` is kept.
 - **A notice when the file is not found** — the status bar says `File not found: ...`
   instead of doing nothing.
+- **Open at the line and the column** — a click on compiler output such as
+  `C:\a\b\c.cpp:100:50`, `a/b/c.cpp:100:50` or `/home/me/c.cpp:100` opens the file with the
+  caret at that place, for local and remote files. A name that has a colon and digits in it
+  still opens when the file without them does not exist.
+- **More links** — a trailing comma is cut from the link, `file://` links and clicked folders
+  open with the default application.
+- **Go to Line** — **Search → Go to Line...** (Ctrl+G, not in a terminal) shows a box on top
+  of the file. The caret follows what you type (`:12` or `:12:5`), Enter keeps it, and Escape
+  puts back the selection and the scroll position.
+- **Open files come back with the session** — the files you have open are saved with the
+  workspace and opened again at the next start, like the sessions. Local files come back at
+  once, remote files are fetched in the background. Unsaved edits are not kept.
+- **Terminals come back too** — a plain terminal is restored with the folder it was in and
+  the shell it runs, so it does not ask for the shell again. Job runs are not saved.
 - **Windows with a Linux shell** — a Linux folder of an `ssh` shell is not mixed with a
   Windows path any more. Kennel says that the file may be on another machine. msys2 and Git
   Bash paths (`/c/Users/...`) are mapped to drive paths.
@@ -108,12 +165,14 @@ wxWidgets.
 
 ### Switching pages is faster
 
-- **`wxSimplebook`** replaces the custom page book, which was slow when switching sessions.
+- **A native notebook** replaces the custom page book, which was slow when switching sessions.
 - **The Ctrl+Tab switcher** is modeless: the modal dialog left the application lagging after
-  the Ctrl key was released. It also keeps its list border narrower.
-- **The recent order** (the Ctrl+Tab order) is updated when you pick a page in the flat list,
-  as it is in the tree.
-- **Sorting the flat list** keeps the selected page selected.
+  the Ctrl key was released. It also keeps its list border narrower, and shows the folder of
+  each page in the columns Name | Dir | Group.
+- **The recent order** (the Ctrl+Tab order) is updated whenever a page is shown, also when
+  you pick it in the File Explorer or in the Activity pane.
+- **No more tab-switching loops** — the notebook no longer selects a page just because the
+  focus went into it, so two sessions cannot pull the selection back and forth.
 
 ### On Windows
 
@@ -122,6 +181,10 @@ wxWidgets.
   installer. The ConPTY built into Windows does not pass queries such as `OSC 11 ; ?` to the
   terminal, so apps like Claude Code could not find the background color and picked a dark
   theme on a light one. Without the two files, Kennel falls back to the ConPTY of Windows.
+- **An installer built on GitHub Actions** — a workflow builds Kennel with MSYS2 clang64 on a
+  Windows runner, creates the installer with `./build.sh package` (Inno Setup), uploads it and
+  installs it silently as a smoke test. `build.sh` uses `mingw32-make` for every make on
+  Windows and names the CMake generator ("MinGW Makefiles"). Windows on ARM is off for now.
 - **Colour emoji and wide characters** — the terminal draws emoji with their own colors
   (with Direct2D), also in the header, and wide characters (CJK, emoji) are no longer
   clipped in the OpenGL renderer.
@@ -133,6 +196,11 @@ wxWidgets.
   `src/main.cpp:` opens the file.
 - **A Code Reviewer icon** — a teal magnifying glass with a green check mark, readable on dark
   and light themes.
+- **The header of the reviewer** — the terminal of Review Buddy has its own header,
+  `<Agent> (Review Buddy) | Reviewing changes` (or `Waiting` while the main agent addresses the
+  comments).
+- **New file types** — `.xrc`, `.wxcp`, `.jsonl` and `.workspace` files get their icon and
+  language, and there is an ElastiCache icon.
 - **`build.sh --cmake`** forces the CMake configure step. `WX_VERSION` selects the
   wxWidgets tag.
 - **Terminal and tool changes** — `wxTerminalEmulator` was updated several times: header,
@@ -144,11 +212,30 @@ wxWidgets.
 - **Slow tab switching** — see "Switching pages is faster".
 - **Block cursor, selection and links on light terminal themes** — see "A theme for the whole
   application".
-- **No stripes on a light theme** in the session tree and the flat list.
+- **No stripes on a light theme** in the lists.
 - **Find on macOS** — Enter now works.
+- **Remote files in the File Explorer** — a remote session folder stored as `$HOME/...` is
+  listed now ("not a directory" before), and a remote tree is shown after a restore.
+- **Closing a tab** shows the page you used before it (the next one in the recent order), not
+  the tab next to it or the first one. Closing a group does the same.
+- **Two sessions switching tabs forever** after a restart with several sessions is fixed.
 
 ## Under the Hood
 
+- **`MainNotebook`** is the page manager and the only source of truth for the pages (the
+  `SessionPage` and `FilePage` windows of the notebook). `PageRegistry`, `SessionGroup`,
+  `TreeView`, `FlatView` and the other page lists, `TabHistory` and `AwaitingInputDetector`
+  are removed. `MainView` keeps the theme, the layout of the panes and the side views.
+- **Views talk with events only** — `MainNotebook`, the File Explorer (`FileExplorerView`) and
+  the Activity pane (`ActivityView`) do not know each other. The notebook sends
+  `PageViewEvent`s (added, removed, renamed, shown, activity) and `FileEvent`s; what the user
+  asks in a side view comes back on the `EventNotifier`. `ThemeManager` posts
+  `wxEVT_THEME_APPLIED` when a theme is set.
+- **`core/Account`** names the place of a session (this machine, WSL or a remote host), and
+  the file providers moved to `FileProvider`. `ParseFileLocation()` (core) parses
+  `file:line:column`, and `wsl::ToLinuxPath()` converts a Windows path to WSL.
+- **`workspace.json`** has the open files (`files`). The groups, the sort preferences of the
+  flat list, the splitter positions, `sidebarWidth` and `leftTab` are not saved any more.
 - **`ReviewBuddyEvent`** — `ReviewBuddy` sends a custom event to its event target whenever its
   status changes: `STARTED`, `WAITING_FOR_FINDINGS`, `ADDRESSING_FINDINGS`, `FINISHED`,
   `ERROR` (with the reason) and `STOPPED`. The request to close it is a `ReviewBuddyEvent` too
@@ -169,7 +256,12 @@ wxWidgets.
 - **Rebuild wxWidgets.** `build.sh` now builds `v3.3.4`. Delete `.build-release/wxWidgets` and
   `.build-release/wxWidgets-install`, and run `./build.sh` again. On Windows, also run CMake
   again with the same generator as before.
-- **The default theme is still Dark.** Choose **System** or **Light** in **Settings → Theme**.
+- **The application follows the terminal theme by default.** Choose **System**, **Dark** or
+  **Light** in **Settings → Theme** to change it.
+- **The session tree and the flat list are gone.** Use the tabs, Ctrl+Tab, the File Explorer
+  and the Activity pane. The group colours and the Group menu of the tree are gone with them;
+  old preferences and groups in your files are ignored. If the new panes are not shown, use
+  **View → Reset Kennel Layout**.
 - **The terminal has no context menu.** Use the toolbar above the terminal. The shortcut for
   Find is Ctrl+F (Cmd+F on macOS).
 - **The Windows installer** now also ships `conpty.dll` and `OpenConsole.exe`.
