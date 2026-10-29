@@ -2,6 +2,7 @@
 
 #include "ThemeLoader.h"
 #include "ThemeManager.h"
+#include "app/ActivityView.hpp"
 #include "app/AssetBootstrap.h"
 #include "app/FileExplorerView.hpp"
 #include "app/PageNames.h"
@@ -9,6 +10,8 @@
 #include "core/EventNotifier.hpp"
 #include "core/Logger.h"
 
+#include <algorithm>
+#include <vector>
 #include <wx/dir.h>
 #include <wx/sizer.h>
 
@@ -20,7 +23,7 @@ constexpr int kSidePaneWidthDip = 300;
 constexpr int kFloatingPaneWidthDip = 400;
 constexpr int kFloatingPaneHeightDip = 600;
 // The names of the side panes (see MainViewBase).
-const wxString kSidePanes[] = {"FileBrowser"};
+const wxString kSidePanes[] = {"FileBrowser", "Activity"};
 
 // What the choice of the file explorer shows for a session: the name, and the
 // group when the session is in one.
@@ -56,23 +59,30 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
   m_fileExplorer = new FileExplorerView(GetPanelFileExplorer());
   GetPanelFileExplorer()->GetSizer()->Add(m_fileExplorer,
                                           wxSizerFlags(1).Expand());
+  m_activityView = new ActivityView(GetPanelActivity());
+  GetPanelActivity()->GetSizer()->Add(m_activityView, wxSizerFlags(1).Expand());
   // The size a pane gets when it floats (it only matters then, so no Update()).
   for (const wxString &name : kSidePanes) {
     m_auimgr->GetPane(name).FloatingSize(
         FromDIP(wxSize(kFloatingPaneWidthDip, kFloatingPaneHeightDip)));
   }
 
-  // What the pages tell: the file explorer follows.
+  m_defaultLayout = m_auimgr->SavePerspective();
+
+  // What the pages tell: the side views follow.
   Bind(wxEVT_SESSION_PAGE_ADDED, &MainView::OnSessionPageAdded, this);
   Bind(wxEVT_SESSION_PAGE_REMOVED, &MainView::OnSessionPageRemoved, this);
   Bind(wxEVT_SESSION_PAGE_RENAMED, &MainView::OnSessionPageRenamed, this);
   Bind(wxEVT_SESSION_PAGES_CLEARED, &MainView::OnSessionPagesCleared, this);
   Bind(wxEVT_SESSION_PAGE_SHOWN, &MainView::OnSessionPageShown, this);
+  Bind(wxEVT_SESSION_PAGE_ACTIVITY, &MainView::OnSessionPageActivity, this);
   Bind(wxEVT_FILE_REVEAL, &MainView::OnFileReveal, this);
   Bind(wxEVT_PAGES_TOOLBAR_STYLE, &MainView::OnToolBarStyle, this);
   // What the user asks in the file explorer.
   Bind(wxEVT_FILETREE_ACTIVATED, &MainView::OnFileTreeActivated, this);
   Bind(wxEVT_FILEEXPLORER_SESSION_SELECTED, &MainView::OnExplorerSession, this);
+  // What the user asks in the activity view.
+  Bind(wxEVT_ACTIVITYVIEW_SESSION_SELECTED, &MainView::OnActivitySession, this);
 }
 
 // ---------------------------------------------------------------------------
@@ -86,25 +96,35 @@ void MainView::OnSessionPageAdded(PageViewEvent &event) {
 
 void MainView::OnSessionPageRemoved(PageViewEvent &event) {
   m_fileExplorer->RemoveSession(event.GetRef());
+  m_activityView->RemoveSession(event.GetRef());
 }
 
 void MainView::OnSessionPageRenamed(PageViewEvent &event) {
   m_fileExplorer->RenameSession(event.GetOldRef(), event.GetRef(),
                                 ExplorerLabel(event.GetRef()));
+  m_activityView->RenameSession(event.GetOldRef(), event.GetRef());
 }
 
 void MainView::OnSessionPagesCleared(wxCommandEvent &) {
   m_fileExplorer->Clear();
+  m_activityView->Clear();
 }
 
 void MainView::OnSessionPageShown(PageViewEvent &event) {
   // Selects what is to be shown; nothing is sent back.
   m_fileExplorer->SetActiveSession(event.GetRef());
+  m_activityView->SetActiveSession(event.GetRef());
+}
+
+void MainView::OnSessionPageActivity(PageViewEvent &event) {
+  m_activityView->SetActivity(event.GetRef(), event.GetActivity());
 }
 
 void MainView::OnFileReveal(FileEvent &event) {
   // Selects the file; nothing is sent back.
   m_fileExplorer->RevealFile(event.GetAccount(), event.GetPath());
+  // A file is showing, not a session.
+  m_activityView->SetActiveSession(std::nullopt);
 }
 
 void MainView::OnToolBarStyle(wxCommandEvent &) {
@@ -120,6 +140,14 @@ void MainView::OnExplorerSession(PageViewEvent &event) {
 }
 
 void MainView::OnFileTreeActivated(FileEvent &event) {
+  EventNotifier::Get()->AddPendingEvent(event);
+}
+
+// ---------------------------------------------------------------------------
+// From the activity view
+// ---------------------------------------------------------------------------
+
+void MainView::OnActivitySession(PageViewEvent &event) {
   EventNotifier::Get()->AddPendingEvent(event);
 }
 
@@ -140,24 +168,52 @@ void MainView::RestoreLayout() {
         KLOG_WARN() << "Could not restore the layout of the panes";
       }
     }
-    if (!restored) {
-      ApplyDefaultPaneWidths();
+    if (restored) {
+      // LoadPerspective() hides the panes the layout does not know: a layout
+      // saved before a pane existed. They are shown where they were created,
+      // with the default width if they are side panes. The check relies on the
+      // format of the AUI perspective ("name=<pane>;" for each pane).
+      std::vector<wxString> added;
+      wxAuiPaneInfoArray &panes = m_auimgr->GetAllPanes();
+      for (size_t i = 0; i < panes.GetCount(); ++i) {
+        if (!layout.Contains("name=" + panes[i].name + ";")) {
+          panes[i].Show();
+          if (std::find(std::begin(kSidePanes), std::end(kSidePanes),
+                        panes[i].name) != std::end(kSidePanes)) {
+            added.push_back(panes[i].name);
+          }
+        }
+      }
+      m_auimgr->Update();
+      if (!added.empty()) {
+        ApplyDefaultPaneWidths(added);
+      }
+    } else {
+      ApplyDefaultPaneWidths(kSidePanes);
     }
     m_layoutRestored = true;
   });
 }
 
-void MainView::ApplyDefaultPaneWidths() {
+void MainView::ResetLayout() {
+  if (!m_auimgr->LoadPerspective(m_defaultLayout, /*update=*/true)) {
+    KLOG_WARN() << "Could not reset the layout of the panes";
+    return;
+  }
+  ApplyDefaultPaneWidths(kSidePanes);
+}
+
+void MainView::ApplyDefaultPaneWidths(std::span<const wxString> names) {
   // A dock keeps the size it got when it was created (and a new dock is at most
   // 30% of the window wide), so BestSize() cannot change it any more. A minimum
   // size makes the dock at least that wide; it is dropped again so the user can
   // make the pane narrower.
   const int width = FromDIP(kSidePaneWidthDip);
-  for (const wxString &name : kSidePanes) {
+  for (const wxString &name : names) {
     m_auimgr->GetPane(name).BestSize(width, -1).MinSize(width, -1);
   }
   m_auimgr->Update();
-  for (const wxString &name : kSidePanes) {
+  for (const wxString &name : names) {
     m_auimgr->GetPane(name).MinSize(wxDefaultSize);
   }
   m_auimgr->Update();
@@ -187,6 +243,19 @@ void MainView::LoadBitmaps() {
 
   bmps.Load("link.svg");
   bmps.AddAlias("link.svg", "link");
+
+  // The status of the activity view.
+  bmps.Load("hand.svg");
+  bmps.AddAlias("hand.svg", "hand");
+
+  bmps.Load("check.svg");
+  bmps.AddAlias("check.svg", "check");
+
+  for (int i = 0; i < 8; ++i) {
+    const wxString file = wxString::Format("spinner-%d.svg", i);
+    bmps.Load(file);
+    bmps.AddAlias(file, wxString::Format("spinner-%d", i));
+  }
 
   bmps.Load("terminal.svg");
   bmps.AddAlias("terminal.svg", "terminal");

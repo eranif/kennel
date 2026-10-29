@@ -343,6 +343,7 @@ void MainFrame::BuildMenuBar() {
 
   BuildEditMenu(menuBar);
   BuildSearchMenu(menuBar);
+  BuildViewMenu(menuBar);
   BuildJobsMenu(menuBar);
   BuildSettingsMenu(menuBar);
   SetMenuBar(menuBar);
@@ -401,6 +402,16 @@ void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnGotoLineUI, this, XRCID("goto-line"));
   menuBar->Append(searchMenu, _("Search"));
 }
+
+void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
+  auto *viewMenu = new wxMenu();
+  viewMenu->Append(XRCID("reset-layout"), _("Reset Kennel Layout"),
+                   _("Restore the panes to their initial layout"));
+  Bind(wxEVT_MENU, &MainFrame::OnResetLayout, this, XRCID("reset-layout"));
+  menuBar->Append(viewMenu, _("&View"));
+}
+
+void MainFrame::OnResetLayout(wxCommandEvent &) { m_mainView->ResetLayout(); }
 
 void MainFrame::BuildEditMenu(wxMenuBar *menuBar) {
   auto *editMenu = new wxMenu();

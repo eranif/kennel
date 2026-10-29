@@ -122,6 +122,11 @@ private:
   // Build the search menu
   void BuildSearchMenu(wxMenuBar *menuBar);
 
+  // Appends the View menu.
+  void BuildViewMenu(wxMenuBar *menuBar);
+  // Puts the panes back to the layout they have without a saved one.
+  void OnResetLayout(wxCommandEvent &e);
+
   // Opens the global config.json for editing
   void OnSettings(wxCommandEvent &evt);
 

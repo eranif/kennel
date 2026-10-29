@@ -7,6 +7,14 @@
 #include "core/Account.h"
 #include "core/Workspace.h"
 
+// What the program of a session reports it is doing (OSC 7501).
+enum class PageActivity {
+  None,
+  Working,
+  Done,
+  Blocked,
+};
+
 // An event about a page (a session); the page is named by GetRef() (a
 // SessionRef, see core/Workspace.h) and the event object is the sender.
 class PageViewEvent : public wxCommandEvent {
@@ -28,10 +36,15 @@ public:
   const Account &GetAccount() const { return m_account; }
   void SetAccount(const Account &account) { m_account = account; }
 
+  // What the program of the session is doing now.
+  PageActivity GetActivity() const { return m_activity; }
+  void SetActivity(PageActivity activity) { m_activity = activity; }
+
 private:
   SessionRef m_ref;
   SessionRef m_oldRef;
   Account m_account;
+  PageActivity m_activity{PageActivity::None};
 };
 
 // The events below are how the pages (MainNotebook) and the rest of the main
@@ -45,6 +58,9 @@ private:
 //   wxEVT_SESSION_PAGE_RENAMED:  GetOldRef() is GetRef() now.
 //   wxEVT_SESSION_PAGES_CLEARED: every session is gone.
 //   wxEVT_SESSION_PAGE_SHOWN:    the session GetRef() is the page showing now.
+//   wxEVT_SESSION_PAGE_ACTIVITY: GetActivity() is what the program of GetRef()
+//                                is doing now (None: nothing), also for the
+//                                page that is showing.
 //   wxEVT_PAGES_TOOLBAR_STYLE:   the toolbars take the style of the theme
 //   again.
 // (A file that is showing is reported with wxEVT_FILE_REVEAL, see FileEvent.)
@@ -53,6 +69,7 @@ wxDECLARE_EVENT(wxEVT_SESSION_PAGE_REMOVED, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_RENAMED, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGES_CLEARED, wxCommandEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_SHOWN, PageViewEvent);
+wxDECLARE_EVENT(wxEVT_SESSION_PAGE_ACTIVITY, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_PAGES_TOOLBAR_STYLE, wxCommandEvent);
 
 // Settings of the lists of the pages: alternating row colours (ignored by the

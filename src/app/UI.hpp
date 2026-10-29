@@ -83,6 +83,7 @@ protected:
     wxPanel* m_panelFileExplorer;
     wxPanel* m_mainPanel;
     MainNotebook* m_sessionsBook;
+    wxPanel* m_panelActivity;
 
 protected:
 
@@ -90,6 +91,7 @@ public:
     wxPanel* GetPanelFileExplorer() { return m_panelFileExplorer; }
     MainNotebook* GetSessionsBook() { return m_sessionsBook; }
     wxPanel* GetMainPanel() { return m_mainPanel; }
+    wxPanel* GetPanelActivity() { return m_panelActivity; }
     wxAuiManager* GetAuimgr() { return m_auimgr; }
     MainViewBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxTAB_TRAVERSAL|wxBORDER_NONE);
     virtual ~MainViewBase();

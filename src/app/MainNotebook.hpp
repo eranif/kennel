@@ -239,10 +239,11 @@ private:
   // ---- Events to the parent windows -----------------------------------------
   void SendPageEvent(wxEventType type, const SessionRef &ref,
                      const Account &account = Account::LocalHost(),
-                     const SessionRef &oldRef = {});
-  // The explorer asks (they arrive on the EventNotifier):
-  // The user chose a session in the choice of the file explorer.
-  void OnExplorerSession(PageViewEvent &event);
+                     const SessionRef &oldRef = {},
+                     PageActivity activity = PageActivity::None);
+  // The side views ask (they arrive on the EventNotifier):
+  // The user chose a session in the file explorer or in the activity view.
+  void OnShowSessionRequested(PageViewEvent &event);
   // A file or a folder of the file explorer was double clicked.
   void OnFileTreeActivated(FileEvent &event);
 

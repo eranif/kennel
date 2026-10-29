@@ -3,6 +3,7 @@
 #include "UI.hpp"
 #include "app/AcceleratorInterceptor.h"
 #include "app/AsyncGuard.hpp"
+#include "app/PageViewEvent.hpp"
 #include "app/ReviewBuddyEvent.hpp"
 #include "app/SessionStatusEvent.hpp"
 #include "core/Account.h"
@@ -47,12 +48,7 @@ public:
   // hand. Everything else is None. While a review buddy is open, the page
   // shows what both terminals report: Blocked wins over Working, and Working
   // over Done.
-  enum class ProgramActivity {
-    None,
-    Working,
-    Done,
-    Blocked,
-  };
+  using ProgramActivity = PageActivity;
   ProgramActivity GetProgramActivity() const { return m_programActivity; }
   // The user has seen that the program is done: the check mark goes away.
   void AcknowledgeDone();

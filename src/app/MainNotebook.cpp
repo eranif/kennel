@@ -4,6 +4,7 @@
 #include "StartAgentDialog.hpp"
 #include "ThemeLoader.h"
 #include "ThemeManager.h"
+#include "app/ActivityView.hpp"
 #include "app/AppTheme.h"
 #include "app/AssetBootstrap.h"
 #include "app/FileExplorerView.hpp"
@@ -134,7 +135,9 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
   EventNotifier::Get()->Bind(wxEVT_THEME_APPLIED, &MainNotebook::OnThemeApplied,
                              this);
   EventNotifier::Get()->Bind(wxEVT_FILEEXPLORER_SESSION_SELECTED,
-                             &MainNotebook::OnExplorerSession, this);
+                             &MainNotebook::OnShowSessionRequested, this);
+  EventNotifier::Get()->Bind(wxEVT_ACTIVITYVIEW_SESSION_SELECTED,
+                             &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Bind(wxEVT_FILETREE_ACTIVATED,
                              &MainNotebook::OnFileTreeActivated, this);
   Bind(wxEVT_GOTOANYTHING_CHANGED, &MainNotebook::OnGotoChanged, this);
@@ -160,7 +163,9 @@ MainNotebook::~MainNotebook() {
   EventNotifier::Get()->Unbind(wxEVT_THEME_APPLIED,
                                &MainNotebook::OnThemeApplied, this);
   EventNotifier::Get()->Unbind(wxEVT_FILEEXPLORER_SESSION_SELECTED,
-                               &MainNotebook::OnExplorerSession, this);
+                               &MainNotebook::OnShowSessionRequested, this);
+  EventNotifier::Get()->Unbind(wxEVT_ACTIVITYVIEW_SESSION_SELECTED,
+                               &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Unbind(wxEVT_FILETREE_ACTIVATED,
                                &MainNotebook::OnFileTreeActivated, this);
   Unbind(wxEVT_SESSION_IDLE, &MainNotebook::OnSessionIdle, this);
@@ -216,17 +221,20 @@ void MainNotebook::OnPageClose(wxAuiNotebookEvent &event) {
 
 void MainNotebook::SendPageEvent(wxEventType type, const SessionRef &ref,
                                  const Account &account,
-                                 const SessionRef &oldRef) {
+                                 const SessionRef &oldRef,
+                                 PageActivity activity) {
   PageViewEvent event(type, GetId());
   event.SetEventObject(this);
   event.SetRef(ref);
   event.SetOldRef(oldRef);
   event.SetAccount(account);
+  event.SetActivity(activity);
   ProcessWindowEvent(event);
 }
 
-void MainNotebook::OnExplorerSession(PageViewEvent &event) {
-  // The user chose a session in the file explorer: show it.
+void MainNotebook::OnShowSessionRequested(PageViewEvent &event) {
+  // The user chose a session in the file explorer or the activity view: show
+  // it.
   auto *page = FindPage(event.GetRef());
   if (page != nullptr && page != GetCurrentPage()) {
     ShowPage(page);
@@ -1635,6 +1643,13 @@ void MainNotebook::OnSessionProgram(wxCommandEvent &e) {
   // The event is pending: the page may be gone. Compare the pointer only.
   for (auto *page : GetSessions()) {
     if (page == e.GetEventObject()) {
+      // Before the check mark of the page that is showing goes away: a done of
+      // the page that is showing is reported on purpose, and the activity view
+      // removes it when the application is idle (ActivityView::OnIdle()).
+      const Session &session = page->GetSession();
+      SendPageEvent(wxEVT_SESSION_PAGE_ACTIVITY,
+                    SessionRef{session.groupName, session.name},
+                    page->GetAccount(), {}, page->GetProgramActivity());
       // Nobody needs a check mark on the page that is showing.
       if (page == GetActiveSessionPage()) {
         page->AcknowledgeDone();
