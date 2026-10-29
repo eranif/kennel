@@ -401,17 +401,9 @@ wxArrayString MainNotebook::GetGroupNames() const {
   return names;
 }
 
-wxWindow *MainNotebook::GetFallbackPage(const wxString &preferredGroup) const {
-  if (!preferredGroup.empty()) {
-    if (auto sessions = GetSessions(preferredGroup); !sessions.empty()) {
-      return sessions.front();
-    }
-  }
-  if (auto sessions = GetSessions(); !sessions.empty()) {
-    return sessions.front();
-  }
-  auto files = GetFiles();
-  return files.empty() ? nullptr : files.front();
+wxWindow *MainNotebook::GetFallbackPage() const {
+  const auto ordered = GetPagesByRecency(std::nullopt);
+  return ordered.empty() ? nullptr : FindPage(ordered.front());
 }
 
 PageSwitcherItem MainNotebook::DescribePage(wxWindow *page) const {
@@ -598,9 +590,7 @@ void MainNotebook::PageShown(wxWindow *page, bool updateRecent) {
   }
 }
 
-void MainNotebook::SelectFallbackPage(const wxString &preferredGroup) {
-  ShowPage(GetFallbackPage(preferredGroup));
-}
+void MainNotebook::SelectFallbackPage() { ShowPage(GetFallbackPage()); }
 
 void MainNotebook::SwitchPage(bool forward) {
   if (m_switcher) {
@@ -697,13 +687,8 @@ void MainNotebook::AddFilePage(FilePage *page) {
 void MainNotebook::RemovePage(wxWindow *page) {
   const bool wasActive = (GetCurrentPage() == page);
 
-  // Prefer a sibling of a closed session.
-  wxString preferredGroup;
   if (auto *session = dynamic_cast<SessionPage *>(page)) {
     const wxString &groupName = session->GetSession().groupName;
-    if (GetSessions(groupName).size() > 1) {
-      preferredGroup = groupName;
-    }
     SendPageEvent(wxEVT_SESSION_PAGE_REMOVED,
                   SessionRef{groupName, session->GetSession().name});
   }
@@ -717,7 +702,7 @@ void MainNotebook::RemovePage(wxWindow *page) {
   // Deferred: the page may be removed from inside one of its own handlers or
   // a menu callback (see OnSessionExited for the same issue).
   if (wasActive) {
-    CallAfter(&MainNotebook::SelectFallbackPage, preferredGroup);
+    CallAfter(&MainNotebook::SelectFallbackPage);
   }
 }
 
@@ -1168,7 +1153,7 @@ void MainNotebook::RestoreSessions() {
   if (lastUsed != nullptr) {
     ShowPage(lastUsed);
   } else {
-    SelectFallbackPage(wxEmptyString);
+    SelectFallbackPage();
   }
 
   // Anything that failed to restore into the UI (e.g. its agent no longer
@@ -1471,7 +1456,7 @@ void MainNotebook::DeleteGroupByName(const wxString &name) {
 
   if (GetPageCount() > 0) {
     if (activeDeleted) {
-      SelectFallbackPage(wxEmptyString);
+      SelectFallbackPage();
     }
   } else {
     wxTheApp->GetTopWindow()->SetLabel(_("Kennel"));

@@ -220,9 +220,9 @@ private:
   // hand) is the icon of the tab; an icon that is not ok shows the session's
   // own icon.
   void SetStatusIcon(SessionPage *page, const wxBitmapBundle &status);
-  // The page that is showing after the one that was showing is gone: a session
-  // of `preferredGroup` (if not empty), else any session, else any file.
-  wxWindow *GetFallbackPage(const wxString &preferredGroup) const;
+  // The page that is showing after the one that was showing is gone: the one
+  // used most recently (null without pages).
+  wxWindow *GetFallbackPage() const;
   // What the page switcher shows for `page`: the label, the icon, the folder.
   PageSwitcherItem DescribePage(wxWindow *page) const;
 
@@ -288,7 +288,7 @@ private:
   // status bar, the recent list.
   void PageShown(wxWindow *page, bool updateRecent);
   // Shows some page after the active one was removed; see GetFallbackPage().
-  void SelectFallbackPage(const wxString &preferredGroup);
+  void SelectFallbackPage();
 
   // ---- Adding / removing pages ------------------------------------------
   // Attaches an already-constructed SessionPage to the book.

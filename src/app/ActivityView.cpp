@@ -14,9 +14,13 @@ ActivityView::ActivityView(wxWindow *parent)
   m_list = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                   wxDefaultSize, wxDV_SINGLE | wxDV_ROW_LINES);
   StylePageView(m_list);
+  // The status is the icon only, in a column of a fixed width (flags 0: the
+  // user cannot resize it). The other columns fit their content (see Refill()).
+  m_list->AppendIconTextColumn(wxEmptyString, wxDATAVIEW_CELL_INERT,
+                               FromDIP(kStatusColumnWidthDip), wxALIGN_CENTER,
+                               0);
   m_list->AppendTextColumn(_("Session"), wxDATAVIEW_CELL_INERT, 140);
   m_list->AppendTextColumn(_("Group"), wxDATAVIEW_CELL_INERT, 100);
-  m_list->AppendIconTextColumn(_("Status"), wxDATAVIEW_CELL_INERT, 100);
 
   auto *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(m_list, wxSizerFlags(1).Expand());
@@ -93,24 +97,20 @@ void ActivityView::Clear() {
 
 wxVariant ActivityView::StatusCell(const Row &row) const {
   const auto &bitmaps = AppManager::Get().GetBitmaps();
-  wxString status;
   wxString icon;
   switch (row.activity) {
   case PageActivity::Blocked:
-    status = _("Blocked");
     icon = "hand";
     break;
   case PageActivity::Done:
-    status = _("Done");
     icon = "check";
     break;
   default:
-    status = _("Working");
     icon = wxString::Format("spinner-%d", m_spinnerFrame);
     break;
   }
   wxVariant cell;
-  cell << wxDataViewIconText(status, bitmaps.GetByAlias(icon, false));
+  cell << wxDataViewIconText(wxEmptyString, bitmaps.GetByAlias(icon, false));
   return cell;
 }
 
@@ -139,10 +139,15 @@ void ActivityView::Refill() {
   for (const Row &row : m_rows) {
     working = working || row.activity == PageActivity::Working;
     wxVector<wxVariant> cells;
+    cells.push_back(StatusCell(row));
     cells.push_back(wxVariant(row.ref.name));
     cells.push_back(wxVariant(row.ref.groupName));
-    cells.push_back(StatusCell(row));
     m_list->AppendItem(cells);
+  }
+  // The columns fit the rows that are there now.
+  for (unsigned int column = kFirstFitColumn; column < m_list->GetColumnCount();
+       ++column) {
+    m_list->GetColumn(column)->SetWidth(wxCOL_WIDTH_AUTOSIZE);
   }
 
   if (working && !m_spinnerTimer.IsRunning()) {
@@ -160,7 +165,8 @@ void ActivityView::OnSpinnerTimer(wxTimerEvent &) {
   m_spinnerFrame = (m_spinnerFrame + 1) % kSpinnerFrameCount;
   for (size_t i = 0; i < m_rows.size(); ++i) {
     if (m_rows[i].activity == PageActivity::Working) {
-      m_list->SetValue(StatusCell(m_rows[i]), static_cast<unsigned>(i), 2);
+      m_list->SetValue(StatusCell(m_rows[i]), static_cast<unsigned>(i),
+                       kStatusColumn);
     }
   }
 }

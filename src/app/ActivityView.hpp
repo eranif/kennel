@@ -19,10 +19,10 @@ wxDECLARE_EVENT(wxEVT_ACTIVITYVIEW_SESSION_SELECTED, PageViewEvent);
 
 // The sessions whose program is working, is done or is blocked.
 //
-//   Session        Group        Status
-//   build          Development  Blocked
-//   tests          Development  Done
-//   docs           General      Working
+//   (icon)  Session        Group
+//   hand    build          Development
+//   check   tests          Development
+//   spin    docs           General
 //
 // Blocked comes first (the user is needed), then Done, then Working; the newest
 // first in each. A working or blocked row is always there, also for the session
@@ -62,6 +62,11 @@ private:
 
   static constexpr int kSpinnerFrameCount = 8;
   static constexpr int kSpinnerMs = 100;
+  // The columns: the icon of the status (a fixed width), then the session and
+  // the group, which fit their content.
+  static constexpr unsigned int kStatusColumn = 0;
+  static constexpr unsigned int kFirstFitColumn = 1;
+  static constexpr int kStatusColumnWidthDip = 32;
 
   int FindRow(const SessionRef &ref) const;
   // Sorts the rows and shows them; the spinner runs while a row is working.
