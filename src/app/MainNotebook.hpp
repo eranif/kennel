@@ -13,6 +13,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <span>
 #include <vector>
 #include <wx/arrstr.h>
 #include <wx/aui/auibook.h>
@@ -221,8 +222,8 @@ private:
   // own icon.
   void SetStatusIcon(SessionPage *page, const wxBitmapBundle &status);
   // The page that is showing after the one that was showing is gone: the one
-  // used most recently (null without pages).
-  wxWindow *GetFallbackPage() const;
+  // used most recently, but not one of `closing` (null without such a page).
+  wxWindow *GetFallbackPage(std::span<wxWindow *const> closing = {}) const;
   // What the page switcher shows for `page`: the label, the icon, the folder.
   PageSwitcherItem DescribePage(wxWindow *page) const;
 

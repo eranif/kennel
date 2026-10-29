@@ -405,9 +405,15 @@ wxArrayString MainNotebook::GetGroupNames() const {
   return names;
 }
 
-wxWindow *MainNotebook::GetFallbackPage() const {
-  const auto ordered = GetPagesByRecency(std::nullopt);
-  return ordered.empty() ? nullptr : FindPage(ordered.front());
+wxWindow *
+MainNotebook::GetFallbackPage(std::span<wxWindow *const> closing) const {
+  for (const SessionRef &ref : GetPagesByRecency(std::nullopt)) {
+    wxWindow *page = FindPage(ref);
+    if (std::find(closing.begin(), closing.end(), page) == closing.end()) {
+      return page;
+    }
+  }
+  return nullptr;
 }
 
 PageSwitcherItem MainNotebook::DescribePage(wxWindow *page) const {
@@ -696,18 +702,16 @@ void MainNotebook::RemovePage(wxWindow *page) {
     SendPageEvent(wxEVT_SESSION_PAGE_REMOVED,
                   SessionRef{groupName, session->GetSession().name});
   }
-  DeleteTab(page); // destroys the page window
-  // The status bar showed this page: it keeps showing nothing if no other page
-  // takes over (the fallback below publishes its own status).
-  if (wasActive) {
+  // The page used before this one is shown first. Left to the book, it would
+  // select the next tab, and that tab would count as the one used last.
+  wxWindow *fallback = wasActive ? GetFallbackPage({&page, 1}) : nullptr;
+  if (fallback != nullptr) {
+    ShowPage(fallback);
+  } else if (wasActive) {
+    // The status bar showed this page and no other page takes over.
     GetMainFrame()->ClearSessionStatus();
   }
-
-  // Deferred: the page may be removed from inside one of its own handlers or
-  // a menu callback (see OnSessionExited for the same issue).
-  if (wasActive) {
-    CallAfter(&MainNotebook::SelectFallbackPage);
-  }
+  DeleteTab(page); // destroys the page window
 }
 
 // ---------------------------------------------------------------------------
@@ -1443,26 +1447,27 @@ void MainNotebook::DeleteGroupByName(const wxString &name) {
     }
   }
 
-  // The status bar is cleared only when the page that is showing goes away.
-  const bool activeDeleted = std::find(sessions.begin(), sessions.end(),
-                                       GetCurrentPage()) != sessions.end();
+  // When the page that is showing goes away, the page used before it is shown
+  // first (see RemovePage()).
+  const std::vector<wxWindow *> closing(sessions.begin(), sessions.end());
+  const bool activeDeleted = std::find(closing.begin(), closing.end(),
+                                       GetCurrentPage()) != closing.end();
+  wxWindow *fallback = activeDeleted ? GetFallbackPage(closing) : nullptr;
+  if (fallback != nullptr) {
+    ShowPage(fallback);
+  } else if (activeDeleted) {
+    GetMainFrame()->ClearSessionStatus();
+  }
   for (auto *page : sessions) {
     SendPageEvent(
         wxEVT_SESSION_PAGE_REMOVED,
         SessionRef{page->GetSession().groupName, page->GetSession().name});
     DeleteTab(page);
   }
-  if (activeDeleted) {
-    GetMainFrame()->ClearSessionStatus();
-  }
 
   SyncWorkspaceToDisk();
 
-  if (GetPageCount() > 0) {
-    if (activeDeleted) {
-      SelectFallbackPage();
-    }
-  } else {
+  if (GetPageCount() == 0) {
     wxTheApp->GetTopWindow()->SetLabel(_("Kennel"));
   }
 }
