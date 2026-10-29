@@ -267,6 +267,7 @@ add_library(
   src/core/CrashHandler.cpp
   src/core/EventNotifier.cpp
   src/core/ReviewLoop.cpp
+  src/core/Spinner.cpp
   src/core/WslPath.cpp)
 
 target_include_directories(kennel_core PUBLIC src ${wxWidgets_INCLUDE_DIRS})

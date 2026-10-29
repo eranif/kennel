@@ -7,6 +7,7 @@
 #include "core/AppPaths.h"
 #include "core/FileLocation.h"
 #include "core/Job.h"
+#include "core/Spinner.h"
 #include "core/Workspace.h"
 
 #include <array>
@@ -28,8 +29,6 @@ class FilePage;
 class GotoAnythingBar;
 class SessionPage;
 class WorkspaceStore;
-
-static constexpr int kSpinnerFrameCount = 8;
 
 // Outcome of a background SFTP read, handed from the worker thread to the UI
 // thread by value.
@@ -330,7 +329,8 @@ private:
   // A page started / stopped working, or is done (OSC 7501).
   void OnSessionProgram(wxCommandEvent &e);
   void OnSessionCwd(wxCommandEvent &e);
-  void OnSpinnerTimer(wxTimerEvent &e);
+  // The spinner turned: the tabs of the working pages get the new frame.
+  void OnSpinnerFrame();
   // Shows what `page` is doing (the spinner, the check mark or the hand) as
   // the icon of its tab.
   void ApplyPageIcon(SessionPage *page);
@@ -392,11 +392,9 @@ private:
   // The ones of those that are a reload (see ReloadRemoteFile()).
   std::set<wxString> m_reloadingRemote;
 
-  std::array<wxBitmapBundle, kSpinnerFrameCount> m_spinnerFrames;
   wxBitmapBundle m_handIcon;
   wxBitmapBundle m_checkIcon;
-  wxTimer m_spinnerTimer{this};
-  int m_spinnerFrame{0};
+  Spinner m_spinner{[this](const wxBitmapBundle &) { OnSpinnerFrame(); }};
   int m_pendingIdle{0};
   bool m_idleHandled{false};
 };

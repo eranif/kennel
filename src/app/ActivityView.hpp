@@ -1,12 +1,12 @@
 #pragma once
 
 #include "app/PageViewEvent.hpp"
+#include "core/Spinner.h"
 #include "core/Workspace.h"
 
 #include <optional>
 #include <vector>
 #include <wx/panel.h>
-#include <wx/timer.h>
 #include <wx/variant.h>
 
 class wxDataViewEvent;
@@ -60,8 +60,6 @@ private:
     int serial{0};
   };
 
-  static constexpr int kSpinnerFrameCount = 8;
-  static constexpr int kSpinnerMs = 100;
   // The columns: the icon of the status (a fixed width), then the session and
   // the group, which fit their content.
   static constexpr unsigned int kStatusColumn = 0;
@@ -75,13 +73,13 @@ private:
   wxVariant StatusCell(const Row &row) const;
   void OnSelectionChanged(wxDataViewEvent &event);
   void OnIdle(wxIdleEvent &event);
-  void OnSpinnerTimer(wxTimerEvent &event);
+  // The spinner turned: the working rows get the new frame.
+  void OnSpinnerFrame();
 
   wxDataViewListCtrl *m_list{nullptr};
   // In the order of the list.
   std::vector<Row> m_rows;
   int m_serial{0};
   std::optional<SessionRef> m_active;
-  wxTimer m_spinnerTimer;
-  int m_spinnerFrame{0};
+  Spinner m_spinner;
 };

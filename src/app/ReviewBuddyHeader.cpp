@@ -5,13 +5,11 @@
 #include "terminal_view.h"
 
 namespace {
-constexpr int kSpinnerMs = 100;
-
 // Braille orbit: ⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧
 const wchar_t kSpinnerFrames[] = {L'⠋', L'⠙', L'⠹', L'⠸',
                                   L'⠼', L'⠴', L'⠦', L'⠧'};
-constexpr size_t kSpinnerFrameCount =
-    sizeof(kSpinnerFrames) / sizeof(kSpinnerFrames[0]);
+static_assert(sizeof(kSpinnerFrames) / sizeof(kSpinnerFrames[0]) ==
+              Spinner::kFrameCount);
 
 // In front of the final status: the review is clean, it failed, or the round
 // limit was reached (findings are still open).
@@ -31,15 +29,14 @@ const wxEventTypeTag<ReviewBuddyEvent> *const kEventTypes[] = {
 
 ReviewBuddyHeader::ReviewBuddyHeader(wxTerminalViewCtrl *terminal,
                                      wxEvtHandler *source)
-    : m_terminal(terminal), m_source(source), m_timer(this) {
+    : m_terminal(terminal), m_source(source),
+      m_spinner([this](const wxBitmapBundle &) { OnSpinnerFrame(); }) {
   for (const auto *type : kEventTypes) {
     m_source->Bind(*type, &ReviewBuddyHeader::OnReviewEvent, this);
   }
-  Bind(wxEVT_TIMER, &ReviewBuddyHeader::OnTimer, this, m_timer.GetId());
 }
 
 ReviewBuddyHeader::~ReviewBuddyHeader() {
-  m_timer.Stop();
   for (const auto *type : kEventTypes) {
     m_source->Unbind(*type, &ReviewBuddyHeader::OnReviewEvent, this);
   }
@@ -94,17 +91,14 @@ void ReviewBuddyHeader::OnReviewEvent(ReviewBuddyEvent &event) {
   }
 
   if (m_spinning) {
-    if (!m_timer.IsRunning()) {
-      m_timer.Start(kSpinnerMs);
-    }
+    m_spinner.Start();
   } else {
-    m_timer.Stop();
+    m_spinner.Stop();
   }
   Render();
 }
 
-void ReviewBuddyHeader::OnTimer(wxTimerEvent &) {
-  m_frame = (m_frame + 1) % kSpinnerFrameCount;
+void ReviewBuddyHeader::OnSpinnerFrame() {
   // Not drawn while the page is hidden: the strip is laid out each time.
   if (m_terminal != nullptr && m_terminal->IsShownOnScreen()) {
     Render();
@@ -114,7 +108,7 @@ void ReviewBuddyHeader::OnTimer(wxTimerEvent &) {
 void ReviewBuddyHeader::Render(bool force) {
   wxString text;
   if (m_spinning) {
-    text << wxString(kSpinnerFrames[m_frame]) << " ";
+    text << wxString(kSpinnerFrames[m_spinner.GetFrame()]) << " ";
   } else if (!m_mark.empty()) {
     text << m_mark << " ";
   }

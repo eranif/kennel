@@ -1,10 +1,10 @@
 #pragma once
 
 #include "app/ReviewBuddyEvent.hpp"
+#include "core/Spinner.h"
 
 #include <wx/event.h>
 #include <wx/string.h>
-#include <wx/timer.h>
 
 class wxTerminalViewCtrl;
 
@@ -35,13 +35,12 @@ public:
 
 private:
   void OnReviewEvent(ReviewBuddyEvent &event);
-  void OnTimer(wxTimerEvent &);
+  void OnSpinnerFrame();
   void Render(bool force = false);
 
   wxTerminalViewCtrl *m_terminal;
   wxEvtHandler *m_source;
-  wxTimer m_timer;
-  size_t m_frame{0};
+  Spinner m_spinner;
   wxString m_text; // The status text, without the spinner
   wxString m_mark; // In front of the final status: clean, or needs attention
   bool m_spinning{false}; // Somebody is working

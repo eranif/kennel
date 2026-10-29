@@ -19,3 +19,4 @@
 - [ ] BUG: Tab Spinner is NOT spinning.
 - [ ] Tab icons are too small.
 - [ ] Allow the user to change the tab position.
+- [ ] Main Toolbar icons are not aligned (different size).

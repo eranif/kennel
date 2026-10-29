@@ -10,7 +10,8 @@
 wxDEFINE_EVENT(wxEVT_ACTIVITYVIEW_SESSION_SELECTED, PageViewEvent);
 
 ActivityView::ActivityView(wxWindow *parent)
-    : wxPanel(parent), m_spinnerTimer(this) {
+    : wxPanel(parent),
+      m_spinner([this](const wxBitmapBundle &) { OnSpinnerFrame(); }) {
   m_list = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                   wxDefaultSize, wxDV_SINGLE | wxDV_ROW_LINES);
   StylePageView(m_list);
@@ -29,8 +30,6 @@ ActivityView::ActivityView(wxWindow *parent)
   m_list->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
                &ActivityView::OnSelectionChanged, this);
   Bind(wxEVT_IDLE, &ActivityView::OnIdle, this);
-  Bind(wxEVT_TIMER, &ActivityView::OnSpinnerTimer, this,
-       m_spinnerTimer.GetId());
 }
 
 int ActivityView::FindRow(const SessionRef &ref) const {
@@ -97,20 +96,20 @@ void ActivityView::Clear() {
 
 wxVariant ActivityView::StatusCell(const Row &row) const {
   const auto &bitmaps = AppManager::Get().GetBitmaps();
-  wxString icon;
+  wxBitmapBundle icon;
   switch (row.activity) {
   case PageActivity::Blocked:
-    icon = "hand";
+    icon = bitmaps.GetByAlias("hand", false);
     break;
   case PageActivity::Done:
-    icon = "check";
+    icon = bitmaps.GetByAlias("check", false);
     break;
   default:
-    icon = wxString::Format("spinner-%d", m_spinnerFrame);
+    icon = m_spinner.GetBitmap();
     break;
   }
   wxVariant cell;
-  cell << wxDataViewIconText(wxEmptyString, bitmaps.GetByAlias(icon, false));
+  cell << wxDataViewIconText(wxEmptyString, icon);
   return cell;
 }
 
@@ -134,10 +133,19 @@ void ActivityView::Refill() {
                      return a.serial > b.serial;
                    });
 
+  // Before the cells: the spinner has its frames when it starts.
+  const bool working =
+      std::any_of(m_rows.begin(), m_rows.end(), [](const Row &row) {
+        return row.activity == PageActivity::Working;
+      });
+  if (working) {
+    m_spinner.Start();
+  } else {
+    m_spinner.Stop();
+  }
+
   m_list->DeleteAllItems();
-  bool working = false;
   for (const Row &row : m_rows) {
-    working = working || row.activity == PageActivity::Working;
     wxVector<wxVariant> cells;
     cells.push_back(StatusCell(row));
     cells.push_back(wxVariant(row.ref.name));
@@ -149,20 +157,13 @@ void ActivityView::Refill() {
        ++column) {
     m_list->GetColumn(column)->SetWidth(wxCOL_WIDTH_AUTOSIZE);
   }
-
-  if (working && !m_spinnerTimer.IsRunning()) {
-    m_spinnerTimer.Start(kSpinnerMs);
-  } else if (!working) {
-    m_spinnerTimer.Stop();
-  }
 }
 
-void ActivityView::OnSpinnerTimer(wxTimerEvent &) {
+void ActivityView::OnSpinnerFrame() {
   // Nobody sees the spinner of a hidden pane or of a window in the background.
   if (!IsShownOnScreen() || !wxTheApp->IsActive()) {
     return;
   }
-  m_spinnerFrame = (m_spinnerFrame + 1) % kSpinnerFrameCount;
   for (size_t i = 0; i < m_rows.size(); ++i) {
     if (m_rows[i].activity == PageActivity::Working) {
       m_list->SetValue(StatusCell(m_rows[i]), static_cast<unsigned>(i),

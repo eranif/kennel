@@ -139,14 +139,6 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
   GetSizer()->Add(m_book, wxSizerFlags(1).Expand());
   Layout();
 
-  for (int i = 0; i < kSpinnerFrameCount; ++i) {
-    wxString spinner;
-    spinner.Printf("spinner-%d.svg", i);
-    const wxString path = ResolveIconPath(spinner);
-    if (!path.empty() && wxFileName::FileExists(path)) {
-      m_spinnerFrames[i] = wxBitmapBundle::FromSVGFile(path, wxSize(16, 16));
-    }
-  }
   if (const wxString path = ResolveIconPath("hand.svg");
       !path.empty() && wxFileName::FileExists(path)) {
     m_handIcon = wxBitmapBundle::FromSVGFile(path, wxSize(16, 16));
@@ -179,8 +171,6 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
   Bind(wxEVT_SESSION_EXITED, &MainNotebook::OnSessionExited, this);
   Bind(wxEVT_SESSION_PROGRAM, &MainNotebook::OnSessionProgram, this);
   Bind(wxEVT_SESSION_CWD, &MainNotebook::OnSessionCwd, this);
-  Bind(wxEVT_TIMER, &MainNotebook::OnSpinnerTimer, this,
-       m_spinnerTimer.GetId());
   Bind(wxEVT_IDLE, &MainNotebook::OnIdleEvent, this);
   // A FilePage handles its own save events first and then Skip()s them, so
   // they propagate up to wxTheApp, where the notebook does its part (activity
@@ -204,9 +194,6 @@ MainNotebook::~MainNotebook() {
   Unbind(wxEVT_SESSION_EXITED, &MainNotebook::OnSessionExited, this);
   Unbind(wxEVT_SESSION_PROGRAM, &MainNotebook::OnSessionProgram, this);
   Unbind(wxEVT_SESSION_CWD, &MainNotebook::OnSessionCwd, this);
-  m_spinnerTimer.Stop();
-  Unbind(wxEVT_TIMER, &MainNotebook::OnSpinnerTimer, this,
-         m_spinnerTimer.GetId());
   Unbind(wxEVT_IDLE, &MainNotebook::OnIdleEvent, this);
   if (wxTheApp) {
     wxTheApp->Unbind(wxEVT_FILE_SAVE_STARTED, &MainNotebook::OnFileSaveStarted,
@@ -1665,6 +1652,8 @@ void MainNotebook::OnSessionCwd(wxCommandEvent &e) {
 
 void MainNotebook::OnSessionProgram(wxCommandEvent &e) {
   e.Skip();
+  // First: the spinner has its frames when a tab gets one.
+  UpdateSpinnerTimer();
   // The event is pending: the page may be gone. Compare the pointer only.
   for (auto *page : GetSessions()) {
     if (page == e.GetEventObject()) {
@@ -1683,11 +1672,9 @@ void MainNotebook::OnSessionProgram(wxCommandEvent &e) {
       break;
     }
   }
-  UpdateSpinnerTimer();
 }
 
-void MainNotebook::OnSpinnerTimer(wxTimerEvent &) {
-  m_spinnerFrame = (m_spinnerFrame + 1) % kSpinnerFrameCount;
+void MainNotebook::OnSpinnerFrame() {
   bool working = false;
   for (auto *page : GetSessions()) {
     if (page->GetProgramActivity() == SessionPage::ProgramActivity::Working) {
@@ -1696,18 +1683,14 @@ void MainNotebook::OnSpinnerTimer(wxTimerEvent &) {
     }
   }
   if (!working) {
-    m_spinnerTimer.Stop();
+    m_spinner.Stop();
   }
 }
 
 void MainNotebook::UpdateSpinnerTimer() {
-  if (m_spinnerTimer.IsRunning()) {
-    return; // It stops itself when nobody is working any more.
-  }
   for (auto *page : GetSessions()) {
     if (page->GetProgramActivity() == SessionPage::ProgramActivity::Working) {
-      constexpr int kSpinnerMs = 100;
-      m_spinnerTimer.Start(kSpinnerMs);
+      m_spinner.Start(); // It stops itself when nobody is working any more.
       return;
     }
   }
@@ -1718,7 +1701,7 @@ void MainNotebook::ApplyPageIcon(SessionPage *page) {
   wxBitmapBundle status;
   switch (page->GetProgramActivity()) {
   case SessionPage::ProgramActivity::Working:
-    status = m_spinnerFrames[m_spinnerFrame];
+    status = m_spinner.GetBitmap();
     break;
   case SessionPage::ProgramActivity::Done:
     status = m_checkIcon;
