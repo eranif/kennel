@@ -47,6 +47,7 @@ FileBrowserDlg::~FileBrowserDlg() {}
 
 void FileBrowserDlg::PopulateView(const wxString &dir) {
   m_textCtrlCurrnentDir->SetValue(dir);
+  wxBusyCursor bc{}; // A remote host takes a while to answer
   auto files = m_provider->ListFiles(dir);
 
   std::sort(files.begin(), files.end(),

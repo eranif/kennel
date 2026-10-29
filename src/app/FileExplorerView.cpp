@@ -2,13 +2,16 @@
 
 #include "app/ToolBarUtils.h"
 #include "core/AppManager.h"
+#include "core/EventNotifier.hpp"
+#include "core/Logger.h"
 #include "core/WslPath.h"
 
 #include <wx/aui/auibar.h>
 #include <wx/choice.h>
 #include <wx/simplebook.h>
 #include <wx/sizer.h>
-#include <wx/stattext.h>
+
+#include <algorithm>
 
 wxDEFINE_EVENT(wxEVT_FILEEXPLORER_SESSION_SELECTED, PageViewEvent);
 
@@ -39,10 +42,16 @@ FileExplorerView::FileExplorerView(wxWindow *parent) : wxPanel(parent) {
   SetSizer(sizer);
 
   m_choice->Bind(wxEVT_CHOICE, &FileExplorerView::OnChoice, this);
+  // The remote trees answer on the notifier (see ShowEntry()).
+  EventNotifier::Get()->Bind(wxEVT_FILETREE_CONNECTED,
+                             &FileExplorerView::OnTreeConnected, this);
   m_toolbar->Bind(wxEVT_TOOL, &FileExplorerView::OnLink, this, kIdLink);
 }
 
-FileExplorerView::~FileExplorerView() = default;
+FileExplorerView::~FileExplorerView() {
+  EventNotifier::Get()->Unbind(wxEVT_FILETREE_CONNECTED,
+                               &FileExplorerView::OnTreeConnected, this);
+}
 
 bool FileExplorerView::IsLinked() const {
   return m_toolbar->GetToolToggled(kIdLink);
@@ -59,50 +68,19 @@ int FileExplorerView::FindEntry(const SessionRef &ref) const {
   return wxNOT_FOUND;
 }
 
-int FileExplorerView::FindEntryById(int id) const {
-  for (size_t i = 0; i < m_entries.size(); ++i) {
-    if (m_entries[i].id == id) {
-      return static_cast<int>(i);
-    }
-  }
-  return wxNOT_FOUND;
-}
-
-wxWindow *FileExplorerView::NewMessagePage(const wxString &text,
-                                           wxStaticText **label) {
-  auto *page = new wxPanel(m_book);
-  *label = new wxStaticText(page, wxID_ANY, text, wxDefaultPosition,
-                            wxDefaultSize, wxALIGN_CENTRE_HORIZONTAL);
-  auto *sizer = new wxBoxSizer(wxVERTICAL);
-  sizer->AddStretchSpacer(1);
-  sizer->Add(*label, wxSizerFlags(0).Expand().Border(wxALL, 10));
-  sizer->AddStretchSpacer(1);
-  page->SetSizer(sizer);
-  return page;
-}
-
 void FileExplorerView::AddSession(const SessionRef &ref, const wxString &label,
                                   const Account &account) {
   if (FindEntry(ref) != wxNOT_FOUND) {
     return;
   }
   Entry entry;
-  entry.id = m_nextId++;
   entry.ref = ref;
   entry.label = label;
   entry.account = account;
-  if (account.IsRemote()) {
-    // Connected when it is shown for the first time: see ShowEntry()
-    entry.page = NewMessagePage(
-        wxString::Format(_("The files of %s are shown when you select this "
-                           "session"),
-                         account.GetDisplayName()),
-        &entry.message);
-  } else {
-    entry.tree = new FileTreeCtrl(m_book, account);
-    entry.page = entry.tree;
-  }
-  m_book->AddPage(entry.page, label, false);
+  // A remote tree is connected when it is shown for the first time: see
+  // ShowEntry().
+  entry.tree = new FileTreeCtrl(m_book, account);
+  m_book->AddPage(entry.tree, label, false);
   m_choice->Append(label);
   m_entries.push_back(entry);
   m_choice->Enable();
@@ -120,7 +98,9 @@ void FileExplorerView::RemoveSession(const SessionRef &ref) {
     return;
   }
   const bool wasShown = m_choice->GetSelection() == index;
-  const int page = m_book->FindPage(m_entries[index].page);
+  // The answer of a connection that is still made is dropped (no entry has its
+  // request any more).
+  const int page = m_book->FindPage(m_entries[index].tree);
   m_entries.erase(m_entries.begin() + index);
   m_choice->Delete(index);
   if (page != wxNOT_FOUND) {
@@ -147,7 +127,7 @@ void FileExplorerView::RenameSession(const SessionRef &from,
   entry.ref = to;
   entry.label = label;
   m_choice->SetString(index, label);
-  if (const int page = m_book->FindPage(entry.page); page != wxNOT_FOUND) {
+  if (const int page = m_book->FindPage(entry.tree); page != wxNOT_FOUND) {
     m_book->SetPageText(page, label);
   }
   if (m_active == from) {
@@ -179,58 +159,30 @@ void FileExplorerView::ShowEntry(int index) {
   }
   Entry &entry = m_entries[index];
   m_choice->SetSelection(index);
-  if (const int page = m_book->FindPage(entry.page); page != wxNOT_FOUND) {
+  if (const int page = m_book->FindPage(entry.tree); page != wxNOT_FOUND) {
     m_book->SetSelection(page);
   }
-  if (entry.account.IsRemote() && entry.tree == nullptr &&
-      !entry.connectStarted) {
+  if (entry.account.IsRemote() && !entry.connectStarted) {
     entry.connectStarted = true;
-    entry.message->SetLabel(wxString::Format(_("Connecting to %s..."),
-                                             entry.account.GetDisplayName()));
-    entry.message->GetParent()->Layout();
-    // After the message is on the screen: connecting waits for the host.
-    CallAfter(&FileExplorerView::ConnectEntry, entry.id);
+    entry.connectRequestId = entry.tree->ConnectAsync();
   }
 }
 
-void FileExplorerView::ConnectEntry(int id) {
-  int index = FindEntryById(id);
-  if (index == wxNOT_FOUND) {
-    return;
+void FileExplorerView::OnTreeConnected(FileTreeConnectedEvent &event) {
+  event.Skip(); // Other listeners of the notifier may own the request
+  const int requestId = event.GetRequestId();
+  const auto it = std::find_if(
+      m_entries.begin(), m_entries.end(),
+      [requestId](const Entry &e) { return e.connectRequestId == requestId; });
+  if (it == m_entries.end()) {
+    return; // Not ours, or the session is gone (and its tree with it)
   }
-  const Account account = m_entries[index].account;
-  const wxString label = m_entries[index].label;
-  wxWindow *messagePage = m_entries[index].page;
-  messagePage->Update(); // Paint the message before waiting for the host
-
-  auto *tree = new FileTreeCtrl(m_book, account);
-  tree->Hide();
-  const bool connected = tree->Connect();
-
-  // Connecting can run the event loop (a message box): the session may be gone.
-  index = FindEntryById(id);
-  if (index == wxNOT_FOUND) {
-    tree->Destroy();
-    return;
-  }
-  Entry &entry = m_entries[index];
-  if (!connected) {
-    tree->Destroy();
-    entry.message->SetLabel(wxString::Format(_("Could not connect to %s"),
-                                             account.GetDisplayName()));
-    entry.message->GetParent()->Layout();
-    return; // It keeps the message: the next try is the user's
-  }
-  // The tree takes the place of the message.
-  const int page = m_book->FindPage(entry.page);
-  const bool shown = m_book->GetSelection() == page;
-  m_book->InsertPage(page, tree, label, shown);
-  m_book->DeletePage(page + 1);
-  entry.page = tree;
-  entry.tree = tree;
-  entry.message = nullptr;
-  if (shown) {
-    m_book->SetSelection(page);
+  Entry &entry = *it;
+  entry.connectRequestId = 0;
+  if (!entry.tree->FinishConnect(event)) {
+    KLOG_WARN() << "Could not connect to " << entry.account.GetDisplayName()
+                << ": " << event.GetStatus().message();
+    entry.connectStarted = false; // Tried again when it is shown again
   }
 }
 
@@ -244,9 +196,6 @@ void FileExplorerView::RevealFile(const Account &account,
     return;
   }
   const Entry &entry = m_entries[index];
-  if (entry.tree == nullptr) {
-    return;
-  }
   // The path as the tree writes it. A tree of a remote host is never listed.
   wxString path;
   if (entry.account.GetId() == account.GetId()) {

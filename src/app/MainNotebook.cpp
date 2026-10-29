@@ -103,7 +103,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
       this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
       wxAUI_NB_TAB_SPLIT | wxAUI_NB_CLOSE_ON_ACTIVE_TAB | wxAUI_NB_TAB_MOVE |
           wxAUI_NB_WINDOWLIST_BUTTON | wxAUI_NB_MIDDLE_CLICK_CLOSE |
-          wxAUI_NB_CLOSE_ON_ALL_TABS);
+          wxAUI_NB_CLOSE_ON_ALL_TABS | wxAUI_NB_TAB_FIXED_WIDTH |
+          wxAUI_NB_SCROLL_BUTTONS);
 
   GetSizer()->Add(m_book, wxSizerFlags(1).Expand());
   Layout();
@@ -261,9 +262,12 @@ void MainNotebook::OnFileTreeActivated(FileEvent &event) {
 // ---------------------------------------------------------------------------
 
 void MainNotebook::AddTab(wxWindow *page) {
-  m_book->AddPage(page, TitleOf(page), /*select=*/false);
+  const wxString title = TitleOf(page);
+  m_book->AddPage(page, title, /*select=*/false);
   if (const int index = m_book->FindPage(page); index != wxNOT_FOUND) {
     m_book->SetPageBitmap(index, IconOf(page));
+    // A fixed width tab can cut the title; the tooltip shows all of it.
+    m_book->SetPageToolTip(index, title);
   }
 }
 
@@ -290,6 +294,7 @@ void MainNotebook::SelectTab(wxWindow *page) {
 void MainNotebook::SetTabTitle(wxWindow *page, const wxString &title) {
   if (const int index = m_book->FindPage(page); index != wxNOT_FOUND) {
     m_book->SetPageText(index, title);
+    m_book->SetPageToolTip(index, title);
   }
 }
 

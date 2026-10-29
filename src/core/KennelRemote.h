@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/Process.hpp"
+#include "core/Status.h"
 
 #include <condition_variable>
 #include <mutex>
@@ -25,8 +26,13 @@ public:
   ~KennelRemote();
 
   // Ensures the script is uploaded and the interactive process is running.
-  // Returns false on failure (shows a message box).
+  // Returns false on failure (shows a message box on the UI thread, logs on
+  // a worker thread).
   bool EnsureReady();
+
+  // Like EnsureReady(), but shows nothing and returns the error: for a worker
+  // thread. It blocks for the ssh and scp calls (seconds).
+  Status Start();
 
   // Returns true if the interactive process is alive.
   bool IsRunning() const;

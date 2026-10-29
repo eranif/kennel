@@ -2,17 +2,24 @@
 
 #include "PageViewEvent.hpp"
 #include "core/AppManager.h"
+#include "core/EventNotifier.hpp"
 
 #include <wx/settings.h>
 #include <wx/sizer.h>
+#include <wx/utils.h>
 
 #include <algorithm>
+#include <thread>
 
 wxDEFINE_EVENT(wxEVT_FILETREE_SELECTED, FileEvent);
 wxDEFINE_EVENT(wxEVT_FILETREE_ACTIVATED, FileEvent);
 wxDEFINE_EVENT(wxEVT_FILETREE_MENU, FileEvent);
+wxDEFINE_EVENT(wxEVT_FILETREE_CONNECTED, FileTreeConnectedEvent);
 
 namespace {
+// The id of the last request of ConnectAsync(). Only the UI thread uses it.
+int s_lastRequestId = 0;
+
 // Folders first, then by name, ignoring the case.
 void SortFiles(std::vector<FileProvider::File> *files) {
   std::sort(files->begin(), files->end(),
@@ -56,7 +63,8 @@ FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
   m_tree->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &FileTreeCtrl::OnContextMenu,
                this);
 
-  // Once the control is on the screen. A remote host waits for Connect().
+  // Once the control is on the screen. A remote host waits for
+  // ConnectAsync().
   if (!m_account.IsRemote()) {
     CallAfter(&FileTreeCtrl::Reload);
   }
@@ -64,12 +72,40 @@ FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
 
 FileTreeCtrl::~FileTreeCtrl() = default;
 
-bool FileTreeCtrl::Connect() {
-  if (!m_provider->Connect()) {
+int FileTreeCtrl::ConnectAsync() {
+  const int requestId = ++s_lastRequestId;
+  ShowTopText(_("Connecting..."));
+  // The worker never touches the tree, which may be gone before the host
+  // answers: it has its own share of the provider, and it sends the result on
+  // the EventNotifier, which lives as long as the process.
+  std::thread([requestId, provider = m_provider, dir = m_root] {
+    auto *event = new FileTreeConnectedEvent(wxEVT_FILETREE_CONNECTED);
+    event->SetRequestId(requestId);
+    event->SetDir(dir);
+    const Status status = provider->Connect();
+    event->SetStatus(status);
+    if (status.ok()) {
+      event->SetFiles(provider->ListFiles(
+          dir.empty() ? provider->GetCurrentWorkingDir() : dir));
+    }
+    wxQueueEvent(EventNotifier::Get(), event); // Safe from any thread
+  }).detach();
+  return requestId;
+}
+
+bool FileTreeCtrl::FinishConnect(const FileTreeConnectedEvent &event) {
+  if (!event.GetStatus().ok()) {
+    ShowTopText(_("Could not connect"));
     return false;
   }
-  Reload();
+  Fill(event.GetDir(), event.GetFiles(), {});
   return true;
+}
+
+void FileTreeCtrl::ShowTopText(const wxString &text) {
+  m_tree->DeleteAllItems();
+  // No node: it is not a file, and it sends no event.
+  m_tree->AppendItem(wxDataViewItem(), text);
 }
 
 void FileTreeCtrl::SetRoot(const wxString &dir) {
@@ -130,10 +166,20 @@ std::optional<FileProvider::File> FileTreeCtrl::GetSelection() const {
 
 void FileTreeCtrl::Load(const wxString &dir,
                         const std::set<wxString> &expanded) {
-  // No folder given: the one the provider starts in. A remote host tells which
-  // one that is when it lists it, so the top is known after the listing.
+  // No folder given: the one the provider starts in.
   const wxString start = dir.empty() ? m_provider->GetCurrentWorkingDir() : dir;
-  auto files = m_provider->ListFiles(start);
+  std::optional<wxBusyCursor> busy;
+  if (m_account.IsRemote()) {
+    busy.emplace(); // The host takes a while to answer
+  }
+  Fill(dir, m_provider->ListFiles(start), expanded);
+}
+
+void FileTreeCtrl::Fill(const wxString &dir,
+                        std::vector<FileProvider::File> files,
+                        const std::set<wxString> &expanded) {
+  // A remote host tells which folder it starts in when it lists it, so the top
+  // is known after the listing.
   m_root =
       NormalizeRoot(dir.empty() ? m_provider->GetCurrentWorkingDir() : dir);
   SortFiles(&files);
@@ -144,12 +190,9 @@ void FileTreeCtrl::Load(const wxString &dir,
   top.type = FileProvider::FileType::kDir;
   auto *topNode = new Node(top);
   topNode->loaded = true; // Its entries are added below
-  const wxString label =
-      m_account.IsLocalHost()
-          ? m_root
-          : (m_account.IsRemote() ? m_account.GetDisplayName()
-                                  : m_account.m_name) +
-                ":" + m_root;
+  // Only the name of the folder, with no host: a full path or a long host
+  // name does not fit in a narrow view.
+  const wxString label = FolderNameOf(m_root);
   const wxDataViewItem topItem = m_tree->AppendContainer(
       wxDataViewItem(), label, wxDataViewTreeCtrl::NO_IMAGE,
       wxDataViewTreeCtrl::NO_IMAGE, topNode);
@@ -170,6 +213,10 @@ void FileTreeCtrl::LoadChildren(const wxDataViewItem &item) {
   }
   node->loaded = true;
   m_tree->DeleteChildren(item); // The empty child
+  std::optional<wxBusyCursor> busy;
+  if (m_account.IsRemote()) {
+    busy.emplace(); // The host takes a while to answer
+  }
   auto files = m_provider->ListFiles(node->file.path);
   SortFiles(&files);
   for (const auto &file : files) {
@@ -234,6 +281,19 @@ FileTreeCtrl::Node *FileTreeCtrl::NodeOf(const wxDataViewItem &item) const {
   }
   // The empty child of a folder that is not listed yet has no node.
   return dynamic_cast<Node *>(m_tree->GetItemData(item));
+}
+
+wxString FileTreeCtrl::FolderNameOf(const wxString &path) {
+  // A remote path uses '/' on any platform, so split on both separators.
+  wxString trimmed = path;
+  while (trimmed.length() > 1 &&
+         (trimmed.EndsWith("/") || trimmed.EndsWith("\\"))) {
+    trimmed.RemoveLast();
+  }
+  const size_t sep = trimmed.find_last_of("/\\");
+  const wxString name = sep == wxString::npos ? trimmed : trimmed.Mid(sep + 1);
+  // The top of a file system ("/") has no name; show the path.
+  return name.empty() ? path : name;
 }
 
 wxString FileTreeCtrl::NormalizeRoot(const wxString &dir) const {

@@ -32,8 +32,9 @@ struct FileProvider {
   virtual ~FileProvider() = default;
 
   // Gets ready to list: a remote host is connected here (it can take seconds).
-  // False when that failed. The others need nothing.
-  virtual bool Connect() { return true; }
+  // The error when that failed. The others need nothing. It shows nothing, so
+  // it can run on a worker thread (and so can ListFiles() of a remote host).
+  virtual Status Connect() { return Status::Ok(); }
   virtual std::vector<File> ListFiles(const wxString &dir) = 0;
   virtual wxString GetCurrentWorkingDir() const = 0;
   virtual void ChangeDir(const wxString &path) = 0;
@@ -123,7 +124,7 @@ struct RemoteFilesProvider : public FileProvider {
   RemoteFilesProvider(std::shared_ptr<KennelRemote> remote,
                       const wxString &dir = wxEmptyString,
                       bool dirsOnly = false);
-  bool Connect() override { return m_remote->EnsureReady(); }
+  Status Connect() override { return m_remote->Start(); }
   std::vector<File> ListFiles(const wxString &dir) override;
   void ChangeDir(const wxString &path) override;
   wxString GetCurrentWorkingDir() const override { return m_dir; }

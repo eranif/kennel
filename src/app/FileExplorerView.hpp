@@ -12,7 +12,6 @@
 class wxAuiToolBar;
 class wxChoice;
 class wxSimplebook;
-class wxStaticText;
 
 // Sent (to the parent windows) when the user picks a session in the choice. The
 // session is GetRef(); the host shows it (and it goes back to the view with
@@ -32,10 +31,9 @@ wxDECLARE_EVENT(wxEVT_FILEEXPLORER_SESSION_SELECTED, PageViewEvent);
 //
 // Self contained: the host (MainView) tells it which sessions exist, and
 // listens to the events of the trees, which reach the parent windows (see
-// FileTreeCtrl): it never learns what the host does with them. A session that
-// lives on a remote host gets its tree when its entry is first shown: the
-// connection takes seconds, so until then (and while it is made) the entry
-// shows a message. A session that could not connect keeps the message.
+// FileTreeCtrl): it never learns what the host does with them. The tree of a
+// session that lives on a remote host connects when its entry is first shown
+// (see FileTreeCtrl::ConnectAsync()).
 class FileExplorerView : public wxPanel {
 public:
   explicit FileExplorerView(wxWindow *parent);
@@ -69,29 +67,23 @@ public:
   size_t GetSessionCount() const { return m_entries.size(); }
 
 private:
-  // One session: its entry in the choice, and its page in the book. The page
-  // is the tree, or a message for a remote session that has no tree yet.
+  // One session: its entry in the choice, and its tree (the page in the book).
   struct Entry {
-    int id{0}; // Never changes (the ref does when the session is renamed)
     SessionRef ref;
     wxString label;
     Account account;
-    wxWindow *page{nullptr};
     FileTreeCtrl *tree{nullptr};
-    wxStaticText *message{nullptr};
+    // A remote tree: the id of the request while it connects (see
+    // FileTreeCtrl::ConnectAsync()), and whether it was started.
+    int connectRequestId{0};
     bool connectStarted{false};
   };
 
   int FindEntry(const SessionRef &ref) const;
-  int FindEntryById(int id) const;
-  // A page that shows `text`; `label` is the text control, to change it later.
-  wxWindow *NewMessagePage(const wxString &text, wxStaticText **label);
-  // Makes the entry at `index` the one on the screen. A remote session that was
-  // not connected yet is connected afterwards.
+  // Makes the entry at `index` the one on the screen. A remote session that is
+  // not connected yet starts to connect (in the background).
   void ShowEntry(int index);
-  // Connects the remote session `id` and gives it its tree. It waits for the
-  // host, so the entry shows a message before; the session may be gone after.
-  void ConnectEntry(int id);
+  void OnTreeConnected(FileTreeConnectedEvent &event);
   void OnChoice(wxCommandEvent &event);
   void OnLink(wxCommandEvent &event);
 
@@ -101,5 +93,4 @@ private:
   // In the order of the choice.
   std::vector<Entry> m_entries;
   std::optional<SessionRef> m_active;
-  int m_nextId{1};
 };

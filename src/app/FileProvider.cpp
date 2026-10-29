@@ -109,7 +109,6 @@ std::vector<FileProvider::File>
 RemoteFilesProvider::ListFiles(const wxString &dir) {
   const wxString directory = dir.empty() ? m_dir : dir;
 
-  wxBusyCursor bc{};
   wxString cwd;
   auto entries = m_remote->ListFiles(directory, &cwd);
   if (!cwd.empty()) {

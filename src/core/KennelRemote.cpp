@@ -7,6 +7,7 @@
 #include <wx/filename.h>
 #include <wx/msgdlg.h>
 #include <wx/stdpaths.h>
+#include <wx/thread.h>
 #include <wx/tokenzr.h>
 #include <wx/utils.h>
 
@@ -19,6 +20,12 @@ set -o pipefail
 
 do_list_files() {
     local dir="${1:-.}"
+    # The path comes as text, not through a shell: expand a leading $HOME or ~
+    # (a session folder is stored as "$HOME/...").
+    case "$dir" in
+        '$HOME'|'$HOME/'*) dir="$HOME${dir#\$HOME}" ;;
+        '~'|'~/'*) dir="$HOME${dir#\~}" ;;
+    esac
     if [ ! -d "$dir" ]; then
         echo "error: not a directory: $dir"
         echo "<<output-end>>"
@@ -124,8 +131,31 @@ bool KennelRemote::IsRunning() const {
 }
 
 bool KennelRemote::EnsureReady() {
-  if (m_process && m_process->IsRunning()) {
+  if (IsRunning()) {
     return true;
+  }
+  // A worker thread must not touch the UI: it only logs.
+  const bool onUiThread = wxIsMainThread();
+  std::optional<wxBusyCursor> busy;
+  if (onUiThread) {
+    busy.emplace();
+  }
+  const Status st = Start();
+  if (st.ok()) {
+    return true;
+  }
+  if (onUiThread) {
+    busy.reset();
+    ::wxMessageBox(st.message(), "Kennel", wxICON_WARNING | wxOK);
+  } else {
+    KLOG_WARN() << st.message();
+  }
+  return false;
+}
+
+Status KennelRemote::Start() {
+  if (IsRunning()) {
+    return Status::Ok();
   }
 
   const long pid = static_cast<long>(wxGetProcessId());
@@ -137,30 +167,34 @@ bool KennelRemote::EnsureReady() {
                                    "kennel-remote.sh";
 
   {
-    wxFFile fp(localScriptPath, "w+b");
-    if (!fp.IsOpened() || !fp.Write(kScriptContent, wxConvUTF8) ||
-        !fp.Close()) {
-      ::wxMessageBox(_("Failed to write kennel-remote.sh to temp dir."),
-                     "Kennel", wxICON_WARNING | wxOK);
-      m_scriptUploaded = false;
-      return false;
+    // Hosts can connect at the same time, on worker threads, and they share
+    // this file: it is written once, so that no scp reads it while another
+    // host writes it.
+    static std::mutex s_scriptMutex;
+    static bool s_scriptWritten{false};
+    std::lock_guard<std::mutex> lock(s_scriptMutex);
+    if (!s_scriptWritten || !wxFileName::FileExists(localScriptPath)) {
+      wxFFile fp(localScriptPath, "w+b");
+      if (!fp.IsOpened() || !fp.Write(kScriptContent, wxConvUTF8) ||
+          !fp.Close()) {
+        m_scriptUploaded = false;
+        return Status::Error(
+            _("Failed to write kennel-remote.sh to temp dir."));
+      }
+      s_scriptWritten = true;
     }
   }
 
-  wxBusyCursor bc{};
   {
     const std::string mkdirCmd =
         wxString::Format("mkdir -p %s", remoteTmpDir).ToStdString(wxConvUTF8);
     auto mkResult = RunProcessWithTimeout(
         {"ssh", ConnectString().ToStdString(wxConvUTF8), mkdirCmd}, 5);
     if (!mkResult.ok()) {
-      ::wxMessageBox(
-          wxString::Format(_("Failed to create remote directory %s:\n%s"),
-                           remoteTmpDir,
-                           wxString::FromUTF8(mkResult.status().message())),
-          "Kennel", wxICON_WARNING | wxOK);
       m_scriptUploaded = false;
-      return false;
+      return Status::Error(wxString::Format(
+          _("Failed to create remote directory %s:\n%s"), remoteTmpDir,
+          wxString::FromUTF8(mkResult.status().message())));
     }
   }
 
@@ -171,12 +205,10 @@ bool KennelRemote::EnsureReady() {
              .ToStdString(wxConvUTF8)},
         10);
     if (!scpResult.ok()) {
-      ::wxMessageBox(
-          wxString::Format(_("Failed to upload kennel-remote.sh:\n%s"),
-                           wxString::FromUTF8(scpResult.status().message())),
-          "Kennel", wxICON_WARNING | wxOK);
       m_scriptUploaded = false;
-      return false;
+      return Status::Error(
+          wxString::Format(_("Failed to upload kennel-remote.sh:\n%s"),
+                           wxString::FromUTF8(scpResult.status().message())));
     }
   }
 
@@ -199,14 +231,12 @@ bool KennelRemote::EnsureReady() {
       outputCb);
 
   if (!m_process) {
-    ::wxMessageBox(_("Failed to start remote session."), "Kennel",
-                   wxICON_WARNING | wxOK);
     m_scriptUploaded = false;
-    return false;
+    return Status::Error(_("Failed to start remote session."));
   }
 
   m_scriptUploaded = true;
-  return true;
+  return Status::Ok();
 }
 
 std::optional<std::string> KennelRemote::SendCommand(const std::string &cmd,
