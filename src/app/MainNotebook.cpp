@@ -103,7 +103,6 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
       wxAUI_NB_TAB_SPLIT | wxAUI_NB_CLOSE_ON_ACTIVE_TAB | wxAUI_NB_TAB_MOVE |
           wxAUI_NB_WINDOWLIST_BUTTON | wxAUI_NB_MIDDLE_CLICK_CLOSE |
           wxAUI_NB_CLOSE_ON_ALL_TABS);
-  ApplyTabArt();
 
   GetSizer()->Add(m_book, wxSizerFlags(1).Expand());
   Layout();
@@ -131,7 +130,9 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
   // Runs before the book's own handler, which selects the page the focus went
   // into; not skipped, so a focus never changes the selected page.
   m_book->Bind(wxEVT_CHILD_FOCUS, &MainNotebook::OnChildFocus, this);
-  // What the file explorer asks for comes on the EventNotifier.
+  // What the file explorer asks for, and the theme, come on the EventNotifier.
+  EventNotifier::Get()->Bind(wxEVT_THEME_APPLIED, &MainNotebook::OnThemeApplied,
+                             this);
   EventNotifier::Get()->Bind(wxEVT_FILEEXPLORER_SESSION_SELECTED,
                              &MainNotebook::OnExplorerSession, this);
   EventNotifier::Get()->Bind(wxEVT_FILETREE_ACTIVATED,
@@ -156,6 +157,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
 }
 
 MainNotebook::~MainNotebook() {
+  EventNotifier::Get()->Unbind(wxEVT_THEME_APPLIED,
+                               &MainNotebook::OnThemeApplied, this);
   EventNotifier::Get()->Unbind(wxEVT_FILEEXPLORER_SESSION_SELECTED,
                                &MainNotebook::OnExplorerSession, this);
   EventNotifier::Get()->Unbind(wxEVT_FILETREE_ACTIVATED,
@@ -1233,12 +1236,16 @@ void MainNotebook::ApplyToolBarStyles() {
   GetMainFrame()->ApplyToolBarStyle();
 }
 
-void MainNotebook::ApplyTabArt() {
+void MainNotebook::OnThemeApplied(wxCommandEvent &event) {
+  wxUnusedVar(event);
+  // A new art for each theme: the art does not follow the system colours.
   auto theme = ThemeManager::Get().ActiveTheme().value_or(
       wxSystemSettings::GetAppearance().IsDark()
           ? wxTerminalTheme::MakeDarkTheme()
           : wxTerminalTheme::MakeLightTheme());
+  m_book->SetBackgroundColour(theme.bg);
   m_book->SetArtProvider(new GlyphTabArt(theme));
+  m_book->Refresh();
 }
 
 void MainNotebook::ApplyTheme(const wxString &themeName) {
@@ -1255,11 +1262,6 @@ void MainNotebook::ApplyTheme(const wxString &themeName) {
   }
   for (auto *filePage : GetFiles()) {
     filePage->ApplyTheme(*active);
-  }
-  if (themeMgr.ActiveTheme()) {
-    m_book->SetBackgroundColour(themeMgr.ActiveTheme()->bg);
-    ApplyTabArt();
-    m_book->Refresh();
   }
   m_book->SendSizeEvent();
   SavePrefs();

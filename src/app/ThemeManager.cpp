@@ -1,6 +1,9 @@
 #include "ThemeManager.h"
 
+#include "core/EventNotifier.hpp"
 #include "core/Logger.h"
+
+wxDEFINE_EVENT(wxEVT_THEME_APPLIED, wxCommandEvent);
 
 ThemeManager &ThemeManager::Get() {
   static ThemeManager instance;
@@ -11,6 +14,7 @@ void ThemeManager::Initialize(std::vector<LoadedTheme> themes,
                               const wxString &themeName) {
   m_themes = std::move(themes);
   m_currentTheme = themeName;
+  EventNotifier::Get()->AddPendingEvent(wxCommandEvent(wxEVT_THEME_APPLIED));
 }
 
 std::optional<wxTerminalTheme> ThemeManager::ActiveTheme() const {
@@ -26,6 +30,8 @@ std::optional<wxTerminalTheme> ThemeManager::SetTheme(const wxString &name) {
   for (const auto &t : m_themes) {
     if (t.name == name) {
       m_currentTheme = name;
+      EventNotifier::Get()->AddPendingEvent(
+          wxCommandEvent(wxEVT_THEME_APPLIED));
       return t.theme;
     }
   }

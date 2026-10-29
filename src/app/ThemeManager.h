@@ -6,6 +6,11 @@
 #include <optional>
 #include <vector>
 #include <wx/arrstr.h>
+#include <wx/event.h>
+
+// Posted to the EventNotifier when the active theme is set: by Initialize()
+// and by SetTheme() when the theme is found.
+wxDECLARE_EVENT(wxEVT_THEME_APPLIED, wxCommandEvent);
 
 // Process-wide owner of the loaded terminal themes and the currently-active
 // selection. Accessible via ThemeManager::Get() so any app component

@@ -232,6 +232,9 @@ private:
   void OnPageClose(wxAuiNotebookEvent &event);
   // The focus went into a page: nothing is done (see the constructor).
   void OnChildFocus(wxChildFocusEvent &event);
+  // A theme was applied: the book gets its background and the tabs of the
+  // theme.
+  void OnThemeApplied(wxCommandEvent &event);
 
   // ---- Events to the parent windows -----------------------------------------
   void SendPageEvent(wxEventType type, const SessionRef &ref,
@@ -341,9 +344,6 @@ private:
   void SavePrefs();
   // Gives the toolbars the style of the theme of the application.
   void ApplyToolBarStyles();
-  // Paints the tabs with the colours of the terminal theme (a new art for each
-  // theme: the art does not follow the system colours).
-  void ApplyTabArt();
 
   wxAuiNotebook *m_book{nullptr};
 
