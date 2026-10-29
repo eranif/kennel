@@ -6,9 +6,13 @@
 #include <fcntl.h>
 
 #include <algorithm>
+#include <chrono>
 
 #include <memory>
+#include <mutex>
 #include <random>
+#include <unordered_map>
+#include <utility>
 
 namespace {
 
@@ -121,6 +125,131 @@ wxString ExpandHome(const wxString &path, const wxString &home) {
   return path;
 }
 
+// An open connection: the SSH session, its SFTP channel, and the remote home.
+struct Connection {
+  wxString user;
+  SshSessionPtr ssh;
+  SftpSessionPtr sftp; // Freed before `ssh` (members go in reverse order)
+  wxString home;
+  // When it went back to the pool.
+  std::chrono::steady_clock::time_point lastUsed;
+};
+using ConnectionPtr = std::unique_ptr<Connection>;
+
+// A connection that was idle longer is not tried: after a long time the host
+// or the network has often closed it without telling.
+constexpr auto kMaxIdle = std::chrono::minutes(5);
+
+// The session is connected and its SFTP channel is open. A call that timed out
+// can leave a connection that still passes this; see WithConnection().
+bool IsHealthy(const Connection &conn) {
+  return conn.ssh && conn.sftp && ssh_is_connected(conn.ssh.get()) &&
+         ssh_channel_is_open(conn.sftp->channel) &&
+         !ssh_channel_is_eof(conn.sftp->channel);
+}
+
+// The idle connections, one for each host. A call takes the connection out
+// while it uses it (a libssh session is not for two threads at a time), so the
+// mutex is never held while talking to a host. Never freed: at exit the
+// sockets close with the process.
+struct ConnectionPool {
+  std::mutex mutex;
+  std::unordered_map<wxString, ConnectionPtr> idle;
+};
+
+ConnectionPool &Pool() {
+  static auto *pool = new ConnectionPool;
+  return *pool;
+}
+
+StatusOr<ConnectionPtr> NewConnection(const wxString &host,
+                                      const wxString &user) {
+  auto session = Connect(host, user);
+  if (!session.ok()) {
+    return session.status();
+  }
+  auto conn = std::make_unique<Connection>();
+  conn->user = user;
+  conn->ssh = std::move(session.value());
+  conn->sftp.reset(sftp_new(conn->ssh.get()));
+  if (!conn->sftp || sftp_init(conn->sftp.get()) != SSH_OK) {
+    return SshError("Could not start the SFTP subsystem", conn->ssh.get());
+  }
+  if (char *real = sftp_canonicalize_path(conn->sftp.get(), ".")) {
+    conn->home = wxString::FromUTF8(real);
+    ssh_string_free_char(real);
+  }
+  return conn;
+}
+
+// The idle connection of `host` when there is a healthy one for `user` that
+// was not idle too long (`*reused` is then true), else a new one.
+StatusOr<ConnectionPtr> TakeConnection(const wxString &host,
+                                       const wxString &user, bool *reused) {
+  ConnectionPtr conn;
+  {
+    std::lock_guard<std::mutex> lock(Pool().mutex);
+    if (auto it = Pool().idle.find(host); it != Pool().idle.end()) {
+      conn = std::move(it->second);
+      Pool().idle.erase(it);
+    }
+  }
+  // Another user, closed, or idle too long: it is freed here, out of the lock.
+  if (conn && conn->user == user && IsHealthy(*conn) &&
+      std::chrono::steady_clock::now() - conn->lastUsed < kMaxIdle) {
+    *reused = true;
+    return conn;
+  }
+  *reused = false;
+  return NewConnection(host, user);
+}
+
+// Puts `conn` back for the next call, if it is still healthy.
+void ReturnConnection(const wxString &host, ConnectionPtr conn) {
+  if (!IsHealthy(*conn)) {
+    return;
+  }
+  conn->lastUsed = std::chrono::steady_clock::now();
+  ConnectionPtr replaced; // Freed after the lock is released
+  std::lock_guard<std::mutex> lock(Pool().mutex);
+  // Two calls ran at the same time: the pool keeps one connection.
+  replaced = std::exchange(Pool().idle[host], std::move(conn));
+}
+
+// Runs `fn(Connection &)` on a connection to `host`. Only a connection whose
+// call worked goes back to the pool: after a failure (a timeout can leave the
+// SFTP stream out of step) the next call connects again, which is cheap next
+// to reusing a broken connection. A connection from the pool may have been
+// closed by the host while it was idle; when `fn` fails and the connection is
+// not healthy any more, it runs once more on a new connection.
+template <typename Result, typename Fn>
+Result WithConnection(const wxString &host, const wxString &user, Fn &&fn) {
+  bool reused = false;
+  auto conn = TakeConnection(host, user, &reused);
+  if (!conn.ok()) {
+    return conn.status();
+  }
+  {
+    Result result = fn(*conn.value());
+    if (result.ok()) {
+      ReturnConnection(host, std::move(conn.value()));
+      return result;
+    }
+    if (!reused || IsHealthy(*conn.value())) {
+      return result;
+    }
+  }
+  auto fresh = NewConnection(host, user);
+  if (!fresh.ok()) {
+    return fresh.status();
+  }
+  Result result = fn(*fresh.value());
+  if (result.ok()) {
+    ReturnConnection(host, std::move(fresh.value()));
+  }
+  return result;
+}
+
 bool IsRegularFile(sftp_session sftp, const wxString &path, uint64_t *size) {
   SftpAttrPtr attrs{sftp_stat(sftp, path.ToStdString(wxConvUTF8).c_str())};
   if (!attrs || attrs->type != SSH_FILEXFER_TYPE_REGULAR) {
@@ -186,260 +315,225 @@ StatusOr<SftpClient::RemoteFile>
 SftpClient::ReadFile(const wxString &host, const wxString &user,
                      const wxString &path,
                      const std::vector<wxString> &searchDirs, size_t maxBytes) {
-  auto session = Connect(host, user);
-  if (!session.ok()) {
-    return session.status();
-  }
+  return WithConnection<StatusOr<SftpClient::RemoteFile>>(
+      host, user, [&](Connection &conn) -> StatusOr<SftpClient::RemoteFile> {
+        sftp_session sftp = conn.sftp.get();
+        ssh_session session = conn.ssh.get();
+        const wxString &home = conn.home;
 
-  SftpSessionPtr sftp{sftp_new(session.value().get())};
-  if (!sftp || sftp_init(sftp.get()) != SSH_OK) {
-    return SshError("Could not start the SFTP subsystem",
-                    session.value().get());
-  }
+        std::vector<wxString> candidates;
+        if (path.StartsWith("/")) {
+          candidates.push_back(path);
+        } else if (path == "~" || path.StartsWith("~/")) {
+          candidates.push_back(ExpandHome(path, home));
+        } else {
+          for (const wxString &dir : searchDirs) {
+            candidates.push_back(JoinRemote(ExpandHome(dir, home), path));
+          }
+          if (!home.empty()) {
+            candidates.push_back(JoinRemote(home, path));
+          }
+        }
 
-  wxString home;
-  if (char *real = sftp_canonicalize_path(sftp.get(), ".")) {
-    home = wxString::FromUTF8(real);
-    ssh_string_free_char(real);
-  }
+        for (const wxString &candidate : candidates) {
+          uint64_t size = 0;
+          if (!IsRegularFile(sftp, candidate, &size)) {
+            continue;
+          }
+          if (size > maxBytes) {
+            return Status::Error(wxString::Format(
+                "%s is too large to open (%llu bytes)", candidate,
+                static_cast<unsigned long long>(size)));
+          }
 
-  std::vector<wxString> candidates;
-  if (path.StartsWith("/")) {
-    candidates.push_back(path);
-  } else if (path == "~" || path.StartsWith("~/")) {
-    candidates.push_back(ExpandHome(path, home));
-  } else {
-    for (const wxString &dir : searchDirs) {
-      candidates.push_back(JoinRemote(ExpandHome(dir, home), path));
-    }
-    if (!home.empty()) {
-      candidates.push_back(JoinRemote(home, path));
-    }
-  }
+          SftpFilePtr file{sftp_open(
+              sftp, candidate.ToStdString(wxConvUTF8).c_str(), O_RDONLY, 0)};
+          if (!file) {
+            return SshError(wxString::Format("Could not open %s", candidate),
+                            session);
+          }
 
-  for (const wxString &candidate : candidates) {
-    uint64_t size = 0;
-    if (!IsRegularFile(sftp.get(), candidate, &size)) {
-      continue;
-    }
-    if (size > maxBytes) {
-      return Status::Error(
-          wxString::Format("%s is too large to open (%llu bytes)", candidate,
-                           static_cast<unsigned long long>(size)));
-    }
+          RemoteFile result;
+          result.path = candidate;
+          result.content.reserve(static_cast<size_t>(size));
+          char buffer[32 * 1024];
+          for (;;) {
+            const ssize_t n = sftp_read(file.get(), buffer, sizeof(buffer));
+            if (n == 0) {
+              break;
+            }
+            if (n < 0) {
+              return SshError(wxString::Format("Could not read %s", candidate),
+                              session);
+            }
+            result.content.append(buffer, static_cast<size_t>(n));
+            if (result.content.size() > maxBytes) {
+              return Status::Error(
+                  wxString::Format("%s is too large to open", candidate));
+            }
+          }
+          return result;
+        }
 
-    SftpFilePtr file{sftp_open(
-        sftp.get(), candidate.ToStdString(wxConvUTF8).c_str(), O_RDONLY, 0)};
-    if (!file) {
-      return SshError(wxString::Format("Could not open %s", candidate),
-                      session.value().get());
-    }
-
-    RemoteFile result;
-    result.path = candidate;
-    result.content.reserve(static_cast<size_t>(size));
-    char buffer[32 * 1024];
-    for (;;) {
-      const ssize_t n = sftp_read(file.get(), buffer, sizeof(buffer));
-      if (n == 0) {
-        break;
-      }
-      if (n < 0) {
-        return SshError(wxString::Format("Could not read %s", candidate),
-                        session.value().get());
-      }
-      result.content.append(buffer, static_cast<size_t>(n));
-      if (result.content.size() > maxBytes) {
         return Status::Error(
-            wxString::Format("%s is too large to open", candidate));
-      }
-    }
-    return result;
-  }
-
-  return Status::Error(
-      wxString::Format("File not found on %s: %s", host, path));
+            wxString::Format("File not found on %s: %s", host, path));
+      });
 }
 
 Status SftpClient::WriteFile(const wxString &host, const wxString &user,
                              const wxString &path, const std::string &content) {
-  auto session = Connect(host, user);
-  if (!session.ok()) {
-    return session.status();
-  }
+  return WithConnection<Status>(host, user, [&](Connection &conn) -> Status {
+    sftp_session sftp = conn.sftp.get();
+    ssh_session session = conn.ssh.get();
 
-  SftpSessionPtr sftp{sftp_new(session.value().get())};
-  if (!sftp || sftp_init(sftp.get()) != SSH_OK) {
-    return SshError("Could not start the SFTP subsystem",
-                    session.value().get());
-  }
-
-  // Replace the real file, not a symlink pointing at it.
-  std::string target = path.ToStdString(wxConvUTF8);
-  if (char *real = sftp_canonicalize_path(sftp.get(), target.c_str())) {
-    target = real;
-    ssh_string_free_char(real);
-  }
-
-  // Only saves changes to a file that already exists; remember its mode so the
-  // replacement keeps it.
-  SftpAttrPtr original{sftp_stat(sftp.get(), target.c_str())};
-  if (!original || original->type != SSH_FILEXFER_TYPE_REGULAR) {
-    return Status::Error(
-        wxString::Format("%s is not an existing regular file", path));
-  }
-  const mode_t mode = (original->flags & SSH_FILEXFER_ATTR_PERMISSIONS)
-                          ? static_cast<mode_t>(original->permissions & 07777)
-                          : static_cast<mode_t>(0644);
-
-  // thread_local: saves can run concurrently on different threads.
-  thread_local std::mt19937_64 rng{std::random_device{}()};
-  const size_t slash = target.rfind('/');
-  const std::string dir =
-      slash == std::string::npos ? "" : target.substr(0, slash + 1);
-  const std::string name =
-      slash == std::string::npos ? target : target.substr(slash + 1);
-  const std::string tmp =
-      dir + "." + name + ".kennel-" + std::to_string(rng() % 1000000000ULL);
-
-  // Private while it is being written; the final mode is applied before the
-  // rename so the file never appears at the target with the wrong mode.
-  SftpFilePtr file{
-      sftp_open(sftp.get(), tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600)};
-  if (!file) {
-    return SshError(
-        wxString::Format("Could not create a temporary file next to %s", path),
-        session.value().get());
-  }
-
-  auto cleanup = [&sftp, &tmp] { sftp_unlink(sftp.get(), tmp.c_str()); };
-
-  size_t offset = 0;
-  while (offset < content.size()) {
-    const size_t chunk = std::min<size_t>(32 * 1024, content.size() - offset);
-    const ssize_t n = sftp_write(file.get(), content.data() + offset, chunk);
-    if (n < 0) {
-      file.reset();
-      cleanup();
-      return SshError(wxString::Format("Could not write %s", path),
-                      session.value().get());
+    // Replace the real file, not a symlink pointing at it.
+    std::string target = path.ToStdString(wxConvUTF8);
+    if (char *real = sftp_canonicalize_path(sftp, target.c_str())) {
+      target = real;
+      ssh_string_free_char(real);
     }
-    offset += static_cast<size_t>(n);
-  }
-  file.reset(); // Close before renaming.
 
-  if (sftp_chmod(sftp.get(), tmp.c_str(), mode) != SSH_OK) {
-    cleanup();
-    return SshError("Could not preserve the file's permissions",
-                    session.value().get());
-  }
-  // Best effort: only root can give a file to someone else, and a failure
-  // here must not block the save.
-  if (original->flags & SSH_FILEXFER_ATTR_UIDGID) {
-    sftp_chown(sftp.get(), tmp.c_str(), original->uid, original->gid);
-  }
+    // Only saves changes to a file that already exists; remember its mode so
+    // the replacement keeps it.
+    SftpAttrPtr original{sftp_stat(sftp, target.c_str())};
+    if (!original || original->type != SSH_FILEXFER_TYPE_REGULAR) {
+      return Status::Error(
+          wxString::Format("%s is not an existing regular file", path));
+    }
+    const mode_t mode = (original->flags & SSH_FILEXFER_ATTR_PERMISSIONS)
+                            ? static_cast<mode_t>(original->permissions & 07777)
+                            : static_cast<mode_t>(0644);
 
-  // OpenSSH servers rename atomically over an existing file (posix-rename);
-  // a server without that extension refuses, and the original stays intact.
-  if (sftp_rename(sftp.get(), tmp.c_str(), target.c_str()) != SSH_OK) {
-    cleanup();
-    return SshError(wxString::Format("Could not replace %s", path),
-                    session.value().get());
-  }
-  return Status::Ok();
+    // thread_local: saves can run concurrently on different threads.
+    thread_local std::mt19937_64 rng{std::random_device{}()};
+    const size_t slash = target.rfind('/');
+    const std::string dir =
+        slash == std::string::npos ? "" : target.substr(0, slash + 1);
+    const std::string name =
+        slash == std::string::npos ? target : target.substr(slash + 1);
+    const std::string tmp =
+        dir + "." + name + ".kennel-" + std::to_string(rng() % 1000000000ULL);
+
+    // Private while it is being written; the final mode is applied before the
+    // rename so the file never appears at the target with the wrong mode.
+    SftpFilePtr file{
+        sftp_open(sftp, tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600)};
+    if (!file) {
+      return SshError(wxString::Format(
+                          "Could not create a temporary file next to %s", path),
+                      session);
+    }
+
+    auto cleanup = [&sftp, &tmp] { sftp_unlink(sftp, tmp.c_str()); };
+
+    size_t offset = 0;
+    while (offset < content.size()) {
+      const size_t chunk = std::min<size_t>(32 * 1024, content.size() - offset);
+      const ssize_t n = sftp_write(file.get(), content.data() + offset, chunk);
+      if (n < 0) {
+        file.reset();
+        cleanup();
+        return SshError(wxString::Format("Could not write %s", path), session);
+      }
+      offset += static_cast<size_t>(n);
+    }
+    file.reset(); // Close before renaming.
+
+    if (sftp_chmod(sftp, tmp.c_str(), mode) != SSH_OK) {
+      cleanup();
+      return SshError("Could not preserve the file's permissions", session);
+    }
+    // Best effort: only root can give a file to someone else, and a failure
+    // here must not block the save.
+    if (original->flags & SSH_FILEXFER_ATTR_UIDGID) {
+      sftp_chown(sftp, tmp.c_str(), original->uid, original->gid);
+    }
+
+    // OpenSSH servers rename atomically over an existing file (posix-rename);
+    // a server without that extension refuses, and the original stays intact.
+    if (sftp_rename(sftp, tmp.c_str(), target.c_str()) != SSH_OK) {
+      cleanup();
+      return SshError(wxString::Format("Could not replace %s", path), session);
+    }
+    return Status::Ok();
+  });
 }
 
 StatusOr<bool> SftpClient::Exists(const wxString &host, const wxString &user,
                                   const wxString &path) {
-  auto session = Connect(host, user);
-  if (!session.ok()) {
-    return session.status();
-  }
+  return WithConnection<StatusOr<bool>>(
+      host, user, [&](Connection &conn) -> StatusOr<bool> {
+        sftp_session sftp = conn.sftp.get();
+        ssh_session session = conn.ssh.get();
+        const wxString &home = conn.home;
 
-  SftpSessionPtr sftp{sftp_new(session.value().get())};
-  if (!sftp || sftp_init(sftp.get()) != SSH_OK) {
-    return SshError("Could not start the SFTP subsystem",
-                    session.value().get());
-  }
-
-  wxString home;
-  if (char *real = sftp_canonicalize_path(sftp.get(), ".")) {
-    home = wxString::FromUTF8(real);
-    ssh_string_free_char(real);
-  }
-
-  SftpAttrPtr attrs{sftp_stat(
-      sftp.get(), ExpandHome(path, home).ToStdString(wxConvUTF8).c_str())};
-  if (attrs) {
-    return true;
-  }
-  // Only "no such file" means no. Anything else (permission denied, ...) is an
-  // error the caller must not take for an answer.
-  const int code = sftp_get_error(sftp.get());
-  if (code == SSH_FX_NO_SUCH_FILE || code == SSH_FX_NO_SUCH_PATH) {
-    return false;
-  }
-  return SshError(
-      wxString::Format("Could not check %s (SFTP error %d)", path, code),
-      session.value().get());
+        // The session is reused: the error code may still be the one of an
+        // earlier call. libssh does not set it when the transport fails.
+        sftp->errnum = SSH_FX_OK;
+        SftpAttrPtr attrs{sftp_stat(
+            sftp, ExpandHome(path, home).ToStdString(wxConvUTF8).c_str())};
+        if (attrs) {
+          return true;
+        }
+        if (!IsHealthy(conn)) {
+          return SshError(wxString::Format("Could not check %s", path),
+                          session);
+        }
+        // Only "no such file" means no. Anything else (permission denied, a
+        // timeout, ...) is an error the caller must not take for an answer.
+        const int code = sftp_get_error(sftp);
+        if (code == SSH_FX_NO_SUCH_FILE || code == SSH_FX_NO_SUCH_PATH) {
+          return false;
+        }
+        return SshError(
+            wxString::Format("Could not check %s (SFTP error %d)", path, code),
+            session);
+      });
 }
 
 Status SftpClient::PutFile(const wxString &host, const wxString &user,
                            const wxString &path, const std::string &content) {
-  auto session = Connect(host, user);
-  if (!session.ok()) {
-    return session.status();
-  }
+  return WithConnection<Status>(host, user, [&](Connection &conn) -> Status {
+    sftp_session sftp = conn.sftp.get();
+    ssh_session session = conn.ssh.get();
+    const wxString &home = conn.home;
+    const std::string target = ExpandHome(path, home).ToStdString(wxConvUTF8);
 
-  SftpSessionPtr sftp{sftp_new(session.value().get())};
-  if (!sftp || sftp_init(sftp.get()) != SSH_OK) {
-    return SshError("Could not start the SFTP subsystem",
-                    session.value().get());
-  }
-
-  wxString home;
-  if (char *real = sftp_canonicalize_path(sftp.get(), ".")) {
-    home = wxString::FromUTF8(real);
-    ssh_string_free_char(real);
-  }
-  const std::string target = ExpandHome(path, home).ToStdString(wxConvUTF8);
-
-  // Create the missing parent folders, one level at a time.
-  for (size_t slash = target.find('/', 1); slash != std::string::npos;
-       slash = target.find('/', slash + 1)) {
-    const std::string dir = target.substr(0, slash);
-    SftpAttrPtr attrs{sftp_stat(sftp.get(), dir.c_str())};
-    if (!attrs && sftp_mkdir(sftp.get(), dir.c_str(), 0755) != SSH_OK) {
-      // Somebody may have created it in the meantime; servers do not agree on
-      // the error code for that, so look again.
-      attrs.reset(sftp_stat(sftp.get(), dir.c_str()));
-      if (!attrs) {
-        return SshError(wxString::Format("Could not create %s", dir),
-                        session.value().get());
+    // Create the missing parent folders, one level at a time.
+    for (size_t slash = target.find('/', 1); slash != std::string::npos;
+         slash = target.find('/', slash + 1)) {
+      const std::string dir = target.substr(0, slash);
+      SftpAttrPtr attrs{sftp_stat(sftp, dir.c_str())};
+      if (!attrs && sftp_mkdir(sftp, dir.c_str(), 0755) != SSH_OK) {
+        // Somebody may have created it in the meantime; servers do not agree on
+        // the error code for that, so look again.
+        attrs.reset(sftp_stat(sftp, dir.c_str()));
+        if (!attrs) {
+          return SshError(wxString::Format("Could not create %s", dir),
+                          session);
+        }
+      }
+      if (attrs && attrs->type != SSH_FILEXFER_TYPE_DIRECTORY) {
+        return Status::Error(wxString::Format("%s is not a folder", dir));
       }
     }
-    if (attrs && attrs->type != SSH_FILEXFER_TYPE_DIRECTORY) {
-      return Status::Error(wxString::Format("%s is not a folder", dir));
-    }
-  }
 
-  SftpFilePtr file{sftp_open(sftp.get(), target.c_str(),
-                             O_WRONLY | O_CREAT | O_TRUNC, 0644)};
-  if (!file) {
-    return SshError(wxString::Format("Could not create %s", path),
-                    session.value().get());
-  }
-  size_t offset = 0;
-  while (offset < content.size()) {
-    const size_t chunk = std::min<size_t>(32 * 1024, content.size() - offset);
-    const ssize_t n = sftp_write(file.get(), content.data() + offset, chunk);
-    if (n < 0) {
-      return SshError(wxString::Format("Could not write %s", path),
-                      session.value().get());
+    SftpFilePtr file{
+        sftp_open(sftp, target.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)};
+    if (!file) {
+      return SshError(wxString::Format("Could not create %s", path), session);
     }
-    offset += static_cast<size_t>(n);
-  }
-  return Status::Ok();
+    size_t offset = 0;
+    while (offset < content.size()) {
+      const size_t chunk = std::min<size_t>(32 * 1024, content.size() - offset);
+      const ssize_t n = sftp_write(file.get(), content.data() + offset, chunk);
+      if (n < 0) {
+        return SshError(wxString::Format("Could not write %s", path), session);
+      }
+      offset += static_cast<size_t>(n);
+    }
+    return Status::Ok();
+  });
 }
 
 Status SftpClient::RemoveTree(const wxString &host, const wxString &user,
@@ -452,39 +546,27 @@ Status SftpClient::RemoveTree(const wxString &host, const wxString &user,
   if (bare.empty() || bare == "/" || bare == "~" || bare == "$HOME") {
     return Status::Error("Refusing to remove " + path);
   }
-  auto session = Connect(host, user);
-  if (!session.ok()) {
-    return session.status();
-  }
+  return WithConnection<Status>(host, user, [&](Connection &conn) -> Status {
+    sftp_session sftp = conn.sftp.get();
+    ssh_session session = conn.ssh.get();
+    const wxString &home = conn.home;
 
-  SftpSessionPtr sftp{sftp_new(session.value().get())};
-  if (!sftp || sftp_init(sftp.get()) != SSH_OK) {
-    return SshError("Could not start the SFTP subsystem",
-                    session.value().get());
-  }
+    Status result = Status::Ok();
+    const std::string target = ExpandHome(path, home).ToStdString(wxConvUTF8);
+    SftpAttrPtr attrs{sftp_lstat(sftp, target.c_str())};
+    if (attrs && attrs->type == SSH_FILEXFER_TYPE_DIRECTORY) {
+      result = RemoveRecursive(sftp, session, target, 0);
+    } else if (attrs && sftp_unlink(sftp, target.c_str()) != SSH_OK) {
+      // A symbolic link or a file: remove just that.
+      result = SshError(wxString::Format("Could not remove %s", path), session);
+    }
 
-  wxString home;
-  if (char *real = sftp_canonicalize_path(sftp.get(), ".")) {
-    home = wxString::FromUTF8(real);
-    ssh_string_free_char(real);
-  }
-
-  Status result = Status::Ok();
-  const std::string target = ExpandHome(path, home).ToStdString(wxConvUTF8);
-  SftpAttrPtr attrs{sftp_lstat(sftp.get(), target.c_str())};
-  if (attrs && attrs->type == SSH_FILEXFER_TYPE_DIRECTORY) {
-    result = RemoveRecursive(sftp.get(), session.value().get(), target, 0);
-  } else if (attrs && sftp_unlink(sftp.get(), target.c_str()) != SSH_OK) {
-    // A symbolic link or a file: remove just that.
-    result = SshError(wxString::Format("Could not remove %s", path),
-                      session.value().get());
-  }
-
-  // Best effort: sftp_rmdir() fails on a folder that is not empty, which is
-  // what we want then.
-  for (const wxString &parent : emptyParents) {
-    sftp_rmdir(sftp.get(),
-               ExpandHome(parent, home).ToStdString(wxConvUTF8).c_str());
-  }
-  return result;
+    // Best effort: sftp_rmdir() fails on a folder that is not empty, which is
+    // what we want then.
+    for (const wxString &parent : emptyParents) {
+      sftp_rmdir(sftp,
+                 ExpandHome(parent, home).ToStdString(wxConvUTF8).c_str());
+    }
+    return result;
+  });
 }

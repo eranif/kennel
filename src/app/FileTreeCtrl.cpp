@@ -79,16 +79,16 @@ int FileTreeCtrl::ConnectAsync() {
   // answers: it has its own share of the provider, and it sends the result on
   // the EventNotifier, which lives as long as the process.
   std::thread([requestId, provider = m_provider, dir = m_root] {
-    auto *event = new FileTreeConnectedEvent(wxEVT_FILETREE_CONNECTED);
-    event->SetRequestId(requestId);
-    event->SetDir(dir);
+    FileTreeConnectedEvent event{wxEVT_FILETREE_CONNECTED};
+    event.SetRequestId(requestId);
+    event.SetDir(dir);
     const Status status = provider->Connect();
-    event->SetStatus(status);
+    event.SetStatus(status);
     if (status.ok()) {
-      event->SetFiles(provider->ListFiles(
+      event.SetFiles(provider->ListFiles(
           dir.empty() ? provider->GetCurrentWorkingDir() : dir));
     }
-    wxQueueEvent(EventNotifier::Get(), event); // Safe from any thread
+    EventNotifier::Get()->AddPendingEvent(event);
   }).detach();
   return requestId;
 }
