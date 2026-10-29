@@ -46,7 +46,7 @@ MainFrame::MainFrame()
               wxSize(1280, 800)) {
   CreateStatusFields();
 
-  KLOG_INFO() << "Creating main frame";
+  KLOG_DEBUG() << "Creating main frame";
   // Window/taskbar icon: render the app SVG at a few common sizes so the
   // platform can pick the crispest for each context (title bar, alt-tab, etc.).
   const wxString appIcon = ResolveIconPath("kennel.svg");
@@ -231,25 +231,19 @@ void MainFrame::OnClose(wxCloseEvent &evt) {
   evt.Skip(); // continue with the default close (destroys the frame)
 }
 
-void MainFrame::ApplyToolBarStyle() {
-#ifdef __WXMSW__
-  // Its style does not change: the background is always plain.
-  toolbar::Redraw(m_toolBar);
-#endif
-}
-
 void MainFrame::BuildToolBar() {
-#ifdef __WXMSW__
-  m_toolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                               wxAUI_TB_VERTICAL | wxAUI_TB_PLAIN_BACKGROUND);
-  GetSizer()->Insert(0, m_toolBar, wxSizerFlags(0).Expand());
-#elif defined(__WXGTK__)
-  m_toolBar = CreateToolBar(wxTB_VERTICAL | wxTB_NODIVIDER);
-#else
+#ifdef __WXMAC__
   m_toolBar = CreateToolBar(wxTB_HORIZONTAL);
+#else
+  m_toolBar = CreateToolBar(wxTB_VERTICAL | wxTB_NODIVIDER);
 #endif
 
-  m_toolBar->SetToolBitmapSize(Bitmaps::GetToolBarIconSize());
+  // In pixels, not DIPs: the bundles are scaled to this size.
+#ifdef __WXMSW__
+  m_toolBar->SetToolBitmapSize(FromDIP(wxSize(48, 48)));
+#else
+  m_toolBar->SetToolBitmapSize(FromDIP(Bitmaps::GetToolBarIconSize()));
+#endif
 
   auto &bmps = AppManager::Get().GetBitmaps();
 

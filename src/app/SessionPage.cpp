@@ -478,9 +478,9 @@ void SessionPage::CreateTerminal() {
       shellCommand = m_agent->loginShell;
     }
     if (!m_agent->remoteHost.empty()) {
-      KLOG_INFO() << "Launching remote session: " << m_session.name;
+      KLOG_DEBUG() << "Launching remote session: " << m_session.name;
       for (const auto &cmd : commands) {
-        KLOG_INFO() << " > " << cmd;
+        KLOG_DEBUG() << " > " << cmd;
       }
       cwd.reset();
       env.reset();
@@ -489,9 +489,9 @@ void SessionPage::CreateTerminal() {
         wxFileName::Mkdir(m_session.workingDir, wxS_DIR_DEFAULT,
                           wxPATH_MKDIR_FULL);
       }
-      KLOG_INFO() << "Launching local session '" << m_session.name
-                  << "': " << commands[0]
-                  << (cwd ? wxString(" (cwd=" + *cwd + ")") : wxString());
+      KLOG_DEBUG() << "Launching local session '" << m_session.name
+                   << "': " << commands[0]
+                   << (cwd ? wxString(" (cwd=" + *cwd + ")") : wxString());
     }
   }
 
@@ -503,7 +503,7 @@ void SessionPage::CreateTerminal() {
       "%WORKING_DIRECTORY%",
       (m_session.workingDir.empty() ? "~" : m_session.workingDir));
 
-  KLOG_INFO() << "Running shell: " << shellCommand;
+  KLOG_DEBUG() << "Running shell: " << shellCommand;
   if (m_splitter == nullptr) {
     m_splitter =
         new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
@@ -616,7 +616,7 @@ void SessionPage::SetFocus() {
 }
 
 void SessionPage::Restart() {
-  KLOG_INFO() << "Restarting session '" << m_session.name << "'";
+  KLOG_DEBUG() << "Restarting session '" << m_session.name << "'";
   CloseReviewBuddy();
   if (m_splitter != nullptr) {
     GetSizer()->Detach(m_splitter);
@@ -1236,7 +1236,7 @@ void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
       !m_agent) {
     return;
   }
-  KLOG_INFO() << "Launching review buddy '" << reviewer.name << "' for '"
+  KLOG_DEBUG() << "Launching review buddy '" << reviewer.name << "' for '"
               << m_session.name << "'";
 
   // The folder as Kennel reaches it (it reads and writes the review files).

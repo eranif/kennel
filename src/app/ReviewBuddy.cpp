@@ -175,8 +175,8 @@ void ReviewBuddy::Begin() {
     return;
   }
   m_loop = std::make_unique<ReviewLoop>(ReviewLoop::NewId());
-  KLOG_INFO() << "Review buddy " << m_loop->Id() << " starts in '"
-              << m_target.workingDir << "'" << (m_remote ? " (remote)" : "");
+  KLOG_DEBUG() << "Review buddy " << m_loop->Id() << " starts in '"
+               << m_target.workingDir << "'" << (m_remote ? " (remote)" : "");
   AddIgnoreRule();
   m_pollTimer.Start(m_remote ? kRemotePollMs : kLocalPollMs);
   SendEvent(wxEVT_REVIEW_BUDDY_STARTED);
@@ -324,7 +324,7 @@ void ReviewBuddy::Execute(Actions actions, size_t from) {
       m_removeOnClose = action.path;
       break;
     case ReviewLoop::Action::Kind::Notify:
-      KLOG_INFO() << "Review buddy: " << action.text;
+      KLOG_DEBUG() << "Review buddy: " << action.text;
       NotifyUser(_("Review needs your attention"), action.text);
       break;
     case ReviewLoop::Action::Kind::Finished:
@@ -332,7 +332,7 @@ void ReviewBuddy::Execute(Actions actions, size_t from) {
       break;
     }
   }
-  KLOG_INFO() << "Review buddy: " << m_loop->Describe();
+  KLOG_DEBUG() << "Review buddy: " << m_loop->Describe();
 }
 
 void ReviewBuddy::WriteRemote(const wxString &relPath, const wxString &text,
@@ -432,7 +432,7 @@ void ReviewBuddy::OnEnterTimer(wxTimerEvent &) {
 
 void ReviewBuddy::Finished() {
   m_pollTimer.Stop();
-  KLOG_INFO() << "Review buddy ended: " << m_loop->Message();
+  KLOG_DEBUG() << "Review buddy ended: " << m_loop->Message();
   const bool done = m_loop->GetState() == ReviewLoop::State::Done;
   NotifyUser(done ? _("Review finished") : _("Review needs your attention"),
              m_loop->Message());
@@ -454,7 +454,7 @@ void ReviewBuddy::NotifyUser(const wxString &title, const wxString &message) {
     const wxString loopId = LoopId();
     if (m_dialogOpen) {
       // Not a second dialog on top of the first: the status bar has the state.
-      KLOG_INFO() << "Review buddy: dialog already open, skipping: " << text;
+      KLOG_DEBUG() << "Review buddy: dialog already open, skipping: " << text;
       return;
     }
     const bool lastClosed =

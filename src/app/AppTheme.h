@@ -73,8 +73,8 @@ inline void ApplyAppTheme(const wxString &name) {
     return;
   }
   const wxApp::Appearance appearance = ResolveAppTheme(name);
-  KLOG_INFO() << "Application theme '" << name << "' -> '"
-              << AppThemeName(appearance) << "'";
+  KLOG_DEBUG() << "Application theme '" << name << "' -> '"
+               << AppThemeName(appearance) << "'";
   if (wxTheApp->SetAppearance(appearance) == wxApp::AppearanceResult::Failure) {
     KLOG_WARN() << "Could not set the application theme to '" << name << "'";
   }

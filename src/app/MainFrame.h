@@ -6,9 +6,9 @@
 #include "core/UpdateChecker.h"
 
 #include <wx/activityindicator.h>
-#include <wx/aui/auibar.h>
 #include <wx/frame.h>
 #include <wx/statbmp.h>
+#include <wx/toolbar.h>
 
 #include <memory>
 #include <vector>
@@ -25,9 +25,6 @@ public:
   ~MainFrame() override;
 
   MainView *GetMainView() { return m_mainView; }
-
-  // Draws the toolbar again after the theme of the application changed.
-  void ApplyToolBarStyle();
 
   JobScheduler *GetJobScheduler() { return m_jobScheduler.get(); }
 
@@ -181,11 +178,7 @@ private:
   // for the menu item whose wx id is kFirstThemeMenuId + i.
   std::vector<wxString> m_themeMenuNames;
 
-#ifdef __WXMSW__
-  wxAuiToolBar *m_toolBar{nullptr};
-#else
   wxToolBar *m_toolBar{nullptr};
-#endif
 };
 
 // Helper methods

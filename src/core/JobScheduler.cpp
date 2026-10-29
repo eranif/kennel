@@ -88,8 +88,8 @@ void JobScheduler::Reload() {
     }
     if (!it->second.Matches(j)) {
       it->second = MakeEntry(j, now);
-      KLOG_INFO() << "Job '" << j.name << "' schedule changed; next run at "
-                  << it->second.nextRun.FormatISOCombined(' ');
+      KLOG_DEBUG() << "Job '" << j.name << "' schedule changed; next run at "
+                   << it->second.nextRun.FormatISOCombined(' ');
     }
   }
 }
@@ -116,7 +116,7 @@ void JobScheduler::OnTimer(wxTimerEvent &event) {
       continue;
     }
 
-    KLOG_INFO() << "Job '" << j.name << "' is due; running";
+    KLOG_DEBUG() << "Job '" << j.name << "' is due; running";
     m_onRun(j);
 
     it->second.nextRun = ComputeNextRun(j, it->second.nextRun);

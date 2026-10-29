@@ -30,14 +30,14 @@ void AppManager::Initialize(const AppPaths &paths) {
     for (const wxString &w : m_configStore->Warnings()) {
       KLOG_WARN() << w;
     }
-    KLOG_INFO() << "Loaded config.json with " << m_config.agents.size()
-                << " agent(s)";
+    KLOG_DEBUG() << "Loaded config.json with " << m_config.agents.size()
+                 << " agent(s)";
   }
 
   // Agent/client registry, built from the in-memory config.
   m_adapters = std::make_unique<AdapterRegistry>(m_config);
-  KLOG_INFO() << "Registry ready with " << m_adapters->AgentCount()
-              << " agent(s)";
+  KLOG_DEBUG() << "Registry ready with " << m_adapters->AgentCount()
+               << " agent(s)";
 
   // Workspace store. Corrupt files self-recover (backed up, then empty), so
   // only a hard I/O error is logged. The loaded contents are consumed once by

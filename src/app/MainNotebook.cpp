@@ -51,13 +51,43 @@ wxString TitleOf(wxWindow *page) {
   return wxString{};
 }
 
+// The icons of the tabs are made for menus (16 DIP): this bundle shows them
+// bigger. The source makes the bitmap at the size that is asked for.
+constexpr int kTabIconDip = 24;
+
+class TabIconImpl : public wxBitmapBundleImpl {
+public:
+  explicit TabIconImpl(const wxBitmapBundle &source) : m_source(source) {}
+
+  wxSize GetDefaultSize() const override {
+    return wxSize(kTabIconDip, kTabIconDip);
+  }
+
+  wxSize GetPreferredBitmapSizeAtScale(double scale) const override {
+    const int size = wxRound(kTabIconDip * scale);
+    return wxSize(size, size);
+  }
+
+  wxBitmap GetBitmap(const wxSize &size) override {
+    return m_source.GetBitmap(size);
+  }
+
+private:
+  wxBitmapBundle m_source;
+};
+
+wxBitmapBundle TabIcon(const wxBitmapBundle &source) {
+  return source.IsOk() ? wxBitmapBundle::FromImpl(new TabIconImpl(source))
+                       : wxBitmapBundle{};
+}
+
 wxBitmapBundle IconOf(wxWindow *page) {
   if (auto *session = dynamic_cast<SessionPage *>(page)) {
-    return SessionIconFor(session->GetSession());
+    return TabIcon(SessionIconFor(session->GetSession()));
   }
   if (auto *file = dynamic_cast<FilePage *>(page)) {
-    return AppManager::Get().GetBitmaps().GetFileIcon(
-        file->GetPath(), wxSystemSettings::GetAppearance().IsDark());
+    return TabIcon(AppManager::Get().GetBitmaps().GetFileIcon(
+        file->GetPath(), wxSystemSettings::GetAppearance().IsDark()));
   }
   return wxBitmapBundle{};
 }
@@ -301,7 +331,8 @@ void MainNotebook::SetTabTitle(wxWindow *page, const wxString &title) {
 void MainNotebook::SetStatusIcon(SessionPage *page,
                                  const wxBitmapBundle &status) {
   if (const int index = m_book->FindPage(page); index != wxNOT_FOUND) {
-    m_book->SetPageBitmap(index, status.IsOk() ? status : IconOf(page));
+    m_book->SetPageBitmap(index,
+                          status.IsOk() ? TabIcon(status) : IconOf(page));
   }
 }
 
@@ -1235,7 +1266,6 @@ void MainNotebook::ApplyToolBarStyles() {
   wxCommandEvent style(wxEVT_PAGES_TOOLBAR_STYLE, GetId());
   style.SetEventObject(this);
   ProcessWindowEvent(style);
-  GetMainFrame()->ApplyToolBarStyle();
 }
 
 void MainNotebook::OnThemeApplied(wxCommandEvent &event) {
