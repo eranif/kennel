@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/Account.h"
 #include "core/Status.h"
 
 #include <wx/event.h>
@@ -7,14 +8,17 @@
 
 #include <string>
 
-// Where a remote file lives. Empty (no host) means "not remote".
+// Where a remote file lives. Empty (no host) means "not remote". The same
+// information as an Account of the kind HostType::kRemote.
 struct RemoteHostDetails {
   wxString host; // Host name, or an ~/.ssh/config alias
   wxString user; // Empty -> the ssh default
 };
 
-// Event about a file shown in the main view: which file (path + where it
-// lives), plus the usual wxCommandEvent payload (GetInt()/GetString()).
+// Event about a file or a folder: which one (the path, and the Account it is
+// on), plus the usual wxCommandEvent payload (GetInt()/GetString()). Sent by
+// the file views (FileTreeCtrl, see its events) and by FilePage (the save
+// events at the end of this file).
 class FileEvent : public wxCommandEvent {
 public:
   explicit FileEvent(wxEventType type = wxEVT_NULL, int id = 0)
@@ -23,13 +27,33 @@ public:
 
   wxEvent *Clone() const override { return new FileEvent(*this); }
 
-  const wxString &GetFilePath() const { return m_path; }
-  void SetFilePath(const wxString &path) { m_path = path; }
+  // The full path, in the notation of the file system it is on (a Linux path
+  // for a remote host or for WSL).
+  const wxString &GetPath() const { return m_path; }
+  void SetPath(const wxString &path) { m_path = path; }
 
-  bool IsRemote() const { return !m_remoteHost.host.empty(); }
-  const RemoteHostDetails &GetRemoteHostDetails() const { return m_remoteHost; }
+  // Whether the path is a folder.
+  bool IsDir() const { return m_isDir; }
+  void SetIsDir(bool isDir) { m_isDir = isDir; }
+
+  // The place the file is on.
+  const Account &GetAccount() const { return m_account; }
+  void SetAccount(const Account &account) { m_account = account; }
+
+  bool IsRemote() const { return m_account.IsRemote(); }
+  // The remote host (and user) of the file, empty for a file that is not on a
+  // remote account. Kept for the code that works with RemoteHostDetails; the
+  // account holds it.
+  RemoteHostDetails GetRemoteHostDetails() const {
+    if (!m_account.IsRemote()) {
+      return {};
+    }
+    return {m_account.m_name, m_account.m_user};
+  }
   void SetRemoteHostDetails(const RemoteHostDetails &details) {
-    m_remoteHost = details;
+    m_account = details.host.empty()
+                    ? Account::LocalHost()
+                    : Account::Remote(details.host, details.user);
   }
 
   // Outcome of the operation the event reports (e.g. a save).
@@ -38,7 +62,7 @@ public:
 
   // Identifies the file across opens: "<path>" locally, "<host>:<path>"
   // remotely.
-  wxString GetKey() const { return MakeKey(m_path, m_remoteHost); }
+  wxString GetKey() const { return MakeKey(m_path, GetRemoteHostDetails()); }
   static wxString MakeKey(const wxString &path,
                           const RemoteHostDetails &remoteHost) {
     return remoteHost.host.empty() ? path : remoteHost.host + ":" + path;
@@ -46,7 +70,8 @@ public:
 
 private:
   wxString m_path;
-  RemoteHostDetails m_remoteHost;
+  bool m_isDir{false};
+  Account m_account;
   Status m_status;
 };
 

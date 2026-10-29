@@ -106,4 +106,28 @@ wxString ToWindowsPath(const wxString &distro, const wxString &linuxPath) {
   return "\\\\wsl.localhost\\" + distro + path;
 }
 
+bool ParseSharePath(const wxString &path, wxString *distro,
+                    wxString *linuxPath) {
+  wxString all = path;
+  all.Replace("/", "\\");
+  const wxString lower = all.Lower();
+  wxString rest;
+  if (lower.StartsWith("\\\\wsl.localhost\\")) {
+    rest = all.Mid(wxString("\\\\wsl.localhost\\").length());
+  } else if (lower.StartsWith("\\\\wsl$\\")) {
+    rest = all.Mid(wxString("\\\\wsl$\\").length());
+  } else {
+    return false;
+  }
+  const wxString name = rest.BeforeFirst('\\');
+  if (name.empty()) {
+    return false;
+  }
+  wxString inside = rest.Contains("\\") ? rest.AfterFirst('\\') : wxString();
+  inside.Replace("\\", "/");
+  *distro = name;
+  *linuxPath = "/" + inside;
+  return true;
+}
+
 } // namespace wsl

@@ -27,4 +27,10 @@ wxString ResolveLinuxPath(const wxString &distro, const wxString &text,
 // "C:\x", everything else "\\wsl.localhost\<distro>\...". Pure string work.
 wxString ToWindowsPath(const wxString &distro, const wxString &linuxPath);
 
+// The other way: `path` is on the share of a distro (\\wsl.localhost\<distro>\x
+// or \\wsl$\<distro>\x). Gives the distro and the Linux path ("/x") and returns
+// true; false for any other path. Pure string work.
+bool ParseSharePath(const wxString &path, wxString *distro,
+                    wxString *linuxPath);
+
 } // namespace wsl

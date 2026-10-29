@@ -5,6 +5,7 @@
 #include <wx/event.h>
 #include <wx/string.h>
 
+#include "core/Account.h"
 #include "core/Workspace.h"
 
 // What a view (FlatView, FilesView, TerminalsView) shows for one page of the
@@ -20,6 +21,8 @@ struct PageInfo {
   // What the program in the page is doing now: the spinner, the check mark or
   // the hand. Not ok when it does nothing.
   wxBitmapBundle statusIcon;
+  // A file: whose it is (see FilePage::GetAccount()). Not set for a session.
+  Account account;
 
   SessionRef Ref() const { return SessionRef{group, key}; }
   // The status when there is one, otherwise the icon of the page.
@@ -63,7 +66,13 @@ public:
     m_groupName = ref.groupName;
   }
 
+  // A file: whose it is. A selection in a view sets it for the pages that have
+  // one (a file), and leaves it as it is (the local host) for the others.
+  const Account &GetAccount() const { return m_account; }
+  void SetAccount(const Account &account) { m_account = account; }
+
 private:
+  Account m_account;
   wxString m_groupName;
   wxString m_sessionName;
   bool m_updateRecent{false};

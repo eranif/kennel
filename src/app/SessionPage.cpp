@@ -1224,6 +1224,30 @@ void SessionPage::CheckWslGitRepo() {
   }).detach();
 }
 
+Account SessionPage::GetAccount() const {
+  if (m_agent && m_agent->IsRemote()) {
+    return Account::Remote(m_agent->remoteHost, m_agent->remoteUser,
+                           m_session.workingDir);
+  }
+  if (m_agent && m_agent->IsWSL()) {
+    const wxString distro = wsl::DistroOf(m_agent->loginShell);
+    // A Linux path, empty (the root of the distribution) when it cannot be
+    // resolved.
+    return Account::WSL(
+        distro,
+        wsl::ResolveLinuxPath(distro, m_session.workingDir, wxEmptyString));
+  }
+  if (m_agent == std::nullopt) {
+    // A terminal can run a shell of a WSL distribution too.
+    if (const wxString distro = wsl::DistroOf(m_session.loginShell);
+        !distro.empty()) {
+      return Account::WSL(distro);
+    }
+  }
+  const wxString dir = GetCurrentDir();
+  return Account::LocalHost(::wxDirExists(dir) ? dir : wxString{});
+}
+
 wxString SessionPage::HostWorkingDir() const {
   if (m_agent && m_agent->IsWSL()) {
     const wxString distro = wsl::DistroOf(m_agent->loginShell);

@@ -81,6 +81,7 @@ class MainViewBase : public wxPanel
 protected:
     wxAuiManager* m_auimgr;
     wxPanel* m_panelFlatView;
+    wxPanel* m_panelFileExplorer;
     wxPanel* m_panelFiles;
     wxPanel* m_panelTerminals;
     wxPanel* m_mainPanel;
@@ -90,6 +91,7 @@ protected:
 
 public:
     wxPanel* GetPanelFlatView() { return m_panelFlatView; }
+    wxPanel* GetPanelFileExplorer() { return m_panelFileExplorer; }
     wxPanel* GetPanelFiles() { return m_panelFiles; }
     wxPanel* GetPanelTerminals() { return m_panelTerminals; }
     wxSimplebook* GetSessionsBook() { return m_sessionsBook; }

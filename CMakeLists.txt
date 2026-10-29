@@ -326,7 +326,10 @@ set(KENNEL_APP_SOURCES
     src/app/AppUIGlobals.cpp
     src/app/NewAgentWizard.cpp
     src/app/SessionGroup.cpp
+    src/app/FileProvider.cpp
     src/app/FileBrowserDlg.cpp
+    src/app/FileTreeCtrl.cpp
+    src/app/FileExplorerView.cpp
     src/app/SessionStatusEvent.cpp)
 
 if(APPLE)

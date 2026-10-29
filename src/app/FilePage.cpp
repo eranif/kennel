@@ -6,6 +6,7 @@
 #include "app/SearchBar.hpp"
 #include "core/AppManager.h"
 #include "core/SftpClient.h"
+#include "core/WslPath.h"
 #include <wx/app.h>
 #include <wx/filename.h>
 #include <wx/frame.h>
@@ -85,6 +86,27 @@ wxString FilePage::GetDisplayName() const {
   return name.empty() ? m_path : name;
 }
 
+Account FilePage::GetAccount() const {
+  if (IsRemote()) {
+    return Account::Remote(m_remoteHost.host, m_remoteHost.user);
+  }
+  wxString distro;
+  wxString linuxPath;
+  if (wsl::ParseSharePath(m_path, &distro, &linuxPath)) {
+    return Account::WSL(distro);
+  }
+  return Account::LocalHost();
+}
+
+wxString FilePage::GetAccountPath() const {
+  wxString distro;
+  wxString linuxPath;
+  if (!IsRemote() && wsl::ParseSharePath(m_path, &distro, &linuxPath)) {
+    return linuxPath;
+  }
+  return m_path;
+}
+
 wxString FilePage::GetFolder() const {
   if (IsRemote()) {
     wxString dir = m_path.BeforeLast('/');
@@ -113,7 +135,7 @@ bool FilePage::SaveAsync() {
   m_editor->GetCtrl()->SetSavePoint();
 
   FileEvent event{wxEVT_FILE_SAVE_STARTED};
-  event.SetFilePath(m_path);
+  event.SetPath(m_path);
   event.SetRemoteHostDetails(m_remoteHost);
   AddPendingEvent(event);
 
@@ -139,7 +161,7 @@ void FilePage::FileSaved(const Status &status) {
   // that MainView's bookkeeping (activity indicator, close-after-save) does
   // not wait for the user to dismiss it.
   FileEvent event{wxEVT_FILE_SAVE_DONE};
-  event.SetFilePath(m_path);
+  event.SetPath(m_path);
   event.SetRemoteHostDetails(m_remoteHost);
   event.SetStatusCode(status);
   AddPendingEvent(event);

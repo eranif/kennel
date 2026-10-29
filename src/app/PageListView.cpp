@@ -144,9 +144,11 @@ void PageListView::SetRows(const std::vector<PageRow> &rows,
   wxEventBlocker blocker(m_list, wxEVT_DATAVIEW_SELECTION_CHANGED);
   m_list->DeleteAllItems();
   m_selected.reset();
+  m_accounts.clear();
   std::vector<SessionRef> refs;
   for (const PageRow &page : rows) {
     refs.push_back(page.ref);
+    m_accounts.push_back(page.account);
     wxVector<wxVariant> row;
     row.push_back(wxVariant(wxDataViewIconText(page.label, page.icon)));
     row.push_back(wxVariant(wxDataViewIconText(wxEmptyString, page.status)));
@@ -209,6 +211,7 @@ void PageListView::Clear() {
   m_list->DeleteAllItems();
   m_selected.reset();
   m_rows.clear();
+  m_accounts.clear();
   FitColumnsSoon();
 }
 
@@ -281,6 +284,10 @@ void PageListView::OnSelectionChanged(wxDataViewEvent &event) {
   evtSelected.SetEventObject(this);
   evtSelected.SetUpdateRecent(true);
   evtSelected.SetRef(*ref);
+  if (const int row = m_list->ItemToRow(event.GetItem());
+      row >= 0 && row < static_cast<int>(m_accounts.size())) {
+    evtSelected.SetAccount(m_accounts[row]);
+  }
   EventNotifier::Get()->AddPendingEvent(evtSelected);
 }
 

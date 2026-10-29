@@ -28,6 +28,7 @@
 class SessionPage;
 class FilePage;
 class PageRegistry;
+class FileExplorerView;
 class FilesView;
 class GotoAnythingBar;
 class FlatView;
@@ -199,6 +200,10 @@ private:
   // ---- The lists of the pages ---------------------------------------------
   void OnPageSelected(PageViewEvent &event);
   void OnPageMenu(PageViewEvent &event);
+  // The user chose a session in the choice of the file explorer.
+  void OnExplorerSession(PageViewEvent &event);
+  // A file or a folder of the file explorer was double clicked.
+  void OnFileTreeActivated(FileEvent &event);
   // What the user types in the GotoAnythingBar, and how it closed.
   void OnGotoChanged(wxCommandEvent &event);
   void OnGotoClosed(wxCommandEvent &event);
@@ -327,6 +332,7 @@ private:
   FlatView *m_flatView{nullptr};
   FilesView *m_filesView{nullptr};
   TerminalsView *m_terminalsView{nullptr};
+  FileExplorerView *m_fileExplorer{nullptr};
   // The box on top of the page (Go to line, later quick open). It is the first
   // item of the sizer of the centre panel, and shown only while it is open.
   GotoAnythingBar *m_gotoBar{nullptr};

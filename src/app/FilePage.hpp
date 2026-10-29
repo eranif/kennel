@@ -4,6 +4,7 @@
 #include "app/Editor.h"
 #include "app/FileEvent.hpp"
 #include "app/FileViewState.hpp"
+#include "core/Account.h"
 #include "terminal_theme.h"
 
 #include <memory>
@@ -39,6 +40,12 @@ public:
   // The folder of the file: a path for a local file, "host:path" for a remote
   // one.
   wxString GetFolder() const;
+  // Whose file it is: a remote host, a WSL distribution (a file on the share
+  // of the distro) or this machine.
+  Account GetAccount() const;
+  // The path in the notation of GetAccount(): a Linux path for a WSL file, the
+  // path of the page otherwise. It is what a FileTreeCtrl of the account shows.
+  wxString GetAccountPath() const;
   bool IsRemote() const { return !m_remoteHost.host.empty(); }
   bool IsModified() const { return m_editor->GetCtrl()->GetModify(); }
   bool CanSave() const {

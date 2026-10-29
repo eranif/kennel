@@ -334,13 +334,15 @@ std::vector<PageInfo> PageRegistry::GetPages() const {
         bitmaps.GetByAlias(GroupIconAlias(*entry.group), false);
     for (const auto &leaf : entry.leaves) {
       wxString dir;
+      Account account;
       if (auto *session = dynamic_cast<SessionPage *>(leaf.page)) {
         dir = session->GetCurrentDir();
       } else if (auto *file = dynamic_cast<FilePage *>(leaf.page)) {
         dir = file->GetFolder();
+        account = file->GetAccount();
       }
       result.push_back({LabelOf(leaf.page), groupName, KeyOf(leaf.page), dir,
-                        leaf.icon, groupIcon, leaf.statusIcon});
+                        leaf.icon, groupIcon, leaf.statusIcon, account});
     }
   }
   return result;

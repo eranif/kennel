@@ -22,7 +22,8 @@ void FilesView::SetPages(const std::vector<PageInfo> &pages,
     rows.push_back({.ref = info.Ref(),
                     .label = info.label,
                     .icon = info.icon,
-                    .second = info.dir});
+                    .second = info.dir,
+                    .account = info.account});
   }
   m_list->SetRows(rows, selected);
 }

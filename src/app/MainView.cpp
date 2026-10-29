@@ -7,6 +7,7 @@
 #include "ThemeManager.h"
 #include "app/AppTheme.h"
 #include "app/AssetBootstrap.h"
+#include "app/FileExplorerView.hpp"
 #include "app/FilePage.hpp"
 #include "app/FilesView.hpp"
 #include "app/FlatView.hpp"
@@ -25,6 +26,7 @@
 #include "core/SftpClient.h"
 #include "core/Workspace.h"
 #include "core/WorkspaceStore.h"
+#include "core/WslPath.h"
 
 #include "terminal_view.h"
 
@@ -47,7 +49,16 @@ constexpr int kSidePaneWidthDip = 300;
 constexpr int kFloatingPaneWidthDip = 400;
 constexpr int kFloatingPaneHeightDip = 600;
 // The names of the side panes (see MainViewBase).
-const wxString kSidePanes[] = {"SessionsPage", "Files", "Terminals"};
+const wxString kSidePanes[] = {"SessionsPage", "FileBrowser", "Files",
+                               "Terminals"};
+
+// What the choice of the file explorer shows for a session: the name, and the
+// group when the session is in one.
+wxString ExplorerLabel(const SessionRef &ref) {
+  return ref.groupName == kTerminalsGroupName
+             ? ref.name
+             : ref.name + " (" + ref.groupName + ")";
+}
 
 // The key of a file page (see FileEvent::MakeKey) for a saved file.
 wxString KeyOfFile(const SessionFile &file) {
@@ -113,6 +124,9 @@ MainView::MainView(wxWindow *parent)
   m_terminalsView = new TerminalsView(GetPanelTerminals());
   GetPanelTerminals()->GetSizer()->Add(m_terminalsView,
                                        wxSizerFlags(1).Expand());
+  m_fileExplorer = new FileExplorerView(GetPanelFileExplorer());
+  GetPanelFileExplorer()->GetSizer()->Add(m_fileExplorer,
+                                          wxSizerFlags(1).Expand());
   // The size a pane gets when it floats (it only matters then, so no Update()).
   for (const wxString &name : kSidePanes) {
     m_auimgr->GetPane(name).FloatingSize(
@@ -143,6 +157,8 @@ MainView::MainView(wxWindow *parent)
   EventNotifier::Get()->Bind(wxEVT_PAGEVIEW_SELECTED, &MainView::OnPageSelected,
                              this);
   Bind(wxEVT_PAGEVIEW_MENU, &MainView::OnPageMenu, this);
+  Bind(wxEVT_FILETREE_ACTIVATED, &MainView::OnFileTreeActivated, this);
+  Bind(wxEVT_FILEEXPLORER_SESSION_SELECTED, &MainView::OnExplorerSession, this);
   Bind(wxEVT_GOTOANYTHING_CHANGED, &MainView::OnGotoChanged, this);
   Bind(wxEVT_GOTOANYTHING_CLOSED, &MainView::OnGotoClosed, this);
   Bind(wxEVT_SESSION_IDLE, &MainView::OnSessionIdle, this);
@@ -196,6 +212,30 @@ void MainView::OnPageSelected(PageViewEvent &event) {
   // The sender has selected it already, and the other views follow the same
   // event: no need to tell them.
   ShowPage(page, event.UpdateRecent(), false);
+}
+
+void MainView::OnExplorerSession(PageViewEvent &event) {
+  // The user chose a session in the file explorer: show it, as a pick in the
+  // list of the sessions does. The views follow.
+  auto *page = m_pages->FindPage(event.GetRef());
+  if (page != nullptr && page != m_sessionsBook->GetCurrentPage()) {
+    ShowPage(page);
+  }
+}
+
+void MainView::OnFileTreeActivated(FileEvent &event) {
+  if (event.IsDir()) {
+    return; // The tree opens or closes the folder
+  }
+  const Account &account = event.GetAccount();
+  if (account.IsRemote()) {
+    OpenRemoteFile(RemoteHostDetails{account.m_name, account.m_user},
+                   event.GetPath(), {});
+  } else if (account.IsWSL()) {
+    OpenLocalFile(wsl::ToWindowsPath(account.m_name, event.GetPath()));
+  } else {
+    OpenLocalFile(event.GetPath());
+  }
 }
 
 void MainView::OnPageMenu(PageViewEvent &event) {
@@ -266,6 +306,7 @@ void MainView::TouchRecent(const SessionRef &ref) {
 }
 
 void MainView::RenameRecent(const SessionRef &from, const SessionRef &to) {
+  m_fileExplorer->RenameSession(from, to, ExplorerLabel(to));
   std::replace(m_recent.begin(), m_recent.end(), from, to);
 }
 
@@ -369,11 +410,15 @@ void MainView::ActivatePage(wxWindow *page, bool updateRecent,
     if (auto *group = m_pages->GetGroup(session->GetSession().groupName)) {
       group->SetLastActive(session->GetSession().name);
     }
+    m_fileExplorer->SetActiveSession(*ref);
     // The user sees the page now: the check mark goes away.
     if (session->GetProgramActivity() == SessionPage::ProgramActivity::Done) {
       session->AcknowledgeDone();
       ApplyPageIcon(session);
     }
+  } else if (auto *file = dynamic_cast<FilePage *>(page)) {
+    // The file is selected in the tree of its account, if that is showing.
+    m_fileExplorer->RevealFile(file->GetAccount(), file->GetAccountPath());
   }
 
   if (notifyViews) {
@@ -465,6 +510,11 @@ SessionPage *MainView::AddSession(SessionPage *page) {
     return nullptr;
   }
   m_sessionsBook->AddPage(page, page->GetSession().name, false);
+  const SessionRef ref{page->GetSession().groupName, page->GetSession().name};
+  // Sessions only: a plain terminal has no tree.
+  if (!page->IsPlainTerminal()) {
+    m_fileExplorer->AddSession(ref, ExplorerLabel(ref), page->GetAccount());
+  }
   RefreshViews();
   return page;
 }
@@ -520,6 +570,10 @@ void MainView::RemovePage(wxWindow *page) {
     }
   }
 
+  if (auto *session = dynamic_cast<SessionPage *>(page)) {
+    m_fileExplorer->RemoveSession(SessionRef{session->GetSession().groupName,
+                                             session->GetSession().name});
+  }
   m_pages->RemovePage(page);
   int where = m_sessionsBook->FindPage(page);
   if (where != wxNOT_FOUND) {
@@ -549,7 +603,7 @@ void MainView::RemoveEmptyGroups() { m_pages->RemoveEmptyGroups(); }
 
 void MainView::OnFileSaveStarted(FileEvent &e) {
   auto *page = m_pages->FindFile(e.GetKey());
-  const wxString name = page ? page->GetDisplayName() : e.GetFilePath();
+  const wxString name = page ? page->GetDisplayName() : e.GetPath();
   GetMainFrame()->SetActivityText(wxString::Format(_("Saving %s"), name));
   GetMainFrame()->StartActivityIndicator();
 }
@@ -1109,6 +1163,7 @@ void MainView::ApplyToolBarStyles() {
   for (auto *page : m_pages->GetFilePages()) {
     page->ApplyToolBarStyle();
   }
+  m_fileExplorer->ApplyToolBarStyle();
   GetMainFrame()->ApplyToolBarStyle();
 }
 
@@ -1341,6 +1396,7 @@ void MainView::DeleteAll() {
   m_flatView->Clear();
   m_filesView->Clear();
   m_terminalsView->Clear();
+  m_fileExplorer->Clear();
   m_recent.clear();
   GetMainFrame()->ClearSessionStatus();
   // A page destroyed mid-save never delivers wxEVT_FILE_SAVE_DONE.
@@ -1682,6 +1738,9 @@ void MainView::LoadBitmaps() {
 
   bmps.Load("up.svg");
   bmps.AddAlias("up.svg", "up");
+
+  bmps.Load("link.svg");
+  bmps.AddAlias("link.svg", "link");
 
   bmps.Load("terminal.svg");
   bmps.AddAlias("terminal.svg", "terminal");

@@ -121,9 +121,16 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     wxBoxSizer* boxSizer588 = new wxBoxSizer(wxVERTICAL);
     m_panelFlatView->SetSizer(boxSizer588);
     
+    m_panelFileExplorer = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    
+    m_auimgr->AddPane(m_panelFileExplorer, wxAuiPaneInfo().Name(wxT("FileBrowser")).Caption(_("File Browser")).Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(0).BestSize(300,-1).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
+    
+    wxBoxSizer* boxSizer596 = new wxBoxSizer(wxVERTICAL);
+    m_panelFileExplorer->SetSizer(boxSizer596);
+    
     m_panelFiles = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
     
-    m_auimgr->AddPane(m_panelFiles, wxAuiPaneInfo().Name(wxT("Files")).Caption(_("Open Files")).Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(0).BestSize(300,-1).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
+    m_auimgr->AddPane(m_panelFiles, wxAuiPaneInfo().Name(wxT("Files")).Caption(_("Open Files")).Direction(wxAUI_DOCK_RIGHT).Layer(0).Row(0).Position(0).BestSize(300,-1).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
     
     wxBoxSizer* boxSizer591 = new wxBoxSizer(wxVERTICAL);
     m_panelFiles->SetSizer(boxSizer591);

@@ -2,6 +2,8 @@
 
 #include "app/PageViewEvent.hpp"
 
+#include "core/Account.h"
+
 #include <optional>
 #include <vector>
 #include <wx/dataview.h>
@@ -17,6 +19,8 @@ struct PageRow {
   wxString second;       // The text of the second column (the group or a
                          // folder)...
   wxBitmapBundle secondIcon; // ...with its icon (a list of groups only)
+  Account account;           // Whose the page is (a file); sent with the
+                             // selection of the row
 };
 
 // Sent by a PageListView to its parent window (and up) when the user sorted the
@@ -99,5 +103,8 @@ private:
   std::optional<SessionRef> m_selected; // The page whose row is selected
   // The pages shown now, in order: when they change, the columns are fitted.
   std::vector<SessionRef> m_rows;
+  // The account of each row, in the order the rows were added (the order of
+  // the rows of the model, which a sort does not change).
+  std::vector<Account> m_accounts;
   bool m_fitPending{false};
 };

@@ -5,6 +5,7 @@
 #include "app/AsyncGuard.hpp"
 #include "app/ReviewBuddyEvent.hpp"
 #include "app/SessionStatusEvent.hpp"
+#include "core/Account.h"
 #include "core/ActivityMonitor.h"
 #include "core/AppPaths.h"
 #include "core/Config.h"
@@ -61,6 +62,9 @@ public:
   Session &GetSession() { return m_session; }
   // The folder the shell is in now, or the one the session started in.
   wxString GetCurrentDir() const;
+  // Where the files of the session are: this machine, the WSL distribution or
+  // the remote host the program runs on, starting in the folder of the session.
+  Account GetAccount() const;
   inline bool IsPlainTerminal() const { return !m_agent.has_value(); }
   void Restart();
   // The agent's own terminal.
