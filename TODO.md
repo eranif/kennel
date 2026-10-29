@@ -16,3 +16,5 @@
 - [ ] Add filter on top of the flat view
 - [ ] Make the flat view "multi-select".
 - [ ] Add Size column to the flat view (useful for files)
+- [x] Notebook: closing a tab, selects the first one. We should select the next one from the MRU.
+
