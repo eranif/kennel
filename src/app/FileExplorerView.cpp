@@ -37,7 +37,7 @@ FileExplorerView::FileExplorerView(wxWindow *parent) : wxPanel(parent) {
 
   auto *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(m_toolbar, wxSizerFlags(0).Expand());
-  sizer->Add(m_choice, wxSizerFlags(0).Expand());
+  sizer->Add(m_choice, wxSizerFlags(0).Expand().Border(wxALL, FromDIP(5)));
   sizer->Add(m_book, wxSizerFlags(1).Expand());
   SetSizer(sizer);
 
