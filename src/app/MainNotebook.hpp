@@ -341,6 +341,9 @@ private:
   void SavePrefs();
   // Gives the toolbars the style of the theme of the application.
   void ApplyToolBarStyles();
+  // Paints the tabs with the colours of the terminal theme (a new art for each
+  // theme: the art does not follow the system colours).
+  void ApplyTabArt();
 
   wxAuiNotebook *m_book{nullptr};
 

@@ -121,7 +121,7 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     wxBoxSizer* boxSizer596 = new wxBoxSizer(wxVERTICAL);
     m_panelFileExplorer->SetSizer(boxSizer596);
     
-    m_mainPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    m_mainPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL|wxBORDER_NONE);
     
     m_auimgr->AddPane(m_mainPanel, wxAuiPaneInfo().Name(wxT("Sessions")).Direction(wxAUI_DOCK_CENTER).Layer(0).Row(0).Position(0).CaptionVisible(false).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
     m_auimgr->Update();
@@ -129,7 +129,7 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     wxBoxSizer* boxSizer594 = new wxBoxSizer(wxVERTICAL);
     m_mainPanel->SetSizer(boxSizer594);
     
-    m_sessionsBook = new MainNotebook(m_mainPanel, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_mainPanel, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    m_sessionsBook = new MainNotebook(m_mainPanel, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_mainPanel, wxSize(-1,-1)), wxTAB_TRAVERSAL|wxBORDER_NONE);
     
     boxSizer594->Add(m_sessionsBook, 1, wxEXPAND, WXC_FROM_DIP(5));
     

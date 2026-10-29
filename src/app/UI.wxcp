@@ -193,7 +193,8 @@
       "gbSpan": "1,1",
       "gbPosition": "0,0",
       "m_styles": [
-        "wxTAB_TRAVERSAL"
+        "wxTAB_TRAVERSAL",
+        "wxBORDER_NONE"
       ],
       "m_sizerFlags": [
         "wxALL",
@@ -556,7 +557,8 @@
               "gbSpan": "1,1",
               "gbPosition": "0,0",
               "m_styles": [
-                "wxTAB_TRAVERSAL"
+                "wxTAB_TRAVERSAL",
+                "wxBORDER_NONE"
               ],
               "wxAuiPaneInfo": {
                 "m_bestSize": "-1,-1",
@@ -712,7 +714,8 @@
                       "gbSpan": "1,1",
                       "gbPosition": "0,0",
                       "m_styles": [
-                        "wxTAB_TRAVERSAL"
+                        "wxTAB_TRAVERSAL",
+                        "wxBORDER_NONE"
                       ],
                       "m_sizerFlags": [
                         "wxEXPAND"

@@ -1,5 +1,6 @@
 #include "app/MainNotebook.hpp"
 
+#include "GlyphTabArt.h"
 #include "StartAgentDialog.hpp"
 #include "ThemeLoader.h"
 #include "ThemeManager.h"
@@ -97,10 +98,13 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
   GetSizer()->Add(m_gotoBar, wxSizerFlags(0).Expand());
   m_gotoBar->Hide();
 
-  m_book =
-      new wxAuiNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                        wxAUI_NB_TAB_SPLIT | wxAUI_NB_CLOSE_ON_ACTIVE_TAB |
-                            wxAUI_NB_TAB_MOVE | wxAUI_NB_WINDOWLIST_BUTTON);
+  m_book = new wxAuiNotebook(
+      this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+      wxAUI_NB_TAB_SPLIT | wxAUI_NB_CLOSE_ON_ACTIVE_TAB | wxAUI_NB_TAB_MOVE |
+          wxAUI_NB_WINDOWLIST_BUTTON | wxAUI_NB_MIDDLE_CLICK_CLOSE |
+          wxAUI_NB_CLOSE_ON_ALL_TABS);
+  ApplyTabArt();
+
   GetSizer()->Add(m_book, wxSizerFlags(1).Expand());
   Layout();
 
@@ -1229,6 +1233,14 @@ void MainNotebook::ApplyToolBarStyles() {
   GetMainFrame()->ApplyToolBarStyle();
 }
 
+void MainNotebook::ApplyTabArt() {
+  auto theme = ThemeManager::Get().ActiveTheme().value_or(
+      wxSystemSettings::GetAppearance().IsDark()
+          ? wxTerminalTheme::MakeDarkTheme()
+          : wxTerminalTheme::MakeLightTheme());
+  m_book->SetArtProvider(new GlyphTabArt(theme));
+}
+
 void MainNotebook::ApplyTheme(const wxString &themeName) {
   auto &themeMgr = ThemeManager::Get();
   auto active = themeMgr.SetTheme(themeName);
@@ -1246,6 +1258,7 @@ void MainNotebook::ApplyTheme(const wxString &themeName) {
   }
   if (themeMgr.ActiveTheme()) {
     m_book->SetBackgroundColour(themeMgr.ActiveTheme()->bg);
+    ApplyTabArt();
     m_book->Refresh();
   }
   m_book->SendSizeEvent();

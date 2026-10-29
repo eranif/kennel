@@ -91,7 +91,7 @@ public:
     MainNotebook* GetSessionsBook() { return m_sessionsBook; }
     wxPanel* GetMainPanel() { return m_mainPanel; }
     wxAuiManager* GetAuimgr() { return m_auimgr; }
-    MainViewBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxTAB_TRAVERSAL);
+    MainViewBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxTAB_TRAVERSAL|wxBORDER_NONE);
     virtual ~MainViewBase();
 };
 

@@ -15,9 +15,8 @@ namespace {
 // does nothing, so a light background gets darker and a dark one lighter.
 wxColour AlternateRowColour() {
   const wxColour bg = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
-  const int brightness =
-      (bg.Red() * 299 + bg.Green() * 587 + bg.Blue() * 114) / 1000;
-  return bg.ChangeLightness(brightness >= 128 ? 95 : 108);
+  const bool isDark = wxSystemSettings::GetAppearance().IsDark();
+  return bg.ChangeLightness(isDark ? 105 : 95);
 }
 } // namespace
 

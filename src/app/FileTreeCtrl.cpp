@@ -1,5 +1,6 @@
 #include "app/FileTreeCtrl.hpp"
 
+#include "PageViewEvent.hpp"
 #include "core/AppManager.h"
 
 #include <wx/settings.h>
@@ -37,8 +38,11 @@ struct FileTreeCtrl::Node : public wxClientData {
 FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
     : wxPanel(parent), m_account(account),
       m_provider(CreateFileProvider(account)) {
-  m_tree = new wxDataViewTreeCtrl(this, wxID_ANY, wxDefaultPosition,
-                                  wxDefaultSize, wxDV_NO_HEADER | wxDV_SINGLE);
+  m_tree =
+      new wxDataViewTreeCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                             wxDV_NO_HEADER | wxDV_SINGLE | wxDV_ROW_LINES);
+  StylePageView(m_tree);
+
   // The names are not to be edited.
   m_tree->GetColumn(0)->GetRenderer()->SetMode(wxDATAVIEW_CELL_INERT);
   auto *sizer = new wxBoxSizer(wxVERTICAL);
