@@ -16,7 +16,8 @@
 - [ ] Update the `File Browser` with the following: add `Refresh` context menu. `Open with Default App`.
 - [ ] Make `Cobalt2` the default theme
 - [ ] Make the tree-viwe multi-select.
-- [ ] BUG: Tab Spinner is NOT spinning.
-- [ ] Tab icons are too small.
+- [x] BUG: Tab Spinner is NOT spinning.
+- [x] Tab icons are too small.
 - [ ] Allow the user to change the tab position.
 - [ ] Main Toolbar icons are not aligned (different size).
+- [ ] Start Agent Dialog: remember 10 paths used.
