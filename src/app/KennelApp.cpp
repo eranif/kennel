@@ -69,6 +69,7 @@ public:
     // Before the first window is created.
     ApplyAppTheme(AppManager::Get().GetPrefs().appTheme);
 
+    static wxLogNull noLog;
     auto *frame = new MainFrame();
     frame->Show(true);
     SetTopWindow(frame);

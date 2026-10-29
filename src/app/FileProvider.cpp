@@ -1,4 +1,5 @@
 #include "app/FileProvider.hpp"
+#include "core/Logger.h"
 
 #include <wx/dir.h>
 #include <wx/filename.h>

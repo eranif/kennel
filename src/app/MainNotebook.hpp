@@ -1,4 +1,5 @@
 #pragma once
+#include "GlyphBook.h"
 #include "app/FileEvent.hpp"
 #include "app/FileViewState.hpp"
 #include "app/PageSwitcherDlg.hpp"
@@ -347,7 +348,7 @@ private:
   // Gives the toolbars the style of the theme of the application.
   void ApplyToolBarStyles();
 
-  wxAuiNotebook *m_book{nullptr};
+  GlyphBook *m_book{nullptr};
 
   const AdapterRegistry *m_registry{nullptr};
   WorkspaceStore *m_workspaceStore{nullptr};

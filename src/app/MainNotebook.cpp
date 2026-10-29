@@ -99,11 +99,12 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
   GetSizer()->Add(m_gotoBar, wxSizerFlags(0).Expand());
   m_gotoBar->Hide();
 
-  m_book = new wxAuiNotebook(
+  m_book = new GlyphBook(
       this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
       wxAUI_NB_TAB_SPLIT | wxAUI_NB_CLOSE_ON_ACTIVE_TAB | wxAUI_NB_TAB_MOVE |
           wxAUI_NB_WINDOWLIST_BUTTON | wxAUI_NB_MIDDLE_CLICK_CLOSE |
-          wxAUI_NB_CLOSE_ON_ALL_TABS | wxAUI_NB_SCROLL_BUTTONS);
+          wxAUI_NB_CLOSE_ON_ALL_TABS | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_LEFT |
+          wxBORDER_DEFAULT);
 
   GetSizer()->Add(m_book, wxSizerFlags(1).Expand());
   Layout();
