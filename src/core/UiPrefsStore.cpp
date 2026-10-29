@@ -32,8 +32,6 @@ json ToJson(const UiPrefs &p) {
         {"maximized", p.window.maximized}}},
       {"auiLayout", p.auiLayout},
       {"scrollbackLines", p.scrollbackLines},
-      {"flatViewSortColumn", ToUtf8(p.flatViewSortColumn)},
-      {"flatViewSortAscending", p.flatViewSortAscending},
       {"lastSelectedSession", ToUtf8(p.lastSelectedSession)},
       {"terminalTheme", ToUtf8(p.terminalTheme)},
       {"terminalFontDesc", ToUtf8(p.terminalFontDesc)},
@@ -59,10 +57,6 @@ void ParsePrefs(const json &root, UiPrefs &p) {
     p.window.maximized = GetBool(*it, "maximized", p.window.maximized);
   }
   p.auiLayout = GetStr(root, "auiLayout", p.auiLayout);
-  p.flatViewSortColumn =
-      GetStr(root, "flatViewSortColumn", p.flatViewSortColumn);
-  p.flatViewSortAscending =
-      GetBool(root, "flatViewSortAscending", p.flatViewSortAscending);
   p.scrollbackLines = GetSizeT(root, "scrollbackLines", p.scrollbackLines);
   p.lastSelectedSession =
       GetStr(root, "lastSelectedSession", p.lastSelectedSession);

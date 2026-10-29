@@ -2,7 +2,7 @@
 
 #include "app/FileBrowserDlg.hpp"
 #include "app/MainFrame.h"
-#include "app/PageRegistry.hpp"
+#include "app/PageNames.h"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/UiPrefs.h"
@@ -68,7 +68,8 @@ void StartAgentDialog::PopulateClients() {
 
   // Existing logical groups. Excludes "Terminals".
   m_comboBoxGroup->Clear();
-  m_comboBoxGroup->Append(GetMainFrame()->GetMainView()->GetGroupNames());
+  m_comboBoxGroup->Append(
+      GetMainFrame()->GetMainView()->GetSessionsBook()->GetGroupNames());
   if (m_comboBoxGroup->GetCount() > 0) {
     m_comboBoxGroup->SetSelection(0);
   }
@@ -111,8 +112,9 @@ void StartAgentDialog::SetSessionName(const wxString &name) {
 void StartAgentDialog::OnOkUI(wxUpdateUIEvent &event) {
   wxString name = m_textCtrlName->GetValue();
   name.Trim().Trim(false);
-  event.Enable(!name.IsEmpty() && !GetMainFrame()->GetMainView()->IsNameExist(
-                                      name, MakeGroupName()));
+  event.Enable(!name.IsEmpty() &&
+               !GetMainFrame()->GetMainView()->GetSessionsBook()->IsNameExist(
+                   name, MakeGroupName()));
 }
 
 wxString StartAgentDialog::MakeGroupName() const {
@@ -165,7 +167,8 @@ void StartAgentDialog::OnNameUpdated(wxCommandEvent &event) {
   wxUnusedVar(event);
   wxString name = m_textCtrlName->GetValue();
   name.Trim().Trim(false);
-  if (GetMainFrame()->GetMainView()->IsNameExist(name, MakeGroupName())) {
+  if (GetMainFrame()->GetMainView()->GetSessionsBook()->IsNameExist(
+          name, MakeGroupName())) {
     if (!m_staticTextErrorMessage->IsShown()) {
       m_staticTextErrorMessage->Show();
       GetSizer()->Fit(this);

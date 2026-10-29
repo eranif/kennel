@@ -71,18 +71,19 @@ void SettingsDlg::OnChoiceTheme(wxCommandEvent &event) {
   int selection = event.GetSelection();
   wxString themeName = m_choiceTheme->GetString(selection);
   if (!themeName.empty())
-    GetMainFrame()->GetMainView()->ApplyTheme(themeName);
+    GetMainFrame()->GetMainView()->GetSessionsBook()->ApplyTheme(themeName);
 }
 
 void SettingsDlg::OnFontSelected(wxFontPickerEvent &event) {
-  GetMainFrame()->GetMainView()->ApplyFont(event.GetFont());
+  GetMainFrame()->GetMainView()->GetSessionsBook()->ApplyFont(event.GetFont());
 }
 
 void SettingsDlg::RestoreThemeAndFont() {
   if (m_initialFont.IsOk())
-    GetMainFrame()->GetMainView()->ApplyFont(m_initialFont);
+    GetMainFrame()->GetMainView()->GetSessionsBook()->ApplyFont(m_initialFont);
   if (!m_initialTheme.empty())
-    GetMainFrame()->GetMainView()->ApplyTheme(m_initialTheme);
+    GetMainFrame()->GetMainView()->GetSessionsBook()->ApplyTheme(
+        m_initialTheme);
 }
 
 void SettingsDlg::OnBrowseForShellWorkingDir(wxCommandEvent &event) {

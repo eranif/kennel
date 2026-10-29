@@ -56,11 +56,12 @@ public:
   void SetActiveSession(const SessionRef &ref);
 
   bool IsLinked() const;
-  // A file is shown now (the host's choice): while Link is on, and when this
-  // view is on the screen, it is selected in the tree that is showing, if that
-  // tree is of the account of the file (`path` as the tree writes it, see
-  // FilePage::GetAccountPath()). Never changes the session in the choice, and
-  // never lists a remote host: nothing happens for a remote account.
+  // The file `path` (in the notation of `account`: a Linux path for WSL) is
+  // shown now. While Link is on, and when this view is on the screen, it is
+  // selected in the tree that is showing, if the file is inside it (the path is
+  // converted between this machine and WSL when the tree is of the other one).
+  // Never changes the session in the choice, never sends an event, and never
+  // lists a remote host.
   void RevealFile(const Account &account, const wxString &path);
   // Gives the toolbar the style of the theme of the application (see
   // toolbar::ApplyStyle()). Called when the theme changes.

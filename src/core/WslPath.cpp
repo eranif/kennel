@@ -130,4 +130,31 @@ bool ParseSharePath(const wxString &path, wxString *distro,
   return true;
 }
 
+bool ToLinuxPath(const wxString &distro, const wxString &windowsPath,
+                 wxString *linuxPath) {
+  wxString share;
+  wxString inside;
+  if (ParseSharePath(windowsPath, &share, &inside)) {
+    // The output is set only for the path of this distro.
+    if (share.CmpNoCase(distro) != 0) {
+      return false;
+    }
+    *linuxPath = inside;
+    return true;
+  }
+  // C:\x is /mnt/c/x
+  if (windowsPath.length() >= 2 && wxIsalpha(windowsPath[0]) &&
+      windowsPath[1] == ':' &&
+      (windowsPath.length() == 2 || windowsPath[2] == '\\' ||
+       windowsPath[2] == '/')) {
+    wxString rest = windowsPath.Mid(2);
+    rest.Replace("\\", "/");
+    *linuxPath = "/mnt/" +
+                 wxString(static_cast<wxChar>(wxTolower(windowsPath[0]))) +
+                 rest;
+    return true;
+  }
+  return false;
+}
+
 } // namespace wsl

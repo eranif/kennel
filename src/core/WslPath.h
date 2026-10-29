@@ -33,4 +33,10 @@ wxString ToWindowsPath(const wxString &distro, const wxString &linuxPath);
 bool ParseSharePath(const wxString &path, wxString *distro,
                     wxString *linuxPath);
 
+// The Linux path in `distro` of the Windows path `windowsPath` ("C:\x" is
+// "/mnt/c/x", a path on the share of `distro` is the path inside it). False if
+// there is none (another distro, a network path). Pure string work.
+bool ToLinuxPath(const wxString &distro, const wxString &windowsPath,
+                 wxString *linuxPath);
+
 } // namespace wsl

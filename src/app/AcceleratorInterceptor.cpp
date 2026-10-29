@@ -34,7 +34,7 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     return;
   } else if (keyEvent.GetKeyCode() == WXK_F3 &&
              (keyEvent.GetModifiers() & ~wxMOD_SHIFT) == wxMOD_NONE &&
-             GetMainFrame()->GetMainView()->CanFindNext()) {
+             GetMainFrame()->GetMainView()->GetSessionsBook()->CanFindNext()) {
     // Find Next / Find Previous. A terminal without a search keeps F3 for the
     // program in it.
     wxCommandEvent evtFindNext{wxEVT_MENU, keyEvent.ShiftDown()
@@ -51,7 +51,7 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
 #ifndef __WXOSX__
   } else if (keyEvent.GetUnicodeKey() == 'G' &&
              keyEvent.GetModifiers() == wxMOD_CONTROL &&
-             GetMainFrame()->GetMainView()->CanGotoLine()) {
+             GetMainFrame()->GetMainView()->GetSessionsBook()->CanGotoLine()) {
     // Go to Line. A terminal keeps Ctrl+G (the bell) for the program in it.
     wxCommandEvent evtGoto{wxEVT_MENU, XRCID("goto-line")};
     GetMainFrame()->GetEventHandler()->AddPendingEvent(evtGoto);

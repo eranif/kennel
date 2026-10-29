@@ -38,7 +38,7 @@ class SessionPage : public SessionBasePage {
 public:
   using StatusChangedFn = std::function<void(SessionStatus)>;
 
-  SessionPage(wxSimplebook *parent, std::optional<AgentDef> agent,
+  SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
               Session session, bool resume = false);
   ~SessionPage() override;
 
@@ -166,9 +166,7 @@ private:
   void OnSearchBarFind(wxCommandEvent &event);
   void OnSearchBarClose(wxCommandEvent &event);
   // The terminal the search works on.
-  wxTerminalViewCtrl *SearchTerminal() const {
-    return m_lastFocused != nullptr ? m_lastFocused : m_terminal;
-  }
+  wxTerminalViewCtrl *SearchTerminal() const { return m_terminal; }
   void FindIn(bool forward);
 
   // ---- Toolbar and review buddy ----------------------------------------
@@ -258,10 +256,6 @@ private:
   wxPanel *m_reviewPane{nullptr};
   wxTerminalViewCtrl *m_terminal{nullptr};
   wxTerminalViewCtrl *m_reviewTerminal{nullptr};
-  wxTerminalViewCtrl *m_lastFocused{nullptr};
-  // The terminal the user typed in last, and when (see FocusTerminal()).
-  wxTerminalViewCtrl *m_lastKeyTerminal{nullptr};
-  std::chrono::steady_clock::time_point m_lastKeyTime;
   std::unique_ptr<AcceleratorInterceptor> m_reviewAcceleratorInterceptor;
   std::unique_ptr<ReviewBuddy> m_review;
   std::unique_ptr<ReviewBuddyHeader> m_reviewHeader;

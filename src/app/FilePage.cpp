@@ -298,7 +298,7 @@ void FilePage::OnReload(wxCommandEvent &event) {
 
   if (IsRemote()) {
     // Read on a worker thread by MainView, which then replaces the text.
-    GetMainView()->ReloadRemoteFile(m_remoteHost, m_path);
+    GetMainView()->GetSessionsBook()->ReloadRemoteFile(m_remoteHost, m_path);
     return;
   }
 
@@ -310,7 +310,8 @@ void FilePage::OnReload(wxCommandEvent &event) {
 
 void FilePage::OnClose(wxCommandEvent &event) {
   wxUnusedVar(event);
-  GetMainView()->CallAfter(&MainView::CloseFileByKey, GetKey());
+  GetMainView()->GetSessionsBook()->CallAfter(&MainNotebook::CloseFileByKey,
+                                              GetKey());
 }
 
 // ---------------------------------------------------------------------------

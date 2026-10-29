@@ -33,13 +33,6 @@ json ToJson(const Workspace &ws) {
     }
     sessions.push_back(std::move(entry));
   }
-  json groups = json::array();
-  for (const GroupMeta &g : ws.groups) {
-    groups.push_back({
-        {"name", ToUtf8(g.name)},
-        {"icon", ToUtf8(g.icon)},
-    });
-  }
   json files = json::array();
   for (const SessionFile &f : ws.files) {
     json entry = {{"path", ToUtf8(f.path)}};
@@ -59,10 +52,7 @@ json ToJson(const Workspace &ws) {
   return json{
       {"version", ws.version},
       {"workspace",
-       {{"sessions", sessions},
-        {"groups", groups},
-        {"files", files},
-        {"recent", recent}}},
+       {{"sessions", sessions}, {"files", files}, {"recent", recent}}},
   };
 }
 
@@ -94,13 +84,6 @@ SessionFile ParseSessionFile(const json &j) {
   return f;
 }
 
-GroupMeta ParseGroupMeta(const json &j) {
-  GroupMeta g;
-  g.name = GetStr(j, "name");
-  g.icon = GetStr(j, "icon");
-  return g;
-}
-
 Workspace ParseWorkspace(const json &root) {
   Workspace ws;
   ws.version = GetInt(root, "version", 1);
@@ -111,14 +94,6 @@ Workspace ParseWorkspace(const json &root) {
       for (const auto &s : *sIt) {
         if (s.is_object()) {
           ws.sessions.push_back(ParseSession(s));
-        }
-      }
-    }
-    if (auto gIt = wsIt->find("groups");
-        gIt != wsIt->end() && gIt->is_array()) {
-      for (const auto &g : *gIt) {
-        if (g.is_object()) {
-          ws.groups.push_back(ParseGroupMeta(g));
         }
       }
     }

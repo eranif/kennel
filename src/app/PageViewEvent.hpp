@@ -1,6 +1,5 @@
 #pragma once
 
-#include <wx/bmpbndl.h>
 #include <wx/dataview.h>
 #include <wx/event.h>
 #include <wx/string.h>
@@ -8,40 +7,8 @@
 #include "core/Account.h"
 #include "core/Workspace.h"
 
-// What a view (FlatView, FilesView, TerminalsView) shows for one page of the
-// main view: a terminal / agent session (SessionPage) or an open file
-// (FilePage).
-struct PageInfo {
-  wxString label; // The row label
-  wxString group; // The group, or the Terminals / Files container
-  wxString key;   // The session name, or the file key for a file
-  wxString dir;   // The folder of a terminal or a file (empty for a session)
-  wxBitmapBundle icon; // A bundle, not an icon: it keeps its size on any DPI
-  wxBitmapBundle groupIcon; // The icon of the group
-  // What the program in the page is doing now: the spinner, the check mark or
-  // the hand. Not ok when it does nothing.
-  wxBitmapBundle statusIcon;
-  // A file: whose it is (see FilePage::GetAccount()). Not set for a session.
-  Account account;
-
-  SessionRef Ref() const { return SessionRef{group, key}; }
-  // The status when there is one, otherwise the icon of the page.
-  const wxBitmapBundle &DisplayIcon() const {
-    return statusIcon.IsOk() ? statusIcon : icon;
-  }
-};
-
-// Sent when the user interacts with a view. The page is named by GetRef() (a
-// SessionRef, see core/Workspace.h); the event object is the sender.
-//   wxEVT_PAGEVIEW_SELECTED: the user picked a page. Sent through
-//                            EventNotifier; MainView shows the page and every
-//                            view other than the sender selects it too.
-//                            MainView sends it as well when it shows a page
-//                            itself, so the views follow.
-//   wxEVT_PAGEVIEW_MENU:     the user asked for a context menu on a page
-//                            (GetSessionName() set) or on empty space (not
-//                            set). Sent to the parent chain (MainView); the
-//                            event object is the view to pop the menu up on.
+// An event about a page (a session); the page is named by GetRef() (a
+// SessionRef, see core/Workspace.h) and the event object is the sender.
 class PageViewEvent : public wxCommandEvent {
 public:
   explicit PageViewEvent(wxEventType type = wxEVT_NULL, int id = 0)
@@ -50,36 +17,43 @@ public:
 
   wxEvent *Clone() const override { return new PageViewEvent(*this); }
 
-  // Whether showing the page makes it the most recently used one (the
-  // Ctrl+Tab order). False for a pick in a list.
-  bool UpdateRecent() const { return m_updateRecent; }
-  void SetUpdateRecent(bool b) { m_updateRecent = b; }
+  const SessionRef &GetRef() const { return m_ref; }
+  void SetRef(const SessionRef &ref) { m_ref = ref; }
 
-  void SetSessionName(const wxString &sessionName) {
-    this->m_sessionName = sessionName;
-  }
-  const wxString &GetSessionName() const { return m_sessionName; }
+  // A rename: the name the page had (GetRef() is the new one).
+  const SessionRef &GetOldRef() const { return m_oldRef; }
+  void SetOldRef(const SessionRef &ref) { m_oldRef = ref; }
 
-  SessionRef GetRef() const { return SessionRef{m_groupName, m_sessionName}; }
-  void SetRef(const SessionRef &ref) {
-    m_sessionName = ref.name;
-    m_groupName = ref.groupName;
-  }
-
-  // A file: whose it is. A selection in a view sets it for the pages that have
-  // one (a file), and leaves it as it is (the local host) for the others.
+  // The place the files of the session are on.
   const Account &GetAccount() const { return m_account; }
   void SetAccount(const Account &account) { m_account = account; }
 
 private:
+  SessionRef m_ref;
+  SessionRef m_oldRef;
   Account m_account;
-  wxString m_groupName;
-  wxString m_sessionName;
-  bool m_updateRecent{false};
 };
 
-wxDECLARE_EVENT(wxEVT_PAGEVIEW_SELECTED, PageViewEvent);
-wxDECLARE_EVENT(wxEVT_PAGEVIEW_MENU, PageViewEvent);
+// The events below are how the pages (MainNotebook) and the rest of the main
+// window (MainView) talk: neither knows the other.
+//
+// From the pages, to the parent windows (the receiver follows and sends
+// nothing back):
+//   wxEVT_SESSION_PAGE_ADDED:    a session with files to show: GetRef(),
+//                                GetAccount().
+//   wxEVT_SESSION_PAGE_REMOVED:  GetRef() is gone.
+//   wxEVT_SESSION_PAGE_RENAMED:  GetOldRef() is GetRef() now.
+//   wxEVT_SESSION_PAGES_CLEARED: every session is gone.
+//   wxEVT_SESSION_PAGE_SHOWN:    the session GetRef() is the page showing now.
+//   wxEVT_PAGES_TOOLBAR_STYLE:   the toolbars take the style of the theme
+//   again.
+// (A file that is showing is reported with wxEVT_FILE_REVEAL, see FileEvent.)
+wxDECLARE_EVENT(wxEVT_SESSION_PAGE_ADDED, PageViewEvent);
+wxDECLARE_EVENT(wxEVT_SESSION_PAGE_REMOVED, PageViewEvent);
+wxDECLARE_EVENT(wxEVT_SESSION_PAGE_RENAMED, PageViewEvent);
+wxDECLARE_EVENT(wxEVT_SESSION_PAGES_CLEARED, wxCommandEvent);
+wxDECLARE_EVENT(wxEVT_SESSION_PAGE_SHOWN, PageViewEvent);
+wxDECLARE_EVENT(wxEVT_PAGES_TOOLBAR_STYLE, wxCommandEvent);
 
 // Settings of the lists of the pages: alternating row colours (ignored by the
 // native implementations).

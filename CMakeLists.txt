@@ -34,8 +34,8 @@ FetchContent_MakeAvailable(wxTerminalEmulator)
 
 # ---------------------------------------------------------------------------
 # libssh (SFTP access to remote sessions' files). Built from source on every
-# platform, as a static library, from a pinned release tag. It needs OpenSSL
-# and zlib: OpenSSL is vendored on macOS (below) and comes from the system on
+# platform, as a static library, from a pinned release tag. It needs OpenSSL and
+# zlib: OpenSSL is vendored on macOS (below) and comes from the system on
 # Windows (MSYS2 package) and Linux (-dev package); zlib comes from the system
 # (MSYS2 package / macOS SDK / distro -dev package).
 # ---------------------------------------------------------------------------
@@ -43,11 +43,11 @@ FetchContent_MakeAvailable(wxTerminalEmulator)
 # macOS: vendor OpenSSL (static) so the app bundle has no OpenSSL runtime
 # dependency. eranif/openssl-cmake is fetched, then built and installed into
 # <build>/local_builds in a separate configure-time build, so that libssh's
-# find_package(OpenSSL) below can find it. Skipped once the libs exist.
-# Windows keeps using the MSYS2 OpenSSL package (openssl-cmake's Windows
-# support does not work with this toolchain). Linux must use the system OpenSSL:
-# a second, vendored copy crashes when another library loaded into the process
-# uses the system one.
+# find_package(OpenSSL) below can find it. Skipped once the libs exist. Windows
+# keeps using the MSYS2 OpenSSL package (openssl-cmake's Windows support does
+# not work with this toolchain). Linux must use the system OpenSSL: a second,
+# vendored copy crashes when another library loaded into the process uses the
+# system one.
 set(_KENNEL_LOCAL_BUILDS "${CMAKE_BINARY_DIR}/local_builds")
 if(APPLE)
   if(NOT EXISTS "${_KENNEL_LOCAL_BUILDS}/lib/libssl.a"
@@ -74,13 +74,11 @@ if(APPLE)
         "${openssl_cmake_SOURCE_DIR}" -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX=${_KENNEL_LOCAL_BUILDS} -DBUILD_OPENSSL=ON
         -DOPENSSL_BUILD_VERSION=3.3.4 -DOPENSSL_USE_STATIC_LIBS=ON
-      WORKING_DIRECTORY "${_OPENSSL_BUILD_DIR}"
-      COMMAND_ERROR_IS_FATAL ANY)
+      WORKING_DIRECTORY "${_OPENSSL_BUILD_DIR}" COMMAND_ERROR_IS_FATAL ANY)
     execute_process(
       COMMAND ${CMAKE_COMMAND} -E env ${_OPENSSL_ENV} ${CMAKE_COMMAND} --build .
               --parallel --target install
-      WORKING_DIRECTORY "${_OPENSSL_BUILD_DIR}"
-      COMMAND_ERROR_IS_FATAL ANY)
+      WORKING_DIRECTORY "${_OPENSSL_BUILD_DIR}" COMMAND_ERROR_IS_FATAL ANY)
   endif()
 
   set(OPENSSL_ROOT_DIR
@@ -304,12 +302,7 @@ set(KENNEL_APP_SOURCES
     src/app/ReviewBuddy.cpp
     src/app/ReviewBuddyEvent.cpp
     src/app/ReviewBuddyHeader.cpp
-    src/app/PageRegistry.cpp
-    src/app/PageListView.cpp
-    src/app/FlatView.cpp
-    src/app/TerminalsView.cpp
-    src/app/FilesView.cpp
-    src/app/MainViewMenus.cpp
+    src/app/MainNotebookMenus.cpp
     src/app/EditAgentsDlg.cpp
     src/app/EditAgentDlg.cpp
     src/app/EditJobsDlg.cpp
@@ -325,11 +318,11 @@ set(KENNEL_APP_SOURCES
     src/app/NewEnvVarDlg.cpp
     src/app/AppUIGlobals.cpp
     src/app/NewAgentWizard.cpp
-    src/app/SessionGroup.cpp
     src/app/FileProvider.cpp
     src/app/FileBrowserDlg.cpp
     src/app/FileTreeCtrl.cpp
     src/app/FileExplorerView.cpp
+    src/app/MainNotebook.cpp
     src/app/SessionStatusEvent.cpp)
 
 if(APPLE)
@@ -401,10 +394,15 @@ if(APPLE)
   endif()
 
   add_executable(
-    kennel MACOSX_BUNDLE ${KENNEL_APP_SOURCES} ${KENNEL_ASSET_FILES}
-                         ${KENNEL_THEME_FILES} ${KENNEL_FONT_FILES}
-                         ${KENNEL_MIME_DARK_FILES} ${KENNEL_MIME_LIGHT_FILES}
-                         ${KENNEL_ICON_DARK_FILES} ${KENNEL_ICON_LIGHT_FILES})
+    kennel MACOSX_BUNDLE
+    ${KENNEL_APP_SOURCES}
+    ${KENNEL_ASSET_FILES}
+    ${KENNEL_THEME_FILES}
+    ${KENNEL_FONT_FILES}
+    ${KENNEL_MIME_DARK_FILES}
+    ${KENNEL_MIME_LIGHT_FILES}
+    ${KENNEL_ICON_DARK_FILES}
+    ${KENNEL_ICON_LIGHT_FILES})
   set_target_properties(
     kennel
     PROPERTIES MACOSX_BUNDLE_GUI_IDENTIFIER "com.eranif.kennel"
@@ -491,8 +489,8 @@ if(NOT APPLE)
       VERBATIM)
 
     # The newer ConPTY (conpty.dll and OpenConsole.exe) from wxTerminalEmulator.
-    # The terminal loads conpty.dll from the folder of the executable, and
-    # falls back to the ConPTY of Windows when it is missing.
+    # The terminal loads conpty.dll from the folder of the executable, and falls
+    # back to the ConPTY of Windows when it is missing.
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
       set(KENNEL_CONPTY_ARCH "arm64")
     else()
@@ -689,9 +687,9 @@ if(WIN32)
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:wx::wxmono>"
             "${_INSTALLER_DIR}/bin/"
     # Copy the newer ConPTY: it must be in the folder of the executable
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${KENNEL_CONPTY_DIR}/conpty.dll"
-            "${KENNEL_CONPTY_DIR}/OpenConsole.exe" "${_INSTALLER_DIR}/bin/"
+    COMMAND
+      ${CMAKE_COMMAND} -E copy_if_different "${KENNEL_CONPTY_DIR}/conpty.dll"
+      "${KENNEL_CONPTY_DIR}/OpenConsole.exe" "${_INSTALLER_DIR}/bin/"
     # Copy LICENSE
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/LICENSE"
             "${_INSTALLER_DIR}/"

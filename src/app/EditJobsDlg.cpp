@@ -185,8 +185,9 @@ void EditJobsDlg::OnRunNow(wxCommandEvent &event) {
   if (row == wxNOT_FOUND) {
     return;
   }
-  GetMainFrame()->GetMainView()->RunJob(m_jobs[row],
-                                        /*selectAfterLaunch=*/true);
+  GetMainFrame()->GetMainView()->GetSessionsBook()->RunJob(
+      m_jobs[row],
+      /*selectAfterLaunch=*/true);
   // Close as if OK was pressed so the caller (MainFrame::OnManageJobs)
   // persists m_jobs — otherwise any pending New/Edit/Delete made in this
   // session would be silently discarded along with the dialog.

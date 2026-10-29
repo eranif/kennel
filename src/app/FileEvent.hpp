@@ -83,3 +83,7 @@ wxDECLARE_EVENT(wxEVT_FILE_SAVE_STARTED, FileEvent);
 // (the file's own state) and Skip()s it, so it propagates up to wxTheApp, where
 // MainView handles the rest.
 wxDECLARE_EVENT(wxEVT_FILE_SAVE_DONE, FileEvent);
+// Sent (to the parent windows) when the file in GetPath() (in the notation of
+// GetAccount()) became the page that is showing. The receiver shows where it is
+// in the file views; it sends nothing back.
+wxDECLARE_EVENT(wxEVT_FILE_REVEAL, FileEvent);

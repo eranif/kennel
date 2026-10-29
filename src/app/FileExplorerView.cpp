@@ -2,6 +2,7 @@
 
 #include "app/ToolBarUtils.h"
 #include "core/AppManager.h"
+#include "core/WslPath.h"
 
 #include <wx/aui/auibar.h>
 #include <wx/choice.h>
@@ -234,8 +235,8 @@ void FileExplorerView::ConnectEntry(int id) {
 }
 
 void FileExplorerView::RevealFile(const Account &account,
-                                  const wxString &path) {
-  if (!IsLinked() || account.IsRemote() || !IsShownOnScreen()) {
+                                  const wxString &filePath) {
+  if (!IsLinked() || !IsShownOnScreen() || account.IsRemote()) {
     return;
   }
   const int index = m_choice->GetSelection();
@@ -243,9 +244,23 @@ void FileExplorerView::RevealFile(const Account &account,
     return;
   }
   const Entry &entry = m_entries[index];
-  if (entry.tree != nullptr && entry.account.GetId() == account.GetId()) {
-    entry.tree->SelectPath(path);
+  if (entry.tree == nullptr) {
+    return;
   }
+  // The path as the tree writes it. A tree of a remote host is never listed.
+  wxString path;
+  if (entry.account.GetId() == account.GetId()) {
+    path = filePath;
+  } else if (entry.account.IsLocalHost() && account.IsWSL()) {
+    path = wsl::ToWindowsPath(account.m_name, filePath);
+  } else if (entry.account.IsWSL() && account.IsLocalHost()) {
+    if (!wsl::ToLinuxPath(entry.account.m_name, filePath, &path)) {
+      return;
+    }
+  } else {
+    return;
+  }
+  entry.tree->SelectPath(path);
 }
 
 void FileExplorerView::OnChoice(wxCommandEvent &event) {

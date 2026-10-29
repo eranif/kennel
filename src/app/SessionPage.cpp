@@ -246,7 +246,7 @@ wxString JoinHeader(wxString head, wxString title, const wxString &dir) {
 }
 } // namespace
 
-SessionPage::SessionPage(wxSimplebook *parent, std::optional<AgentDef> agent,
+SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
                          Session session, bool resume)
     : SessionBasePage(parent), m_paths(AppManager::Get().Paths()),
       m_agent(std::move(agent)), m_session(std::move(session)),
@@ -561,17 +561,8 @@ void SessionPage::FocusTerminal(wxTerminalViewCtrl *terminal) {
   if (focused != nullptr && focused != this && !IsDescendant(focused)) {
     return;
   }
-  // The user is typing in the other terminal of this page: moving the focus
-  // would send their next keys to the other agent. The request was typed into
-  // `terminal` anyway; the user switches when they are ready.
-  constexpr auto kTypingPause = std::chrono::seconds(3);
-  if (m_lastKeyTerminal != nullptr && m_lastKeyTerminal != terminal &&
-      std::chrono::steady_clock::now() - m_lastKeyTime < kTypingPause) {
-    return;
-  }
   // Also when the application window is not active: the focus is restored to
   // this terminal when it is.
-  m_lastFocused = terminal;
   terminal->SetFocus();
 }
 
@@ -606,16 +597,6 @@ void SessionPage::ConfigureTerminal(wxTerminalViewCtrl *terminal) {
       terminal->SetFocus();
     }
   });
-  // Remember who is typing; this runs before the terminal's own handler.
-  terminal->Bind(wxEVT_CHAR_HOOK, [this, terminal](wxKeyEvent &event) {
-    m_lastKeyTerminal = terminal;
-    m_lastKeyTime = std::chrono::steady_clock::now();
-    event.Skip();
-  });
-  terminal->Bind(wxEVT_SET_FOCUS, [this, terminal](wxFocusEvent &event) {
-    m_lastFocused = terminal;
-    event.Skip();
-  });
 }
 
 std::vector<wxTerminalViewCtrl *> SessionPage::GetTerminals() const {
@@ -630,15 +611,8 @@ std::vector<wxTerminalViewCtrl *> SessionPage::GetTerminals() const {
 }
 
 void SessionPage::SetFocus() {
-  wxTerminalViewCtrl *target =
-      m_lastFocused != nullptr && m_lastFocused == m_reviewTerminal
-          ? m_reviewTerminal
-          : m_terminal;
-  if (target != nullptr) {
-    target->SetFocus();
-  } else {
-    SessionBasePage::SetFocus();
-  }
+  if (m_terminal)
+    m_terminal->SetFocus();
 }
 
 void SessionPage::Restart() {
@@ -650,8 +624,6 @@ void SessionPage::Restart() {
     m_splitter = nullptr;
     m_mainPane = nullptr;
     m_terminal = nullptr;
-    m_lastFocused = nullptr;
-    m_lastKeyTerminal = nullptr;
     m_acceleratorInterceptor.reset();
   }
   m_terminalActivity = ProgramActivity::None;
@@ -858,7 +830,7 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
     std::vector<wxString> searchDirs = baseDirs;
     searchDirs.push_back("$HOME/.kennel/sessions");
     const FileLocation remote = ParseFileLocation(text);
-    GetMainFrame()->GetMainView()->OpenRemoteFile(
+    GetMainFrame()->GetMainView()->GetSessionsBook()->OpenRemoteFile(
         RemoteHostDetails{m_agent->remoteHost, m_agent->remoteUser},
         remote.path, searchDirs, remote.line, remote.column);
     return;
@@ -889,7 +861,8 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
   }
   // Deferred: don't rebuild the list from inside the terminal's mouse handler.
   location.path = fullPath;
-  GetMainFrame()->GetMainView()->CallAfter(&MainView::OpenFileAt, location);
+  GetMainFrame()->GetMainView()->GetSessionsBook()->CallAfter(
+      &MainNotebook::OpenFileAt, location);
 }
 
 void SessionPage::ApplyTheme(const wxTerminalTheme &theme) {
@@ -1366,12 +1339,6 @@ void SessionPage::CloseReviewBuddy() {
   if (m_reviewTerminal == nullptr) {
     return;
   }
-  if (m_lastFocused == m_reviewTerminal) {
-    m_lastFocused = m_terminal;
-  }
-  if (m_lastKeyTerminal == m_reviewTerminal) {
-    m_lastKeyTerminal = nullptr;
-  }
   if (m_splitter != nullptr) {
     m_splitter->Unsplit(m_reviewPane);
   }
@@ -1395,14 +1362,15 @@ void SessionPage::OpenLatestReview() {
     if (!dir.empty()) {
       searchDirs.push_back(dir);
     }
-    mainView->OpenRemoteFile(
+    mainView->GetSessionsBook()->OpenRemoteFile(
         RemoteHostDetails{m_agent->remoteHost, m_agent->remoteUser}, relative,
         searchDirs);
     return;
   }
   const wxString hostDir = HostWorkingDir();
   CHECK_NOT_EMPTY_OR_RETURN(hostDir);
-  mainView->OpenLocalFile(wxFileName(hostDir, relative).GetFullPath());
+  mainView->GetSessionsBook()->OpenLocalFile(
+      wxFileName(hostDir, relative).GetFullPath());
 }
 
 // ---------------------------------------------------------------------------

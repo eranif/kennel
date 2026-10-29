@@ -98,13 +98,14 @@ MainFrame::MainFrame()
   mainFrame = this;
 
   // Rebuild any sessions persisted in workspace.json (resuming where possible).
-  m_mainView->RestoreSessions();
+  m_mainView->GetSessionsBook()->RestoreSessions();
   AppManager::Get().SavePrefs();
 
   // Jobs run in a fresh terminal tab each time they fire, so the scheduler
   // just needs a callback into the view; it owns no UI state of its own.
-  m_jobScheduler = std::make_unique<JobScheduler>(
-      [this](const JobDef &job) { m_mainView->RunJob(job); });
+  m_jobScheduler = std::make_unique<JobScheduler>([this](const JobDef &job) {
+    m_mainView->GetSessionsBook()->RunJob(job);
+  });
   m_jobScheduler->Reload();
 
   if (AppManager::Get().GetPrefs().checkForUpdatesOnStartup) {
@@ -498,14 +499,14 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.scrollbackLines = settingsDlg.GetScrollBackLines();
     ApplyAppTheme(prefs.appTheme);
     AppManager::Get().SavePrefs();
-    m_mainView->ApplyPrefs();
+    m_mainView->GetSessionsBook()->ApplyPrefs();
   } else {
     settingsDlg.RestoreThemeAndFont();
   }
 }
 
 void MainFrame::OnNewTerminal(wxCommandEvent &evt) {
-  m_mainView->StartTerminal();
+  m_mainView->GetSessionsBook()->StartTerminal();
 }
 
 void MainFrame::OnNewAgent(wxCommandEvent &evt) {
@@ -535,17 +536,17 @@ void MainFrame::OnNewAgent(wxCommandEvent &evt) {
 
 void MainFrame::OnRefreshSessionUI(wxUpdateUIEvent &evt) {
   wxUnusedVar(evt);
-  evt.Enable(m_mainView->CanRefreshCurrent());
+  evt.Enable(m_mainView->GetSessionsBook()->CanRefreshCurrent());
 }
 
 void MainFrame::OnRefreshSession(wxCommandEvent &evt) {
   wxUnusedVar(evt);
-  if (m_mainView->CanRefreshCurrent())
-    m_mainView->RefreshCurrentSelection();
+  if (m_mainView->GetSessionsBook()->CanRefreshCurrent())
+    m_mainView->GetSessionsBook()->RefreshCurrentSelection();
 }
 
 void MainFrame::OnCloseAllSessions(wxCommandEvent &evt) {
-  m_mainView->CloseAllSessions();
+  m_mainView->GetSessionsBook()->CloseAllSessions();
 }
 
 bool MainFrame::CheckIfCanStartAgent() {
@@ -569,11 +570,11 @@ void MainFrame::OnStartAgent(wxCommandEvent &evt) {
     return;
   // No agent/group preset: the dialog defaults to the first agent and the
   // "Default" group.
-  m_mainView->StartAgent();
+  m_mainView->GetSessionsBook()->StartAgent();
 }
 
 void MainFrame::OnCloseAllSessionsUI(wxUpdateUIEvent &evt) {
-  evt.Enable(m_mainView->SessionCount() > 0);
+  evt.Enable(m_mainView->GetSessionsBook()->SessionCount() > 0);
 }
 
 void MainFrame::OnStartAgentFromToolBar(wxCommandEvent &evt) {
@@ -585,46 +586,48 @@ void MainFrame::OnStartAgentFromToolBar(wxCommandEvent &evt) {
     return;
 
   wxString clientName = m_clientToolIdToName.find(evt.GetId())->second;
-  m_mainView->StartAgent(clientName);
+  m_mainView->GetSessionsBook()->StartAgent(clientName);
 }
 
 void MainFrame::OnActivate(wxActivateEvent &event) { event.Skip(); }
 
 void MainFrame::OnNextSession(wxCommandEvent &e) {
   wxUnusedVar(e);
-  m_mainView->SwitchPage(true);
+  m_mainView->GetSessionsBook()->SwitchPage(true);
 }
 
 void MainFrame::OnPrevSession(wxCommandEvent &e) {
   wxUnusedVar(e);
-  m_mainView->SwitchPage(false);
+  m_mainView->GetSessionsBook()->SwitchPage(false);
 }
 
 void MainFrame::OnPrevSessionUI(wxUpdateUIEvent &e) {
-  e.Enable(m_mainView->PageCount() > 1);
+  e.Enable(m_mainView->GetSessionsBook()->PageCount() > 1);
 }
 
 void MainFrame::OnNextSessionUI(wxUpdateUIEvent &e) {
-  e.Enable(m_mainView->PageCount() > 1);
+  e.Enable(m_mainView->GetSessionsBook()->PageCount() > 1);
 }
 
 void MainFrame::OnFind(wxCommandEvent &e) {
   wxUnusedVar(e);
-  m_mainView->ShowFind();
+  m_mainView->GetSessionsBook()->ShowFind();
 }
 
 void MainFrame::OnFindNext(wxCommandEvent &e) {
-  m_mainView->FindNext(e.GetId() == XRCID("find-next"));
+  m_mainView->GetSessionsBook()->FindNext(e.GetId() == XRCID("find-next"));
 }
 
 void MainFrame::OnFindUI(wxUpdateUIEvent &e) {
-  e.Enable(m_mainView->CanFind());
+  e.Enable(m_mainView->GetSessionsBook()->CanFind());
 }
 
-void MainFrame::OnGotoLine(wxCommandEvent &) { m_mainView->GotoLine(); }
+void MainFrame::OnGotoLine(wxCommandEvent &) {
+  m_mainView->GetSessionsBook()->GotoLine();
+}
 
 void MainFrame::OnGotoLineUI(wxUpdateUIEvent &e) {
-  e.Enable(m_mainView->CanGotoLine());
+  e.Enable(m_mainView->GetSessionsBook()->CanGotoLine());
 }
 
 void MainFrame::OnEditAgents(wxCommandEvent &evt) {
@@ -682,14 +685,15 @@ void MainFrame::CheckForUpdates(bool silent) {
 }
 
 void MainFrame::OnRenameItemUI(wxUpdateUIEvent &event) {
-  bool enable = m_mainView != nullptr && !m_mainView->IsEmpty();
+  bool enable =
+      m_mainView != nullptr && !m_mainView->GetSessionsBook()->IsEmpty();
   event.Enable(enable);
 }
 
 void MainFrame::OnRenameItem(wxCommandEvent &event) {
   wxUnusedVar(event);
   CHECK_NOT_NULL_RETURN(m_mainView);
-  m_mainView->RenameItem();
+  m_mainView->GetSessionsBook()->RenameItem();
 }
 
 MainFrame *GetMainFrame() { return mainFrame; }
@@ -700,5 +704,5 @@ wxEvtHandler *GetMainViewEventHandler() {
 
 bool MainFrame::IsWindowActive(const SessionPage *win) const {
   CHECK_NOT_NULL_RETURN_FALSE(win);
-  return m_mainView->GetActiveSessionPage() == win;
+  return m_mainView->GetSessionsBook()->GetActiveSessionPage() == win;
 }

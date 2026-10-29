@@ -42,13 +42,6 @@ struct SessionRef {
   bool operator==(const SessionRef &) const = default;
 };
 
-// Persisted per-group metadata not tied to any single session (e.g. the
-// group's icon), keyed by group name.
-struct GroupMeta {
-  wxString name;
-  wxString icon; // Bitmaps alias, e.g. "group-red"
-};
-
 // One open file (workspace.json -> files[]). Only the place of the file is
 // kept: edits that were not saved are not.
 struct SessionFile {
@@ -62,7 +55,6 @@ struct SessionFile {
 struct Workspace {
   int version = 1;
   std::vector<Session> sessions;
-  std::vector<GroupMeta> groups;
   // The open files, in the order of the last run (new ones last).
   std::vector<SessionFile> files;
   // Persistent sessions and open files, most recently used first. A file is in

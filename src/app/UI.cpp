@@ -114,33 +114,12 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     m_auimgr->SetFlags( wxAUI_MGR_LIVE_RESIZE|wxAUI_MGR_HINT_FADE|wxAUI_MGR_TRANSPARENT_HINT|wxAUI_MGR_TRANSPARENT_DRAG|wxAUI_MGR_ALLOW_FLOATING);
     m_auimgr->GetArtProvider()->SetMetric(wxAUI_DOCKART_GRADIENT_TYPE, wxAUI_GRADIENT_NONE);
     
-    m_panelFlatView = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
-    
-    m_auimgr->AddPane(m_panelFlatView, wxAuiPaneInfo().Name(wxT("SessionsPage")).Caption(_("Sessions")).Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(0).BestSize(300,-1).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
-    
-    wxBoxSizer* boxSizer588 = new wxBoxSizer(wxVERTICAL);
-    m_panelFlatView->SetSizer(boxSizer588);
-    
     m_panelFileExplorer = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
     
     m_auimgr->AddPane(m_panelFileExplorer, wxAuiPaneInfo().Name(wxT("FileBrowser")).Caption(_("File Browser")).Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(0).BestSize(300,-1).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
     
     wxBoxSizer* boxSizer596 = new wxBoxSizer(wxVERTICAL);
     m_panelFileExplorer->SetSizer(boxSizer596);
-    
-    m_panelFiles = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
-    
-    m_auimgr->AddPane(m_panelFiles, wxAuiPaneInfo().Name(wxT("Files")).Caption(_("Open Files")).Direction(wxAUI_DOCK_RIGHT).Layer(0).Row(0).Position(0).BestSize(300,-1).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
-    
-    wxBoxSizer* boxSizer591 = new wxBoxSizer(wxVERTICAL);
-    m_panelFiles->SetSizer(boxSizer591);
-    
-    m_panelTerminals = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
-    
-    m_auimgr->AddPane(m_panelTerminals, wxAuiPaneInfo().Name(wxT("Terminals")).Caption(_("Terminals")).Direction(wxAUI_DOCK_RIGHT).Layer(0).Row(0).Position(0).BestSize(300,-1).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
-    
-    wxBoxSizer* boxSizer592 = new wxBoxSizer(wxVERTICAL);
-    m_panelTerminals->SetSizer(boxSizer592);
     
     m_mainPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
     
@@ -150,9 +129,7 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     wxBoxSizer* boxSizer594 = new wxBoxSizer(wxVERTICAL);
     m_mainPanel->SetSizer(boxSizer594);
     
-    m_sessionsBook = new wxSimplebook(m_mainPanel, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_mainPanel, wxSize(-1,-1)), 0);
-    m_sessionsBook->SetName(wxT("m_sessionsBook"));
-    m_sessionsBook->SetEffect(wxSHOW_EFFECT_NONE);
+    m_sessionsBook = new MainNotebook(m_mainPanel, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_mainPanel, wxSize(-1,-1)), wxTAB_TRAVERSAL);
     
     boxSizer594->Add(m_sessionsBook, 1, wxEXPAND, WXC_FROM_DIP(5));
     

@@ -22,10 +22,6 @@ struct UiPrefs {
   // default layout. The sizes in it are in device pixels, so after a change of
   // display scaling the side panes keep their pixel width.
   wxString auiLayout;
-  // The column the list of the sessions is sorted by ("name" or "group"), empty
-  // => not sorted (group order).
-  wxString flatViewSortColumn;
-  bool flatViewSortAscending{true};
   wxString lastSelectedSession; // empty => no prior selection
   wxString terminalTheme;       // name of the last-applied terminal theme
   wxString terminalFontDesc;    // wxFont native info desc (empty => default)

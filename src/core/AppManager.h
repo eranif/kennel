@@ -61,7 +61,7 @@ public:
   AdapterRegistry &Adapters();
 
   // Reads/writes workspace.json. Holds no in-memory session registry: the
-  // UI (MainView's PageRegistry + notebook) is the only source of truth for
+  // UI (MainView's notebook) is the only source of truth for
   // which sessions/groups currently exist, so callers must rebuild a full
   // Workspace snapshot from the UI before calling Save().
   WorkspaceStore &Workspace();

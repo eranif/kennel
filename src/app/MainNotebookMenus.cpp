@@ -1,10 +1,10 @@
-// The context menus of MainView, for the lists of the pages: they ask for a
-// menu for a page (a session or a file), or for empty space. The commands of a
+// The context menus of the notebook: they ask for a menu for a page (a session
+// or a file), or for empty space. The commands of a
 // group are in the menu of each of its sessions (AppendGroupMenu()).
-#include "MainView.hpp"
+#include "app/MainNotebook.hpp"
 
 #include "app/FilePage.hpp"
-#include "app/PageRegistry.hpp"
+#include "app/PageNames.h"
 #include "app/SessionPage.hpp"
 #include "core/Helpers.h"
 
@@ -12,7 +12,7 @@
 #include <wx/textdlg.h>
 #include <wx/xrc/xmlres.h>
 
-void MainView::ShowPageMenu(wxWindow *page, wxWindow *on) {
+void MainNotebook::ShowPageMenu(wxWindow *page, wxWindow *on) {
   if (auto *session = dynamic_cast<SessionPage *>(page)) {
     ShowSessionMenu(session, on);
   } else if (auto *file = dynamic_cast<FilePage *>(page)) {
@@ -20,7 +20,7 @@ void MainView::ShowPageMenu(wxWindow *page, wxWindow *on) {
   }
 }
 
-void MainView::ShowFileMenu(FilePage *page, wxWindow *on) {
+void MainNotebook::ShowFileMenu(FilePage *page, wxWindow *on) {
   CHECK_NOT_NULL_RETURN(page);
   const wxString key = page->GetKey();
 
@@ -30,19 +30,19 @@ void MainView::ShowFileMenu(FilePage *page, wxWindow *on) {
       wxEVT_MENU,
       [key, this](wxCommandEvent &) {
         // Deferred: see RemovePage.
-        CallAfter(&MainView::CloseFileByKey, key);
+        CallAfter(&MainNotebook::CloseFileByKey, key);
       },
       wxID_CLOSE);
   menu.AppendSeparator();
   menu.Append(wxID_CLOSE_ALL, _("Close All Files"));
   menu.Bind(
       wxEVT_MENU,
-      [this](wxCommandEvent &) { CallAfter(&MainView::CloseAllFiles); },
+      [this](wxCommandEvent &) { CallAfter(&MainNotebook::CloseAllFiles); },
       wxID_CLOSE_ALL);
   on->PopupMenu(&menu);
 }
 
-void MainView::ShowSessionMenu(SessionPage *page, wxWindow *on) {
+void MainNotebook::ShowSessionMenu(SessionPage *page, wxWindow *on) {
   CHECK_NOT_NULL_RETURN(page);
   const wxString sessionName = page->GetSession().name;
   const wxString currentGroupName = page->GetSession().groupName;
@@ -54,7 +54,7 @@ void MainView::ShowSessionMenu(SessionPage *page, wxWindow *on) {
       wxEVT_MENU,
       [currentGroupName, sessionName, this](wxCommandEvent &) {
         // Deferred: see RemovePage.
-        CallAfter(&MainView::CloseSession, currentGroupName, sessionName);
+        CallAfter(&MainNotebook::CloseSession, currentGroupName, sessionName);
       },
       XRCID("session-group-close-session"));
 
@@ -128,10 +128,8 @@ void MainView::ShowSessionMenu(SessionPage *page, wxWindow *on) {
   on->PopupMenu(&menu);
 }
 
-void MainView::AppendGroupMenu(wxMenu &menu, const wxString &groupName) {
-  auto *group = m_pages->GetGroup(groupName);
-  CHECK_NOT_NULL_RETURN(group);
-  if (!group->IsSessionGroup()) {
+void MainNotebook::AppendGroupMenu(wxMenu &menu, const wxString &groupName) {
+  if (!IsSessionGroupName(groupName)) {
     return;
   }
 
@@ -145,12 +143,11 @@ void MainView::AppendGroupMenu(wxMenu &menu, const wxString &groupName) {
   groupMenu->Append(XRCID("refresh-sessions"), _("Refresh Group"));
 
   // The "Default" group must always exist and cannot be renamed.
-  if (group->IsDefaultGroup()) {
+  if (groupName == kDefaultGroupName) {
     groupMenu->Enable(XRCID("rename-group"), false);
   }
 
-  // The group is looked up again when the item is chosen: it is only
-  // reachable by name, since the PageRegistry owns it.
+  // A group is only its name: the sessions that share it.
   groupMenu->Bind(
       wxEVT_MENU,
       [groupName, this](wxCommandEvent &) {
@@ -159,21 +156,17 @@ void MainView::AppendGroupMenu(wxMenu &menu, const wxString &groupName) {
       XRCID("group-start-agent"));
   groupMenu->Bind(
       wxEVT_MENU,
-      [groupName, this](wxCommandEvent &) {
-        RenameGroup(m_pages->GetGroup(groupName));
-      },
+      [groupName, this](wxCommandEvent &) { RenameGroup(groupName); },
       XRCID("rename-group"));
   groupMenu->Bind(
       wxEVT_MENU,
       [groupName, this](wxCommandEvent &) {
-        CallAfter(&MainView::DeleteGroupByName, groupName);
+        CallAfter(&MainNotebook::DeleteGroupByName, groupName);
       },
       XRCID("close-group"));
   groupMenu->Bind(
       wxEVT_MENU,
-      [groupName, this](wxCommandEvent &) {
-        RefreshGroup(m_pages->GetGroup(groupName));
-      },
+      [groupName, this](wxCommandEvent &) { RefreshGroup(groupName); },
       XRCID("refresh-sessions"));
   menu.AppendSeparator();
   // The name is escaped: an "&" in it is not a mnemonic.
@@ -182,7 +175,7 @@ void MainView::AppendGroupMenu(wxMenu &menu, const wxString &groupName) {
   menu.AppendSubMenu(groupMenu, wxString::Format(_("Group \"%s\""), escaped));
 }
 
-void MainView::ShowBackgroundMenu(wxWindow *on) {
+void MainNotebook::ShowBackgroundMenu(wxWindow *on) {
   wxMenu menu;
   menu.Append(wxID_ADD, _("Start Agent..."));
   menu.Append(XRCID("start-terminal"), _("New Terminal..."));
