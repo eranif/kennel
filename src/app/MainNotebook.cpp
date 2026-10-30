@@ -284,7 +284,11 @@ void MainNotebook::AddTab(wxWindow *page) {
   if (const int index = m_book->FindPage(page); index != wxNOT_FOUND) {
     m_book->SetPageBitmap(index, IconOf(page));
     // A fixed width tab can cut the title; the tooltip shows all of it.
-    m_book->SetPageToolTip(index, title);
+    if (auto *filepage = dynamic_cast<FilePage *>(page)) {
+      m_book->SetPageToolTip(index, filepage->GetPath());
+    } else {
+      m_book->SetPageToolTip(index, title);
+    }
   }
 }
 
