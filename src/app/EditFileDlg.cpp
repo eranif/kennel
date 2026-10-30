@@ -115,7 +115,7 @@ EditorLang EditFileDlg::LangFromPath(const wxString &filepath) {
       {"mjs", EditorLang::kJavaScript}, {"cjs", EditorLang::kJavaScript},
       {"py", EditorLang::kPython},      {"pyw", EditorLang::kPython},
       {"pyi", EditorLang::kPython},     {"mk", EditorLang::kMakefile},
-      {"mak", EditorLang::kMakefile},
+      {"mak", EditorLang::kMakefile},   {"rs", EditorLang::kRust},
   };
   return find_or(extMap, lowerName.AfterLast('.'), EditorLang::kText);
 }

@@ -19,6 +19,7 @@ enum class EditorLang {
   kJavaScript,
   kPython,
   kMakefile,
+  kRust,
 };
 
 struct EditableLocker {
@@ -110,6 +111,7 @@ private:
   void InitJavaScriptStyle();
   void InitPythonStyle();
   void InitMakefileStyle();
+  void InitRustStyle();
   // Sizes the line-number margin to fit the current number of lines.
   void UpdateLineNumberMargin();
   void OnModified(wxStyledTextEvent &event);

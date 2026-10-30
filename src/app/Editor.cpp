@@ -185,6 +185,9 @@ void Editor::InitEditor() {
   case EditorLang::kMakefile:
     InitMakefileStyle();
     break;
+  case EditorLang::kRust:
+    InitRustStyle();
+    break;
   case EditorLang::kJson:
     InitJsonStyle();
     break;
@@ -584,4 +587,45 @@ void Editor::SetTheme(const wxTerminalTheme &theme) {
 void Editor::SetEditorLanguage(EditorLang lang) {
   m_lang = lang;
   InitEditor();
+}
+
+void Editor::InitRustStyle() {
+  m_ctrl->SetLexer(wxSTC_LEX_RUST);
+
+  // Keywords, then the primitive types, then the common std types.
+  m_ctrl->SetKeyWords(
+      0, "as async await break const continue crate dyn else enum extern "
+         "false fn for if impl in let loop match mod move mut pub ref return "
+         "self Self static struct super trait true type union unsafe use "
+         "where while abstract become box do final macro override priv "
+         "try typeof unsized virtual yield");
+  m_ctrl->SetKeyWords(
+      1, "bool char str i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize "
+         "f32 f64");
+  m_ctrl->SetKeyWords(
+      2, "Option Some None Result Ok Err Vec String Box Rc Arc RefCell Cell "
+         "HashMap HashSet BTreeMap BTreeSet VecDeque Cow Mutex RwLock");
+
+  AddProperty(wxSTC_RUST_DEFAULT, m_theme.bg, m_theme.fg);
+  for (int style : {wxSTC_RUST_COMMENTBLOCK, wxSTC_RUST_COMMENTLINE,
+                    wxSTC_RUST_COMMENTBLOCKDOC, wxSTC_RUST_COMMENTLINEDOC}) {
+    AddProperty(style, m_theme.bg, CommentColour());
+  }
+  AddProperty(wxSTC_RUST_NUMBER, m_theme.bg, m_theme.green);
+  AddProperty(wxSTC_RUST_WORD, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_RUST_WORD2, m_theme.bg, m_theme.blue);
+  AddProperty(wxSTC_RUST_WORD3, m_theme.bg, m_theme.blue);
+  for (int style :
+       {wxSTC_RUST_STRING, wxSTC_RUST_STRINGR, wxSTC_RUST_CHARACTER,
+        wxSTC_RUST_BYTESTRING, wxSTC_RUST_BYTESTRINGR, wxSTC_RUST_BYTECHARACTER,
+        wxSTC_RUST_CSTRING, wxSTC_RUST_CSTRINGR}) {
+    AddProperty(style, m_theme.bg, m_theme.yellow);
+  }
+  AddProperty(wxSTC_RUST_OPERATOR, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_RUST_IDENTIFIER, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_RUST_LIFETIME, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_RUST_MACRO, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_RUST_LEXERROR, m_theme.bg, m_theme.red);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
+  AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }
