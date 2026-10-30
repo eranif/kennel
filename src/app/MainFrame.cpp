@@ -259,8 +259,6 @@ void MainFrame::BuildToolBar() {
   toolbar::AddTool(m_toolBar, XRCID("start-terminal"),
                    _("Start a New Terminal"), bmps.Get("terminal", true),
                    _("Start a New Terminal"));
-  toolbar::AddTool(m_toolBar, wxID_REFRESH, _("Refresh"),
-                   bmps.Get("restart", true), _("Refresh the Current Agent"));
   toolbar::AddTool(m_toolBar, XRCID("manage-jobs"), _("Manage Jobs"),
                    bmps.Get("job", true), _("Manage Jobs"));
   m_toolBar->AddSeparator();
