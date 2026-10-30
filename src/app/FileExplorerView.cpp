@@ -6,17 +6,24 @@
 #include "core/Logger.h"
 #include "core/WslPath.h"
 
+#include "app/PageNames.h"
+#include <algorithm>
 #include <wx/aui/auibar.h>
 #include <wx/choice.h>
 #include <wx/simplebook.h>
 #include <wx/sizer.h>
 
-#include <algorithm>
-
 wxDEFINE_EVENT(wxEVT_FILEEXPLORER_SESSION_SELECTED, PageViewEvent);
 
 namespace {
 const int kIdLink = wxWindow::NewControlId();
+// What the choice of the file explorer shows for a session: the name, and the
+// group when the session is in one.
+wxString ExplorerLabel(const SessionRef &ref) {
+  return ref.groupName == kTerminalsGroupName
+             ? ref.name
+             : ref.name + " (" + ref.groupName + ")";
+}
 } // namespace
 
 FileExplorerView::FileExplorerView(wxWindow *parent) : wxPanel(parent) {
@@ -43,14 +50,38 @@ FileExplorerView::FileExplorerView(wxWindow *parent) : wxPanel(parent) {
 
   m_choice->Bind(wxEVT_CHOICE, &FileExplorerView::OnChoice, this);
   // The remote trees answer on the notifier (see ShowEntry()).
+  m_toolbar->Bind(wxEVT_TOOL, &FileExplorerView::OnLink, this, kIdLink);
   EventNotifier::Get()->Bind(wxEVT_FILETREE_CONNECTED,
                              &FileExplorerView::OnTreeConnected, this);
-  m_toolbar->Bind(wxEVT_TOOL, &FileExplorerView::OnLink, this, kIdLink);
+  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGE_RENAMED,
+                             &FileExplorerView::OnSessionRenamed, this);
+  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGE_ADDED,
+                             &FileExplorerView::OnSessionPageAdded, this);
+  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGE_REMOVED,
+                             &FileExplorerView::OnSessionPageRemoved, this);
+  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGES_CLEARED,
+                             &FileExplorerView::OnSessionPagesCleared, this);
+  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGE_SHOWN,
+                             &FileExplorerView::OnSessionPageShown, this);
+  EventNotifier::Get()->Bind(wxEVT_FILE_REVEAL, &FileExplorerView::OnFileReveal,
+                             this);
 }
 
 FileExplorerView::~FileExplorerView() {
   EventNotifier::Get()->Unbind(wxEVT_FILETREE_CONNECTED,
                                &FileExplorerView::OnTreeConnected, this);
+  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGE_RENAMED,
+                               &FileExplorerView::OnSessionRenamed, this);
+  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGE_ADDED,
+                               &FileExplorerView::OnSessionPageAdded, this);
+  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGE_REMOVED,
+                               &FileExplorerView::OnSessionPageRemoved, this);
+  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGES_CLEARED,
+                               &FileExplorerView::OnSessionPagesCleared, this);
+  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGE_SHOWN,
+                               &FileExplorerView::OnSessionPageShown, this);
+  EventNotifier::Get()->Unbind(wxEVT_FILE_REVEAL,
+                               &FileExplorerView::OnFileReveal, this);
 }
 
 bool FileExplorerView::IsLinked() const {
@@ -223,7 +254,7 @@ void FileExplorerView::OnChoice(wxCommandEvent &event) {
   PageViewEvent picked(wxEVT_FILEEXPLORER_SESSION_SELECTED);
   picked.SetEventObject(this);
   picked.SetRef(m_entries[index].ref);
-  ProcessWindowEvent(picked);
+  EventNotifier::Get()->AddPendingEvent(picked);
 }
 
 void FileExplorerView::OnLink(wxCommandEvent &event) {
@@ -232,4 +263,31 @@ void FileExplorerView::OnLink(wxCommandEvent &event) {
   if (IsLinked() && m_active) {
     SetActiveSession(*m_active);
   }
+}
+
+void FileExplorerView::OnSessionPageRemoved(PageViewEvent &event) {
+  event.Skip();
+  RemoveSession(event.GetRef());
+}
+
+void FileExplorerView::OnSessionPageAdded(PageViewEvent &event) {
+  event.Skip();
+  const SessionRef &ref = event.GetRef();
+  AddSession(ref, ExplorerLabel(ref), event.GetAccount());
+}
+
+void FileExplorerView::OnSessionPageShown(PageViewEvent &event) {
+  event.Skip();
+  SetActiveSession(event.GetRef());
+}
+
+void FileExplorerView::OnSessionRenamed(PageViewEvent &event) {
+  event.Skip();
+  RenameSession(event.GetOldRef(), event.GetRef(),
+                ExplorerLabel(event.GetRef()));
+}
+
+void FileExplorerView::OnFileReveal(FileEvent &event) {
+  event.Skip();
+  RevealFile(event.GetAccount(), event.GetPath());
 }

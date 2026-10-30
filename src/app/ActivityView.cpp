@@ -2,6 +2,7 @@
 
 #include "core/AppManager.h"
 
+#include "core/EventNotifier.hpp"
 #include <algorithm>
 #include <wx/app.h>
 #include <wx/dataview.h>
@@ -30,6 +31,33 @@ ActivityView::ActivityView(wxWindow *parent)
   m_list->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
                &ActivityView::OnSelectionChanged, this);
   Bind(wxEVT_IDLE, &ActivityView::OnIdle, this);
+  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGE_RENAMED,
+                             &ActivityView::OnSessionRenamed, this);
+  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGE_REMOVED,
+                             &ActivityView::OnSessionPageRemoved, this);
+  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGES_CLEARED,
+                             &ActivityView::OnSessionPagesCleared, this);
+  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGE_SHOWN,
+                             &ActivityView::OnSessionPageShown, this);
+  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGE_ACTIVITY,
+                             &ActivityView::OnSessionPageActivity, this);
+  EventNotifier::Get()->Bind(wxEVT_FILE_REVEAL, &ActivityView::OnFileReveal,
+                             this);
+}
+
+ActivityView::~ActivityView() {
+  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGE_RENAMED,
+                               &ActivityView::OnSessionRenamed, this);
+  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGE_REMOVED,
+                               &ActivityView::OnSessionPageRemoved, this);
+  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGES_CLEARED,
+                               &ActivityView::OnSessionPagesCleared, this);
+  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGE_SHOWN,
+                               &ActivityView::OnSessionPageShown, this);
+  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGE_ACTIVITY,
+                               &ActivityView::OnSessionPageActivity, this);
+  EventNotifier::Get()->Unbind(wxEVT_FILE_REVEAL, &ActivityView::OnFileReveal,
+                               this);
 }
 
 int ActivityView::FindRow(const SessionRef &ref) const {
@@ -63,16 +91,15 @@ void ActivityView::SetActivity(const SessionRef &ref, PageActivity activity) {
   Refill();
 }
 
-void ActivityView::SetActiveSession(const std::optional<SessionRef> &ref) {
-  m_active = ref;
-}
-
 void ActivityView::RemoveSession(const SessionRef &ref) {
   const int index = FindRow(ref);
   if (index == wxNOT_FOUND) {
     return;
   }
   m_rows.erase(m_rows.begin() + index);
+  if (m_active == ref) {
+    m_active.reset();
+  }
   Refill();
 }
 
@@ -198,8 +225,35 @@ void ActivityView::OnSelectionChanged(wxDataViewEvent &event) {
   picked.SetEventObject(this);
   picked.SetRef(m_rows[index].ref);
   picked.SetActivity(m_rows[index].activity);
-  ProcessWindowEvent(picked);
+  EventNotifier::Get()->AddPendingEvent(picked);
   // A working or blocked row stays selected otherwise, and a second click on it
   // sends nothing (the selection does not change).
   CallAfter([this] { m_list->UnselectAll(); });
+}
+
+void ActivityView::OnSessionPageShown(PageViewEvent &event) {
+  event.Skip();
+  m_active = event.GetRef();
+}
+
+void ActivityView::OnSessionRenamed(PageViewEvent &event) {
+  event.Skip();
+  RenameSession(event.GetOldRef(), event.GetRef());
+}
+
+void ActivityView::OnSessionPageRemoved(PageViewEvent &event) {
+  event.Skip();
+  RemoveSession(event.GetRef());
+}
+
+void ActivityView::OnSessionPageActivity(PageViewEvent &event) {
+  event.Skip();
+  SetActivity(event.GetRef(), event.GetActivity());
+}
+
+void ActivityView::OnFileReveal(FileEvent &event) {
+  event.Skip();
+
+  // Not a session - clear the active session.
+  m_active.reset();
 }

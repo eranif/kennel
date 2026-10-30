@@ -2,7 +2,6 @@
 
 #include "UI.hpp"
 #include "app/FileEvent.hpp"
-#include "app/PageViewEvent.hpp"
 #include "app/ThemeManager.h"
 
 #include <span>
@@ -12,10 +11,9 @@ class FileExplorerView;
 
 // The main window's content: the side panes (the file explorer, the activity
 // view) and their layout. The pages are in the notebook (MainNotebook), which
-// this class does not know: the two talk with events only. The notebook tells
-// what happens to the sessions (PageViewEvent.hpp, wxEVT_FILE_REVEAL) and this
-// class shows it in the side views; what the user asks in them is passed on
-// through the EventNotifier.
+// this class does not know. The side views listen on the EventNotifier to what
+// happens to the sessions and files, and send what the user asks to it
+// themselves; this class only hosts them and lays them out.
 class MainView : public MainViewBase {
 public:
   explicit MainView(wxWindow *parent);
@@ -39,9 +37,9 @@ public:
 private:
   void LoadBitmaps();
   void FinaliseConstruction();
-  bool MakeActive(wxWindow* win);
+  bool MakeActive(wxWindow *win);
   using ChildFocusEvent = void (MainView::*)(wxChildFocusEvent &);
-  void BindFocusChildEvent(wxWindow* win, ChildFocusEvent handlerFn);
+  void BindFocusChildEvent(wxWindow *win, ChildFocusEvent handlerFn);
 
   void OnMainPanelChildFocus(wxChildFocusEvent &event);
   void OnActivityPanelChildFocus(wxChildFocusEvent &event);
@@ -50,25 +48,10 @@ private:
   // Gives the side panes `names` their default width (kSidePaneWidthDip).
   void ApplyDefaultPaneWidths(std::span<const wxString> names);
 
-  // ---- From the pages: the file explorer follows ---------------------------
-  void OnSessionPageAdded(PageViewEvent &event);
-  void OnSessionPageRemoved(PageViewEvent &event);
-  void OnSessionPageRenamed(PageViewEvent &event);
-  void OnSessionPagesCleared(wxCommandEvent &event);
-  void OnSessionPageShown(PageViewEvent &event);
-  void OnSessionPageActivity(PageViewEvent &event);
-  void OnFileReveal(FileEvent &event);
+  // ---- The theme changed, and the file explorer's files ---------------------
   void OnToolBarStyle(wxCommandEvent &event);
-
-  // ---- From the file explorer: passed on to whoever cares -------------------
-  // The user chose a session in the choice of the file explorer.
-  void OnExplorerSession(PageViewEvent &event);
-  // A file or a folder of the file explorer was double clicked.
+  // A file or a folder of the file explorer was double clicked: passed on.
   void OnFileTreeActivated(FileEvent &event);
-
-  // ---- From the activity view: passed on to whoever cares -------------------
-  // The user clicked a session of the activity view.
-  void OnActivitySession(PageViewEvent &event);
 
   FileExplorerView *m_fileExplorer{nullptr};
   ActivityView *m_activityView{nullptr};

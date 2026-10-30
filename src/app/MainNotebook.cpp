@@ -247,7 +247,7 @@ void MainNotebook::SendPageEvent(wxEventType type, const SessionRef &ref,
   event.SetOldRef(oldRef);
   event.SetAccount(account);
   event.SetActivity(activity);
-  ProcessWindowEvent(event);
+  EventNotifier::Get()->ProcessEvent(event);
 }
 
 void MainNotebook::OnShowSessionRequested(PageViewEvent &event) {
@@ -608,11 +608,12 @@ void MainNotebook::PageShown(wxWindow *page, bool updateRecent) {
   } else if (auto *file = dynamic_cast<FilePage *>(page)) {
     // The file is selected in the file explorer, if it is inside the tree that
     // is showing.
-    FileEvent reveal(wxEVT_FILE_REVEAL, GetId());
-    reveal.SetEventObject(this);
-    reveal.SetPath(file->GetAccountPath());
-    reveal.SetAccount(file->GetAccount());
-    ProcessWindowEvent(reveal);
+    FileEvent revealEvent(wxEVT_FILE_REVEAL, GetId());
+    revealEvent.SetEventObject(this);
+    revealEvent.SetPath(file->GetAccountPath());
+    revealEvent.SetAccount(file->GetAccount());
+    EventNotifier::Get()->ProcessEvent(revealEvent);
+
     wxTheApp->GetTopWindow()->SetLabel(file->GetPath());
     GetMainFrame()->ClearSessionStatus();
     file->PublishStatus();
@@ -1458,9 +1459,12 @@ void MainNotebook::DeleteAll() {
   m_restoringFiles.clear();
   m_selectWhenRestored.clear();
   DeleteAllTabs();
+
+  // Notify about all pages cleared
   wxCommandEvent cleared(wxEVT_SESSION_PAGES_CLEARED, GetId());
   cleared.SetEventObject(this);
-  ProcessWindowEvent(cleared);
+  EventNotifier::Get()->ProcessEvent(cleared);
+
   m_recent.clear();
   GetMainFrame()->ClearSessionStatus();
   // A page destroyed mid-save never delivers wxEVT_FILE_SAVE_DONE.

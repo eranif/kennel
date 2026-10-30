@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/FileEvent.hpp"
 #include "app/FileTreeCtrl.hpp"
 #include "app/PageViewEvent.hpp"
 #include "core/Account.h"
@@ -13,9 +14,9 @@ class wxAuiToolBar;
 class wxChoice;
 class wxSimplebook;
 
-// Sent (to the parent windows) when the user picks a session in the choice. The
-// session is GetRef(); the host shows it (and it goes back to the view with
-// SetActiveSession(), which is harmless).
+// Sent on the EventNotifier when the user picks a session in the choice. The
+// session is GetRef(); the host shows it, and the page that shows then comes
+// back on wxEVT_SESSION_PAGE_SHOWN (harmless here).
 wxDECLARE_EVENT(wxEVT_FILEEXPLORER_SESSION_SELECTED, PageViewEvent);
 
 // The files of the open sessions: one FileTreeCtrl for each session, in a
@@ -26,11 +27,12 @@ wxDECLARE_EVENT(wxEVT_FILEEXPLORER_SESSION_SELECTED, PageViewEvent);
 //   |  the tree of the session in the choice        |
 //   +-----------------------------------------------+
 //
-// While Link is on, the tree follows the session the host says is active
-// (SetActiveSession()); the user can still choose another one in the choice.
+// While Link is on, the tree follows the session that is showing (see
+// wxEVT_SESSION_PAGE_SHOWN); the user can still choose another one in the
+// choice.
 //
-// Self contained: the host (MainView) tells it which sessions exist, and
-// listens to the events of the trees, which reach the parent windows (see
+// Self contained: it listens on the EventNotifier to which sessions exist, and
+// to the events of the trees, which reach the parent windows (see
 // FileTreeCtrl): it never learns what the host does with them. The tree of a
 // session that lives on a remote host connects when its entry is first shown
 // (see FileTreeCtrl::ConnectAsync()).
@@ -38,20 +40,6 @@ class FileExplorerView : public wxPanel {
 public:
   explicit FileExplorerView(wxWindow *parent);
   ~FileExplorerView() override;
-
-  // A new session: its tree is built from `account` (the choice shows `label`).
-  // The first session is shown at once.
-  void AddSession(const SessionRef &ref, const wxString &label,
-                  const Account &account);
-  void RemoveSession(const SessionRef &ref);
-  // A session got another name or group. Never loses the tree.
-  void RenameSession(const SessionRef &from, const SessionRef &to,
-                     const wxString &label);
-  void Clear();
-
-  // The session the user is working in. While Link is on, its tree is shown.
-  // Never sends events.
-  void SetActiveSession(const SessionRef &ref);
 
   bool IsLinked() const;
   // The file `path` (in the notation of `account`: a Linux path for WSL) is
@@ -67,6 +55,31 @@ public:
   size_t GetSessionCount() const { return m_entries.size(); }
 
 private:
+  void OnFileReveal(FileEvent &event);
+  void OnSessionPageShown(PageViewEvent &event);
+  void OnSessionRenamed(PageViewEvent &event);
+  void OnSessionPageAdded(PageViewEvent &event);
+  void OnSessionPageRemoved(PageViewEvent &event);
+  void OnSessionPagesCleared(wxCommandEvent &event) {
+    event.Skip();
+    Clear();
+  }
+
+  // The session the user is working in. While Link is on, its tree is shown.
+  // Never sends events.
+  void SetActiveSession(const SessionRef &ref);
+  void Clear();
+  void RemoveSession(const SessionRef &ref);
+
+  // A new session: its tree is built from `account` (the choice shows `label`).
+  // The first session is shown at once.
+  void AddSession(const SessionRef &ref, const wxString &label,
+                  const Account &account);
+
+  // A session got another name or group. Never loses the tree.
+  void RenameSession(const SessionRef &from, const SessionRef &to,
+                     const wxString &label);
+
   // One session: its entry in the choice, and its tree (the page in the book).
   struct Entry {
     SessionRef ref;

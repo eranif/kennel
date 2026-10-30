@@ -47,11 +47,12 @@ private:
   PageActivity m_activity{PageActivity::None};
 };
 
-// The events below are how the pages (MainNotebook) and the rest of the main
-// window (MainView) talk: neither knows the other.
+// The events below are how the pages (MainNotebook) and the side views
+// (ActivityView, FileExplorerView) talk: neither knows the other. They travel
+// on the EventNotifier.
 //
-// From the pages, to the parent windows (the receiver follows and sends
-// nothing back):
+// From the pages, on the EventNotifier (the receiver follows and sends nothing
+// back):
 //   wxEVT_SESSION_PAGE_ADDED:    a session with files to show: GetRef(),
 //                                GetAccount().
 //   wxEVT_SESSION_PAGE_REMOVED:  GetRef() is gone.

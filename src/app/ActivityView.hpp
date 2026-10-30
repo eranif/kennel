@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/FileEvent.hpp"
 #include "app/PageViewEvent.hpp"
 #include "core/Spinner.h"
 #include "core/Workspace.h"
@@ -12,9 +13,9 @@
 class wxDataViewEvent;
 class wxDataViewListCtrl;
 
-// Sent (to the parent windows) when the user clicks a session of the list. The
-// session is GetRef(); the host shows it and tells the view with
-// SetActiveSession().
+// Sent on the EventNotifier when the user clicks a session of the list. The
+// session is GetRef(); the host shows it, and the page that shows then comes
+// back on wxEVT_SESSION_PAGE_SHOWN.
 wxDECLARE_EVENT(wxEVT_ACTIVITYVIEW_SESSION_SELECTED, PageViewEvent);
 
 // The sessions whose program is working, is done or is blocked.
@@ -32,27 +33,36 @@ wxDECLARE_EVENT(wxEVT_ACTIVITYVIEW_SESSION_SELECTED, PageViewEvent);
 // comes while the user is in that session goes at once, and one for another
 // session goes when the user selects it. The spinner of a working row turns.
 //
-// Self contained: the host (MainView) says what happens to the sessions and
-// listens to the click, which reaches the parent windows; it never learns what
-// the host does with it.
+// Self contained: it listens on the EventNotifier to what happens to the
+// sessions and sends the click there; it never learns what the host does with
+// it.
 class ActivityView : public wxPanel {
 public:
   explicit ActivityView(wxWindow *parent);
-  ~ActivityView() override = default;
+  ~ActivityView() override;
 
   // The program of `ref` is doing `activity` now. A row is added or changed;
   // PageActivity::None removes it, but not a done.
   void SetActivity(const SessionRef &ref, PageActivity activity);
-  // The session the user works in (none: a file, for example). Never sends
-  // events; its done row goes when the application is idle.
-  void SetActiveSession(const std::optional<SessionRef> &ref);
-  // The session is gone.
-  void RemoveSession(const SessionRef &ref);
-  void RenameSession(const SessionRef &from, const SessionRef &to);
-  void Clear();
   size_t GetRowCount() const { return m_rows.size(); }
 
 private:
+  void OnFileReveal(FileEvent &event);
+  void OnSessionPageShown(PageViewEvent &event);
+  void OnSessionRenamed(PageViewEvent &event);
+  void OnSessionPageRemoved(PageViewEvent &event);
+  void OnSessionPagesCleared(wxCommandEvent &event) {
+    event.Skip();
+    Clear();
+  }
+  void OnSessionPageActivity(PageViewEvent &event);
+
+  void Clear();
+  // A session got another name or group. Its row stays.
+  void RenameSession(const SessionRef &from, const SessionRef &to);
+  // The session is gone.
+  void RemoveSession(const SessionRef &ref);
+
   struct Row {
     SessionRef ref;
     PageActivity activity{PageActivity::None};

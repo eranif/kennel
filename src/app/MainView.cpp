@@ -5,7 +5,6 @@
 #include "app/ActivityView.hpp"
 #include "app/AssetBootstrap.h"
 #include "app/FileExplorerView.hpp"
-#include "app/PageNames.h"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
 #include "core/Logger.h"
@@ -24,14 +23,6 @@ constexpr int kFloatingPaneWidthDip = 400;
 constexpr int kFloatingPaneHeightDip = 600;
 // The names of the side panes (see MainViewBase).
 const wxString kSidePanes[] = {"FileBrowser", "Activity"};
-
-// What the choice of the file explorer shows for a session: the name, and the
-// group when the session is in one.
-wxString ExplorerLabel(const SessionRef &ref) {
-  return ref.groupName == kTerminalsGroupName
-             ? ref.name
-             : ref.name + " (" + ref.groupName + ")";
-}
 } // namespace
 
 MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
@@ -68,20 +59,10 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
   }
   m_defaultLayout = m_auimgr->SavePerspective();
 
-  // What the pages tell: the side views follow.
-  Bind(wxEVT_SESSION_PAGE_ADDED, &MainView::OnSessionPageAdded, this);
-  Bind(wxEVT_SESSION_PAGE_REMOVED, &MainView::OnSessionPageRemoved, this);
-  Bind(wxEVT_SESSION_PAGE_RENAMED, &MainView::OnSessionPageRenamed, this);
-  Bind(wxEVT_SESSION_PAGES_CLEARED, &MainView::OnSessionPagesCleared, this);
-  Bind(wxEVT_SESSION_PAGE_SHOWN, &MainView::OnSessionPageShown, this);
-  Bind(wxEVT_SESSION_PAGE_ACTIVITY, &MainView::OnSessionPageActivity, this);
-  Bind(wxEVT_FILE_REVEAL, &MainView::OnFileReveal, this);
+  // The theme changed: the toolbars take its style.
   Bind(wxEVT_PAGES_TOOLBAR_STYLE, &MainView::OnToolBarStyle, this);
-  // What the user asks in the file explorer.
+  // What the user double clicks in the file explorer.
   Bind(wxEVT_FILETREE_ACTIVATED, &MainView::OnFileTreeActivated, this);
-  Bind(wxEVT_FILEEXPLORER_SESSION_SELECTED, &MainView::OnExplorerSession, this);
-  // What the user asks in the activity view.
-  Bind(wxEVT_ACTIVITYVIEW_SESSION_SELECTED, &MainView::OnActivitySession, this);
 
   // Finalise frame construction.
   FinaliseConstruction();
@@ -107,68 +88,14 @@ void MainView::FinaliseConstruction() {
 }
 
 // ---------------------------------------------------------------------------
-// From the pages
+// The theme and the file explorer
 // ---------------------------------------------------------------------------
-
-void MainView::OnSessionPageAdded(PageViewEvent &event) {
-  const SessionRef &ref = event.GetRef();
-  m_fileExplorer->AddSession(ref, ExplorerLabel(ref), event.GetAccount());
-}
-
-void MainView::OnSessionPageRemoved(PageViewEvent &event) {
-  m_fileExplorer->RemoveSession(event.GetRef());
-  m_activityView->RemoveSession(event.GetRef());
-}
-
-void MainView::OnSessionPageRenamed(PageViewEvent &event) {
-  m_fileExplorer->RenameSession(event.GetOldRef(), event.GetRef(),
-                                ExplorerLabel(event.GetRef()));
-  m_activityView->RenameSession(event.GetOldRef(), event.GetRef());
-}
-
-void MainView::OnSessionPagesCleared(wxCommandEvent &) {
-  m_fileExplorer->Clear();
-  m_activityView->Clear();
-}
-
-void MainView::OnSessionPageShown(PageViewEvent &event) {
-  // Selects what is to be shown; nothing is sent back.
-  m_fileExplorer->SetActiveSession(event.GetRef());
-  m_activityView->SetActiveSession(event.GetRef());
-}
-
-void MainView::OnSessionPageActivity(PageViewEvent &event) {
-  m_activityView->SetActivity(event.GetRef(), event.GetActivity());
-}
-
-void MainView::OnFileReveal(FileEvent &event) {
-  // Selects the file; nothing is sent back.
-  m_fileExplorer->RevealFile(event.GetAccount(), event.GetPath());
-  // A file is showing, not a session.
-  m_activityView->SetActiveSession(std::nullopt);
-}
 
 void MainView::OnToolBarStyle(wxCommandEvent &) {
   m_fileExplorer->ApplyToolBarStyle();
 }
 
-// ---------------------------------------------------------------------------
-// From the file explorer
-// ---------------------------------------------------------------------------
-
-void MainView::OnExplorerSession(PageViewEvent &event) {
-  EventNotifier::Get()->AddPendingEvent(event);
-}
-
 void MainView::OnFileTreeActivated(FileEvent &event) {
-  EventNotifier::Get()->AddPendingEvent(event);
-}
-
-// ---------------------------------------------------------------------------
-// From the activity view
-// ---------------------------------------------------------------------------
-
-void MainView::OnActivitySession(PageViewEvent &event) {
   EventNotifier::Get()->AddPendingEvent(event);
 }
 

@@ -49,9 +49,9 @@ struct RemoteReadResult {
 // the workspace file, the theme.
 //
 // It does not know the rest of the window. It tells what happens to the
-// sessions with the events of PageViewEvent.hpp (and wxEVT_FILE_REVEAL), to its
-// parent windows, and it listens on the EventNotifier to what the file
-// explorer asks for (wxEVT_FILEEXPLORER_SESSION_SELECTED, wxEVT_FILETREE_...).
+// sessions with the events of PageViewEvent.hpp (and wxEVT_FILE_REVEAL) on the
+// EventNotifier, and it listens there to what the side views ask for
+// (wxEVT_FILEEXPLORER_SESSION_SELECTED, wxEVT_FILETREE_...).
 class MainNotebook : public wxPanel {
 public:
   explicit MainNotebook(wxWindow *parent, wxWindowID winid = wxID_ANY,
@@ -237,7 +237,7 @@ private:
   // theme.
   void OnThemeApplied(wxCommandEvent &event);
 
-  // ---- Events to the parent windows -----------------------------------------
+  // ---- Events on the EventNotifier ------------------------------------------
   void SendPageEvent(wxEventType type, const SessionRef &ref,
                      const Account &account = Account::LocalHost(),
                      const SessionRef &oldRef = {},
