@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
-  <g transform="matrix(1.1428571,0,0,1.148052,-1.1428568,-1.184416)" fill="#5f5f5f">
+  <g transform="matrix(1.0714286,0,0,1.148052,-0.5714286,-1.184416)" fill="#5f5f5f">
     <!-- Screen frame with a see-through screen (even-odd: the inner shape is a hole) -->
     <path fill-rule="evenodd" d="M 2.5,2 H 13.5 A 1.5 1.5 0 0 1 15,3.5 V 10.5 A 1.5 1.5 0 0 1 13.5,12 H 2.5 A 1.5 1.5 0 0 1 1,10.5 V 3.5 A 1.5 1.5 0 0 1 2.5,2 Z M 2.5,3 H 13.5 A 0.5 0.5 0 0 1 14,3.5 V 10.5 A 0.5 0.5 0 0 1 13.5,11 H 2.5 A 0.5 0.5 0 0 1 2,10.5 V 3.5 A 0.5 0.5 0 0 1 2.5,3 Z"/>
     <!-- Prompt chevron > -->

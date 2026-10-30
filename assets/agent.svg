@@ -37,67 +37,11 @@
   <!-- Eyes -->
   <!-- Mouth -->
   <!-- Ears / side nubs -->
-  <rect
-     x="1.7142856"
-     y="0.99504149"
-     width="12.571429"
-     height="14.009917"
-     rx="2.8571429"
-     ry="3.8916435"
-     fill="#3b82f6"
-     id="rect1"
-     style="stroke-width:1.33381" />
-  <rect
-     x="3.0857143"
-     y="3.1743619"
-     width="9.8285723"
-     height="9.6512747"
-     rx="1.6"
-     ry="2.1793203"
-     fill="#0f172a"
-     id="rect2"
-     style="stroke-width:1.33381" />
-  <ellipse
-     cx="5.7142859"
-     cy="7.377336"
-     fill="#3b82f6"
-     id="circle2"
-     style="stroke-width:1.33381"
-     rx="1.3142858"
-     ry="1.790156" />
-  <ellipse
-     cx="10.285714"
-     cy="7.377336"
-     fill="#3b82f6"
-     id="circle3"
-     style="stroke-width:1.33381"
-     rx="1.3142858"
-     ry="1.790156" />
-  <rect
-     x="5.1428571"
-     y="10.490651"
-     width="5.7142859"
-     height="1.5566574"
-     rx="0.5714286"
-     fill="#3b82f6"
-     id="rect3"
-     style="stroke-width:1.33381" />
-  <rect
-     x="-2.1920928e-07"
-     y="4.8866854"
-     width="1.8285716"
-     height="5.4483008"
-     rx="0.91428578"
-     fill="#3b82f6"
-     id="rect4"
-     style="stroke-width:1.33381" />
-  <rect
-     x="14.171429"
-     y="4.8866854"
-     width="1.8285716"
-     height="5.4483008"
-     rx="0.91428578"
-     fill="#3b82f6"
-     id="rect5"
-     style="stroke-width:1.33381" />
+  <rect x="1.2" y="1.2" width="13.6" height="13.6" rx="3.2" ry="3.2" fill="#3b82f6" id="rect1" />
+  <rect x="2.6" y="2.9" width="10.8" height="10.2" rx="1.8" ry="1.8" fill="#0f172a" id="rect2" />
+  <ellipse cx="5.6" cy="7.4" rx="1.4" ry="1.6" fill="#3b82f6" id="circle2" />
+  <ellipse cx="10.4" cy="7.4" rx="1.4" ry="1.6" fill="#3b82f6" id="circle3" />
+  <rect x="5" y="10.4" width="6" height="1.4" rx="0.7" fill="#3b82f6" id="rect3" />
+  <rect x="0" y="5.3" width="1.8" height="5" rx="0.9" fill="#3b82f6" id="rect4" />
+  <rect x="14.2" y="5.3" width="1.8" height="5" rx="0.9" fill="#3b82f6" id="rect5" />
 </svg>

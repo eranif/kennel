@@ -19,6 +19,7 @@
 - [x] BUG: Tab Spinner is NOT spinning.
 - [x] Tab icons are too small.
 - [ ] IMPORTANT: allow the user to change the tab position.
+- [ ] Allow changing the tab outline colour.
 - [ ] Main Toolbar icons are not aligned (different size).
 - [ ] Start Agent Dialog: remember 10 paths used.
 - [ ] Main ToolBar: tooltip should have the full path of the file.

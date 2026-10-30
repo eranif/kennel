@@ -16,6 +16,6 @@
   <!-- Center pin -->
   <circle cx="8" cy="8.9" r="0.9" fill="#3b82f6" />
   <!-- Play badge -->
-  <circle cx="13.2" cy="13.2" r="3.3" fill="#16a34a" />
-  <path fill="#ffffff" d="M 11.88,11.33 11.88,15.07 15.18,13.2 Z" />
+  <circle cx="12.7" cy="12.7" r="3.3" fill="#16a34a" />
+  <path fill="#ffffff" d="M 11.38,10.83 11.38,14.57 14.68,12.7 Z" />
 </svg>
