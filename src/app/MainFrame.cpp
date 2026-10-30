@@ -495,11 +495,14 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.terminalTheme = settingsDlg.GetTheme();
     prefs.appTheme = settingsDlg.GetAppThemeName();
     prefs.blockCursor = settingsDlg.GetUseBlockCursor();
+    prefs.blockCursor = settingsDlg.GetUseBlockCursor();
     prefs.terminalLoginShell = settingsDlg.GetDefaultLoginShell();
     prefs.terminalHomeDir = settingsDlg.GetDefaultHomeDir();
     prefs.terminalOptimizedDrawing = settingsDlg.OptimizeTerminalDrawing();
     prefs.checkForUpdatesOnStartup = settingsDlg.GetCheckForUpdatesOnStartup();
     prefs.scrollbackLines = settingsDlg.GetScrollBackLines();
+    prefs.tabPosition = settingsDlg.GetTabPosition();
+    prefs.tabOutlineColour = settingsDlg.GetTabOutlineColour();
     ApplyAppTheme(prefs.appTheme);
     AppManager::Get().SavePrefs();
     m_mainView->GetSessionsBook()->ApplyPrefs();

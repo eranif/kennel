@@ -2,6 +2,7 @@
 
 #include "core/Helpers.h"
 #include <vector>
+#include <wx/arrstr.h>
 #include <wx/string.h>
 
 // Top-level window geometry persisted in .persist.json.
@@ -40,4 +41,6 @@ struct UiPrefs {
   wxString terminalHomeDir = ::wxGetHomeDir();
   std::vector<wxString> recentWorkingDirs; // most-recent first, capped at 10
   std::vector<wxString> recentHosts;       // most-recent first, capped at 10
+  wxString tabOutlineColour{"blue"};
+  wxDirection tabPosition{wxDirection::wxLEFT};
 };

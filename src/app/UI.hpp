@@ -384,6 +384,10 @@ protected:
     wxChoice* m_choiceTheme;
     wxStaticText* m_staticText357;
     wxFontPickerCtrl* m_fontPicker;
+    wxStaticText* m_staticText603;
+    wxChoice* m_choiceTabPosition;
+    wxStaticText* m_staticText605;
+    wxChoice* m_choiceTabOutlineColour;
     wxChoice* m_choiceAppTheme;
     wxPanel* m_panel361;
     wxStaticText* m_staticText365;
@@ -403,6 +407,8 @@ protected:
 protected:
     virtual void OnChoiceTheme(wxCommandEvent& event) { event.Skip(); }
     virtual void OnFontSelected(wxFontPickerEvent& event) { event.Skip(); }
+    virtual void OnTabPosition(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnTabOutlineColour(wxCommandEvent& event) { event.Skip(); }
     virtual void OnBrowseForShellWorkingDir(wxCommandEvent& event) { event.Skip(); }
 
 public:
@@ -410,6 +416,10 @@ public:
     wxChoice* GetChoiceTheme() { return m_choiceTheme; }
     wxStaticText* GetStaticText357() { return m_staticText357; }
     wxFontPickerCtrl* GetFontPicker() { return m_fontPicker; }
+    wxStaticText* GetStaticText603() { return m_staticText603; }
+    wxChoice* GetChoiceTabPosition() { return m_choiceTabPosition; }
+    wxStaticText* GetStaticText605() { return m_staticText605; }
+    wxChoice* GetChoiceTabOutlineColour() { return m_choiceTabOutlineColour; }
     wxChoice* GetChoiceAppTheme() { return m_choiceAppTheme; }
     wxPanel* GetPanel353() { return m_panel353; }
     wxStaticText* GetStaticText365() { return m_staticText365; }

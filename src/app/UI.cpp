@@ -1149,6 +1149,40 @@ SettingsDlgBase::SettingsDlgBase(wxWindow* parent, wxWindowID id, const wxString
     
     flexGridSizer354->Add(m_fontPicker, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
     
+    wxStaticBoxSizer* staticBoxSizer601 = new wxStaticBoxSizer( new wxStaticBox(m_panel353, wxID_ANY, _("Tabs:")), wxVERTICAL);
+    
+    boxSizer360->Add(staticBoxSizer601, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
+    wxFlexGridSizer* flexGridSizer602 = new wxFlexGridSizer(0, 2, 0, 0);
+    flexGridSizer602->SetFlexibleDirection( wxBOTH );
+    flexGridSizer602->SetNonFlexibleGrowMode( wxFLEX_GROWMODE_SPECIFIED );
+    flexGridSizer602->AddGrowableCol(1);
+    
+    staticBoxSizer601->Add(flexGridSizer602, 1, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
+    m_staticText603 = new wxStaticText(m_panel353, wxID_ANY, _("Tab Position:"), wxDefaultPosition, wxDLG_UNIT(m_panel353, wxSize(-1,-1)), 0);
+    
+    flexGridSizer602->Add(m_staticText603, 0, wxALL|wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+    
+    wxArrayString m_choiceTabPositionArr;
+    m_choiceTabPositionArr.Add(_("Top"));
+    m_choiceTabPositionArr.Add(_("Bottom"));
+    m_choiceTabPositionArr.Add(_("Left"));
+    m_choiceTabPositionArr.Add(_("Right"));
+    m_choiceTabPosition = new wxChoice(m_panel353, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_panel353, wxSize(-1,-1)), m_choiceTabPositionArr, 0);
+    m_choiceTabPosition->SetSelection(0);
+    
+    flexGridSizer602->Add(m_choiceTabPosition, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
+    m_staticText605 = new wxStaticText(m_panel353, wxID_ANY, _("Tab Outline Colour:"), wxDefaultPosition, wxDLG_UNIT(m_panel353, wxSize(-1,-1)), 0);
+    
+    flexGridSizer602->Add(m_staticText605, 0, wxALL|wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+    
+    wxArrayString m_choiceTabOutlineColourArr;
+    m_choiceTabOutlineColour = new wxChoice(m_panel353, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_panel353, wxSize(-1,-1)), m_choiceTabOutlineColourArr, 0);
+    
+    flexGridSizer602->Add(m_choiceTabOutlineColour, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
     wxStaticBoxSizer* staticBoxSizer569 = new wxStaticBoxSizer( new wxStaticBox(m_panel353, wxID_ANY, _("Theme:")), wxVERTICAL);
     
     boxSizer360->Add(staticBoxSizer569, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
@@ -1284,6 +1318,8 @@ SettingsDlgBase::SettingsDlgBase(wxWindow* parent, wxWindowID id, const wxString
     // Connect events
     m_choiceTheme->Bind(wxEVT_COMMAND_CHOICE_SELECTED, &SettingsDlgBase::OnChoiceTheme, this);
     m_fontPicker->Bind(wxEVT_COMMAND_FONTPICKER_CHANGED, &SettingsDlgBase::OnFontSelected, this);
+    m_choiceTabPosition->Bind(wxEVT_COMMAND_CHOICE_SELECTED, &SettingsDlgBase::OnTabPosition, this);
+    m_choiceTabOutlineColour->Bind(wxEVT_COMMAND_CHOICE_SELECTED, &SettingsDlgBase::OnTabOutlineColour, this);
     m_button508->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &SettingsDlgBase::OnBrowseForShellWorkingDir, this);
     
 }
@@ -1292,6 +1328,8 @@ SettingsDlgBase::~SettingsDlgBase()
 {
     m_choiceTheme->Unbind(wxEVT_COMMAND_CHOICE_SELECTED, &SettingsDlgBase::OnChoiceTheme, this);
     m_fontPicker->Unbind(wxEVT_COMMAND_FONTPICKER_CHANGED, &SettingsDlgBase::OnFontSelected, this);
+    m_choiceTabPosition->Unbind(wxEVT_COMMAND_CHOICE_SELECTED, &SettingsDlgBase::OnTabPosition, this);
+    m_choiceTabOutlineColour->Unbind(wxEVT_COMMAND_CHOICE_SELECTED, &SettingsDlgBase::OnTabOutlineColour, this);
     m_button508->Unbind(wxEVT_COMMAND_BUTTON_CLICKED, &SettingsDlgBase::OnBrowseForShellWorkingDir, this);
     
 }

@@ -315,7 +315,6 @@ set(KENNEL_APP_SOURCES
     src/app/ThemeLoader.cpp
     src/app/ThemeManager.cpp
     src/app/UI.cpp
-    src/app/UI_app_bitmaps.cpp
     src/app/NewEnvVarDlg.cpp
     src/app/AppUIGlobals.cpp
     src/app/NewAgentWizard.cpp

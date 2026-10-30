@@ -14,6 +14,7 @@
 #include "app/PageNames.h"
 #include "app/PageSwitcherDlg.hpp"
 #include "app/SessionPage.hpp"
+#include "app/SettingsDlg.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/ClientAdapter.h"
@@ -24,7 +25,6 @@
 #include "core/Workspace.h"
 #include "core/WorkspaceStore.h"
 #include "core/WslPath.h"
-
 #include "terminal_view.h"
 
 #include "core/Helpers.h"
@@ -1262,8 +1262,13 @@ void MainNotebook::OnThemeApplied(wxCommandEvent &event) {
       wxSystemSettings::GetAppearance().IsDark()
           ? wxTerminalTheme::MakeDarkTheme()
           : wxTerminalTheme::MakeLightTheme());
+  auto art = new GlyphTabArt(theme);
+  const auto &prefs = AppManager::Get().GetPrefs();
+  art->SetOutlineColour(
+      SettingsDlg::GetTabOutlineColourOf(theme, prefs.tabOutlineColour));
   m_book->SetBackgroundColour(theme.bg);
-  m_book->SetArtProvider(new GlyphTabArt(theme));
+  m_book->SetArtProvider(art);
+  m_book->SetTabPosition(prefs.tabPosition);
   m_book->Refresh();
 }
 

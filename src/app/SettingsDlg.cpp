@@ -7,11 +7,82 @@
 #include "terminal_view.h"
 #include <wx/tokenzr.h>
 
+/// A theme colour that the outline of the current tab can have.
+struct TabOutlineColour {
+  const char *label; ///< The name in the settings dialog.
+  wxColour wxTerminalTheme::*member;
+};
+
+const std::vector<TabOutlineColour> &GetTabOutlineColours() {
+  static const std::vector<TabOutlineColour> colours = {
+      {"Text", &wxTerminalTheme::fg},
+      {"Red", &wxTerminalTheme::red},
+      {"Green", &wxTerminalTheme::green},
+      {"Yellow", &wxTerminalTheme::yellow},
+      {"Blue", &wxTerminalTheme::blue},
+      {"Magenta", &wxTerminalTheme::magenta},
+      {"Cyan", &wxTerminalTheme::cyan},
+      {"White", &wxTerminalTheme::white},
+      {"Bright Red", &wxTerminalTheme::brightRed},
+      {"Bright Green", &wxTerminalTheme::brightGreen},
+      {"Bright Yellow", &wxTerminalTheme::brightYellow},
+      {"Bright Blue", &wxTerminalTheme::brightBlue},
+      {"Bright Magenta", &wxTerminalTheme::brightMagenta},
+      {"Bright Cyan", &wxTerminalTheme::brightCyan},
+      {"Bright White", &wxTerminalTheme::brightWhite},
+      {"Selection", &wxTerminalTheme::selectionBg},
+      {"Search Match", &wxTerminalTheme::highlightBg},
+      {"Cursor", &wxTerminalTheme::cursorColour},
+      {"Link", &wxTerminalTheme::linkColour},
+  };
+  return colours;
+}
+
+wxColour SettingsDlg::GetTabOutlineColourOf(const wxTerminalTheme &theme,
+                                            const wxString &key) {
+  wxColour colour = theme.blue;
+  for (const auto &entry : GetTabOutlineColours()) {
+    if (key == entry.label) {
+      colour = theme.*(entry.member);
+      break;
+    }
+  }
+
+  // Some theme colours have alpha; the outline is solid.
+  return wxColour{colour.Red(), colour.Green(), colour.Blue()};
+}
+
+wxArrayString GetTabOutlineColoursArray() {
+  wxArrayString colours;
+  for (const auto &entry : GetTabOutlineColours()) {
+    colours.Add(entry.label);
+  }
+  return colours;
+}
+
 SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
   const auto &prefs = AppManager::Get().GetPrefs();
 
   m_initialFont.SetNativeFontInfo(prefs.terminalFontDesc);
   m_fontPicker->SetSelectedFont(m_initialFont);
+
+  wxString tabPos{"Left"};
+  switch (prefs.tabPosition) {
+  case wxTOP:
+    tabPos = "Top";
+    break;
+  case wxRIGHT:
+    tabPos = "Right";
+    break;
+  case wxBOTTOM:
+    tabPos = "Bottom";
+    break;
+  default:
+  case wxLEFT:
+    tabPos = "Left";
+    break;
+  }
+  m_choiceTabPosition->SetStringSelection(tabPos);
 
   m_choiceTheme->Append(ThemeManager::Get().Names());
   int where = m_choiceTheme->FindString(prefs.terminalTheme);
@@ -57,6 +128,10 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
       break;
     }
   }
+
+  m_choiceTabOutlineColour->Append(GetTabOutlineColoursArray());
+  m_choiceTabOutlineColour->SetStringSelection(prefs.tabOutlineColour);
+
   m_checkBoxBlockCaret->SetValue(prefs.blockCursor);
   m_checkBoxForNewVersionOnStartup->SetValue(prefs.checkForUpdatesOnStartup);
   m_spinCtrlScrollBackLines->SetValue(prefs.scrollbackLines);
@@ -100,5 +175,28 @@ void SettingsDlg::OnBrowseForShellWorkingDir(wxCommandEvent &event) {
   FileBrowserDlg dlg(this, std::move(provider));
   if (dlg.ShowModal() == wxID_OK) {
     m_textCtrlShellWorkingDir->ChangeValue(dlg.GetPath());
+  }
+}
+
+void SettingsDlg::OnTabPosition(wxCommandEvent &event) {
+  wxUnusedVar(event);
+  // Apply the changes for a preview
+}
+
+void SettingsDlg::OnTabOutlineColour(wxCommandEvent &event) {
+  wxUnusedVar(event);
+  // Apply the changes for a preview
+}
+
+wxDirection SettingsDlg::GetTabPosition() const {
+  wxString pos = m_choiceTabPosition->GetStringSelection();
+  if (pos == "Top") {
+    return wxDirection::wxTOP;
+  } else if (pos == "Bottom") {
+    return wxDirection::wxBOTTOM;
+  } else if (pos == "Right") {
+    return wxDirection::wxRIGHT;
+  } else {
+    return wxDirection::wxLEFT;
   }
 }

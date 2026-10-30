@@ -7,7 +7,7 @@
     "m_firstWindowId": 10000,
     "m_generatedFilesDir": ".",
     "m_includeFiles": [],
-    "m_objCounter": 600,
+    "m_objCounter": 606,
     "m_outputFileName": "",
     "m_useEnum": true,
     "m_useUnderscoreMacro": true,
@@ -14290,6 +14290,546 @@
                                               "m_eventClass": "wxFontPickerEvent",
                                               "m_eventName": "wxEVT_COMMAND_FONTPICKER_CHANGED",
                                               "m_functionNameAndSignature": "OnFontSelected(wxFontPickerEvent& event)"
+                                            }
+                                          ],
+                                          "m_children": []
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "m_type": 4449,
+                                  "proportion": 0,
+                                  "border": 5,
+                                  "gbSpan": "1,1",
+                                  "gbPosition": "0,0",
+                                  "m_styles": [],
+                                  "m_sizerFlags": [
+                                    "wxALL",
+                                    "wxLEFT",
+                                    "wxRIGHT",
+                                    "wxTOP",
+                                    "wxBOTTOM",
+                                    "wxEXPAND"
+                                  ],
+                                  "m_properties": [
+                                    {
+                                      "type": "string",
+                                      "m_label": "Minimum Size:",
+                                      "m_value": "-1,-1"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "m_label": "Name:",
+                                      "m_value": "staticBoxSizer601"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "m_label": "Style:",
+                                      "m_value": ""
+                                    },
+                                    {
+                                      "type": "bool",
+                                      "m_label": "Keep as a class member",
+                                      "m_value": false
+                                    },
+                                    {
+                                      "type": "choice",
+                                      "m_label": "Orientation:",
+                                      "m_selection": 0,
+                                      "m_options": [
+                                        "Vertical",
+                                        "Horizontal"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "m_label": "Label:",
+                                      "m_value": "Tabs:"
+                                    }
+                                  ],
+                                  "m_events": [],
+                                  "m_children": [
+                                    {
+                                      "m_type": 4403,
+                                      "proportion": 1,
+                                      "border": 5,
+                                      "gbSpan": "1,1",
+                                      "gbPosition": "0,0",
+                                      "m_styles": [],
+                                      "m_sizerFlags": [
+                                        "wxALL",
+                                        "wxLEFT",
+                                        "wxRIGHT",
+                                        "wxTOP",
+                                        "wxBOTTOM",
+                                        "wxEXPAND"
+                                      ],
+                                      "m_properties": [
+                                        {
+                                          "type": "string",
+                                          "m_label": "Minimum Size:",
+                                          "m_value": "-1,-1"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "m_label": "Name:",
+                                          "m_value": "flexGridSizer602"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "m_label": "Style:",
+                                          "m_value": ""
+                                        },
+                                        {
+                                          "type": "bool",
+                                          "m_label": "Keep as a class member",
+                                          "m_value": false
+                                        },
+                                        {
+                                          "type": "string",
+                                          "m_label": "# Columns:",
+                                          "m_value": "2"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "m_label": "# Rows:",
+                                          "m_value": "0"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "m_label": "Growable columns:",
+                                          "m_value": "1"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "m_label": "Growable rows:",
+                                          "m_value": ""
+                                        },
+                                        {
+                                          "type": "string",
+                                          "m_label": "Horizontal gap:",
+                                          "m_value": "0"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "m_label": "Vertical gap:",
+                                          "m_value": "0"
+                                        }
+                                      ],
+                                      "m_events": [],
+                                      "m_children": [
+                                        {
+                                          "m_type": 4405,
+                                          "proportion": 0,
+                                          "border": 5,
+                                          "gbSpan": "1,1",
+                                          "gbPosition": "0,0",
+                                          "m_styles": [],
+                                          "m_sizerFlags": [
+                                            "wxALL",
+                                            "wxLEFT",
+                                            "wxRIGHT",
+                                            "wxTOP",
+                                            "wxBOTTOM",
+                                            "wxALIGN_RIGHT",
+                                            "wxALIGN_CENTER_VERTICAL"
+                                          ],
+                                          "m_properties": [
+                                            {
+                                              "type": "winid",
+                                              "m_label": "ID:",
+                                              "m_winid": "wxID_ANY"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Size:",
+                                              "m_value": "-1,-1"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Minimum Size:",
+                                              "m_value": "-1,-1"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Name:",
+                                              "m_value": "m_staticText603"
+                                            },
+                                            {
+                                              "type": "multi-string",
+                                              "m_label": "Tooltip:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "colour",
+                                              "m_label": "Bg Colour:",
+                                              "colour": "<Default>"
+                                            },
+                                            {
+                                              "type": "colour",
+                                              "m_label": "Fg Colour:",
+                                              "colour": "<Default>"
+                                            },
+                                            {
+                                              "type": "font",
+                                              "m_label": "Font:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "bool",
+                                              "m_label": "Hidden",
+                                              "m_value": false
+                                            },
+                                            {
+                                              "type": "bool",
+                                              "m_label": "Disabled",
+                                              "m_value": false
+                                            },
+                                            {
+                                              "type": "bool",
+                                              "m_label": "Focused",
+                                              "m_value": false
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Class Name:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Include File:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Style:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "multi-string",
+                                              "m_label": "Label:",
+                                              "m_value": "Tab Position:"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Wrap:",
+                                              "m_value": "-1"
+                                            }
+                                          ],
+                                          "m_events": [],
+                                          "m_children": []
+                                        },
+                                        {
+                                          "m_type": 4411,
+                                          "proportion": 0,
+                                          "border": 5,
+                                          "gbSpan": "1,1",
+                                          "gbPosition": "0,0",
+                                          "m_styles": [],
+                                          "m_sizerFlags": [
+                                            "wxALL",
+                                            "wxLEFT",
+                                            "wxRIGHT",
+                                            "wxTOP",
+                                            "wxBOTTOM",
+                                            "wxEXPAND"
+                                          ],
+                                          "m_properties": [
+                                            {
+                                              "type": "winid",
+                                              "m_label": "ID:",
+                                              "m_winid": "wxID_ANY"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Size:",
+                                              "m_value": "-1,-1"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Minimum Size:",
+                                              "m_value": "-1,-1"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Name:",
+                                              "m_value": "m_choiceTabPosition"
+                                            },
+                                            {
+                                              "type": "multi-string",
+                                              "m_label": "Tooltip:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "colour",
+                                              "m_label": "Bg Colour:",
+                                              "colour": "<Default>"
+                                            },
+                                            {
+                                              "type": "colour",
+                                              "m_label": "Fg Colour:",
+                                              "colour": "<Default>"
+                                            },
+                                            {
+                                              "type": "font",
+                                              "m_label": "Font:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "bool",
+                                              "m_label": "Hidden",
+                                              "m_value": false
+                                            },
+                                            {
+                                              "type": "bool",
+                                              "m_label": "Disabled",
+                                              "m_value": false
+                                            },
+                                            {
+                                              "type": "bool",
+                                              "m_label": "Focused",
+                                              "m_value": false
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Class Name:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Include File:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Style:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "multi-string",
+                                              "m_label": "Choices:",
+                                              "m_value": "Top;Bottom;Left;Right"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Selection:",
+                                              "m_value": "0"
+                                            }
+                                          ],
+                                          "m_events": [
+                                            {
+                                              "m_eventClass": "wxCommandEvent",
+                                              "m_eventName": "wxEVT_COMMAND_CHOICE_SELECTED",
+                                              "m_functionNameAndSignature": "OnTabPosition(wxCommandEvent& event)"
+                                            }
+                                          ],
+                                          "m_children": []
+                                        },
+                                        {
+                                          "m_type": 4405,
+                                          "proportion": 0,
+                                          "border": 5,
+                                          "gbSpan": "1,1",
+                                          "gbPosition": "0,0",
+                                          "m_styles": [],
+                                          "m_sizerFlags": [
+                                            "wxALL",
+                                            "wxLEFT",
+                                            "wxRIGHT",
+                                            "wxTOP",
+                                            "wxBOTTOM",
+                                            "wxALIGN_RIGHT",
+                                            "wxALIGN_CENTER_VERTICAL"
+                                          ],
+                                          "m_properties": [
+                                            {
+                                              "type": "winid",
+                                              "m_label": "ID:",
+                                              "m_winid": "wxID_ANY"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Size:",
+                                              "m_value": "-1,-1"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Minimum Size:",
+                                              "m_value": "-1,-1"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Name:",
+                                              "m_value": "m_staticText605"
+                                            },
+                                            {
+                                              "type": "multi-string",
+                                              "m_label": "Tooltip:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "colour",
+                                              "m_label": "Bg Colour:",
+                                              "colour": "<Default>"
+                                            },
+                                            {
+                                              "type": "colour",
+                                              "m_label": "Fg Colour:",
+                                              "colour": "<Default>"
+                                            },
+                                            {
+                                              "type": "font",
+                                              "m_label": "Font:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "bool",
+                                              "m_label": "Hidden",
+                                              "m_value": false
+                                            },
+                                            {
+                                              "type": "bool",
+                                              "m_label": "Disabled",
+                                              "m_value": false
+                                            },
+                                            {
+                                              "type": "bool",
+                                              "m_label": "Focused",
+                                              "m_value": false
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Class Name:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Include File:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Style:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "multi-string",
+                                              "m_label": "Label:",
+                                              "m_value": "Tab Outline Colour:"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Wrap:",
+                                              "m_value": "-1"
+                                            }
+                                          ],
+                                          "m_events": [],
+                                          "m_children": []
+                                        },
+                                        {
+                                          "m_type": 4411,
+                                          "proportion": 0,
+                                          "border": 5,
+                                          "gbSpan": "1,1",
+                                          "gbPosition": "0,0",
+                                          "m_styles": [],
+                                          "m_sizerFlags": [
+                                            "wxALL",
+                                            "wxLEFT",
+                                            "wxRIGHT",
+                                            "wxTOP",
+                                            "wxBOTTOM",
+                                            "wxEXPAND"
+                                          ],
+                                          "m_properties": [
+                                            {
+                                              "type": "winid",
+                                              "m_label": "ID:",
+                                              "m_winid": "wxID_ANY"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Size:",
+                                              "m_value": "-1,-1"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Minimum Size:",
+                                              "m_value": "-1,-1"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Name:",
+                                              "m_value": "m_choiceTabOutlineColour"
+                                            },
+                                            {
+                                              "type": "multi-string",
+                                              "m_label": "Tooltip:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "colour",
+                                              "m_label": "Bg Colour:",
+                                              "colour": "<Default>"
+                                            },
+                                            {
+                                              "type": "colour",
+                                              "m_label": "Fg Colour:",
+                                              "colour": "<Default>"
+                                            },
+                                            {
+                                              "type": "font",
+                                              "m_label": "Font:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "bool",
+                                              "m_label": "Hidden",
+                                              "m_value": false
+                                            },
+                                            {
+                                              "type": "bool",
+                                              "m_label": "Disabled",
+                                              "m_value": false
+                                            },
+                                            {
+                                              "type": "bool",
+                                              "m_label": "Focused",
+                                              "m_value": false
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Class Name:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Include File:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Style:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "multi-string",
+                                              "m_label": "Choices:",
+                                              "m_value": ""
+                                            },
+                                            {
+                                              "type": "string",
+                                              "m_label": "Selection:",
+                                              "m_value": ""
+                                            }
+                                          ],
+                                          "m_events": [
+                                            {
+                                              "m_eventClass": "wxCommandEvent",
+                                              "m_eventName": "wxEVT_COMMAND_CHOICE_SELECTED",
+                                              "m_functionNameAndSignature": "OnTabOutlineColour(wxCommandEvent& event)"
                                             }
                                           ],
                                           "m_children": []

@@ -17,6 +17,11 @@ public:
   }
   wxFont GetSelectedFont() const { return m_fontPicker->GetSelectedFont(); }
   bool GetUseBlockCursor() const { return m_checkBoxBlockCaret->IsChecked(); }
+  wxDirection GetTabPosition() const;
+  wxString GetTabOutlineColour() const {
+    return m_choiceTabOutlineColour->GetStringSelection();
+  }
+
   wxString GetShell() const { return m_choiceShell->GetStringSelection(); }
   wxString GetDefaultHomeDir() const {
     return m_textCtrlShellWorkingDir->GetValue();
@@ -32,6 +37,8 @@ public:
     return m_spinCtrlScrollBackLines->GetValue();
   }
 
+  static wxColour GetTabOutlineColourOf(const wxTerminalTheme &theme,
+                                        const wxString &key);
   // The index of the "Follow terminal theme" choice of the application theme.
   static constexpr int kChoiceFollowTerminal = 3;
 
@@ -56,6 +63,8 @@ public:
   }
 
 protected:
+  void OnTabOutlineColour(wxCommandEvent &event) override;
+  void OnTabPosition(wxCommandEvent &event) override;
   void OnBrowseForShellWorkingDir(wxCommandEvent &event) override;
   void OnChoiceTheme(wxCommandEvent &event) override;
   void OnFontSelected(wxFontPickerEvent &event) override;
