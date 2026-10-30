@@ -38,6 +38,15 @@ public:
 
 private:
   void LoadBitmaps();
+  void FinaliseConstruction();
+  bool MakeActive(wxWindow* win);
+  using ChildFocusEvent = void (MainView::*)(wxChildFocusEvent &);
+  void BindFocusChildEvent(wxWindow* win, ChildFocusEvent handlerFn);
+
+  void OnMainPanelChildFocus(wxChildFocusEvent &event);
+  void OnActivityPanelChildFocus(wxChildFocusEvent &event);
+  void OnFileExplorerPanelChildFocus(wxChildFocusEvent &event);
+
   // Gives the side panes `names` their default width (kSidePaneWidthDip).
   void ApplyDefaultPaneWidths(std::span<const wxString> names);
 

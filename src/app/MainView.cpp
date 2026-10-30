@@ -66,7 +66,6 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
     m_auimgr->GetPane(name).FloatingSize(
         FromDIP(wxSize(kFloatingPaneWidthDip, kFloatingPaneHeightDip)));
   }
-
   m_defaultLayout = m_auimgr->SavePerspective();
 
   // What the pages tell: the side views follow.
@@ -83,6 +82,28 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
   Bind(wxEVT_FILEEXPLORER_SESSION_SELECTED, &MainView::OnExplorerSession, this);
   // What the user asks in the activity view.
   Bind(wxEVT_ACTIVITYVIEW_SESSION_SELECTED, &MainView::OnActivitySession, this);
+
+  // Finalise frame construction.
+  FinaliseConstruction();
+}
+
+void MainView::BindFocusChildEvent(wxWindow *win, ChildFocusEvent handlerFn) {
+  if (win == nullptr)
+    return;
+  win->Bind(wxEVT_CHILD_FOCUS, handlerFn, this);
+  if (win->GetChildren().empty())
+    return;
+  for (auto iter = win->GetChildren().begin(); iter != win->GetChildren().end();
+       ++iter) {
+    BindFocusChildEvent(*iter, handlerFn);
+  }
+}
+
+void MainView::FinaliseConstruction() {
+  BindFocusChildEvent(m_panelActivity, &MainView::OnActivityPanelChildFocus);
+  BindFocusChildEvent(m_panelFileExplorer,
+                      &MainView::OnFileExplorerPanelChildFocus);
+  BindFocusChildEvent(m_mainPanel, &MainView::OnMainPanelChildFocus);
 }
 
 // ---------------------------------------------------------------------------
@@ -323,4 +344,35 @@ void MainView::LoadBitmaps() {
       bmps.AddAlias(agent.iconPath, agent.name);
     }
   }
+}
+
+bool MainView::MakeActive(wxWindow *win) {
+  bool needRefresh{false};
+  for (wxAuiPaneInfo &pane : m_auimgr->GetAllPanes()) {
+    if (pane.window == win) {
+      needRefresh = (pane.state & wxAuiPaneInfo::optionActive) == 0;
+      pane.state |= wxAuiPaneInfo::optionActive;
+    } else {
+      pane.state &= ~wxAuiPaneInfo::optionActive;
+    }
+  }
+  return needRefresh;
+}
+
+void MainView::OnMainPanelChildFocus(wxChildFocusEvent &event) {
+  event.Skip();
+  if (MakeActive(m_mainPanel))
+    m_auimgr->Update();
+}
+
+void MainView::OnActivityPanelChildFocus(wxChildFocusEvent &event) {
+  event.Skip();
+  if (MakeActive(m_panelActivity))
+    m_auimgr->Update();
+}
+
+void MainView::OnFileExplorerPanelChildFocus(wxChildFocusEvent &event) {
+  event.Skip();
+  if (MakeActive(m_panelFileExplorer))
+    m_auimgr->Update();
 }
