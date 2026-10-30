@@ -76,6 +76,9 @@ wxBitmapBundle LoadIcon(const wxFileName &fn, const wxSize &size) {
         wxBitmapBundle::FromSVGFile(dark.GetFullPath(), size),
         wxBitmapBundle::FromSVGFile(light.GetFullPath(), size)));
   }
+  if (!fn.FileExists()) {
+    return wxBitmapBundle();
+  }
   return wxBitmapBundle::FromSVGFile(fn.GetFullPath(), size);
 }
 } // namespace
@@ -90,7 +93,9 @@ void Bitmaps::Load(const wxString &filename) {
     return;
   }
 
-  if (!fn.FileExists()) {
+  // The file itself may be missing when the dark/ and light/ ones are there.
+  const wxBitmapBundle menu = LoadIcon(fn, menuSize);
+  if (!menu.IsOk()) {
     KLOG_WARN() << "Failed to load SVG file: " << fn.GetFullPath()
                 << ". No such file";
     return;
@@ -98,7 +103,7 @@ void Bitmaps::Load(const wxString &filename) {
 
   m_menuBitmaps.erase(fixedName);
   m_toolbarBitmaps.erase(fixedName);
-  m_menuBitmaps.insert(std::make_pair(fixedName, LoadIcon(fn, menuSize)));
+  m_menuBitmaps.insert(std::make_pair(fixedName, menu));
   m_toolbarBitmaps.insert(std::make_pair(fixedName, LoadIcon(fn, iconSize)));
 }
 
