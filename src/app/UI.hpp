@@ -388,6 +388,7 @@ protected:
     wxChoice* m_choiceTabPosition;
     wxStaticText* m_staticText605;
     wxChoice* m_choiceTabOutlineColour;
+    wxCheckBox* m_checkBoxCloseButtonOnTab;
     wxChoice* m_choiceAppTheme;
     wxPanel* m_panel361;
     wxStaticText* m_staticText365;
@@ -420,6 +421,7 @@ public:
     wxChoice* GetChoiceTabPosition() { return m_choiceTabPosition; }
     wxStaticText* GetStaticText605() { return m_staticText605; }
     wxChoice* GetChoiceTabOutlineColour() { return m_choiceTabOutlineColour; }
+    wxCheckBox* GetCheckBoxCloseButtonOnTab() { return m_checkBoxCloseButtonOnTab; }
     wxChoice* GetChoiceAppTheme() { return m_choiceAppTheme; }
     wxPanel* GetPanel353() { return m_panel353; }
     wxStaticText* GetStaticText365() { return m_staticText365; }

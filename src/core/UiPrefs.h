@@ -36,11 +36,12 @@ struct UiPrefs {
   // The last answer to the dialog at the end of a review: also close the
   // Review Buddy?
   bool closeReviewBuddyOnDismiss{false};
+  bool tabHasCloseButton{false};
   size_t scrollbackLines{5000};
   wxString terminalLoginShell = ::FindShells().GetDefaultShellCmd();
   wxString terminalHomeDir = ::wxGetHomeDir();
   std::vector<wxString> recentWorkingDirs; // most-recent first, capped at 10
   std::vector<wxString> recentHosts;       // most-recent first, capped at 10
-  wxString tabOutlineColour{"blue"};
+  wxString tabOutlineColour{"Selection"};
   wxDirection tabPosition{wxDirection::wxLEFT};
 };

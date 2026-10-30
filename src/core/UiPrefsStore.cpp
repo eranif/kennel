@@ -32,6 +32,7 @@ json ToJson(const UiPrefs &p) {
         {"maximized", p.window.maximized}}},
       {"auiLayout", p.auiLayout},
       {"scrollbackLines", p.scrollbackLines},
+      {"tabHasCloseButton", p.tabHasCloseButton},
       {"tabOutlineColour", p.tabOutlineColour},
       {"tabPosition", static_cast<int>(p.tabPosition)},
       {"lastSelectedSession", ToUtf8(p.lastSelectedSession)},
@@ -59,6 +60,7 @@ void ParsePrefs(const json &root, UiPrefs &p) {
     p.window.maximized = GetBool(*it, "maximized", p.window.maximized);
   }
   p.auiLayout = GetStr(root, "auiLayout", p.auiLayout);
+  p.tabHasCloseButton = GetBool(root, "tabHasCloseButton", p.tabHasCloseButton);
   p.tabOutlineColour = GetStr(root, "tabOutlineColour", p.tabOutlineColour);
   p.tabPosition = static_cast<wxDirection>(
       GetInt(root, "tabPosition", static_cast<int>(p.tabPosition)));

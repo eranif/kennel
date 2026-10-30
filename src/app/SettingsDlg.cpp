@@ -40,7 +40,7 @@ const std::vector<TabOutlineColour> &GetTabOutlineColours() {
 
 wxColour SettingsDlg::GetTabOutlineColourOf(const wxTerminalTheme &theme,
                                             const wxString &key) {
-  wxColour colour = theme.blue;
+  wxColour colour = theme.selectionBg;
   for (const auto &entry : GetTabOutlineColours()) {
     if (key == entry.label) {
       colour = theme.*(entry.member);
@@ -83,7 +83,7 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
     break;
   }
   m_choiceTabPosition->SetStringSelection(tabPos);
-
+  m_checkBoxCloseButtonOnTab->SetValue(prefs.tabHasCloseButton);
   m_choiceTheme->Append(ThemeManager::Get().Names());
   int where = m_choiceTheme->FindString(prefs.terminalTheme);
   if (where == wxNOT_FOUND && !ThemeManager::Get().Themes().empty()) {

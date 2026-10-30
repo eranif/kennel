@@ -1272,6 +1272,14 @@ void MainNotebook::OnThemeApplied(wxCommandEvent &event) {
       SettingsDlg::GetTabOutlineColourOf(theme, prefs.tabOutlineColour));
   m_book->SetBackgroundColour(theme.bg);
   m_book->SetArtProvider(art);
+
+  auto flags = m_book->GetWindowStyleFlag();
+  if (prefs.tabHasCloseButton) {
+    flags |= wxAUI_NB_CLOSE_ON_ALL_TABS;
+  } else {
+    flags &= ~(wxAUI_NB_CLOSE_ON_ALL_TABS | wxAUI_NB_CLOSE_ON_ACTIVE_TAB);
+  }
+  m_book->SetWindowStyleFlag(flags);
   m_book->SetTabPosition(prefs.tabPosition);
   m_book->Refresh();
 }

@@ -1183,6 +1183,13 @@ SettingsDlgBase::SettingsDlgBase(wxWindow* parent, wxWindowID id, const wxString
     
     flexGridSizer602->Add(m_choiceTabOutlineColour, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
     
+    flexGridSizer602->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
+    
+    m_checkBoxCloseButtonOnTab = new wxCheckBox(m_panel353, wxID_ANY, _("Show Close Button"), wxDefaultPosition, wxDLG_UNIT(m_panel353, wxSize(-1,-1)), 0);
+    m_checkBoxCloseButtonOnTab->SetValue(false);
+    
+    flexGridSizer602->Add(m_checkBoxCloseButtonOnTab, 0, wxALL, WXC_FROM_DIP(5));
+    
     wxStaticBoxSizer* staticBoxSizer569 = new wxStaticBoxSizer( new wxStaticBox(m_panel353, wxID_ANY, _("Theme:")), wxVERTICAL);
     
     boxSizer360->Add(staticBoxSizer569, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));

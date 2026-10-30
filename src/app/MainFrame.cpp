@@ -501,6 +501,7 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.terminalOptimizedDrawing = settingsDlg.OptimizeTerminalDrawing();
     prefs.checkForUpdatesOnStartup = settingsDlg.GetCheckForUpdatesOnStartup();
     prefs.scrollbackLines = settingsDlg.GetScrollBackLines();
+    prefs.tabHasCloseButton = settingsDlg.IsCloseButtonOnTab();
     prefs.tabPosition = settingsDlg.GetTabPosition();
     prefs.tabOutlineColour = settingsDlg.GetTabOutlineColour();
     ApplyAppTheme(prefs.appTheme);

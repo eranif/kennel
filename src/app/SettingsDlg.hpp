@@ -29,6 +29,10 @@ public:
   bool OptimizeTerminalDrawing() const {
     return m_checkBoxOptimizeDrawings->IsChecked();
   }
+  bool IsCloseButtonOnTab() const {
+    return m_checkBoxCloseButtonOnTab->IsChecked();
+  }
+
   bool GetCheckForUpdatesOnStartup() const {
     return m_checkBoxForNewVersionOnStartup->IsChecked();
   }

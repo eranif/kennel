@@ -25,3 +25,4 @@
 - [ ] Main ToolBar: tooltip should have the full path of the file.
 - [ ] For files, display the first folder name, e.g. src/TODO.md app/TODO.md etc.
 - [x] Make the spinner lighter on dark theme.
+- [x] Add option to set/remove tab close button (`x`)
