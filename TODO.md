@@ -21,9 +21,11 @@
 - [x] Allow changing the tab outline colour.
 - [ ] Main Toolbar icons are not aligned (different size).
 - [ ] Start Agent Dialog: remember 10 paths used.
-- [ ] Main ToolBar: tooltip should have the full path of the file.
+- [x] Main ToolBar: tooltip should have the full path of the file.
 - [x] For files, display the first folder name, e.g. src/TODO.md app/TODO.md etc.
 - [x] Make the spinner lighter on dark theme.
 - [x] Add option to set/remove tab close button (`x`)
 - [ ] Editor: Support for brace matching in the file editor.
 - [ ] Editor: Line guides support.
+- [ ] Tab: horizontal tabs are taller than the vertical ones (due to different image size).
+
