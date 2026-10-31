@@ -15,6 +15,8 @@
 #include <memory>
 #include <optional>
 
+wxDECLARE_EVENT(wxEVT_APP_PREFS_CHANGED, wxCommandEvent);
+
 // Process-wide owner of the application's configuration and persistence
 // objects (paths, config + its store, adapter registry, workspace store, UI
 // prefs + its store). Lets UI code reach shared state via

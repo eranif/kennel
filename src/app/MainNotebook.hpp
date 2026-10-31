@@ -254,6 +254,7 @@ private:
   void OnShowSessionRequested(PageViewEvent &event);
   // A file or a folder of the file explorer was double clicked.
   void OnFileTreeActivated(FileEvent &event);
+  void OnAppPrefsSaved(wxCommandEvent &event);
 
   // What the user types in the GotoAnythingBar, and how it closed.
   void OnGotoChanged(wxCommandEvent &event);

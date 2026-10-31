@@ -1,8 +1,11 @@
 #include "core/AppManager.h"
 
+#include "core/EventNotifier.hpp"
 #include "core/Logger.h"
 
 #include <cstdlib>
+
+wxDEFINE_EVENT(wxEVT_APP_PREFS_CHANGED, wxCommandEvent);
 
 AppManager &AppManager::Get() {
   static AppManager instance;
@@ -147,6 +150,7 @@ Status AppManager::SavePrefs() {
   if (!m_uiPrefsStore) {
     return Status::Error("Prefs store not initialised");
   }
+
   return m_uiPrefsStore->Save(m_uiPrefs);
 }
 
