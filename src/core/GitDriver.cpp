@@ -91,9 +91,15 @@ void GitDriver::WorkerLoop() {
     {
       std::unique_lock<std::mutex> lock(m_mutex);
       m_cv.wait(lock, [this] { return m_stop || !m_queue.empty(); });
-      if (m_queue.empty()) {
-        return; // Stopped, and nothing is left to run
+      if (m_stop) {
+        // Stopped, and nothing is left to run
+        return;
       }
+
+      if (m_queue.empty()) {
+        continue; // Spurious wakeup.
+      }
+
       job = std::move(m_queue.front());
       m_queue.pop_front();
     }
