@@ -9,6 +9,7 @@
 #include "app/EditHosts.hpp"
 #include "app/EditJobsDlg.hpp"
 #include "app/EditMenu.hpp"
+#include "app/FileActions.h"
 #include "app/JobLogViewer.hpp"
 #include "app/NewAgentWizard.hpp"
 #include "app/PageViewEvent.hpp"
@@ -345,6 +346,14 @@ void MainFrame::BuildMenuBar() {
   Bind(wxEVT_MENU, &MainFrame::OnAbout, this, wxID_ABOUT);
   fileMenu->AppendSeparator();
 #endif
+  fileMenu->Append(
+      XRCID("new-file"), _("New &File\tCtrl+N"),
+      _("Open an empty editor: it asks for the file when you save"));
+  Bind(wxEVT_MENU, &MainFrame::OnNewFile, this, XRCID("new-file"));
+  fileMenu->Append(XRCID("open-file"), _("&Open File...\tCtrl+Shift+O"),
+                   _("Open a file in an editor"));
+  Bind(wxEVT_MENU, &MainFrame::OnOpenFile, this, XRCID("open-file"));
+  fileMenu->AppendSeparator();
   fileMenu->Append(XRCID("start-agent"), _("&Start Agent...\tCtrl+T"),
                    _("Start a new agent session"));
   Bind(wxEVT_MENU, &MainFrame::OnStartAgent, this, XRCID("start-agent"));
@@ -360,7 +369,7 @@ void MainFrame::BuildMenuBar() {
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnRenameItemUI, this,
        XRCID("rename-selection"));
   fileMenu->AppendSeparator();
-  fileMenu->Append(wxID_NEW, _("Configure &New Agent...\tCtrl+N"),
+  fileMenu->Append(wxID_NEW, _("Configure &New Agent..."),
                    _("Define a New Agent"));
   Bind(wxEVT_MENU, &MainFrame::OnNewAgent, this, wxID_NEW);
   fileMenu->AppendSeparator();
@@ -555,6 +564,14 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
 
 void MainFrame::OnNewTerminal(wxCommandEvent &evt) {
   m_mainView->GetSessionsBook()->StartTerminal();
+}
+
+void MainFrame::OnNewFile(wxCommandEvent &) {
+  m_mainView->GetSessionsBook()->NewFile();
+}
+
+void MainFrame::OnOpenFile(wxCommandEvent &) {
+  fileactions::OpenFiles(this, m_mainView->GetSessionsBook());
 }
 
 void MainFrame::OnNewAgent(wxCommandEvent &evt) {

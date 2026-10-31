@@ -711,12 +711,17 @@ void Editor::InitDiffStyle() {
   const wxColour deletedBg = Mix(m_theme.bg, m_theme.red, 0.22);
   const wxColour addedFg = EnsureContrast(m_theme.green, addedBg, 4.0);
   const wxColour deletedFg = EnsureContrast(m_theme.red, deletedBg, 4.0);
+  // The lexer looks at the first two characters of a line, for a diff of a
+  // diff: "++", "+-", "-+" and "--" have styles of their own. Here the first
+  // character is the mark of git, and the second one is the text of the line
+  // ("+- [x] item" is an added line that starts with "-"). So the first
+  // character decides the colour.
   for (int style :
-       {wxSTC_DIFF_ADDED, wxSTC_DIFF_PATCH_ADD, wxSTC_DIFF_REMOVED_PATCH_ADD}) {
+       {wxSTC_DIFF_ADDED, wxSTC_DIFF_PATCH_ADD, wxSTC_DIFF_PATCH_DELETE}) {
     AddProperty(style, addedBg, addedFg);
     m_ctrl->StyleSetEOLFilled(style, true);
   }
-  for (int style : {wxSTC_DIFF_DELETED, wxSTC_DIFF_PATCH_DELETE,
+  for (int style : {wxSTC_DIFF_DELETED, wxSTC_DIFF_REMOVED_PATCH_ADD,
                     wxSTC_DIFF_REMOVED_PATCH_DELETE}) {
     AddProperty(style, deletedBg, deletedFg);
     m_ctrl->StyleSetEOLFilled(style, true);

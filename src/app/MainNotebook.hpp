@@ -132,6 +132,10 @@ public:
   void GotoLine();
   bool CanGotoLine() const;
 
+  // Opens an empty editor page named "Untitled" (the file is asked for when
+  // the user saves it).
+  void NewFile();
+
   // Opens a local file in an editor page (or reselects it if it is already
   // open). `restoring` (the file was open in the last run) keeps it in the
   // background and only logs a failure.
@@ -349,6 +353,7 @@ private:
   void OnFileSaveStarted(FileEvent &e);
   void OnFileSaveDone(FileEvent &e);
   void OnFileModifiedChanged(FileEvent &e);
+  void OnFilePathChanged(FileEvent &e);
   void OnRemoteFileRead(const RemoteReadResult &result);
   // Takes the file out of m_restoringFiles. Whether it was there.
   bool TakeRestoringFile(const wxString &key);

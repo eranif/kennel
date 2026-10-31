@@ -10,6 +10,7 @@
 #include "core/SftpClient.h"
 #include "core/WslPath.h"
 #include <wx/app.h>
+#include <wx/filedlg.h>
 #include <wx/filename.h>
 #include <wx/frame.h>
 #include <wx/msgdlg.h>
@@ -110,6 +111,13 @@ bool FilePage::LoadLocal() { return m_editor->LoadFile(m_path); }
 void FilePage::LoadRemote(const wxString &text, bool editable) {
   m_editor->SetText(text);
   m_editor->SetEditable(editable);
+  m_searchBar->EnableReplace(CanReplace());
+}
+
+void FilePage::LoadUntitled() {
+  m_untitled = true;
+  m_editor->SetText(wxEmptyString);
+  m_editor->SetEditable(true);
   m_searchBar->EnableReplace(CanReplace());
 }
 
@@ -239,6 +247,9 @@ void FilePage::MarkModified() {
 }
 
 bool FilePage::Save() {
+  if (m_untitled) {
+    return SaveAs();
+  }
   if (IsRemote()) {
     return false; // Remote files save through SaveAsync().
   }
@@ -250,6 +261,44 @@ bool FilePage::Save() {
                    "Kennel", wxOK | wxICON_ERROR, this);
     return false;
   }
+  SendSaved();
+  return true;
+}
+
+bool FilePage::SaveAs() {
+  // A file that is open in another tab is not a choice: two pages would have
+  // the same key.
+  wxString path;
+  for (;;) {
+    wxFileDialog dialog(this, _("Save File"), wxEmptyString, m_path,
+                        _("All files (*.*)|*.*"),
+                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    if (dialog.ShowModal() != wxID_OK) {
+      return false;
+    }
+    path = wxFileName(dialog.GetPath()).GetFullPath();
+    FilePage *other = GetMainView()->GetSessionsBook()->FindFile(path);
+    if (other == nullptr || other == this) {
+      break;
+    }
+    ::wxMessageBox(
+        wxString::Format(_("%s is already open in another tab.\nChoose another "
+                           "file, or close that tab first."),
+                         path),
+        "Kennel", wxOK | wxICON_INFORMATION, this);
+  }
+  if (!m_editor->SaveAs(path)) {
+    ::wxMessageBox(wxString() << _("Could not write file:\n") << path, "Kennel",
+                   wxOK | wxICON_ERROR, this);
+    return false;
+  }
+  m_path = path;
+  m_untitled = false;
+  m_editor->SetEditorLanguage(EditFileDlg::LangFromPath(path));
+  FileEvent changed{wxEVT_FILE_PATH_CHANGED};
+  changed.SetEventObject(this);
+  changed.SetPath(path);
+  EventNotifier::Get()->AddPendingEvent(changed);
   SendSaved();
   return true;
 }
@@ -330,7 +379,7 @@ void FilePage::OnSavePointChanged(wxStyledTextEvent &event) {
 
 void FilePage::OnSave(wxCommandEvent &event) {
   wxUnusedVar(event);
-  if (!m_editor->IsModified()) {
+  if (!m_untitled && !m_editor->IsModified()) {
     return;
   }
   if (IsRemote()) {
@@ -349,13 +398,13 @@ void FilePage::SendSaved() {
 }
 
 void FilePage::OnSaveUI(wxUpdateUIEvent &event) {
-  event.Enable(m_editor && m_editor->IsModified());
+  event.Enable(m_editor && (m_untitled || m_editor->IsModified()));
 }
 
 void FilePage::OnReload(wxCommandEvent &) { Reload(); }
 
 void FilePage::Reload() {
-  if (m_transient) {
+  if (m_transient || m_untitled) {
     return; // Not a file: there is nothing to read again
   }
   if (m_saving) {

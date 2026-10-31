@@ -91,6 +91,18 @@ public:
     return false;
   }
 
+  // Writes the text to `path`, and makes it the file of the editor. On failure
+  // the editor keeps the file it had.
+  bool SaveAs(const wxString &path) {
+    if (!m_ctrl->IsEditable() || !m_ctrl->SaveFile(path)) {
+      return false;
+    }
+    m_ctrl->SetSavePoint();
+    m_ctrl->SetModified(false);
+    m_filepath = path;
+    return true;
+  }
+
   wxString GetFile() const {
     if (m_filepath)
       return *m_filepath;

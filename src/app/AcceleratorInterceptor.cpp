@@ -59,9 +59,14 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
 #endif
   } else if (keyEvent.GetUnicodeKey() == 'N' &&
              keyEvent.GetModifiers() == wxMOD_CONTROL) {
-    wxCommandEvent evtConfigureAgent{wxEVT_MENU, wxID_NEW};
-    wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(
-        evtConfigureAgent);
+    wxCommandEvent evtNewFile{wxEVT_MENU, XRCID("new-file")};
+    wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(evtNewFile);
+    return;
+  } else if (keyEvent.GetUnicodeKey() == 'O' &&
+             keyEvent.GetModifiers() == (wxMOD_CONTROL | wxMOD_SHIFT)) {
+    // Open File. Plain Ctrl+O is left to the terminal (Claude Code uses it).
+    wxCommandEvent evtOpenFile{wxEVT_MENU, XRCID("open-file")};
+    wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(evtOpenFile);
     return;
   } else if (keyEvent.GetUnicodeKey() == 'E' &&
              keyEvent.GetModifiers() == wxMOD_CONTROL) {

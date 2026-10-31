@@ -144,6 +144,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
                              &MainNotebook::OnAppPrefsSaved, this);
   EventNotifier::Get()->Bind(wxEVT_FILE_MODIFIED_CHANGED,
                              &MainNotebook::OnFileModifiedChanged, this);
+  EventNotifier::Get()->Bind(wxEVT_FILE_PATH_CHANGED,
+                             &MainNotebook::OnFilePathChanged, this);
   Bind(wxEVT_GOTOANYTHING_CHANGED, &MainNotebook::OnGotoChanged, this);
   Bind(wxEVT_GOTOANYTHING_CLOSED, &MainNotebook::OnGotoClosed, this);
   Bind(wxEVT_SESSION_IDLE, &MainNotebook::OnSessionIdle, this);
@@ -176,6 +178,8 @@ MainNotebook::~MainNotebook() {
                                &MainNotebook::OnAppPrefsSaved, this);
   EventNotifier::Get()->Unbind(wxEVT_FILE_MODIFIED_CHANGED,
                                &MainNotebook::OnFileModifiedChanged, this);
+  EventNotifier::Get()->Unbind(wxEVT_FILE_PATH_CHANGED,
+                               &MainNotebook::OnFilePathChanged, this);
   Unbind(wxEVT_SESSION_IDLE, &MainNotebook::OnSessionIdle, this);
   Unbind(wxEVT_SESSION_ACTIVE, &MainNotebook::OnSessionActive, this);
   Unbind(wxEVT_SESSION_EXITED, &MainNotebook::OnSessionExited, this);
@@ -547,8 +551,8 @@ void MainNotebook::SyncWorkspaceToDisk() {
   }
 
   for (auto *file : GetFiles()) {
-    if (file->IsTransient()) {
-      continue; // Not a file
+    if (file->IsTransient() || file->IsUntitled()) {
+      continue; // Not a file (yet)
     }
     const auto &host = file->GetRemoteHostDetails();
     ws.files.push_back(SessionFile{file->GetPath(), host.host, host.user});
@@ -578,7 +582,8 @@ void MainNotebook::SyncWorkspaceToDisk() {
     auto *session = dynamic_cast<SessionPage *>(page);
     if (session && session->GetSession().IsPersistent()) {
       ws.recentSessions.push_back(ref);
-    } else if (dynamic_cast<FilePage *>(page) != nullptr) {
+    } else if (auto *file = dynamic_cast<FilePage *>(page);
+               file != nullptr && !file->IsUntitled()) {
       ws.recentSessions.push_back(ref);
     }
   }
@@ -945,6 +950,37 @@ void MainNotebook::OpenLocalFile(const wxString &path, bool restoring) {
   AddFilePage(page);
   if (!restoring) {
     ShowPage(page);
+  }
+}
+
+void MainNotebook::NewFile() {
+  // "Untitled", "Untitled 2"...: the name is the key of the page.
+  wxString name = _("Untitled");
+  for (int number = 2; FindFile(name) != nullptr; ++number) {
+    name = wxString::Format(_("Untitled %d"), number);
+  }
+  wxWindowUpdateLocker locker{this};
+  auto *page = new FilePage(
+      GetPageParent(), name,
+      ThemeManager::Get().ActiveTheme().value_or(wxTerminalTheme{}));
+  page->LoadUntitled();
+  AddFilePage(page);
+  ShowPage(page);
+}
+
+void MainNotebook::OnFilePathChanged(FileEvent &e) {
+  e.Skip();
+  // The event is pending: the page may be gone. Compare the pointer only.
+  for (auto *file : GetFiles()) {
+    if (file == e.GetEventObject()) {
+      if (const int index = m_book->FindPage(file); index != wxNOT_FOUND) {
+        m_book->SetPageText(index, file->GetDisplayName());
+        m_book->SetPageToolTip(index, file->GetPath());
+        m_book->SetPageBitmap(index, IconOf(file));
+      }
+      SyncWorkspaceSoon();
+      return;
+    }
   }
 }
 

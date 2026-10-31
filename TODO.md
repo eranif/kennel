@@ -32,8 +32,8 @@
 - [x] Closing the app while there are modified files -> user should be prompted
 - [x] Closing a file while there are modifications -> user should be prompted
 - [x] Type-A-Head helper to the FileExplorer tree control.
-- [ ] Add an option to create an empty file (Ctrl-N)
-- [ ] Add an option to open a file (Ctrl-O)
+- [x] Add an option to create an empty file (Ctrl-N) - File menu: opens an "Untitled" editor, Save asks for the file.
+- [x] Add an option to open a file (Ctrl-Shift-O) - File menu. Plain Ctrl-O stays free for the terminal.
 - [x] BUG: done is displayed on the active page and there is no way to clear it without selecting another tab and then coming back to it again.
 - [x] BUG: tab label should display a "modified" icon for a modified file.
 - [x] IMPROVEMENT: "Search" and "Goto Line" -> Center on the line.

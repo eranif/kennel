@@ -41,6 +41,11 @@ public:
   // page only names it (its extension decides the language).
   void LoadText(const wxString &text);
   bool IsTransient() const { return m_transient; }
+  // Shows an empty text that is not a file yet ("Untitled"): the page is kept
+  // out of the session, and Save asks for the file (see SaveAs()). The `m_path`
+  // of the page holds the name that is shown, until the page is saved.
+  void LoadUntitled();
+  bool IsUntitled() const { return m_untitled; }
 
   wxString GetKey() const { return FileEvent::MakeKey(m_path, m_remoteHost); }
   const wxString &GetPath() const { return m_path; }
@@ -58,9 +63,13 @@ public:
   bool IsRemote() const { return !m_remoteHost.host.empty(); }
   bool IsModified() const { return m_editor->GetCtrl()->GetModify(); }
   bool CanSave() const {
+    if (m_untitled) {
+      return true; // It can always go to a new file
+    }
     return IsRemote() ? m_editor->IsEditable() : m_editor->CanSave();
   }
-  // Writes a local file back to disk; reports failure with a message box.
+  // Writes a local file back to disk; reports failure with a message box. An
+  // untitled page asks for the file first (false if the user cancels).
   bool Save();
   // Remote files only: uploads the file on the page's save thread and returns
   // immediately. Returns false if nothing was started (a local file, a
@@ -143,12 +152,17 @@ private:
   void MarkModified();
   void OnKeyDown(wxKeyEvent &event);
   void OnSavePointChanged(wxStyledTextEvent &event);
+  // Asks for a file, saves the text there, and the page is that file from now
+  // on (wxEVT_FILE_PATH_CHANGED). False if the user cancelled or it failed.
+  bool SaveAs();
 
   wxString m_path;
   RemoteHostDetails m_remoteHost;
   bool m_saving{false};
   // See LoadText().
   bool m_transient{false};
+  // See LoadUntitled().
+  bool m_untitled{false};
   // Counts the calls of GotoLine() and SetViewState(): the deferred centring of
   // a call that is not the last one is dropped.
   int m_viewSerial{0};

@@ -162,6 +162,8 @@ private:
   void OnEditAgents(wxCommandEvent &evt);
   void OnRefreshSession(wxCommandEvent &evt);
   void OnRefreshSessionUI(wxUpdateUIEvent &evt);
+  void OnNewFile(wxCommandEvent &evt);
+  void OnOpenFile(wxCommandEvent &evt);
   void OnNewAgent(wxCommandEvent &evt);
   void OnNewTerminal(wxCommandEvent &evt);
   void OnCloseAllSessions(wxCommandEvent &evt);
