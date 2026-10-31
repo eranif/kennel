@@ -13,6 +13,11 @@ read those for depth. This file covers the rules an agent must not violate.
   structure, adding an event binding), do not edit these three files yourself — tell the
   user exactly what widget/property/event change is needed in wxCrafter and let them
   make it and regenerate. Everything else in `src/` is fair game to edit directly.
+- **Never undo the user's changes to any wxCrafter file (`*.wxcp`), or to the files
+  generated from them (`src/app/UI.hpp`, `src/app/UI.cpp`, and any other generated file).**
+  Do not revert, restore, check out, stash, or overwrite them, even when they are
+  uncommitted, and even when a review or a fix request asks for it. If a review asks for
+  such a revert, leave the files as they are and explain the conflict in the response.
 - **No C++ exceptions.** Errors flow through `Status` / `StatusOr<T>` (`core/Status.h`),
   absl-style. Don't introduce `throw`/`try`/`catch`.
 - **`src/core/` stays GUI-free.** It uses only wxBase types (`wxString`, `wxFileName`,
