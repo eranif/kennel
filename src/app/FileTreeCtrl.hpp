@@ -33,6 +33,8 @@ wxDECLARE_EVENT(wxEVT_FILETREE_MENU, FileEvent);
 // FileTreeCtrl::ConnectAsync() is done. Each request has its own id (a number
 // that only goes up): a listener handles only the request that it started,
 // and skips the event in any case.
+class DataViewTypeHelper;
+
 class FileTreeConnectedEvent : public wxCommandEvent {
 public:
   explicit FileTreeConnectedEvent(wxEventType type = wxEVT_NULL, int id = 0)
@@ -145,5 +147,7 @@ private:
   // Shared with the worker of ConnectAsync().
   std::shared_ptr<FileProvider> m_provider;
   wxDataViewTreeCtrl *m_tree{nullptr};
+  // Typing selects the next entry that starts with the letters.
+  std::unique_ptr<DataViewTypeHelper> m_typeHelper;
   wxString m_root;
 };

@@ -322,6 +322,7 @@ set(KENNEL_APP_SOURCES
     src/app/FileProvider.cpp
     src/app/FileBrowserDlg.cpp
     src/app/FileTreeCtrl.cpp
+    src/app/DataViewTypeHelper.cpp
     src/app/FileExplorerView.cpp
     src/app/ActivityView.cpp
     src/app/MainNotebook.cpp

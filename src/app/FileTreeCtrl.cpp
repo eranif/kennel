@@ -1,6 +1,7 @@
 #include "app/FileTreeCtrl.hpp"
 
 #include "PageViewEvent.hpp"
+#include "app/DataViewTypeHelper.h"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
 #include "core/WslPath.h"
@@ -77,6 +78,7 @@ FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
   m_tree->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &FileTreeCtrl::OnActivated, this);
   m_tree->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &FileTreeCtrl::OnContextMenu,
                this);
+  m_typeHelper = std::make_unique<DataViewTypeHelper>(m_tree);
 
   // Once the control is on the screen. A remote host waits for
   // ConnectAsync().

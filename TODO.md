@@ -31,4 +31,4 @@
 - [x] Menu: under the `Edit` menu, add common action + their keyboard shortcuts (Copy, Paste, Delete Line, Duplicate Line etc)
 - [ ] Closing the app while there are modified files -> user should be prompted
 - [ ] Closing a file while there are modifications -> user should be prompted
-- [ ] Type-A-Head helper to the FileExplorer tree control.
+- [x] Type-A-Head helper to the FileExplorer tree control.
