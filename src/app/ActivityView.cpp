@@ -75,7 +75,7 @@ void ActivityView::SetActivity(const SessionRef &ref, PageActivity activity) {
     // the program is idle again.
     if (const int index = FindRow(ref);
         index != wxNOT_FOUND && m_rows[index].activity != PageActivity::Done) {
-      RemoveSession(ref);
+      RemoveRow(ref);
     }
     return;
   }
@@ -91,15 +91,14 @@ void ActivityView::SetActivity(const SessionRef &ref, PageActivity activity) {
   Refill();
 }
 
-void ActivityView::RemoveSession(const SessionRef &ref) {
+void ActivityView::RemoveRow(const SessionRef &ref) {
   const int index = FindRow(ref);
   if (index == wxNOT_FOUND) {
     return;
   }
+  // Only the row: the session may be the one the user works in (m_active), and
+  // goes on being it.
   m_rows.erase(m_rows.begin() + index);
-  if (m_active == ref) {
-    m_active.reset();
-  }
   Refill();
 }
 
@@ -207,7 +206,7 @@ void ActivityView::OnIdle(wxIdleEvent &event) {
   }
   if (const int index = FindRow(*m_active);
       index != wxNOT_FOUND && m_rows[index].activity == PageActivity::Done) {
-    RemoveSession(*m_active);
+    RemoveRow(*m_active);
   }
 }
 
@@ -243,7 +242,10 @@ void ActivityView::OnSessionRenamed(PageViewEvent &event) {
 
 void ActivityView::OnSessionPageRemoved(PageViewEvent &event) {
   event.Skip();
-  RemoveSession(event.GetRef());
+  if (m_active == event.GetRef()) {
+    m_active.reset(); // The session is gone
+  }
+  RemoveRow(event.GetRef());
 }
 
 void ActivityView::OnSessionPageActivity(PageViewEvent &event) {

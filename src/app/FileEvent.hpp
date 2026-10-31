@@ -87,6 +87,11 @@ wxDECLARE_EVENT(wxEVT_FILE_SAVE_DONE, FileEvent);
 // GetAccount()) became the page that is showing. The receiver shows where it is
 // in the file views; it sends nothing back.
 wxDECLARE_EVENT(wxEVT_FILE_REVEAL, FileEvent);
+// Sent on the EventNotifier by a FilePage when the file became modified or was
+// saved (or reloaded): GetInt() is 1 for modified. The event object is the
+// page; the event is pending, so the page may be gone: compare the pointer
+// only.
+wxDECLARE_EVENT(wxEVT_FILE_MODIFIED_CHANGED, FileEvent);
 // Sent on the EventNotifier when a file was saved (a local file, and a remote
 // one when the upload worked): GetPath() and GetAccount() tell which. The views
 // that show the state of the file (the git view) read it again.

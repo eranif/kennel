@@ -6,4 +6,7 @@
 // bigger (24 DIP), and it makes the bitmap at the size that is asked for, so
 // the icon is sharp when the display is scaled. An empty bundle gives an empty
 // bundle. Used by every tab bar, so that their icons have the same size.
-wxBitmapBundle TabIcon(const wxBitmapBundle &source);
+//
+// With `modified`, an orange dot is drawn in the lower right corner (a file
+// with changes that are not saved).
+wxBitmapBundle TabIcon(const wxBitmapBundle &source, bool modified = false);

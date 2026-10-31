@@ -348,6 +348,7 @@ private:
   void OnIdleEvent(wxIdleEvent &e);
   void OnFileSaveStarted(FileEvent &e);
   void OnFileSaveDone(FileEvent &e);
+  void OnFileModifiedChanged(FileEvent &e);
   void OnRemoteFileRead(const RemoteReadResult &result);
   // Takes the file out of m_restoringFiles. Whether it was there.
   bool TakeRestoringFile(const wxString &key);

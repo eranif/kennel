@@ -60,8 +60,8 @@ private:
   void Clear();
   // A session got another name or group. Its row stays.
   void RenameSession(const SessionRef &from, const SessionRef &to);
-  // The session is gone.
-  void RemoveSession(const SessionRef &ref);
+  // Takes the row of the session away (the session itself goes on).
+  void RemoveRow(const SessionRef &ref);
 
   struct Row {
     SessionRef ref;

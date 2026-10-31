@@ -315,6 +315,12 @@ void FilePage::PublishStatus() {
 
 void FilePage::OnSavePointChanged(wxStyledTextEvent &event) {
   event.Skip();
+  // The tab shows whether the file is modified.
+  FileEvent changed{wxEVT_FILE_MODIFIED_CHANGED};
+  changed.SetEventObject(this);
+  changed.SetPath(m_path);
+  changed.SetInt(IsModified() ? 1 : 0);
+  EventNotifier::Get()->AddPendingEvent(changed);
   wxFrame *frame = static_cast<wxFrame *>(wxTheApp->GetTopWindow());
   frame->SetLabel((m_editor->GetCtrl()->IsModified()
                        ? wxString::FromUTF8("💾 ") // U+1F4BE floppy disk
