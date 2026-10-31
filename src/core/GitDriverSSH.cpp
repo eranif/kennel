@@ -25,7 +25,8 @@ ProcessOutput GitDriverSSH::RunGit(const std::vector<std::string> &args) {
   for (const auto &arg : args) {
     command += " " + ShellQuote(arg);
   }
-  return Process::RunProcessAndWait({"ssh", "-o", "BatchMode=yes", "-o",
-                                     "ConnectTimeout=10",
-                                     target.ToStdString(wxConvUTF8), command});
+  // "--": a host name is never an option.
+  return RunProcess({"ssh", "-T", "-o", "BatchMode=yes", "-o",
+                     "ConnectTimeout=10", "--", target.ToStdString(wxConvUTF8),
+                     command});
 }

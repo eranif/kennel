@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <optional>
+#include <thread>
 #include <vector>
 #include <wx/panel.h>
 
@@ -32,7 +33,8 @@ class wxStaticText;
 //
 // Self contained, like FileExplorerView: it listens on the EventNotifier to
 // which sessions exist and which one shows, keeps one GitDriver for each
-// session (the kind comes from the Account of the session), and sends the file
+// session (the kind comes from the Account of the session; it starts when the
+// session is first shown), and sends the file
 // to open on the EventNotifier (wxEVT_FILETREE_ACTIVATED). A session without a
 // working folder has no driver.
 class GitView : public wxPanel {
@@ -48,7 +50,9 @@ private:
   struct Entry {
     SessionRef ref;
     Account account;
-    std::unique_ptr<GitDriver> driver; // Null: no working folder
+    bool hasFolder{false};
+    // Null until the session is first shown, and for a session with no folder.
+    std::unique_ptr<GitDriver> driver;
     // The last answer. `message` is what the table shows instead of the files
     // (an error, or "Loading...").
     GitStatus status;
@@ -69,6 +73,8 @@ private:
   Entry *ActiveEntry();
   // Asks the driver of the entry for the status, if it has one.
   void Request(Entry &entry);
+  // Deletes the driver on another thread (see the definition).
+  void DeleteInBackground(std::unique_ptr<GitDriver> driver);
   // Fills the label and the table from the entry that shows.
   void Refill();
 
@@ -76,6 +82,8 @@ private:
   wxStaticText *m_branch{nullptr};
   wxDataViewListCtrl *m_list{nullptr};
   std::vector<Entry> m_entries;
+  // The threads that end the drivers of the sessions that went.
+  std::vector<std::thread> m_reapers;
   std::optional<SessionRef> m_active;
   // The file of each row of the table (its path in the repository), empty for
   // a row that is not a file.

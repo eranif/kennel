@@ -6,8 +6,8 @@ ProcessOutput GitDriverWSL::RunGit(const std::vector<std::string> &args) {
                                    m_distro.ToStdString(wxConvUTF8),
                                    "--cd",
                                    GetFolder().ToStdString(wxConvUTF8),
-                                   "--",
+                                   "--exec",
                                    "git"};
   argv.insert(argv.end(), args.begin(), args.end());
-  return Process::RunProcessAndWait(argv);
+  return RunProcess(argv);
 }

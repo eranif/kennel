@@ -16,6 +16,8 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
+#include <thread>
+
 namespace {
 const int kIdRefresh = wxWindow::NewControlId();
 
@@ -39,13 +41,15 @@ wxString StatusWord(char letter) {
   }
 }
 
-// The driver for the files of `account`. Null when it has no working folder
-// (or the folder is written with "~", which is not supported yet).
+// Whether git can run for `account`: it needs a working folder (written with
+// "~" it is not supported yet).
+bool HasFolder(const Account &account) {
+  return !account.m_rootDir.empty() && !account.m_rootDir.StartsWith("~");
+}
+
+// The driver for the files of `account`, which has a folder (see HasFolder()).
 std::unique_ptr<GitDriver> MakeDriver(const Account &account) {
   const wxString &folder = account.m_rootDir;
-  if (folder.empty() || folder.StartsWith("~")) {
-    return nullptr;
-  }
   if (account.IsRemote()) {
     return std::make_unique<GitDriverSSH>(account.m_name, account.m_user,
                                           folder);
@@ -94,7 +98,20 @@ GitView::GitView(wxWindow *parent) : wxPanel(parent) {
   Refill();
 }
 
+// A driver ends by waiting for the git that runs, which can take seconds (an
+// ssh host that does not answer). That is done on another thread: the UI goes
+// on. The destructor of the view waits for these threads.
+void GitView::DeleteInBackground(std::unique_ptr<GitDriver> driver) {
+  if (driver) {
+    m_reapers.emplace_back(
+        [driver = std::move(driver)]() mutable { driver.reset(); });
+  }
+}
+
 GitView::~GitView() {
+  for (std::thread &reaper : m_reapers) {
+    reaper.join();
+  }
   auto *notifier = EventNotifier::Get();
   notifier->Unbind(wxEVT_SESSION_PAGE_ADDED, &GitView::OnSessionPageAdded,
                    this);
@@ -132,9 +149,14 @@ GitView::Entry *GitView::ActiveEntry() {
 }
 
 void GitView::Request(Entry &entry) {
-  if (entry.driver) {
-    entry.driver->Status();
+  if (!entry.hasFolder) {
+    return;
   }
+  // The driver (and its thread) starts when the session is first shown.
+  if (!entry.driver) {
+    entry.driver = MakeDriver(entry.account);
+  }
+  entry.driver->Status();
 }
 
 void GitView::OnSessionPageAdded(PageViewEvent &event) {
@@ -145,8 +167,8 @@ void GitView::OnSessionPageAdded(PageViewEvent &event) {
   Entry entry;
   entry.ref = event.GetRef();
   entry.account = event.GetAccount();
-  entry.driver = MakeDriver(entry.account);
-  entry.message = entry.driver ? _("Loading...") : _("No working folder");
+  entry.hasFolder = HasFolder(entry.account);
+  entry.message = entry.hasFolder ? _("Loading...") : _("No working folder");
   m_entries.push_back(std::move(entry));
   if (m_active == m_entries.back().ref) {
     Request(m_entries.back());
@@ -160,6 +182,7 @@ void GitView::OnSessionPageRemoved(PageViewEvent &event) {
   if (index == wxNOT_FOUND) {
     return;
   }
+  DeleteInBackground(std::move(m_entries[index].driver));
   m_entries.erase(m_entries.begin() + index);
   if (m_active == event.GetRef()) {
     m_active.reset();
@@ -179,6 +202,9 @@ void GitView::OnSessionRenamed(PageViewEvent &event) {
 
 void GitView::OnSessionPagesCleared(wxCommandEvent &event) {
   event.Skip();
+  for (Entry &entry : m_entries) {
+    DeleteInBackground(std::move(entry.driver));
+  }
   m_entries.clear();
   m_active.reset();
   Refill();
@@ -196,7 +222,7 @@ void GitView::OnSessionPageShown(PageViewEvent &event) {
 void GitView::OnGitStatus(GitEvent &event) {
   event.Skip(); // The driver may be someone else's
   for (Entry &entry : m_entries) {
-    if (entry.driver.get() != event.GetEventObject()) {
+    if (!entry.driver || entry.driver->GetId() != event.GetInt()) {
       continue;
     }
     if (event.GetResult().ok()) {
@@ -217,7 +243,11 @@ void GitView::OnGitStatus(GitEvent &event) {
 
 void GitView::OnFileSaveDone(FileEvent &event) {
   event.Skip();
-  if (Entry *entry = ActiveEntry()) {
+  // Only a file of the account of the session that shows can be in its
+  // repository.
+  Entry *entry = ActiveEntry();
+  if (entry != nullptr &&
+      event.GetAccount().GetId() == entry->account.GetId()) {
     Request(*entry);
   }
 }
@@ -240,8 +270,10 @@ void GitView::Refill() {
 
   if (!entry->message.empty()) {
     m_branch->SetLabel(wxEmptyString);
-    m_list->AppendItem({wxString(), entry->message});
+    // The first line: the error of git can have many.
+    m_list->AppendItem({wxString(), entry->message.BeforeFirst('\n')});
     m_rowPaths.emplace_back();
+    Layout();
     return;
   }
 

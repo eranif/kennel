@@ -20,6 +20,7 @@ GitEvent MakeEvent(wxEventType type, GitDriver *driver,
                    const ProcessOutput &output) {
   GitEvent event(type);
   event.SetEventObject(driver);
+  event.SetInt(driver->GetId());
   if (!output.ok) {
     event.SetResult(::Status::Error(ErrorText(output)));
   }
@@ -27,7 +28,38 @@ GitEvent MakeEvent(wxEventType type, GitDriver *driver,
 }
 } // namespace
 
-GitDriver::GitDriver(const wxString &folder) : m_folder(folder) {
+namespace {
+std::atomic<int> s_lastId{0};
+
+#ifdef _WIN32
+// `arg` as one argument of a Windows command line (the rules of the C runtime).
+std::string QuoteArg(const std::string &arg) {
+  if (!arg.empty() && arg.find_first_of(" \t\n\v\"") == std::string::npos) {
+    return arg;
+  }
+  std::string quoted = "\"";
+  size_t backslashes = 0;
+  for (const char c : arg) {
+    if (c == '\\') {
+      ++backslashes;
+      continue;
+    }
+    if (c == '"') {
+      quoted.append(backslashes * 2 + 1, '\\'); // Escape them and the quote
+    } else {
+      quoted.append(backslashes, '\\');
+    }
+    backslashes = 0;
+    quoted += c;
+  }
+  quoted.append(backslashes * 2, '\\'); // Before the closing quote
+  return quoted + "\"";
+}
+#endif
+} // namespace
+
+GitDriver::GitDriver(const wxString &folder)
+    : m_id(++s_lastId), m_folder(folder) {
   m_worker = std::thread([this] { WorkerLoop(); });
 }
 
@@ -69,8 +101,27 @@ void GitDriver::WorkerLoop() {
   }
 }
 
+ProcessOutput GitDriver::RunProcess(const std::vector<std::string> &argv) {
+#ifdef _WIN32
+  std::vector<std::string> quoted;
+  for (const auto &arg : argv) {
+    quoted.push_back(QuoteArg(arg));
+  }
+  return Process::RunProcessAndWait(quoted);
+#else
+  return Process::RunProcessAndWait(argv);
+#endif
+}
+
 void GitDriver::Status() {
+  // A job that is queued reads the repository when it runs, so it answers this
+  // request too. One that already runs may have read it too early: that one
+  // needs a new job.
+  if (m_statusQueued.exchange(true)) {
+    return;
+  }
   AddJob({[this] {
+    m_statusQueued = false;
     const ProcessOutput output =
         RunGit({"--no-optional-locks", "status", "--porcelain=v2", "-b", "-z",
                 "--untracked-files=all"});

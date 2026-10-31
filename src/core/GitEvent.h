@@ -6,9 +6,11 @@
 #include <wx/event.h>
 #include <wx/string.h>
 
-// The answer of a GitDriver. Sent on the EventNotifier, on the UI thread. The
-// event object is the driver that sends it: a listener compares it with the
-// drivers it owns.
+// The answer of a GitDriver. Sent on the EventNotifier, on the UI thread. A
+// listener finds its driver by comparing GetInt() (the id of the driver that
+// sends it) with GitDriver::GetId(). The event object is that driver too, but
+// it may be gone when the event is handled: never use it, and never compare
+// it (an address can be used again).
 //
 // GetResult() tells whether git worked. When it did not, the data is empty and
 // GetResult().message() has the text git wrote.
