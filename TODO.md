@@ -36,4 +36,4 @@
 - [ ] Add an option to open a file (Ctrl-O)
 - [ ] BUG: done is displayed on the active page and there is no way to clear it without selecting another tab and then coming back to it again.
 - [ ] BUG: tab label should display a "modified" icon for a modified file.
-- [ ] IMPROVEMENT: "Search" and "Goto Line" -> Center on the line.
+- [x] IMPROVEMENT: "Search" and "Goto Line" -> Center on the line.

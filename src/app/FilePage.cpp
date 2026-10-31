@@ -433,6 +433,7 @@ bool FilePage::FindIn(bool forward, bool incremental) {
 
   ctrl->SetSelection(ctrl->GetTargetStart(), ctrl->GetTargetEnd());
   ctrl->EnsureCaretVisible();
+  ctrl->VerticalCentreCaret(); // The match is in the middle of the editor
   if (wrapped) {
     GetMainFrame()->SetActivityText(
         forward ? _("Search continued from the top")

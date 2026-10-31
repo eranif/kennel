@@ -595,6 +595,7 @@ void Editor::GotoLine(int line, int column) {
   m_ctrl->EnsureVisible(row);
   m_ctrl->GotoPos(pos);
   m_ctrl->ChooseCaretX();
+  m_ctrl->VerticalCentreCaret();
 }
 
 void Editor::UpdateLineNumberMargin() {
