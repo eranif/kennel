@@ -7,13 +7,13 @@
 - [x] Files should be saved as part of the session
 - [x] Add goto line to file editor
 - [x] Design and implement a file explorer view (maybe we can import clTreeCtrlPanel)
-- [ ] Design and implement a git view.
+- [x] Design and implement a git view.
 - [ ] Settings dialog:
   - [ ] Review timeout.
   - [ ] Review turns.
 - [ ] Add Archive feature
 - [x] Notebook: closing a tab, selects the first one. We should select the next one from the MRU.
-- [ ] Update the `File Browser` with the following: add `Refresh` context menu. `Open with Default App`, `Copy Path`.
+- [x] Update the `File Browser` with the following: add `Refresh` context menu. `Open with Default App`, `Copy Path`.
 - [x] Make `Cobalt2` the default theme
 - [x] BUG: Tab Spinner is NOT spinning.
 - [x] Tab icons are too small.
