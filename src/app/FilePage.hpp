@@ -128,6 +128,8 @@ private:
   bool FindIn(bool forward, bool incremental = false);
   int FindSearchFlags() const;
   void FileSaved(const Status &status);
+  // Tells the views (wxEVT_FILE_SAVED) that the file was saved.
+  void SendSaved();
   void OnSave(wxCommandEvent &event);
   void OnSaveUI(wxUpdateUIEvent &event);
   void OnClose(wxCommandEvent &event);

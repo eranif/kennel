@@ -218,6 +218,9 @@ void FilePage::FileSaved(const Status &status) {
   event.SetRemoteHostDetails(m_remoteHost);
   event.SetStatusCode(status);
   AddPendingEvent(event);
+  if (status.ok()) {
+    SendSaved();
+  }
 
   if (!status.ok()) {
     ::wxMessageBox(status.message(), "Kennel", wxOK | wxICON_ERROR, this);
@@ -247,6 +250,7 @@ bool FilePage::Save() {
                    "Kennel", wxOK | wxICON_ERROR, this);
     return false;
   }
+  SendSaved();
   return true;
 }
 
@@ -320,8 +324,22 @@ void FilePage::OnSavePointChanged(wxStyledTextEvent &event) {
 
 void FilePage::OnSave(wxCommandEvent &event) {
   wxUnusedVar(event);
-  if (m_editor && m_editor->IsModified())
-    m_editor->Save();
+  if (!m_editor->IsModified()) {
+    return;
+  }
+  if (IsRemote()) {
+    SaveAsync();
+  } else {
+    Save();
+  }
+}
+
+void FilePage::SendSaved() {
+  FileEvent event{wxEVT_FILE_SAVED};
+  event.SetEventObject(this);
+  event.SetPath(GetAccountPath());
+  event.SetAccount(GetAccount());
+  EventNotifier::Get()->AddPendingEvent(event);
 }
 
 void FilePage::OnSaveUI(wxUpdateUIEvent &event) {

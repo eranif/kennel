@@ -81,7 +81,7 @@ private:
   void OnSessionPageShown(PageViewEvent &event);
   void OnSessionPagesCleared(wxCommandEvent &event);
   void OnGitStatus(GitEvent &event);
-  void OnFileSaveDone(FileEvent &event);
+  void OnFileSaved(FileEvent &event);
   void OnRefresh(wxCommandEvent &event);
   void OnActivated(wxDataViewEvent &event);
   void OnContextMenu(wxDataViewEvent &event);

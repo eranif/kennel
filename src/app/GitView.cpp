@@ -126,8 +126,7 @@ GitView::GitView(wxWindow *parent) : wxPanel(parent) {
                  this);
   notifier->Bind(wxEVT_GIT_STATUS, &GitView::OnGitStatus, this);
   notifier->Bind(wxEVT_GIT_DIFF, &GitView::OnGitDiff, this);
-  // Sent to the application (see FilePage), not to the notifier.
-  wxTheApp->Bind(wxEVT_FILE_SAVE_DONE, &GitView::OnFileSaveDone, this);
+  notifier->Bind(wxEVT_FILE_SAVED, &GitView::OnFileSaved, this);
   Refill();
 }
 
@@ -160,9 +159,7 @@ GitView::~GitView() {
                    this);
   notifier->Unbind(wxEVT_GIT_STATUS, &GitView::OnGitStatus, this);
   notifier->Unbind(wxEVT_GIT_DIFF, &GitView::OnGitDiff, this);
-  if (wxTheApp != nullptr) {
-    wxTheApp->Unbind(wxEVT_FILE_SAVE_DONE, &GitView::OnFileSaveDone, this);
-  }
+  notifier->Unbind(wxEVT_FILE_SAVED, &GitView::OnFileSaved, this);
 }
 
 void GitView::ApplyToolBarStyle() { toolbar::ApplyStyle(m_toolbar); }
@@ -282,7 +279,7 @@ void GitView::OnGitStatus(GitEvent &event) {
   }
 }
 
-void GitView::OnFileSaveDone(FileEvent &event) {
+void GitView::OnFileSaved(FileEvent &event) {
   event.Skip();
   // Only a file of the account of the session that shows can be in its
   // repository.
