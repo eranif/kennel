@@ -35,8 +35,10 @@ public:
   // The answer is wxEVT_GIT_BRANCH_NAME. The text is empty when HEAD is
   // detached.
   void GetCurrentBranchName();
-  // `path` is a path of GitChange. The answer is wxEVT_GIT_DIFF.
-  void Diff(const wxString &path, bool staged);
+  // `path` is a path of GitChange. `staged`: the changes of the index (against
+  // HEAD), otherwise those of the work tree. `untracked`: a new file, which is
+  // shown as all added. The answer is wxEVT_GIT_DIFF.
+  void Diff(const wxString &path, bool staged, bool untracked = false);
 
   const wxString &GetFolder() const { return m_folder; }
   // Tells the drivers apart: it is in the events (GetInt()). Never reused.
@@ -72,7 +74,8 @@ private:
   // On the UI thread.
   void OnStatusOutput(const ProcessOutput &output, const wxString &root);
   void OnBranchNameOutput(const ProcessOutput &output);
-  void OnDiffOutput(const wxString &path, const ProcessOutput &output);
+  void OnDiffOutput(const wxString &path, bool staged,
+                    const ProcessOutput &output);
 
   int m_id;
   // A Status() job waits in the queue: another request needs no new job.

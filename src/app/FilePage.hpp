@@ -36,6 +36,11 @@ public:
   // Remote file: shows `text`. `editable` false shows it read-only (used when
   // the bytes could not be decoded losslessly, so saving would corrupt them).
   void LoadRemote(const wxString &text, bool editable = true);
+  // Shows `text` read-only, as a text that is not a file (a git diff): the
+  // page is not kept in the session, and Reload() does nothing. `path` of the
+  // page only names it (its extension decides the language).
+  void LoadText(const wxString &text);
+  bool IsTransient() const { return m_transient; }
 
   wxString GetKey() const { return FileEvent::MakeKey(m_path, m_remoteHost); }
   const wxString &GetPath() const { return m_path; }
@@ -140,6 +145,8 @@ private:
   wxString m_path;
   RemoteHostDetails m_remoteHost;
   bool m_saving{false};
+  // See LoadText().
+  bool m_transient{false};
   // Counts the calls of GotoLine() and SetViewState(): the deferred centring of
   // a call that is not the last one is dropped.
   int m_viewSerial{0};

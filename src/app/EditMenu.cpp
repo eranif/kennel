@@ -26,6 +26,9 @@ void EditMenu::AddTo(wxMenuBar *menuBar) {
   m_position = menuBar->GetMenuCount();
   m_menu = new wxMenu();
   wxMenu *menu = m_menu;
+  menu->Append(XRCID("edit-close-editor"), _("Close Editor\tCtrl+W"),
+               _("Close the file that is showing"));
+  menu->AppendSeparator();
   menu->Append(XRCID("edit-reload-file"), _("Reload File\tCtrl+R"),
                _("Load the file that is showing again"));
   menu->AppendSeparator();
@@ -38,8 +41,9 @@ void EditMenu::AddTo(wxMenuBar *menuBar) {
   menu->Append(XRCID("edit-delete-line"), _("Delete Line\tCtrl+L"));
   menu->Append(XRCID("edit-duplicate-line"), _("Duplicate Line\tCtrl+D"));
   for (const char *name :
-       {"edit-reload-file", "edit-undo", "edit-redo", "edit-copy", "edit-paste",
-        "edit-select-all", "edit-delete-line", "edit-duplicate-line"}) {
+       {"edit-close-editor", "edit-reload-file", "edit-undo", "edit-redo",
+        "edit-copy", "edit-paste", "edit-select-all", "edit-delete-line",
+        "edit-duplicate-line"}) {
     m_frame->Bind(wxEVT_MENU, &EditMenu::OnAction, this, XRCID(name));
     m_frame->Bind(wxEVT_UPDATE_UI, &EditMenu::OnActionUI, this, XRCID(name));
   }
@@ -74,6 +78,9 @@ void EditMenu::OnIdle(wxIdleEvent &event) {
 }
 
 std::optional<EditMenu::Action> EditMenu::ActionOf(int id) {
+  if (id == XRCID("edit-close-editor")) {
+    return Action::kClose;
+  }
   if (id == XRCID("edit-reload-file")) {
     return Action::kReload;
   }
@@ -106,7 +113,7 @@ bool EditMenu::CanDo(Action action) const {
   if (file == nullptr) {
     return false;
   }
-  if (action == Action::kReload) {
+  if (action == Action::kReload || action == Action::kClose) {
     return true;
   }
   // The rest only while the editor has the focus: the text boxes of the page
@@ -130,6 +137,10 @@ void EditMenu::Do(Action action) {
     return;
   }
   switch (action) {
+  case Action::kClose:
+    // After this event: the page is destroyed, and it may ask a question.
+    m_book->CallAfter(&MainNotebook::CloseFileByKey, file->GetKey());
+    break;
   case Action::kReload:
     file->Reload();
     break;

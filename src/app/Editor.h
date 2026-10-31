@@ -20,6 +20,7 @@ enum class EditorLang {
   kPython,
   kMakefile,
   kRust,
+  kDiff,
 };
 
 struct EditableLocker {
@@ -120,6 +121,7 @@ private:
   void InitPythonStyle();
   void InitMakefileStyle();
   void InitRustStyle();
+  void InitDiffStyle();
   // Sizes the line-number margin to fit the current number of lines.
   void UpdateLineNumberMargin();
   void OnModified(wxStyledTextEvent &event);

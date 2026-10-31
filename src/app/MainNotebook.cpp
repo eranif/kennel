@@ -9,6 +9,7 @@
 #include "app/AssetBootstrap.h"
 #include "app/FileExplorerView.hpp"
 #include "app/FilePage.hpp"
+#include "app/GitView.hpp"
 #include "app/GotoAnythingBar.hpp"
 #include "app/MainFrame.h"
 #include "app/PageNames.h"
@@ -135,6 +136,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
                              &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Bind(wxEVT_FILETREE_ACTIVATED,
                              &MainNotebook::OnFileTreeActivated, this);
+  EventNotifier::Get()->Bind(wxEVT_GITVIEW_SHOW_DIFF, &MainNotebook::OnShowDiff,
+                             this);
   EventNotifier::Get()->Bind(wxEVT_APP_PREFS_CHANGED,
                              &MainNotebook::OnAppPrefsSaved, this);
   Bind(wxEVT_GOTOANYTHING_CHANGED, &MainNotebook::OnGotoChanged, this);
@@ -163,6 +166,8 @@ MainNotebook::~MainNotebook() {
                                &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Unbind(wxEVT_FILETREE_ACTIVATED,
                                &MainNotebook::OnFileTreeActivated, this);
+  EventNotifier::Get()->Unbind(wxEVT_GITVIEW_SHOW_DIFF,
+                               &MainNotebook::OnShowDiff, this);
   EventNotifier::Get()->Unbind(wxEVT_APP_PREFS_CHANGED,
                                &MainNotebook::OnAppPrefsSaved, this);
   Unbind(wxEVT_SESSION_IDLE, &MainNotebook::OnSessionIdle, this);
@@ -248,6 +253,38 @@ void MainNotebook::OnFileTreeActivated(FileEvent &event) {
                       ? wsl::ToWindowsPath(account.m_name, event.GetPath())
                       : event.GetPath());
   }
+}
+
+// A diff of the git view: a page with the text, read-only, that is not kept in
+// the session. The same diff again replaces the text of its page.
+void MainNotebook::OnShowDiff(FileEvent &event) {
+  const Account &account = event.GetAccount();
+  RemoteHostDetails remote;
+  wxString path = event.GetPath();
+  if (account.IsRemote()) {
+    remote = {account.m_name, account.m_user};
+  } else {
+    if (account.IsWSL()) {
+      path = wsl::ToWindowsPath(account.m_name, path);
+    }
+    path = wxFileName(path).GetFullPath();
+  }
+  // The extension is what makes the editor use the diff language.
+  path += event.GetInt() != 0 ? ".staged.diff" : ".diff";
+  const wxString key = FileEvent::MakeKey(path, remote);
+
+  wxWindowUpdateLocker locker{this};
+  if (auto *existing = FindFile(key)) {
+    existing->LoadText(event.GetString());
+    ShowPage(existing);
+    return;
+  }
+  auto *page = new FilePage(
+      GetPageParent(), path,
+      ThemeManager::Get().ActiveTheme().value_or(wxTerminalTheme{}), remote);
+  page->LoadText(event.GetString());
+  AddFilePage(page);
+  ShowPage(page);
 }
 
 // ---------------------------------------------------------------------------
@@ -504,6 +541,9 @@ void MainNotebook::SyncWorkspaceToDisk() {
   }
 
   for (auto *file : GetFiles()) {
+    if (file->IsTransient()) {
+      continue; // Not a file
+    }
     const auto &host = file->GetRemoteHostDetails();
     ws.files.push_back(SessionFile{file->GetPath(), host.host, host.user});
   }

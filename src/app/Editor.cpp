@@ -217,6 +217,9 @@ void Editor::InitEditor() {
   case EditorLang::kRust:
     InitRustStyle();
     break;
+  case EditorLang::kDiff:
+    InitDiffStyle();
+    break;
   case EditorLang::kJson:
     InitJsonStyle();
     break;
@@ -693,6 +696,38 @@ void Editor::InitRustStyle() {
   AddProperty(wxSTC_RUST_LIFETIME, m_theme.bg, m_theme.cyan);
   AddProperty(wxSTC_RUST_MACRO, m_theme.bg, m_theme.cyan);
   AddProperty(wxSTC_RUST_LEXERROR, m_theme.bg, m_theme.red);
+  AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
+  AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
+}
+
+void Editor::InitDiffStyle() {
+  m_ctrl->SetLexer(wxSTC_LEX_DIFF);
+
+  // A line that was added or deleted has a light background that covers the
+  // whole line (up to the right edge), and a text of the same colour. The
+  // background is the colour of the theme mixed into its background, so that
+  // it fits a dark and a light theme.
+  const wxColour addedBg = Mix(m_theme.bg, m_theme.green, 0.22);
+  const wxColour deletedBg = Mix(m_theme.bg, m_theme.red, 0.22);
+  const wxColour addedFg = EnsureContrast(m_theme.green, addedBg, 4.0);
+  const wxColour deletedFg = EnsureContrast(m_theme.red, deletedBg, 4.0);
+  for (int style :
+       {wxSTC_DIFF_ADDED, wxSTC_DIFF_PATCH_ADD, wxSTC_DIFF_REMOVED_PATCH_ADD}) {
+    AddProperty(style, addedBg, addedFg);
+    m_ctrl->StyleSetEOLFilled(style, true);
+  }
+  for (int style : {wxSTC_DIFF_DELETED, wxSTC_DIFF_PATCH_DELETE,
+                    wxSTC_DIFF_REMOVED_PATCH_DELETE}) {
+    AddProperty(style, deletedBg, deletedFg);
+    m_ctrl->StyleSetEOLFilled(style, true);
+  }
+
+  AddProperty(wxSTC_DIFF_DEFAULT, m_theme.bg, m_theme.fg);
+  AddProperty(wxSTC_DIFF_COMMENT, m_theme.bg, CommentColour());
+  AddProperty(wxSTC_DIFF_COMMAND, m_theme.bg, m_theme.yellow);
+  AddProperty(wxSTC_DIFF_HEADER, m_theme.bg, m_theme.cyan);
+  AddProperty(wxSTC_DIFF_POSITION, m_theme.bg, m_theme.magenta);
+  AddProperty(wxSTC_DIFF_CHANGED, m_theme.bg, m_theme.yellow);
   AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
 }

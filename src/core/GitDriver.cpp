@@ -171,18 +171,37 @@ void GitDriver::GetCurrentBranchName() {
   }});
 }
 
-void GitDriver::Diff(const wxString &path, bool staged) {
-  AddJob({[this, path, staged] {
-    // ":(top,literal)": the path is relative to the root of the repository
-    // (as in the status) and it is a name, not a pattern.
-    std::vector<std::string> args = {"diff", "--no-color"};
-    if (staged) {
-      args.push_back("--cached");
+void GitDriver::Diff(const wxString &path, bool staged, bool untracked) {
+  AddJob({[this, path, staged, untracked] {
+    const std::string file = path.ToStdString(wxConvUTF8);
+    ProcessOutput output;
+    if (untracked) {
+      // A new file is compared with nothing. `--no-index` has no pathspecs: git
+      // runs in the root of the repository, where the path is right.
+      const ProcessOutput up = RunGit({"rev-parse", "--show-cdup"});
+      if (!up.ok) {
+        output = up;
+      } else {
+        const wxString root = RootFrom(
+            GetFolder(), Utf8(up.out).Strip(wxString::both), GetPathFormat());
+        output = RunGit({"-C", root.ToStdString(wxConvUTF8), "diff",
+                         "--no-color", "--no-index", "--", "/dev/null", file});
+        // The exit code is 1 when the files differ: the text tells it worked.
+        output.ok = output.ok || !output.out.empty();
+      }
+    } else {
+      // ":(top,literal)": the path is relative to the root of the repository
+      // (as in the status) and it is a name, not a pattern.
+      std::vector<std::string> args = {"diff", "--no-color"};
+      if (staged) {
+        args.push_back("--cached");
+      }
+      args.push_back("--");
+      args.push_back(":(top,literal)" + file);
+      output = RunGit(args);
     }
-    args.push_back("--");
-    args.push_back(":(top,literal)" + path.ToStdString(wxConvUTF8));
-    const ProcessOutput output = RunGit(args);
-    CallAfter(&GitDriver::OnDiffOutput, path, output);
+    CallAfter(
+        [this, path, staged, output] { OnDiffOutput(path, staged, output); });
   }});
 }
 
@@ -210,10 +229,11 @@ void GitDriver::OnBranchNameOutput(const ProcessOutput &output) {
   EventNotifier::Get()->AddPendingEvent(event);
 }
 
-void GitDriver::OnDiffOutput(const wxString &path,
+void GitDriver::OnDiffOutput(const wxString &path, bool staged,
                              const ProcessOutput &output) {
   GitEvent event = MakeEvent(wxEVT_GIT_DIFF, this, output);
   event.SetPath(path);
+  event.SetStaged(staged);
   if (output.ok) {
     event.SetText(Utf8(output.out));
   }

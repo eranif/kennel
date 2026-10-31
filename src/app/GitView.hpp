@@ -19,6 +19,12 @@ class wxDataViewEvent;
 class wxDataViewListCtrl;
 class wxStaticText;
 
+// Sent on the EventNotifier when the user asks for the diff of a file:
+// GetPath() is the file (in the notation of GetAccount()), GetInt() is 1 for
+// the changes of the index (staged), GetString() is the diff. The host shows
+// it.
+wxDECLARE_EVENT(wxEVT_GITVIEW_SHOW_DIFF, FileEvent);
+
 // The git changes of the session that is showing.
 //
 //   [ refresh ]
@@ -29,14 +35,15 @@ class wxStaticText;
 //   Untracked            notes.txt
 //
 // A file that has changes in the index and in the work tree has two rows. A
-// double click opens the file.
+// double click shows the diff of the row (wxEVT_GITVIEW_SHOW_DIFF); the context
+// menu has Show Diff and Open File.
 //
 // Self contained, like FileExplorerView: it listens on the EventNotifier to
 // which sessions exist and which one shows, keeps one GitDriver for each
 // session (the kind comes from the Account of the session; it starts when the
-// session is first shown), and sends the file
-// to open on the EventNotifier (wxEVT_FILETREE_ACTIVATED). A session without a
-// working folder has no driver.
+// session is first shown), and sends the file to open
+// (wxEVT_FILETREE_ACTIVATED) and the diff to show on the EventNotifier. A
+// session without a working folder has no driver.
 class GitView : public wxPanel {
 public:
   explicit GitView(wxWindow *parent);
@@ -46,6 +53,14 @@ public:
   void ApplyToolBarStyle();
 
 private:
+  // A row of the table.
+  struct Row {
+    wxString path; // In the repository (empty: a message, not a file)
+    bool staged{false};
+    bool untracked{false};
+    bool deleted{false};
+  };
+
   // One session.
   struct Entry {
     SessionRef ref;
@@ -69,8 +84,18 @@ private:
   void OnFileSaveDone(FileEvent &event);
   void OnRefresh(wxCommandEvent &event);
   void OnActivated(wxDataViewEvent &event);
+  void OnContextMenu(wxDataViewEvent &event);
+  void OnMenuShowDiff(wxCommandEvent &event);
+  void OnMenuOpenFile(wxCommandEvent &event);
+  void OnGitDiff(GitEvent &event);
 
   void RefreshView();
+  // The row of the table at `item`, null for a message.
+  const Row *RowOf(const wxDataViewItem &item) const;
+  // Asks for the diff of the file (the answer is OnGitDiff()).
+  void ShowDiff(const Row &row);
+  // Sends the file to the host to open.
+  void OpenFile(const Row &row);
 
   int FindEntry(const SessionRef &ref) const;
   Entry *ActiveEntry();
@@ -88,7 +113,6 @@ private:
   // The threads that end the drivers of the sessions that went.
   std::vector<std::thread> m_reapers;
   std::optional<SessionRef> m_active;
-  // The file of each row of the table (its path in the repository), empty for
-  // a row that is not a file.
-  std::vector<wxString> m_rowPaths;
+  // The rows of the table.
+  std::vector<Row> m_rows;
 };

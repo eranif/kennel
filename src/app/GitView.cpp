@@ -13,6 +13,8 @@
 #include <wx/aui/auibar.h>
 #include <wx/dataview.h>
 #include <wx/filename.h>
+#include <wx/menu.h>
+#include <wx/msgdlg.h>
 #include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -22,6 +24,8 @@
 
 namespace {
 const int kIdRefresh = wxWindow::NewControlId();
+const int kIdOpenFile = wxWindow::NewControlId();
+const int kIdShowDiff = wxWindow::NewControlId();
 
 // How a status letter of git is shown: a word and the alias of an icon.
 struct StatusLook {
@@ -56,6 +60,14 @@ wxVariant IconText(const wxString &text,
   return cell;
 }
 
+// The file `path` of the repository at `root` in the notation of `account`.
+wxString FullPath(const Account &account, const wxString &root,
+                  const wxString &path) {
+  const wxString full = root + "/" + path;
+  // The separators of this machine
+  return account.IsLocalHost() ? wxFileName(full).GetFullPath() : full;
+}
+
 // Whether git can run for `account`: it needs a working folder (written with
 // "~" it is not supported yet).
 bool HasFolder(const Account &account) {
@@ -75,6 +87,8 @@ std::unique_ptr<GitDriver> MakeDriver(const Account &account) {
   return std::make_unique<GitDriverLocal>(folder);
 }
 } // namespace
+
+wxDEFINE_EVENT(wxEVT_GITVIEW_SHOW_DIFF, FileEvent);
 
 GitView::GitView(wxWindow *parent) : wxPanel(parent) {
   m_toolbar = new wxAuiToolBar(this);
@@ -99,6 +113,7 @@ GitView::GitView(wxWindow *parent) : wxPanel(parent) {
 
   m_toolbar->Bind(wxEVT_TOOL, &GitView::OnRefresh, this, kIdRefresh);
   m_list->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &GitView::OnActivated, this);
+  m_list->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &GitView::OnContextMenu, this);
   auto *notifier = EventNotifier::Get();
   notifier->Bind(wxEVT_SESSION_PAGE_ADDED, &GitView::OnSessionPageAdded, this);
   notifier->Bind(wxEVT_SESSION_PAGE_ACTIVITY, &GitView::OnSessionPageActivity,
@@ -110,6 +125,7 @@ GitView::GitView(wxWindow *parent) : wxPanel(parent) {
   notifier->Bind(wxEVT_SESSION_PAGES_CLEARED, &GitView::OnSessionPagesCleared,
                  this);
   notifier->Bind(wxEVT_GIT_STATUS, &GitView::OnGitStatus, this);
+  notifier->Bind(wxEVT_GIT_DIFF, &GitView::OnGitDiff, this);
   // Sent to the application (see FilePage), not to the notifier.
   wxTheApp->Bind(wxEVT_FILE_SAVE_DONE, &GitView::OnFileSaveDone, this);
   Refill();
@@ -143,6 +159,7 @@ GitView::~GitView() {
   notifier->Unbind(wxEVT_SESSION_PAGES_CLEARED, &GitView::OnSessionPagesCleared,
                    this);
   notifier->Unbind(wxEVT_GIT_STATUS, &GitView::OnGitStatus, this);
+  notifier->Unbind(wxEVT_GIT_DIFF, &GitView::OnGitDiff, this);
   if (wxTheApp != nullptr) {
     wxTheApp->Unbind(wxEVT_FILE_SAVE_DONE, &GitView::OnFileSaveDone, this);
   }
@@ -290,7 +307,7 @@ void GitView::OnRefresh(wxCommandEvent &event) {
 void GitView::Refill() {
   wxWindowUpdateLocker locker{m_list};
   m_list->DeleteAllItems();
-  m_rowPaths.clear();
+  m_rows.clear();
   const Entry *entry = ActiveEntry();
   if (entry == nullptr) {
     m_branch->SetLabel(wxEmptyString);
@@ -300,8 +317,9 @@ void GitView::Refill() {
   if (!entry->message.empty()) {
     m_branch->SetLabel(wxEmptyString);
     // The first line: the error of git can have many.
-    m_list->AppendItem({wxString(), entry->message.BeforeFirst('\n')});
-    m_rowPaths.emplace_back();
+    m_list->AppendItem(
+        {IconText(wxEmptyString), IconText(entry->message.BeforeFirst('\n'))});
+    m_rows.emplace_back();
     Layout();
     return;
   }
@@ -318,54 +336,129 @@ void GitView::Refill() {
   const auto &bitmaps = AppManager::Get().GetBitmaps();
   const bool dark = wxSystemSettings::GetAppearance().IsDark();
   auto add = [&](const wxString &text, const char *icon,
-                 const GitChange &change) {
+                 const GitChange &change, bool staged) {
     // The status, and the file with the icon of its type
     m_list->AppendItem(
         {IconText(text, bitmaps.GetByAlias(icon, false)),
          IconText(change.path, bitmaps.GetFileIcon(change.path, dark))});
-    m_rowPaths.push_back(change.path);
+    Row row;
+    row.path = change.path;
+    row.staged = staged;
+    row.untracked = change.untracked;
+    row.deleted = (staged ? change.index : change.worktree) == 'D';
+    m_rows.push_back(row);
   };
   // The files that are in the index, then those of the work tree.
   for (const GitChange &change : status.changes) {
     if (change.IsStaged()) {
       const StatusLook look = LookOf(change.index);
-      add(look.word + " " + _("(staged)"), look.icon, change);
+      add(look.word + " " + _("(staged)"), look.icon, change, true);
     }
   }
   for (const GitChange &change : status.changes) {
     if (change.unmerged) {
-      add(_("Conflict"), "git-conflict", change);
+      add(_("Conflict"), "git-conflict", change, false);
     } else if (change.untracked) {
-      add(_("Untracked"), "git-untracked", change);
+      add(_("Untracked"), "git-untracked", change, false);
     } else if (change.IsUnstaged()) {
       const StatusLook look = LookOf(change.worktree);
-      add(look.word, look.icon, change);
+      add(look.word, look.icon, change, false);
     }
   }
-  if (m_rowPaths.empty()) {
+  if (m_rows.empty()) {
     m_list->AppendItem({IconText(wxEmptyString), IconText(_("No changes"))});
-    m_rowPaths.emplace_back();
+    m_rows.emplace_back();
   }
   Layout();
 }
 
+const GitView::Row *GitView::RowOf(const wxDataViewItem &item) const {
+  const int row = m_list->ItemToRow(item);
+  if (row < 0 || row >= static_cast<int>(m_rows.size()) ||
+      m_rows[row].path.empty()) {
+    return nullptr; // A message, not a file
+  }
+  return &m_rows[row];
+}
+
 void GitView::OnActivated(wxDataViewEvent &event) {
   event.Skip();
-  const int row = m_list->ItemToRow(event.GetItem());
-  const Entry *entry = ActiveEntry();
-  if (entry == nullptr || row < 0 ||
-      row >= static_cast<int>(m_rowPaths.size()) || m_rowPaths[row].empty() ||
-      entry->status.root.empty()) {
+  if (const Row *row = RowOf(event.GetItem())) {
+    ShowDiff(*row);
+  }
+}
+
+void GitView::OnContextMenu(wxDataViewEvent &event) {
+  event.Skip();
+  const Row *row = RowOf(event.GetItem());
+  if (row == nullptr) {
     return;
   }
-  wxString path = entry->status.root + "/" + m_rowPaths[row];
-  if (entry->account.IsLocalHost()) {
-    path = wxFileName(path).GetFullPath(); // The separators of this machine
+  m_list->Select(event.GetItem());
+  wxMenu menu;
+  menu.Append(kIdShowDiff, _("Show Diff"));
+  menu.Append(kIdOpenFile, _("Open File"))->Enable(!row->deleted);
+  menu.Bind(wxEVT_MENU, &GitView::OnMenuShowDiff, this, kIdShowDiff);
+  menu.Bind(wxEVT_MENU, &GitView::OnMenuOpenFile, this, kIdOpenFile);
+  m_list->PopupMenu(&menu);
+}
+
+void GitView::OnMenuShowDiff(wxCommandEvent &event) {
+  event.Skip();
+  if (const Row *row = RowOf(m_list->GetSelection())) {
+    ShowDiff(*row);
+  }
+}
+
+void GitView::OnMenuOpenFile(wxCommandEvent &event) {
+  event.Skip();
+  if (const Row *row = RowOf(m_list->GetSelection())) {
+    OpenFile(*row);
+  }
+}
+
+void GitView::OpenFile(const Row &row) {
+  const Entry *entry = ActiveEntry();
+  if (entry == nullptr || entry->status.root.empty()) {
+    return;
   }
   FileEvent open{wxEVT_FILETREE_ACTIVATED};
   open.SetEventObject(this);
-  open.SetPath(path);
+  open.SetPath(FullPath(entry->account, entry->status.root, row.path));
   open.SetIsDir(false);
   open.SetAccount(entry->account);
   EventNotifier::Get()->AddPendingEvent(open);
+}
+
+void GitView::ShowDiff(const Row &row) {
+  Entry *entry = ActiveEntry();
+  if (entry == nullptr || !entry->driver) {
+    return;
+  }
+  // The answer comes on wxEVT_GIT_DIFF (see OnGitDiff()).
+  entry->driver->Diff(row.path, row.staged, row.untracked);
+}
+
+void GitView::OnGitDiff(GitEvent &event) {
+  event.Skip(); // The driver may be someone else's
+  for (const Entry &entry : m_entries) {
+    if (!entry.driver || entry.driver->GetId() != event.GetInt()) {
+      continue;
+    }
+    if (!event.GetResult().ok()) {
+      ::wxMessageBox(event.GetResult().message(), "Kennel", wxOK | wxICON_ERROR,
+                     this);
+      return;
+    }
+    // The host shows it (see MainNotebook).
+    FileEvent show{wxEVT_GITVIEW_SHOW_DIFF};
+    show.SetEventObject(this);
+    show.SetPath(FullPath(entry.account, entry.status.root, event.GetPath()));
+    show.SetAccount(entry.account);
+    show.SetInt(event.IsStaged() ? 1 : 0);
+    show.SetString(event.GetText().empty() ? wxString(_("(no differences)"))
+                                           : event.GetText());
+    EventNotifier::Get()->AddPendingEvent(show);
+    return;
+  }
 }

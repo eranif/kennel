@@ -113,6 +113,11 @@ void FilePage::LoadRemote(const wxString &text, bool editable) {
   m_searchBar->EnableReplace(CanReplace());
 }
 
+void FilePage::LoadText(const wxString &text) {
+  m_transient = true;
+  LoadRemote(text, /*editable=*/false);
+}
+
 wxString FilePage::GetDisplayName() const {
   // The folder and the name: "c/file.cpp" for a/b/c/file.cpp.
   wxString folder;
@@ -326,6 +331,9 @@ void FilePage::OnSaveUI(wxUpdateUIEvent &event) {
 void FilePage::OnReload(wxCommandEvent &) { Reload(); }
 
 void FilePage::Reload() {
+  if (m_transient) {
+    return; // Not a file: there is nothing to read again
+  }
   if (m_saving) {
     return; // The upload is not done: what is reloaded now may be the old copy.
   }

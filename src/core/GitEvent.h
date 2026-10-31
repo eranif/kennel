@@ -36,12 +36,17 @@ public:
   // wxEVT_GIT_DIFF: the file the diff is of.
   const wxString &GetPath() const { return m_path; }
   void SetPath(const wxString &path) { m_path = path; }
+  // wxEVT_GIT_DIFF: the diff of the changes of the index (not of the work
+  // tree).
+  bool IsStaged() const { return m_staged; }
+  void SetStaged(bool staged) { m_staged = staged; }
 
 private:
   Status m_result;
   GitStatus m_repoStatus;
   wxString m_text;
   wxString m_path;
+  bool m_staged{false};
 };
 
 wxDECLARE_EVENT(wxEVT_GIT_STATUS, GitEvent);
