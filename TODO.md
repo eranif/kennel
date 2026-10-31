@@ -13,9 +13,8 @@
   - [ ] Review turns.
 - [ ] Add Archive feature
 - [x] Notebook: closing a tab, selects the first one. We should select the next one from the MRU.
-- [ ] Update the `File Browser` with the following: add `Refresh` context menu. `Open with Default App`.
-- [ ] Make `Cobalt2` the default theme
-- [ ] Make the tree-viwe multi-select.
+- [ ] Update the `File Browser` with the following: add `Refresh` context menu. `Open with Default App`, `Copy Path`.
+- [x] Make `Cobalt2` the default theme
 - [x] BUG: Tab Spinner is NOT spinning.
 - [x] Tab icons are too small.
 - [x] IMPORTANT: allow the user to change the tab position.
@@ -23,6 +22,8 @@
 - [ ] Main Toolbar icons are not aligned (different size).
 - [ ] Start Agent Dialog: remember 10 paths used.
 - [ ] Main ToolBar: tooltip should have the full path of the file.
-- [ ] For files, display the first folder name, e.g. src/TODO.md app/TODO.md etc.
+- [x] For files, display the first folder name, e.g. src/TODO.md app/TODO.md etc.
 - [x] Make the spinner lighter on dark theme.
 - [x] Add option to set/remove tab close button (`x`)
+- [ ] Editor: Support for brace matching in the file editor.
+- [ ] Editor: Line guides support.

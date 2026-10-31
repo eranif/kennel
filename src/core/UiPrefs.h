@@ -23,9 +23,9 @@ struct UiPrefs {
   // default layout. The sizes in it are in device pixels, so after a change of
   // display scaling the side panes keep their pixel width.
   wxString auiLayout;
-  wxString lastSelectedSession; // empty => no prior selection
-  wxString terminalTheme;       // name of the last-applied terminal theme
-  wxString terminalFontDesc;    // wxFont native info desc (empty => default)
+  wxString lastSelectedSession;      // empty => no prior selection
+  wxString terminalTheme{"Cobalt2"}; // name of the last-applied terminal theme
+  wxString terminalFontDesc;         // wxFont native info (empty => default)
   bool blockCursor{true};
   bool terminalOptimizedDrawing{false}; // Enable optimized drawing?
   // The theme of the application: "system", "dark", "light", or "terminal" (it
@@ -43,5 +43,5 @@ struct UiPrefs {
   std::vector<wxString> recentWorkingDirs; // most-recent first, capped at 10
   std::vector<wxString> recentHosts;       // most-recent first, capped at 10
   wxString tabOutlineColour{"Selection"};
-  wxDirection tabPosition{wxDirection::wxLEFT};
+  wxDirection tabPosition{wxDirection::wxBOTTOM};
 };

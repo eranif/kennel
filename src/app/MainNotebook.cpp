@@ -1262,17 +1262,17 @@ void MainNotebook::ApplyToolBarStyles() {
 
 void MainNotebook::OnThemeApplied(wxCommandEvent &event) {
   wxUnusedVar(event);
-  // A new art for each theme: the art does not follow the system colours.
   auto theme = ThemeManager::Get().ActiveTheme().value_or(
       wxSystemSettings::GetAppearance().IsDark()
           ? wxTerminalTheme::MakeDarkTheme()
           : wxTerminalTheme::MakeLightTheme());
-  auto art = new GlyphTabArt(theme);
   const auto &prefs = AppManager::Get().GetPrefs();
-  art->SetOutlineColour(
-      SettingsDlg::GetTabOutlineColourOf(theme, prefs.tabOutlineColour));
+  // The book makes the tab art from the theme: its bar is the button face, and
+  // the book makes it again when the system colours change.
   m_book->SetBackgroundColour(theme.bg);
-  m_book->SetArtProvider(art);
+  m_book->SetTheme(
+      theme, SettingsDlg::GetTabOutlineColourOf(theme, prefs.tabOutlineColour),
+      GlyphTabArt::Style::Browser);
 
   auto flags = m_book->GetWindowStyleFlag();
   if (prefs.tabHasCloseButton) {

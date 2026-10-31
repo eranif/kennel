@@ -723,7 +723,7 @@
               "wxAuiPaneInfo": {
                 "m_bestSize": "-1,-1",
                 "m_caption": "",
-                "m_captionVisible": true,
+                "m_captionVisible": false,
                 "m_closeButton": false,
                 "m_dockDirection": "wxAUI_DOCK_CENTER",
                 "m_layer": 0,

@@ -81,9 +81,24 @@ void FilePage::LoadRemote(const wxString &text, bool editable) {
 }
 
 wxString FilePage::GetDisplayName() const {
-  const wxString name =
-      IsRemote() ? m_path.AfterLast('/') : wxFileName(m_path).GetFullName();
-  return name.empty() ? m_path : name;
+  // The folder and the name: "c/file.cpp" for a/b/c/file.cpp.
+  wxString folder;
+  wxString name;
+  if (IsRemote()) {
+    folder = m_path.BeforeLast('/').AfterLast('/');
+    name = m_path.AfterLast('/');
+  } else {
+    const wxFileName fn(m_path);
+    const wxArrayString dirs = fn.GetDirs();
+    if (!dirs.empty()) {
+      folder = dirs[dirs.GetCount() - 1];
+    }
+    name = fn.GetFullName();
+  }
+  if (name.empty()) {
+    return m_path;
+  }
+  return folder.empty() ? name : folder + "/" + name;
 }
 
 Account FilePage::GetAccount() const {

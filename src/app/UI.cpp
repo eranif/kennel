@@ -130,7 +130,7 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     
     m_mainPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL|wxBORDER_NONE);
     
-    m_auimgr->AddPane(m_mainPanel, wxAuiPaneInfo().Name(wxT("Sessions")).Direction(wxAUI_DOCK_CENTER).Layer(0).Row(0).Position(0).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
+    m_auimgr->AddPane(m_mainPanel, wxAuiPaneInfo().Name(wxT("Sessions")).Direction(wxAUI_DOCK_CENTER).Layer(0).Row(0).Position(0).CaptionVisible(false).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
     m_auimgr->Update();
     
     wxBoxSizer* boxSizer594 = new wxBoxSizer(wxVERTICAL);
