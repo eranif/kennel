@@ -73,6 +73,13 @@ wxDECLARE_EVENT(wxEVT_SESSION_PAGE_SHOWN, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_ACTIVITY, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_PAGES_TOOLBAR_STYLE, wxCommandEvent);
 
+// Sent on the EventNotifier with ProcessEvent() (so the answer is known when it
+// returns) when the application is closing. A listener that needs the user (a
+// file with changes asks Save / Discard / Cancel) does it, and calls Veto()
+// when the application must not close. CanVeto() is false when the system is
+// ending the session: nobody can be asked then.
+wxDECLARE_EVENT(wxEVT_APP_CLOSING, wxCloseEvent);
+
 // Settings of the lists of the pages: alternating row colours (ignored by the
 // native implementations).
 void StylePageView(wxDataViewCtrl *ctrl);

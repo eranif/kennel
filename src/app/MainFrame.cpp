@@ -14,6 +14,7 @@
 #include "app/PageViewEvent.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
+#include "core/EventNotifier.hpp"
 #include "core/Logger.h"
 #include "core/UpdateChecker.h"
 #include "core/Version.h"
@@ -223,6 +224,16 @@ MainFrame::~MainFrame() {
 }
 
 void MainFrame::OnClose(wxCloseEvent &evt) {
+  // Tell whoever needs the user first: a file with changes asks Save / Discard
+  // / Cancel, and Cancel keeps the application open.
+  wxCloseEvent closing(wxEVT_APP_CLOSING);
+  closing.SetCanVeto(evt.CanVeto());
+  EventNotifier::Get()->ProcessEvent(closing);
+  if (closing.GetVeto()) {
+    evt.Veto();
+    return;
+  }
+
   // Capture the restore bounds (un-maximized geometry) so a maximized session
   // does not persist a full-screen rect as the normal size.
   auto &prefs = AppManager::Get().GetPrefs();

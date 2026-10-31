@@ -29,6 +29,6 @@
 - [x] Editor: Line guides support.
 - [x] Tab: horizontal tabs are taller than the vertical ones (due to different image size).
 - [x] Menu: under the `Edit` menu, add common action + their keyboard shortcuts (Copy, Paste, Delete Line, Duplicate Line etc)
-- [ ] Closing the app while there are modified files -> user should be prompted
-- [ ] Closing a file while there are modifications -> user should be prompted
+- [x] Closing the app while there are modified files -> user should be prompted
+- [x] Closing a file while there are modifications -> user should be prompted
 - [x] Type-A-Head helper to the FileExplorer tree control.

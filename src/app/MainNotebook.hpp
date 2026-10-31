@@ -238,6 +238,11 @@ private:
   // A theme was applied: the book gets its background and the tabs of the
   // theme.
   void OnThemeApplied(wxCommandEvent &event);
+  // The application is closing: each file with changes is closed like the user
+  // does (CloseFile() asks Save / Discard / Cancel). Cancel stops the closing.
+  // The files are closed one by one, so the ones that were answered before a
+  // Cancel stay closed.
+  void OnAppClosing(wxCloseEvent &event);
 
   // ---- Events on the EventNotifier ------------------------------------------
   void SendPageEvent(wxEventType type, const SessionRef &ref,

@@ -158,6 +158,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
   // What the file explorer asks for, and the theme, come on the EventNotifier.
   EventNotifier::Get()->Bind(wxEVT_THEME_APPLIED, &MainNotebook::OnThemeApplied,
                              this);
+  EventNotifier::Get()->Bind(wxEVT_APP_CLOSING, &MainNotebook::OnAppClosing,
+                             this);
   EventNotifier::Get()->Bind(wxEVT_FILEEXPLORER_SESSION_SELECTED,
                              &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Bind(wxEVT_ACTIVITYVIEW_SESSION_SELECTED,
@@ -184,6 +186,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
 MainNotebook::~MainNotebook() {
   EventNotifier::Get()->Unbind(wxEVT_THEME_APPLIED,
                                &MainNotebook::OnThemeApplied, this);
+  EventNotifier::Get()->Unbind(wxEVT_APP_CLOSING, &MainNotebook::OnAppClosing,
+                               this);
   EventNotifier::Get()->Unbind(wxEVT_FILEEXPLORER_SESSION_SELECTED,
                                &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Unbind(wxEVT_ACTIVITYVIEW_SESSION_SELECTED,
@@ -956,13 +960,17 @@ void MainNotebook::CloseFile(FilePage *page) {
     return; // Let the upload finish first; closing now would lose the result.
   }
   if (page->IsModified() && page->CanSave()) {
-    const int answer = wxMessageBox(
+    // Save is the default answer.
+    wxMessageDialog dialog(
+        this,
         wxString::Format(_("Save changes to %s?"), page->GetDisplayName()),
-        "Kennel", wxYES_NO | wxCANCEL | wxICON_QUESTION, this);
-    if (answer == wxCANCEL) {
+        "Kennel", wxYES_NO | wxCANCEL | wxYES_DEFAULT | wxICON_QUESTION);
+    dialog.SetYesNoCancelLabels(_("Save"), _("Discard"), _("Cancel"));
+    const int answer = dialog.ShowModal();
+    if (answer == wxID_CANCEL) {
       return;
     }
-    if (answer == wxYES) {
+    if (answer == wxID_YES) {
       if (page->IsRemote()) {
         // Uploads in the background; OnFileSaveDone closes it once it has
         // gone through.
@@ -986,6 +994,48 @@ void MainNotebook::CloseFileByKey(const wxString &key) {
   if (auto *page = FindFile(key)) {
     CloseFile(page);
   }
+}
+
+void MainNotebook::OnAppClosing(wxCloseEvent &event) {
+  event.Skip(); // The other listeners have their own questions
+  // Only the files with changes. The others stay open, and so in the session
+  // that is saved for the next run.
+  std::vector<wxString> keys;
+  for (auto *page : GetFiles()) {
+    if (page->IsModified()) {
+      keys.push_back(page->GetKey());
+    }
+  }
+  if (!event.CanVeto()) {
+    // The system ends the session: nobody can be asked.
+    if (!keys.empty()) {
+      KLOG_WARN() << keys.size()
+                  << " file(s) with changes are closed without a question";
+    }
+    return;
+  }
+  for (const wxString &key : keys) {
+    FilePage *page = FindFile(key);
+    if (page == nullptr) {
+      continue;
+    }
+    ShowPage(page); // The user sees the file that the question is about
+    CloseFile(page);
+    // Still open: Cancel, an upload that is not done, or a save that failed.
+    if (FindFile(key) != nullptr) {
+      event.Veto();
+      if (page->IsSaving()) {
+        wxMessageBox(wxString::Format(_("%s is being saved. Close the "
+                                        "application again when it is done."),
+                                      page->GetDisplayName()),
+                     "Kennel", wxOK | wxICON_INFORMATION, this);
+      }
+      return;
+    }
+  }
+  // The pages are gone, but the sync that RemovePage() asks for would come
+  // after the window is destroyed: write the workspace now.
+  SyncWorkspaceToDisk();
 }
 
 void MainNotebook::CloseAllFiles() {

@@ -10,6 +10,7 @@ wxDEFINE_EVENT(wxEVT_SESSION_PAGES_CLEARED, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_PAGE_SHOWN, PageViewEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_PAGE_ACTIVITY, PageViewEvent);
 wxDEFINE_EVENT(wxEVT_PAGES_TOOLBAR_STYLE, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_APP_CLOSING, wxCloseEvent);
 
 namespace {
 // A little different from the background of the control. Lightening white
