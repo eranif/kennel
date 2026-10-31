@@ -146,6 +146,19 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     wxBoxSizer* boxSizer613 = new wxBoxSizer(wxVERTICAL);
     m_panelFileExplorer->SetSizer(boxSizer613);
     
+    m_bookPageGit = new wxPanel(m_auiSideBook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_auiSideBook, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    m_auiSideBook->AddPage(m_bookPageGit, _("Git"), false);
+    
+    wxBoxSizer* boxSizer615 = new wxBoxSizer(wxVERTICAL);
+    m_bookPageGit->SetSizer(boxSizer615);
+    
+    m_panelGit = new wxPanel(m_bookPageGit, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_bookPageGit, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    
+    boxSizer615->Add(m_panelGit, 1, wxEXPAND, WXC_FROM_DIP(5));
+    
+    wxBoxSizer* boxSizer617 = new wxBoxSizer(wxVERTICAL);
+    m_panelGit->SetSizer(boxSizer617);
+    
     m_mainPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL|wxBORDER_NONE);
     
     m_auimgr->AddPane(m_mainPanel, wxAuiPaneInfo().Name(wxT("Sessions")).Direction(wxAUI_DOCK_CENTER).Layer(0).Row(0).Position(0).CaptionVisible(false).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));

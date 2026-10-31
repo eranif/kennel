@@ -268,7 +268,13 @@ add_library(
   src/core/EventNotifier.cpp
   src/core/ReviewLoop.cpp
   src/core/Spinner.cpp
-  src/core/WslPath.cpp)
+  src/core/WslPath.cpp
+  src/core/GitEvent.cpp
+  src/core/GitParser.cpp
+  src/core/GitDriver.cpp
+  src/core/GitDriverLocal.cpp
+  src/core/GitDriverWSL.cpp
+  src/core/GitDriverSSH.cpp)
 
 target_include_directories(kennel_core PUBLIC src ${wxWidgets_INCLUDE_DIRS})
 # libssh is an implementation detail of SftpClient.cpp; its headers never appear
@@ -324,6 +330,7 @@ set(KENNEL_APP_SOURCES
     src/app/FileTreeCtrl.cpp
     src/app/DataViewTypeHelper.cpp
     src/app/FileExplorerView.cpp
+    src/app/GitView.cpp
     src/app/ActivityView.cpp
     src/app/MainNotebook.cpp
     src/app/SessionStatusEvent.cpp)

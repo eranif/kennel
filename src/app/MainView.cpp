@@ -5,6 +5,7 @@
 #include "app/ActivityView.hpp"
 #include "app/AssetBootstrap.h"
 #include "app/FileExplorerView.hpp"
+#include "app/GitView.hpp"
 #include "app/SettingsDlg.hpp"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
@@ -51,6 +52,8 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
   m_fileExplorer = new FileExplorerView(GetPanelFileExplorer());
   GetPanelFileExplorer()->GetSizer()->Add(m_fileExplorer,
                                           wxSizerFlags(1).Expand());
+  m_gitView = new GitView(GetPanelGit());
+  GetPanelGit()->GetSizer()->Add(m_gitView, wxSizerFlags(1).Expand());
   m_activityView = new ActivityView(GetPanelActivity());
   GetPanelActivity()->GetSizer()->Add(m_activityView, wxSizerFlags(1).Expand());
   // The size a pane gets when it floats (it only matters then, so no Update()).
@@ -103,6 +106,7 @@ void MainView::FinaliseConstruction() {
 void MainView::OnToolBarStyle(wxCommandEvent &event) {
   event.Skip(); // The main toolbar of the frame follows too
   m_fileExplorer->ApplyToolBarStyle();
+  m_gitView->ApplyToolBarStyle();
 }
 
 void MainView::OnFileTreeActivated(FileEvent &event) {

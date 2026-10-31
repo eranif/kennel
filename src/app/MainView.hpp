@@ -8,6 +8,7 @@
 
 class ActivityView;
 class FileExplorerView;
+class GitView;
 
 // The main window's content: the side panes (the file explorer, the activity
 // view) and their layout. The pages are in the notebook (MainNotebook), which
@@ -56,6 +57,7 @@ private:
   void ApplyPrefs();
 
   FileExplorerView *m_fileExplorer{nullptr};
+  GitView *m_gitView{nullptr};
   ActivityView *m_activityView{nullptr};
   bool m_layoutRestored{false};
   // The AUI perspective of the panes as they are created (see ResetLayout()).
