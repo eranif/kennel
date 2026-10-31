@@ -38,6 +38,7 @@
 #include <wx/sizer.h>
 #include <wx/textdlg.h>
 #include <wx/utils.h>
+#include <wx/wupdlock.h>
 #include <wx/xrc/xmlres.h>
 
 namespace {
@@ -1146,6 +1147,7 @@ bool MainNotebook::LaunchSession(const NewSessionRequest &req,
 }
 
 void MainNotebook::RestoreSessions() {
+  wxWindowUpdateLocker locker{this};
   const auto &initial = AppManager::Get().InitialWorkspace();
   if (initial.sessions.empty() && initial.files.empty()) {
     return;
@@ -1336,6 +1338,10 @@ wxString MainNotebook::GetSelectedGroupName() const {
 
 SessionPage *MainNotebook::GetActiveSessionPage() const {
   return dynamic_cast<SessionPage *>(GetCurrentPage());
+}
+
+FilePage *MainNotebook::GetActiveFilePage() const {
+  return dynamic_cast<FilePage *>(GetCurrentPage());
 }
 
 std::optional<SessionRef> MainNotebook::GetActivePageRef() const {

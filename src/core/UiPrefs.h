@@ -27,6 +27,9 @@ struct UiPrefs {
   wxString terminalTheme{"Cobalt2"}; // name of the last-applied terminal theme
   wxString terminalFontDesc;         // wxFont native info (empty => default)
   bool blockCursor{true};
+  bool wrapLines{true};        // Wrap the long lines of the file editor
+  bool highlightBraces{false}; // Highlight the brace at the caret and its pair
+  bool highlightIndentLines{false}; // Highlight the indent line of the block
   bool terminalOptimizedDrawing{false}; // Enable optimized drawing?
   // The theme of the application: "system", "dark", "light", or "terminal" (it
   // looks like the terminal theme). It was always dark before it could be

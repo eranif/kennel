@@ -14,6 +14,10 @@
 
 class SearchBar;
 
+// Sent on the EventNotifier when the user changes Wrap Lines: every file page
+// shows the setting of the preferences.
+wxDECLARE_EVENT(wxEVT_WRAP_LINES_CHANGED, wxCommandEvent);
+
 // A file shown in the main view, opened from a path clicked in a terminal.
 // Both kinds are edited here and saved with Save / Ctrl+S: a local file is
 // written to disk, a remote file is written back over SFTP.
@@ -64,6 +68,19 @@ public:
   // Gives the toolbar the style of the theme of the application.
   void ApplyToolBarStyle();
   void FocusEditor();
+  bool EditorHasFocus() const { return m_editor->GetCtrl()->HasFocus(); }
+  // Loads the file again (asks first when there are unsaved changes).
+  void Reload();
+  // The Edit menu: these act on the text of the editor.
+  bool CanUndo() const { return m_editor->GetCtrl()->CanUndo(); }
+  bool CanRedo() const { return m_editor->GetCtrl()->CanRedo(); }
+  void Undo() { m_editor->GetCtrl()->Undo(); }
+  void Redo() { m_editor->GetCtrl()->Redo(); }
+  void Copy() { m_editor->GetCtrl()->Copy(); }
+  void Paste() { m_editor->GetCtrl()->Paste(); }
+  void SelectAll() { m_editor->GetCtrl()->SelectAll(); }
+  void DeleteLine() { m_editor->GetCtrl()->LineDelete(); }
+  void DuplicateLine() { m_editor->GetCtrl()->LineDuplicate(); }
   // Puts the caret at `line` and `column` (both from 1; the column is a byte
   // offset in the line, as compilers count it) and shows that line in the
   // middle of the editor. A line or a column out of range goes to the nearest
@@ -89,8 +106,6 @@ public:
   bool CanReplace() const { return m_editor->IsEditable(); }
 
 private:
-  void OnEditorUpdateUI(wxStyledTextEvent &event);
-
   // The search bar sends these to its parent, this page.
   void OnSearchBarFind(wxCommandEvent &event);
   void OnSearchBarReplace(wxCommandEvent &event);
@@ -112,6 +127,10 @@ private:
   void OnSaveUI(wxUpdateUIEvent &event);
   void OnClose(wxCommandEvent &event);
   void OnReload(wxCommandEvent &event);
+  // The user toggled Wrap Lines on the toolbar of this page.
+  void OnWrapToggled(wxCommandEvent &event);
+  // The setting changed (on any page): this page follows it.
+  void OnWrapLinesChanged(wxCommandEvent &event);
 
   // Puts the document back into the "has unsaved changes" state.
   void MarkModified();

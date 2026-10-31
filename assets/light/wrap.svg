@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="16px"
+   height="16px"
+   viewBox="0 0 16 16"
+   version="1.1"
+   xmlns="http://www.w3.org/2000/svg">
+  <!-- Wrap lines: a long line, and a line that turns back to the text -->
+  <path d="M1.5 3.5 H14.5" fill="none" stroke="#5f5f5f"
+        stroke-width="1.5" stroke-linecap="round" />
+  <path d="M1.5 8.5 H11.5 A2.25 2.25 0 0 1 11.5 13 H8" fill="none" stroke="#5f5f5f"
+        stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Arrow head of the turn -->
+  <path d="M10 10.5 L7.5 13 L10 15.5" fill="none" stroke="#5f5f5f"
+        stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

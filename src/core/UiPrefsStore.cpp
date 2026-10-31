@@ -45,6 +45,9 @@ json ToJson(const UiPrefs &p) {
       {"recentWorkingDirs", toStrArr(p.recentWorkingDirs)},
       {"recentHosts", toStrArr(p.recentHosts)},
       {"blockCursor", p.blockCursor},
+      {"wrapLines", p.wrapLines},
+      {"highlightBraces", p.highlightBraces},
+      {"highlightIndentLines", p.highlightIndentLines},
       {"terminalLoginShell", ToUtf8(p.terminalLoginShell)},
       {"terminalHomeDir", ToUtf8(p.terminalHomeDir)},
   };
@@ -76,6 +79,10 @@ void ParsePrefs(const json &root, UiPrefs &p) {
   p.terminalOptimizedDrawing =
       GetBool(root, "terminalOptimizedDrawing", p.terminalOptimizedDrawing);
   p.blockCursor = GetBool(root, "blockCursor", p.blockCursor);
+  p.wrapLines = GetBool(root, "wrapLines", p.wrapLines);
+  p.highlightBraces = GetBool(root, "highlightBraces", p.highlightBraces);
+  p.highlightIndentLines =
+      GetBool(root, "highlightIndentLines", p.highlightIndentLines);
   p.checkForUpdatesOnStartup =
       GetBool(root, "checkForUpdatesOnStartup", p.checkForUpdatesOnStartup);
   p.closeReviewBuddyOnDismiss =

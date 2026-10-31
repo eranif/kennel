@@ -6,8 +6,10 @@
 #include "core/UpdateChecker.h"
 
 #include <wx/activityindicator.h>
+#include <wx/aui/auibar.h>
 #include <wx/frame.h>
 #include <wx/statbmp.h>
+#include <wx/timer.h>
 #include <wx/toolbar.h>
 
 #include <memory>
@@ -18,6 +20,7 @@
 // iconPath), and the main view (session list + terminal area). Choosing a
 // client from the Launch menu or toolbar opens the New Client Launch dialog
 // with that client preselected. Shared state is reached via AppManager::Get().
+class EditMenu;
 class SessionPage;
 class MainFrame : public wxFrame {
 public:
@@ -142,6 +145,13 @@ private:
   // Builds the toolbar, one tool per adapter. Tool ids are assigned
   // sequentially from kFirstClientToolId and map to m_clientToolIds.
   void BuildToolBar();
+  // The work that waits until the window is up and running.
+  void FinaliseStartup();
+  void OnStartupTimer(wxTimerEvent &event);
+#ifndef __WXMAC__
+  // The theme changed: the toolbar takes its style.
+  void OnToolBarStyle(wxCommandEvent &event);
+#endif
 
   // Persists the window geometry to .persist.json on close.
   void OnClose(wxCloseEvent &evt);
@@ -169,6 +179,11 @@ private:
   bool m_sessionBusy{false};
   std::unique_ptr<UpdateChecker> m_updateChecker;
   std::unique_ptr<JobScheduler> m_jobScheduler;
+  std::unique_ptr<EditMenu> m_editMenu;
+
+  // Fires once, 500ms after the frame is constructed (see FinaliseStartup()).
+  static constexpr int kStartupTimerId = wxID_HIGHEST + 100;
+  wxTimer m_startupTimer;
 
   // Parallel to the toolbar tools: m_clientToolIds[i] is the adapter id for the
   // tool whose wx id is kFirstClientToolId + i.
@@ -178,7 +193,12 @@ private:
   // for the menu item whose wx id is kFirstThemeMenuId + i.
   std::vector<wxString> m_themeMenuNames;
 
+#ifdef __WXMAC__
+  // The native toolbar of the frame.
   wxToolBar *m_toolBar{nullptr};
+#else
+  wxAuiToolBar *m_toolBar{nullptr};
+#endif
 };
 
 // Helper methods

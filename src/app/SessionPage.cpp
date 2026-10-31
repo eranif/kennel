@@ -1237,7 +1237,7 @@ void SessionPage::LaunchReviewBuddy(const AgentDef &reviewer) {
     return;
   }
   KLOG_DEBUG() << "Launching review buddy '" << reviewer.name << "' for '"
-              << m_session.name << "'";
+               << m_session.name << "'";
 
   // The folder as Kennel reaches it (it reads and writes the review files).
   const wxString hostDir = HostWorkingDir();

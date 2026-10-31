@@ -5,6 +5,8 @@
 #include "app/MainFrame.h"
 #include "app/SearchBar.hpp"
 #include "core/AppManager.h"
+#include "core/EventNotifier.hpp"
+#include "core/Logger.h"
 #include "core/SftpClient.h"
 #include "core/WslPath.h"
 #include <wx/app.h>
@@ -15,10 +17,14 @@
 #include <wx/utils.h>
 
 #include <thread>
+
+wxDEFINE_EVENT(wxEVT_WRAP_LINES_CHANGED, wxCommandEvent);
+
 namespace {
 const int ID_SAVER = wxWindow::NewControlId();
 const int ID_RELOAD = wxWindow::NewControlId();
 const int ID_CLOSE = wxWindow::NewControlId();
+const int ID_WRAP = wxWindow::NewControlId();
 } // namespace
 
 FilePage::FilePage(wxWindow *parent, const wxString &path,
@@ -37,8 +43,13 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
   toolbar::AddTool(m_toolbar, ID_RELOAD, _("Reload"),
                    AppManager::Get().GetBitmaps().Get("reload", false),
                    _("Reload The Current File"));
+  toolbar::AddTool(m_toolbar, ID_WRAP, _("Wrap Lines"),
+                   AppManager::Get().GetBitmaps().Get("wrap", false),
+                   _("Wrap the long lines of the file"), wxITEM_CHECK);
+  m_toolbar->ToggleTool(ID_WRAP, AppManager::Get().GetPrefs().wrapLines);
   m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnSave, this, ID_SAVER);
   m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnReload, this, ID_RELOAD);
+  m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnWrapToggled, this, ID_WRAP);
   m_toolbar->Bind(wxEVT_UPDATE_UI, &FilePage::OnSaveUI, this, ID_SAVER);
   m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnClose, this, ID_CLOSE);
   m_toolbar->Realize();
@@ -57,16 +68,38 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
   ctrl->Bind(wxEVT_KEY_DOWN, &FilePage::OnKeyDown, this);
   ctrl->Bind(wxEVT_STC_SAVEPOINTLEFT, &FilePage::OnSavePointChanged, this);
   ctrl->Bind(wxEVT_STC_SAVEPOINTREACHED, &FilePage::OnSavePointChanged, this);
-  ctrl->Bind(wxEVT_STC_UPDATEUI, &FilePage::OnEditorUpdateUI, this);
   Bind(wxEVT_SEARCHBAR_FIND, &FilePage::OnSearchBarFind, this);
   Bind(wxEVT_SEARCHBAR_CLOSE, &FilePage::OnSearchBarClose, this);
   Bind(wxEVT_SEARCHBAR_REPLACE, &FilePage::OnSearchBarReplace, this);
   Bind(wxEVT_SEARCHBAR_REPLACE_ALL, &FilePage::OnSearchBarReplaceAll, this);
+  EventNotifier::Get()->Bind(wxEVT_WRAP_LINES_CHANGED,
+                             &FilePage::OnWrapLinesChanged, this);
 }
 
 void FilePage::ApplyToolBarStyle() { toolbar::ApplyStyle(m_toolbar); }
 
+void FilePage::OnWrapToggled(wxCommandEvent &) {
+  auto &prefs = AppManager::Get().GetPrefs();
+  prefs.wrapLines = m_toolbar->GetToolToggled(ID_WRAP);
+  if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+    KLOG_WARN() << "Could not save the wrap setting: " << st.message();
+  }
+  // Every page follows the setting, this one too (see OnWrapLinesChanged()).
+  EventNotifier::Get()->AddPendingEvent(
+      wxCommandEvent(wxEVT_WRAP_LINES_CHANGED));
+}
+
+void FilePage::OnWrapLinesChanged(wxCommandEvent &event) {
+  event.Skip();
+  const bool wrap = AppManager::Get().GetPrefs().wrapLines;
+  m_editor->SetWrapLines(wrap);
+  m_toolbar->ToggleTool(ID_WRAP, wrap);
+  m_toolbar->Refresh();
+}
+
 FilePage::~FilePage() {
+  EventNotifier::Get()->Unbind(wxEVT_WRAP_LINES_CHANGED,
+                               &FilePage::OnWrapLinesChanged, this);
   if (m_saveThread.joinable()) {
     m_saveThread.join();
   }
@@ -255,14 +288,6 @@ void FilePage::OnKeyDown(wxKeyEvent &event) {
   event.Skip();
 }
 
-void FilePage::OnEditorUpdateUI(wxStyledTextEvent &event) {
-  event.Skip();
-  // Also sent while loading, when the page is not showing yet.
-  if (IsShownOnScreen()) {
-    PublishStatus();
-  }
-}
-
 void FilePage::PublishStatus() {
   wxStyledTextCtrl *ctrl = m_editor->GetCtrl();
   const int pos = ctrl->GetCurrentPos();
@@ -298,8 +323,9 @@ void FilePage::OnSaveUI(wxUpdateUIEvent &event) {
   event.Enable(m_editor && m_editor->IsModified());
 }
 
-void FilePage::OnReload(wxCommandEvent &event) {
-  wxUnusedVar(event);
+void FilePage::OnReload(wxCommandEvent &) { Reload(); }
+
+void FilePage::Reload() {
   if (m_saving) {
     return; // The upload is not done: what is reloaded now may be the old copy.
   }

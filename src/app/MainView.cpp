@@ -91,7 +91,8 @@ void MainView::FinaliseConstruction() {
 // The theme and the file explorer
 // ---------------------------------------------------------------------------
 
-void MainView::OnToolBarStyle(wxCommandEvent &) {
+void MainView::OnToolBarStyle(wxCommandEvent &event) {
+  event.Skip(); // The main toolbar of the frame follows too
   m_fileExplorer->ApplyToolBarStyle();
 }
 
@@ -234,6 +235,9 @@ void MainView::LoadBitmaps() {
 
   bmps.Load("reload.svg");
   bmps.AddAlias("reload.svg", "reload");
+
+  bmps.Load("wrap.svg");
+  bmps.AddAlias("wrap.svg", "wrap");
 
   bmps.Load("close.svg");
   bmps.AddAlias("close.svg", "close");

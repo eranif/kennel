@@ -1,18 +1,17 @@
 #include "app/Editor.h"
+#include "MainFrame.h"
+#include "core/AppManager.h"
+#include "core/EventNotifier.hpp"
 #include "wx/sizer.h"
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <string>
 
-namespace {
-// Same test as ReviewBuddyHeader::SetText(): a dark background.
-bool IsDarkColour(const wxColour &colour) {
-  return (colour.Red() * 299 + colour.Green() * 587 + colour.Blue() * 114) /
-             1000 <
-         128;
-}
+wxDEFINE_EVENT(wxEVT_EDITOR_OPTIONS_CHANGED, wxCommandEvent);
 
+namespace {
 // Relative luminance, see https://www.w3.org/TR/WCAG21/#dfn-relative-luminance
 double Luminance(const wxColour &colour) {
   auto linear = [](unsigned char channel) {
@@ -70,10 +69,16 @@ Editor::Editor(wxWindow *parent, EditorLang lang, const wxTerminalTheme &theme)
   GetSizer()->Fit(this);
   Layout();
   m_ctrl->Bind(wxEVT_STC_MODIFIED, &Editor::OnModified, this);
+  m_ctrl->Bind(wxEVT_STC_UPDATEUI, &Editor::OnUpdateUI, this);
+  EventNotifier::Get()->Bind(wxEVT_EDITOR_OPTIONS_CHANGED,
+                             &Editor::OnOptionsChanged, this);
   InitEditor();
 }
 
-Editor::~Editor() {}
+Editor::~Editor() {
+  EventNotifier::Get()->Unbind(wxEVT_EDITOR_OPTIONS_CHANGED,
+                               &Editor::OnOptionsChanged, this);
+}
 
 void Editor::AddProperty(int style, const wxColour &bg, const wxColour &fg) {
   m_ctrl->StyleSetForeground(style, fg);
@@ -81,10 +86,10 @@ void Editor::AddProperty(int style, const wxColour &bg, const wxColour &fg) {
 }
 
 void Editor::InitEditor() {
+  const auto &prefs = AppManager::Get().GetPrefs();
   m_ctrl->StyleClearAll();
   m_ctrl->FoldDisplayTextSetStyle(wxSTC_FOLDDISPLAYTEXT_BOXED);
   m_ctrl->SetIdleStyling(wxSTC_IDLESTYLING_TOVISIBLE);
-  m_ctrl->SetTechnology(wxSTC_TECHNOLOGY_DIRECTWRITE);
 
   // Find the default style
   for (int i = 0; i < wxSTC_STYLE_MAX; ++i) {
@@ -111,13 +116,35 @@ void Editor::InitEditor() {
   m_ctrl->SetCaretLineVisible(true);
   m_ctrl->SetCaretLineVisibleAlways(true);
   m_ctrl->SetCaretWidth(FromDIP(2));
+  // The caret is not drawn with the colour of the text: set it with each theme.
+  m_ctrl->SetCaretForeground(m_theme.fg);
 
   // Indentation
   m_ctrl->SetUseTabs(false);
   m_ctrl->SetTabWidth(2);
   m_ctrl->SetIndent(2);
+  ApplyOptions();
+  m_ctrl->FoldDisplayTextSetStyle(wxSTC_FOLDDISPLAYTEXT_BOXED);
+
+#ifdef __WXMSW__
+  m_ctrl->SetBufferedDraw(true);
+  m_ctrl->SetTechnology(wxSTC_TECHNOLOGY_DIRECTWRITE);
+#endif
+
+  // The matched braces: only the text colour changes, the background stays
+  // (also for the highlighted indent guide, which uses this style). Bright
+  // yellow on a dark theme, cyan on a light one.
+  m_ctrl->StyleSetBold(wxSTC_STYLE_BRACELIGHT, true);
+  m_ctrl->StyleSetBackground(wxSTC_STYLE_BRACELIGHT, m_theme.bg);
+  m_ctrl->StyleSetForeground(wxSTC_STYLE_BRACELIGHT, IsDarkColour(m_theme.bg)
+                                                         ? m_theme.brightYellow
+                                                         : m_theme.cyan);
+  // A brace without a pair: red text.
+  m_ctrl->StyleSetBold(wxSTC_STYLE_BRACEBAD, true);
+  m_ctrl->StyleSetBackground(wxSTC_STYLE_BRACEBAD, m_theme.bg);
+  m_ctrl->StyleSetForeground(wxSTC_STYLE_BRACEBAD, m_theme.red);
   m_ctrl->SetLayoutCache(wxSTC_CACHE_PAGE);
-  m_ctrl->SetWrapMode(wxSTC_WRAP_WORD);
+  m_ctrl->SetWrapMode(prefs.wrapLines ? wxSTC_WRAP_WORD : wxSTC_WRAP_NONE);
   m_ctrl->SetMultipleSelection(true);
   m_ctrl->SetMultiPaste(true);
   // selection
@@ -131,6 +158,8 @@ void Editor::InitEditor() {
                        wxSTC_CMD_WORDPARTLEFT);
   m_ctrl->CmdKeyAssign(wxSTC_KEY_RIGHT, wxSTC_KEYMOD_CTRL,
                        wxSTC_CMD_WORDPARTRIGHT);
+  // Ctrl+L deletes the line (Scintilla cuts it), like the Delete Line item.
+  m_ctrl->CmdKeyAssign('L', wxSTC_KEYMOD_CTRL, wxSTC_CMD_LINEDELETE);
 
 #ifdef __WXMAC__
   m_ctrl->CmdKeyAssign(wxSTC_KEY_DOWN, wxSTC_KEYMOD_CTRL,
@@ -192,6 +221,13 @@ void Editor::InitEditor() {
     InitJsonStyle();
     break;
   }
+  // Only the guide of the caret's indent is visible: it is the highlight guide
+  // (see OnUpdateUI()), so the other guides take the colour of the background.
+  // The language styles set them too, so this comes after them.
+  m_ctrl->StyleSetForeground(wxSTC_STYLE_INDENTGUIDE, m_theme.bg);
+  m_ctrl->SetModEventMask(wxSTC_MOD_DELETETEXT | wxSTC_MOD_INSERTTEXT |
+                          wxSTC_PERFORMED_UNDO | wxSTC_PERFORMED_REDO |
+                          wxSTC_MOD_BEFOREDELETE | wxSTC_MOD_CHANGESTYLE);
 }
 
 void Editor::InitTextStyle() {
@@ -579,6 +615,36 @@ void Editor::OnModified(wxStyledTextEvent &event) {
   }
 }
 
+void Editor::OnUpdateUI(wxStyledTextEvent &event) {
+  event.Skip();
+  auto currentPos = m_ctrl->GetCurrentPos();
+  if (m_lastUpdatePosition != currentPos) {
+    m_lastUpdatePosition = currentPos;
+
+    const int pos = currentPos;
+    wxString text =
+        wxString::Format(_("Ln %d, Col %d"), m_ctrl->LineFromPosition(pos) + 1,
+                         m_ctrl->GetColumn(pos) + 1);
+    const int from = m_ctrl->GetSelectionStart();
+    const int to = m_ctrl->GetSelectionEnd();
+    if (from != to) {
+      // Characters, not bytes: the text is UTF-8.
+      text << wxString::Format(_(" (%d selected)"),
+                               m_ctrl->CountCharacters(from, to));
+    }
+
+    // Use "CallAfter" to avoid latency lags
+    GetMainFrame()->CallAfter(&MainFrame::SetEditorStatus, text);
+  }
+
+  // Also when only the selection changed: it turns the highlight off.
+  DoBraceMatching();
+}
+
+void Editor::SetWrapLines(bool wrap) {
+  m_ctrl->SetWrapMode(wrap ? wxSTC_WRAP_WORD : wxSTC_WRAP_NONE);
+}
+
 void Editor::SetTheme(const wxTerminalTheme &theme) {
   m_theme = theme;
   InitEditor();
@@ -628,4 +694,71 @@ void Editor::InitRustStyle() {
   AddProperty(wxSTC_RUST_LEXERROR, m_theme.bg, m_theme.red);
   AddProperty(wxSTC_STYLE_LINENUMBER, m_theme.bg, LineNumberColour());
   AddProperty(wxSTC_STYLE_INDENTGUIDE, m_theme.bg, m_theme.black);
+}
+
+void Editor::ApplyOptions() {
+  // The guides are drawn only when the option is on. All of them have the
+  // colour of the background, but the highlighted one (see DoBraceMatching()).
+  m_ctrl->SetIndentationGuides(AppManager::Get().GetPrefs().highlightIndentLines
+                                   ? wxSTC_IV_LOOKBOTH
+                                   : wxSTC_IV_NONE);
+}
+
+void Editor::OnOptionsChanged(wxCommandEvent &event) {
+  event.Skip();
+  ApplyOptions();
+  // Show the highlights again, or take them off.
+  ClearBraceHighlight();
+  DoBraceMatching();
+}
+
+void Editor::ClearBraceHighlight() {
+  if (m_hasBraceHighlight) {
+    m_hasBraceHighlight = false;
+    m_ctrl->BraceHighlight(wxSTC_INVALID_POSITION, wxSTC_INVALID_POSITION);
+    m_ctrl->SetHighlightGuide(0); // The indent guide that was highlighted
+  }
+}
+
+void Editor::DoBraceMatching() {
+  // No highlight when the option is off, or while text is selected.
+  if (!AppManager::Get().GetPrefs().highlightBraces ||
+      m_ctrl->GetSelectionStart() != m_ctrl->GetSelectionEnd()) {
+    ClearBraceHighlight();
+    return;
+  }
+
+  // The brace at the caret, or else the one before it.
+  const auto isBrace = [](int ch) {
+    return ch > 0 && std::strchr("<>{}()[]", ch) != nullptr;
+  };
+  int pos = m_ctrl->GetCurrentPos();
+  if (!isBrace(m_ctrl->GetCharAt(pos))) {
+    if (pos == 0) {
+      ClearBraceHighlight();
+      return;
+    }
+    pos = m_ctrl->PositionBefore(pos);
+    if (!isBrace(m_ctrl->GetCharAt(pos))) {
+      ClearBraceHighlight();
+      return;
+    }
+  }
+
+  m_hasBraceHighlight = true; // A good or a bad highlight
+  int indentCol = 0;
+  const int endPos = m_ctrl->BraceMatch(pos);
+  if (endPos != wxSTC_INVALID_POSITION) {
+    m_ctrl->BraceHighlight(pos, endPos);
+    if (m_ctrl->GetIndentationGuides() != 0 && m_ctrl->GetIndent() > 0) {
+      // The indent guide of the block, rounded down to a guide column.
+      indentCol = std::min(
+          m_ctrl->GetLineIndentation(m_ctrl->LineFromPosition(pos)),
+          m_ctrl->GetLineIndentation(m_ctrl->LineFromPosition(endPos)));
+      indentCol = indentCol / m_ctrl->GetIndent() * m_ctrl->GetIndent();
+    }
+  } else {
+    m_ctrl->BraceBadLight(pos);
+  }
+  m_ctrl->SetHighlightGuide(indentCol);
 }

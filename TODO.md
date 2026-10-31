@@ -19,13 +19,16 @@
 - [x] Tab icons are too small.
 - [x] IMPORTANT: allow the user to change the tab position.
 - [x] Allow changing the tab outline colour.
-- [ ] Main Toolbar icons are not aligned (different size).
+- [x] Main Toolbar icons are not aligned (different size).
 - [ ] Start Agent Dialog: remember 10 paths used.
 - [x] Main ToolBar: tooltip should have the full path of the file.
 - [x] For files, display the first folder name, e.g. src/TODO.md app/TODO.md etc.
 - [x] Make the spinner lighter on dark theme.
 - [x] Add option to set/remove tab close button (`x`)
-- [ ] Editor: Support for brace matching in the file editor.
-- [ ] Editor: Line guides support.
-- [ ] Tab: horizontal tabs are taller than the vertical ones (due to different image size).
-
+- [x] Editor: Support for brace matching in the file editor.
+- [x] Editor: Line guides support.
+- [x] Tab: horizontal tabs are taller than the vertical ones (due to different image size).
+- [x] Menu: under the `Edit` menu, add common action + their keyboard shortcuts (Copy, Paste, Delete Line, Duplicate Line etc)
+- [ ] Closing the app while there are modified files -> user should be prompted
+- [ ] Closing a file while there are modifications -> user should be prompted
+- [ ] Type-A-Head helper to the FileExplorer tree control.

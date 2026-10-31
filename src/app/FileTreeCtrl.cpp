@@ -3,7 +3,11 @@
 #include "PageViewEvent.hpp"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
+#include "core/WslPath.h"
 
+#include <wx/clipbrd.h>
+#include <wx/dataobj.h>
+#include <wx/menu.h>
 #include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/utils.h>
@@ -19,6 +23,17 @@ wxDEFINE_EVENT(wxEVT_FILETREE_CONNECTED, FileTreeConnectedEvent);
 namespace {
 // The id of the last request of ConnectAsync(). Only the UI thread uses it.
 int s_lastRequestId = 0;
+
+const int kIdCopyPath = wxWindow::NewControlId();
+const int kIdOpenDefault = wxWindow::NewControlId();
+
+// Puts `text` on the clipboard.
+void CopyText(const wxString &text) {
+  if (wxTheClipboard->Open()) {
+    wxTheClipboard->SetData(new wxTextDataObject(text));
+    wxTheClipboard->Close();
+  }
+}
 
 // Folders first, then by name, ignoring the case.
 void SortFiles(std::vector<FileProvider::File> *files) {
@@ -366,4 +381,27 @@ void FileTreeCtrl::OnActivated(wxDataViewEvent &event) {
 void FileTreeCtrl::OnContextMenu(wxDataViewEvent &event) {
   // On empty space the item is not ok: the event has no path.
   SendFileEvent(wxEVT_FILETREE_MENU, event.GetItem());
+  const Node *node = NodeOf(event.GetItem());
+  if (node == nullptr) {
+    return;
+  }
+  const wxString path = node->file.path;
+  wxMenu menu;
+  menu.Append(kIdCopyPath, _("Copy Path"));
+  menu.Bind(
+      wxEVT_MENU, [path](wxCommandEvent &) { CopyText(path); }, kIdCopyPath);
+  // A remote file is on another machine: this computer cannot open it.
+  if (!m_account.IsRemote()) {
+    menu.Append(kIdOpenDefault, _("Open with Default App"));
+    menu.Bind(
+        wxEVT_MENU,
+        [account = m_account, path](wxCommandEvent &) {
+          // A WSL path is a Linux path: Windows needs the path of its share.
+          ::wxLaunchDefaultApplication(
+              account.IsWSL() ? wsl::ToWindowsPath(account.m_name, path)
+                              : path);
+        },
+        kIdOpenDefault);
+  }
+  m_tree->PopupMenu(&menu);
 }

@@ -21,6 +21,8 @@
 //                             (open a file, cd into a folder) is up to the
 //                             receiver
 //   wxEVT_FILETREE_MENU:      the user asked for a context menu on an entry.
+//                             The tree shows its own menu too (Copy Path,
+//                             Open with Default App).
 //   The
 //                             path is empty when it was on empty space
 wxDECLARE_EVENT(wxEVT_FILETREE_SELECTED, FileEvent);

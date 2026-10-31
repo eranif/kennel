@@ -118,6 +118,8 @@ public:
   bool IsEmpty() const;
   // The single SessionPage currently shown, or nullptr.
   SessionPage *GetActiveSessionPage() const;
+  // The single FilePage currently shown, or nullptr.
+  FilePage *GetActiveFilePage() const;
   // The name of the page (session or file) shown, if any.
   std::optional<SessionRef> GetActivePageRef() const;
   // Closes the session; the notebook may be asked from a handler of the page.

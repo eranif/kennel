@@ -32,6 +32,10 @@ struct EditableLocker {
   ~EditableLocker() { m_ctrl->SetEditable(m_oldState); }
 };
 
+// Sent on the EventNotifier when an editor option of the preferences changed
+// (highlight braces, highlight indent lines): every editor applies it.
+wxDECLARE_EVENT(wxEVT_EDITOR_OPTIONS_CHANGED, wxCommandEvent);
+
 class Editor : public wxPanel {
 public:
   Editor(wxWindow *parent, EditorLang lang = EditorLang::kText,
@@ -43,6 +47,8 @@ public:
   // Out of range goes to the nearest place that exists. Unfolds the line.
   void GotoLine(int line, int column = 1);
   void SetTheme(const wxTerminalTheme &theme);
+  // Wraps the long lines, or lets them run off to the right.
+  void SetWrapLines(bool wrap);
 
   wxStyledTextCtrl *GetCtrl() { return m_ctrl; }
   bool IsEditable() const { return m_ctrl->IsEditable(); }
@@ -54,6 +60,7 @@ public:
     }
     m_ctrl->SetSavePoint();
     m_ctrl->SetModified(false);
+    m_ctrl->EmptyUndoBuffer(); // Undo must not go back to an empty file
     m_filepath = filePath;
     return true;
   }
@@ -61,6 +68,7 @@ public:
   void SetText(const wxString &text) {
     EditableLocker editable{m_ctrl};
     m_ctrl->SetText(text);
+    m_ctrl->EmptyUndoBuffer();
     m_ctrl->SetModified(false);
     m_ctrl->SetSavePoint();
   }
@@ -115,9 +123,19 @@ private:
   // Sizes the line-number margin to fit the current number of lines.
   void UpdateLineNumberMargin();
   void OnModified(wxStyledTextEvent &event);
+  void OnUpdateUI(wxStyledTextEvent &event);
+  void OnOptionsChanged(wxCommandEvent &event);
+  // Applies the editor options of the preferences (the indent lines).
+  void ApplyOptions();
+  // Highlights the brace at the caret (or before it) and its pair, like
+  // CodeLite does. A brace without a pair is marked as bad.
+  void DoBraceMatching();
+  void ClearBraceHighlight();
 
   wxStyledTextCtrl *m_ctrl{nullptr};
   EditorLang m_lang = EditorLang::kText;
   wxTerminalTheme m_theme;
   std::optional<wxString> m_filepath{std::nullopt};
+  long m_lastUpdatePosition{wxNOT_FOUND};
+  bool m_hasBraceHighlight{false}; // A good or a bad one is shown
 };

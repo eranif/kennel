@@ -8,8 +8,10 @@
 #include "app/EditAgentsDlg.hpp"
 #include "app/EditHosts.hpp"
 #include "app/EditJobsDlg.hpp"
+#include "app/EditMenu.hpp"
 #include "app/JobLogViewer.hpp"
 #include "app/NewAgentWizard.hpp"
+#include "app/PageViewEvent.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/Logger.h"
@@ -97,7 +99,21 @@ MainFrame::MainFrame()
   Bind(wxEVT_SESSION_STATUS, &MainFrame::OnSessionStatus, this);
   mainFrame = this;
 
-  // Rebuild any sessions persisted in workspace.json (resuming where possible).
+  // One shot, 500ms after the frame is constructed.
+  m_startupTimer.SetOwner(this, kStartupTimerId);
+  Bind(wxEVT_TIMER, &MainFrame::OnStartupTimer, this, kStartupTimerId);
+  m_startupTimer.StartOnce(500);
+}
+
+void MainFrame::OnStartupTimer(wxTimerEvent &event) {
+  wxUnusedVar(event);
+  FinaliseStartup();
+}
+
+void MainFrame::FinaliseStartup() {
+  // Called once, shortly after the start of the application.
+  // Rebuild any sessions persisted in workspace.json (resuming where
+  // possible).
   m_mainView->GetSessionsBook()->RestoreSessions();
   AppManager::Get().SavePrefs();
 
@@ -234,15 +250,15 @@ void MainFrame::OnClose(wxCloseEvent &evt) {
 void MainFrame::BuildToolBar() {
 #ifdef __WXMAC__
   m_toolBar = CreateToolBar(wxTB_HORIZONTAL);
-#else
-  m_toolBar = CreateToolBar(wxTB_VERTICAL | wxTB_NODIVIDER);
-#endif
-
   // In pixels, not DIPs: the bundles are scaled to this size.
-#ifdef __WXMSW__
-  m_toolBar->SetToolBitmapSize(FromDIP(wxSize(48, 48)));
-#else
   m_toolBar->SetToolBitmapSize(FromDIP(Bitmaps::GetToolBarIconSize()));
+#else
+  // A wxAuiToolBar on the left of the main view. It takes the icons at the size
+  // of their bundles, and follows the theme of the application.
+  m_toolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                               wxAUI_TB_VERTICAL);
+  GetSizer()->Insert(0, m_toolBar, wxSizerFlags(0).Expand());
+  Bind(wxEVT_PAGES_TOOLBAR_STYLE, &MainFrame::OnToolBarStyle, this);
 #endif
 
   auto &bmps = AppManager::Get().GetBitmaps();
@@ -264,7 +280,17 @@ void MainFrame::BuildToolBar() {
   m_toolBar->AddSeparator();
   BuildLaunchTools();
   m_toolBar->Realize();
+#ifndef __WXMAC__
+  toolbar::ApplyStyle(m_toolBar);
+#endif
 }
+
+#ifndef __WXMAC__
+void MainFrame::OnToolBarStyle(wxCommandEvent &event) {
+  event.Skip();
+  toolbar::ApplyStyle(m_toolBar);
+}
+#endif
 
 void MainFrame::BuildLaunchTools() {
   for (const auto &[toolId, clientName] : m_clientToolIdToName) {
@@ -317,6 +343,11 @@ void MainFrame::BuildMenuBar() {
   fileMenu->Append(wxID_REFRESH, _("&Refresh Current Selection\tF5"),
                    _("Refresh the Current Selection"));
   Bind(wxEVT_MENU, &MainFrame::OnRefreshSession, this, wxID_REFRESH);
+  fileMenu->Append(XRCID("rename-selection"), _("Rename Session...\tF2"),
+                   _("Rename the selected session"));
+  Bind(wxEVT_MENU, &MainFrame::OnRenameItem, this, XRCID("rename-selection"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnRenameItemUI, this,
+       XRCID("rename-selection"));
   fileMenu->AppendSeparator();
   fileMenu->Append(wxID_NEW, _("Configure &New Agent...\tCtrl+N"),
                    _("Define a New Agent"));
@@ -406,13 +437,9 @@ void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
 void MainFrame::OnResetLayout(wxCommandEvent &) { m_mainView->ResetLayout(); }
 
 void MainFrame::BuildEditMenu(wxMenuBar *menuBar) {
-  auto *editMenu = new wxMenu();
-  editMenu->Append(XRCID("rename-selection"), _("Rename Session...\tF2"),
-                   _("Rename the selected session"));
-  menuBar->Append(editMenu, "&Edit");
-  Bind(wxEVT_MENU, &MainFrame::OnRenameItem, this, XRCID("rename-selection"));
-  Bind(wxEVT_UPDATE_UI, &MainFrame::OnRenameItemUI, this,
-       XRCID("rename-selection"));
+  // The menu is in the bar only while a file is showing.
+  m_editMenu = std::make_unique<EditMenu>(this, m_mainView->GetSessionsBook());
+  m_editMenu->AddTo(menuBar);
 }
 
 void MainFrame::BuildJobsMenu(wxMenuBar *menuBar) {
