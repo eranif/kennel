@@ -9,21 +9,11 @@
 #include "app/PageNames.h"
 #include <algorithm>
 #include <wx/aui/auibar.h>
-#include <wx/choice.h>
 #include <wx/simplebook.h>
 #include <wx/sizer.h>
 
-wxDEFINE_EVENT(wxEVT_FILEEXPLORER_SESSION_SELECTED, PageViewEvent);
-
 namespace {
 const int kIdLink = wxWindow::NewControlId();
-// What the choice of the file explorer shows for a session: the name, and the
-// group when the session is in one.
-wxString ExplorerLabel(const SessionRef &ref) {
-  return ref.groupName == kTerminalsGroupName
-             ? ref.name
-             : ref.name + " (" + ref.groupName + ")";
-}
 } // namespace
 
 FileExplorerView::FileExplorerView(wxWindow *parent) : wxPanel(parent) {
@@ -38,17 +28,13 @@ FileExplorerView::FileExplorerView(wxWindow *parent) : wxPanel(parent) {
   m_toolbar->Realize();
   toolbar::ApplyStyle(m_toolbar);
 
-  m_choice = new wxChoice(this, wxID_ANY);
-  m_choice->Disable(); // No session yet
   m_book = new wxSimplebook(this);
 
   auto *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(m_toolbar, wxSizerFlags(0).Expand());
-  sizer->Add(m_choice, wxSizerFlags(0).Expand().Border(wxALL, FromDIP(5)));
   sizer->Add(m_book, wxSizerFlags(1).Expand());
   SetSizer(sizer);
 
-  m_choice->Bind(wxEVT_CHOICE, &FileExplorerView::OnChoice, this);
   // The remote trees answer on the notifier (see ShowEntry()).
   m_toolbar->Bind(wxEVT_TOOL, &FileExplorerView::OnLink, this, kIdLink);
   EventNotifier::Get()->Bind(wxEVT_FILETREE_CONNECTED,
@@ -99,22 +85,19 @@ int FileExplorerView::FindEntry(const SessionRef &ref) const {
   return wxNOT_FOUND;
 }
 
-void FileExplorerView::AddSession(const SessionRef &ref, const wxString &label,
+void FileExplorerView::AddSession(const SessionRef &ref,
                                   const Account &account) {
   if (FindEntry(ref) != wxNOT_FOUND) {
     return;
   }
   Entry entry;
   entry.ref = ref;
-  entry.label = label;
   entry.account = account;
   // A remote tree is connected when it is shown for the first time: see
   // ShowEntry().
   entry.tree = new FileTreeCtrl(m_book, account);
-  m_book->AddPage(entry.tree, label, false);
-  m_choice->Append(label);
+  m_book->AddPage(entry.tree, ref.name, false);
   m_entries.push_back(entry);
-  m_choice->Enable();
 
   const int index = static_cast<int>(m_entries.size()) - 1;
   // The first session is shown, and so is the one the user is working in.
@@ -128,18 +111,15 @@ void FileExplorerView::RemoveSession(const SessionRef &ref) {
   if (index == wxNOT_FOUND) {
     return;
   }
-  const bool wasShown = m_choice->GetSelection() == index;
+  const bool wasShown = ShownIndex() == index;
   // The answer of a connection that is still made is dropped (no entry has its
   // request any more).
   const int page = m_book->FindPage(m_entries[index].tree);
   m_entries.erase(m_entries.begin() + index);
-  m_choice->Delete(index);
   if (page != wxNOT_FOUND) {
     m_book->DeletePage(page);
   }
-  if (m_entries.empty()) {
-    m_choice->Disable();
-  } else if (wasShown) {
+  if (!m_entries.empty() && wasShown) {
     ShowEntry(std::min(index, static_cast<int>(m_entries.size()) - 1));
   }
   if (m_active == ref) {
@@ -148,18 +128,15 @@ void FileExplorerView::RemoveSession(const SessionRef &ref) {
 }
 
 void FileExplorerView::RenameSession(const SessionRef &from,
-                                     const SessionRef &to,
-                                     const wxString &label) {
+                                     const SessionRef &to) {
   const int index = FindEntry(from);
   if (index == wxNOT_FOUND) {
     return;
   }
   Entry &entry = m_entries[index];
   entry.ref = to;
-  entry.label = label;
-  m_choice->SetString(index, label);
   if (const int page = m_book->FindPage(entry.tree); page != wxNOT_FOUND) {
-    m_book->SetPageText(page, label);
+    m_book->SetPageText(page, to.name);
   }
   if (m_active == from) {
     m_active = to;
@@ -169,8 +146,6 @@ void FileExplorerView::RenameSession(const SessionRef &from,
 void FileExplorerView::Clear() {
   m_entries.clear();
   m_book->DeleteAllPages();
-  m_choice->Clear();
-  m_choice->Disable();
   m_active.reset();
 }
 
@@ -184,12 +159,21 @@ void FileExplorerView::SetActiveSession(const SessionRef &ref) {
   }
 }
 
+int FileExplorerView::ShownIndex() const {
+  const wxWindow *shown = m_book->GetCurrentPage();
+  for (size_t i = 0; i < m_entries.size(); ++i) {
+    if (m_entries[i].tree == shown) {
+      return static_cast<int>(i);
+    }
+  }
+  return wxNOT_FOUND;
+}
+
 void FileExplorerView::ShowEntry(int index) {
   if (index < 0 || index >= static_cast<int>(m_entries.size())) {
     return;
   }
   Entry &entry = m_entries[index];
-  m_choice->SetSelection(index);
   if (const int page = m_book->FindPage(entry.tree); page != wxNOT_FOUND) {
     m_book->SetSelection(page);
   }
@@ -222,7 +206,7 @@ void FileExplorerView::RevealFile(const Account &account,
   if (!IsLinked() || !IsShownOnScreen() || account.IsRemote()) {
     return;
   }
-  const int index = m_choice->GetSelection();
+  const int index = ShownIndex();
   if (index == wxNOT_FOUND) {
     return;
   }
@@ -243,20 +227,6 @@ void FileExplorerView::RevealFile(const Account &account,
   entry.tree->SelectPath(path);
 }
 
-void FileExplorerView::OnChoice(wxCommandEvent &event) {
-  event.Skip();
-  const int index = m_choice->GetSelection();
-  if (index == wxNOT_FOUND) {
-    return;
-  }
-  ShowEntry(index);
-  // The user picked the session: the host shows it.
-  PageViewEvent picked(wxEVT_FILEEXPLORER_SESSION_SELECTED);
-  picked.SetEventObject(this);
-  picked.SetRef(m_entries[index].ref);
-  EventNotifier::Get()->AddPendingEvent(picked);
-}
-
 void FileExplorerView::OnLink(wxCommandEvent &event) {
   event.Skip();
   // Linked again: go back to the session the user is working in.
@@ -273,7 +243,7 @@ void FileExplorerView::OnSessionPageRemoved(PageViewEvent &event) {
 void FileExplorerView::OnSessionPageAdded(PageViewEvent &event) {
   event.Skip();
   const SessionRef &ref = event.GetRef();
-  AddSession(ref, ExplorerLabel(ref), event.GetAccount());
+  AddSession(ref, event.GetAccount());
 }
 
 void FileExplorerView::OnSessionPageShown(PageViewEvent &event) {
@@ -283,8 +253,7 @@ void FileExplorerView::OnSessionPageShown(PageViewEvent &event) {
 
 void FileExplorerView::OnSessionRenamed(PageViewEvent &event) {
   event.Skip();
-  RenameSession(event.GetOldRef(), event.GetRef(),
-                ExplorerLabel(event.GetRef()));
+  RenameSession(event.GetOldRef(), event.GetRef());
 }
 
 void FileExplorerView::OnFileReveal(FileEvent &event) {

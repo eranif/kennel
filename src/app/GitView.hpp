@@ -59,6 +59,7 @@ private:
     wxString message;
   };
 
+  void OnSessionPageActivity(PageViewEvent &event);
   void OnSessionPageAdded(PageViewEvent &event);
   void OnSessionPageRemoved(PageViewEvent &event);
   void OnSessionRenamed(PageViewEvent &event);
@@ -68,6 +69,8 @@ private:
   void OnFileSaveDone(FileEvent &event);
   void OnRefresh(wxCommandEvent &event);
   void OnActivated(wxDataViewEvent &event);
+
+  void RefreshView();
 
   int FindEntry(const SessionRef &ref) const;
   Entry *ActiveEntry();

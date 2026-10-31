@@ -160,8 +160,6 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
                              this);
   EventNotifier::Get()->Bind(wxEVT_APP_CLOSING, &MainNotebook::OnAppClosing,
                              this);
-  EventNotifier::Get()->Bind(wxEVT_FILEEXPLORER_SESSION_SELECTED,
-                             &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Bind(wxEVT_ACTIVITYVIEW_SESSION_SELECTED,
                              &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Bind(wxEVT_FILETREE_ACTIVATED,
@@ -190,8 +188,6 @@ MainNotebook::~MainNotebook() {
                                &MainNotebook::OnThemeApplied, this);
   EventNotifier::Get()->Unbind(wxEVT_APP_CLOSING, &MainNotebook::OnAppClosing,
                                this);
-  EventNotifier::Get()->Unbind(wxEVT_FILEEXPLORER_SESSION_SELECTED,
-                               &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Unbind(wxEVT_ACTIVITYVIEW_SESSION_SELECTED,
                                &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Unbind(wxEVT_FILETREE_ACTIVATED,

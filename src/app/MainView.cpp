@@ -54,6 +54,11 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
                                           wxSizerFlags(1).Expand());
   m_gitView = new GitView(GetPanelGit());
   GetPanelGit()->GetSizer()->Add(m_gitView, wxSizerFlags(1).Expand());
+  if (const int page = m_auiSideBook->FindPage(GetBookPageGit());
+      page != wxNOT_FOUND) {
+    m_auiSideBook->SetPageBitmap(
+        page, AppManager::Get().GetBitmaps().GetByAlias("git", false));
+  }
   m_activityView = new ActivityView(GetPanelActivity());
   GetPanelActivity()->GetSizer()->Add(m_activityView, wxSizerFlags(1).Expand());
   // The size a pane gets when it floats (it only matters then, so no Update()).
@@ -123,6 +128,11 @@ void MainView::RestoreLayout() {
   // before the first pass of the event loop.
   CallAfter([this] {
     const wxString &layout = AppManager::Get().GetPrefs().auiLayout;
+    const int sideTab = AppManager::Get().GetPrefs().sideTab;
+    if (sideTab >= 0 &&
+        sideTab < static_cast<int>(m_auiSideBook->GetPageCount())) {
+      m_auiSideBook->SetSelection(sideTab);
+    }
     bool restored = false;
     if (!layout.empty()) {
       restored = m_auimgr->LoadPerspective(layout, /*update=*/true);
@@ -186,6 +196,7 @@ void MainView::SaveLayout() {
   // which must not replace what was saved (see RestoreLayout()).
   if (m_layoutRestored) {
     AppManager::Get().GetPrefs().auiLayout = m_auimgr->SavePerspective();
+    AppManager::Get().GetPrefs().sideTab = m_auiSideBook->GetSelection();
   }
 }
 
@@ -217,6 +228,15 @@ void MainView::LoadBitmaps() {
     const wxString file = wxString::Format("spinner-%d.svg", i);
     bmps.Load(file);
     bmps.AddAlias(file, wxString::Format("spinner-%d", i));
+  }
+
+  // The git view: the icon of its tab (the same for both appearances) and the
+  // status of a file.
+  for (const char *name : {"git", "git-new", "git-deleted", "git-modified",
+                           "git-renamed", "git-conflict", "git-untracked"}) {
+    const wxString file = wxString(name) + ".svg";
+    bmps.Load(file);
+    bmps.AddAlias(file, name);
   }
 
   bmps.Load("terminal.svg");
@@ -335,5 +355,10 @@ void MainView::ApplyPrefs() {
   m_auiSideBook->SetTheme(
       theme, SettingsDlg::GetTabOutlineColourOf(theme, prefs.tabOutlineColour),
       GlyphTabArt::Style::Browser);
+  // The side book has its tabs on the top or at the bottom only: left is top,
+  // right is bottom.
+  m_auiSideBook->SetTabPosition(
+      prefs.tabPosition == wxBOTTOM || prefs.tabPosition == wxRIGHT ? wxBOTTOM
+                                                                    : wxTOP);
   m_auiSideBook->Refresh();
 }

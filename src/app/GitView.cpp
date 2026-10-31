@@ -13,6 +13,7 @@
 #include <wx/aui/auibar.h>
 #include <wx/dataview.h>
 #include <wx/filename.h>
+#include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
@@ -21,24 +22,37 @@
 namespace {
 const int kIdRefresh = wxWindow::NewControlId();
 
-// The letter of `git status` as a word.
-wxString StatusWord(char letter) {
+// How a status letter of git is shown: a word and the alias of an icon.
+struct StatusLook {
+  wxString word;
+  const char *icon;
+};
+
+StatusLook LookOf(char letter) {
   switch (letter) {
   case 'M':
-    return _("Modified");
+    return {_("Modified"), "git-modified"};
   case 'T':
-    return _("Type changed");
+    return {_("Type changed"), "git-modified"};
   case 'A':
-    return _("New");
+    return {_("New"), "git-new"};
   case 'D':
-    return _("Deleted");
+    return {_("Deleted"), "git-deleted"};
   case 'R':
-    return _("Renamed");
+    return {_("Renamed"), "git-renamed"};
   case 'C':
-    return _("Copied");
+    return {_("Copied"), "git-renamed"};
   default:
-    return _("Changed");
+    return {_("Changed"), "git-modified"};
   }
+}
+
+// A cell with a text and an icon (the icon can be empty).
+wxVariant IconText(const wxString &text,
+                   const wxBitmapBundle &icon = wxBitmapBundle()) {
+  wxVariant cell;
+  cell << wxDataViewIconText(text, icon);
+  return cell;
 }
 
 // Whether git can run for `account`: it needs a working folder (written with
@@ -73,8 +87,8 @@ GitView::GitView(wxWindow *parent) : wxPanel(parent) {
   m_list = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                   wxDefaultSize, wxDV_SINGLE | wxDV_ROW_LINES);
   StylePageView(m_list);
-  m_list->AppendTextColumn(_("Status"), wxDATAVIEW_CELL_INERT, 130);
-  m_list->AppendTextColumn(_("Path"), wxDATAVIEW_CELL_INERT, 300);
+  m_list->AppendIconTextColumn(_("Status"), wxDATAVIEW_CELL_INERT, 130);
+  m_list->AppendIconTextColumn(_("Path"), wxDATAVIEW_CELL_INERT, 300);
 
   auto *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(m_toolbar, wxSizerFlags(0).Expand());
@@ -86,6 +100,8 @@ GitView::GitView(wxWindow *parent) : wxPanel(parent) {
   m_list->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &GitView::OnActivated, this);
   auto *notifier = EventNotifier::Get();
   notifier->Bind(wxEVT_SESSION_PAGE_ADDED, &GitView::OnSessionPageAdded, this);
+  notifier->Bind(wxEVT_SESSION_PAGE_ACTIVITY, &GitView::OnSessionPageActivity,
+                 this);
   notifier->Bind(wxEVT_SESSION_PAGE_REMOVED, &GitView::OnSessionPageRemoved,
                  this);
   notifier->Bind(wxEVT_SESSION_PAGE_RENAMED, &GitView::OnSessionRenamed, this);
@@ -113,6 +129,8 @@ GitView::~GitView() {
     reaper.join();
   }
   auto *notifier = EventNotifier::Get();
+  notifier->Unbind(wxEVT_SESSION_PAGE_ACTIVITY, &GitView::OnSessionPageActivity,
+                   this);
   notifier->Unbind(wxEVT_SESSION_PAGE_ADDED, &GitView::OnSessionPageAdded,
                    this);
   notifier->Unbind(wxEVT_SESSION_PAGE_REMOVED, &GitView::OnSessionPageRemoved,
@@ -157,6 +175,11 @@ void GitView::Request(Entry &entry) {
     entry.driver = MakeDriver(entry.account);
   }
   entry.driver->Status();
+}
+
+void GitView::OnSessionPageActivity(PageViewEvent &event) {
+  event.Skip();
+  RefreshView();
 }
 
 void GitView::OnSessionPageAdded(PageViewEvent &event) {
@@ -252,11 +275,15 @@ void GitView::OnFileSaveDone(FileEvent &event) {
   }
 }
 
-void GitView::OnRefresh(wxCommandEvent &event) {
-  event.Skip();
+void GitView::RefreshView() {
   if (Entry *entry = ActiveEntry()) {
     Request(*entry);
   }
+}
+
+void GitView::OnRefresh(wxCommandEvent &event) {
+  event.Skip();
+  RefreshView();
 }
 
 void GitView::Refill() {
@@ -286,27 +313,35 @@ void GitView::Refill() {
   }
   m_branch->SetLabel(label);
 
-  auto add = [this](const wxString &state, const GitChange &change) {
-    m_list->AppendItem({state, change.path});
+  const auto &bitmaps = AppManager::Get().GetBitmaps();
+  const bool dark = wxSystemSettings::GetAppearance().IsDark();
+  auto add = [&](const wxString &text, const char *icon,
+                 const GitChange &change) {
+    // The status, and the file with the icon of its type
+    m_list->AppendItem(
+        {IconText(text, bitmaps.GetByAlias(icon, false)),
+         IconText(change.path, bitmaps.GetFileIcon(change.path, dark))});
     m_rowPaths.push_back(change.path);
   };
   // The files that are in the index, then those of the work tree.
   for (const GitChange &change : status.changes) {
     if (change.IsStaged()) {
-      add(StatusWord(change.index) + " " + _("(staged)"), change);
+      const StatusLook look = LookOf(change.index);
+      add(look.word + " " + _("(staged)"), look.icon, change);
     }
   }
   for (const GitChange &change : status.changes) {
     if (change.unmerged) {
-      add(_("Conflict"), change);
+      add(_("Conflict"), "git-conflict", change);
     } else if (change.untracked) {
-      add(_("Untracked"), change);
+      add(_("Untracked"), "git-untracked", change);
     } else if (change.IsUnstaged()) {
-      add(StatusWord(change.worktree), change);
+      const StatusLook look = LookOf(change.worktree);
+      add(look.word, look.icon, change);
     }
   }
   if (m_rowPaths.empty()) {
-    m_list->AppendItem({wxString(), _("No changes")});
+    m_list->AppendItem({IconText(wxEmptyString), IconText(_("No changes"))});
     m_rowPaths.emplace_back();
   }
   Layout();

@@ -51,7 +51,7 @@ struct RemoteReadResult {
 // It does not know the rest of the window. It tells what happens to the
 // sessions with the events of PageViewEvent.hpp (and wxEVT_FILE_REVEAL) on the
 // EventNotifier, and it listens there to what the side views ask for
-// (wxEVT_FILEEXPLORER_SESSION_SELECTED, wxEVT_FILETREE_...).
+// (wxEVT_ACTIVITYVIEW_SESSION_SELECTED, wxEVT_FILETREE_...).
 class MainNotebook : public wxPanel {
 public:
   explicit MainNotebook(wxWindow *parent, wxWindowID winid = wxID_ANY,
