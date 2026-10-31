@@ -121,12 +121,30 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     wxBoxSizer* boxSizer600 = new wxBoxSizer(wxVERTICAL);
     m_panelActivity->SetSizer(boxSizer600);
     
-    m_panelFileExplorer = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    m_panelSideView = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
     
-    m_auimgr->AddPane(m_panelFileExplorer, wxAuiPaneInfo().Name(wxT("FileBrowser")).Caption(_("File Explorer")).Direction(wxAUI_DOCK_RIGHT).Layer(0).Row(0).Position(1).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
+    m_auimgr->AddPane(m_panelSideView, wxAuiPaneInfo().Name(wxT("SideView")).Caption(_("Side Bar")).Direction(wxAUI_DOCK_RIGHT).Layer(0).Row(0).Position(1).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
     
     wxBoxSizer* boxSizer596 = new wxBoxSizer(wxVERTICAL);
-    m_panelFileExplorer->SetSizer(boxSizer596);
+    m_panelSideView->SetSizer(boxSizer596);
+    
+    m_auiSideBook = new GlyphBook(m_panelSideView, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_panelSideView, wxSize(250,250)), wxAUI_NB_TOP);
+    m_auiSideBook->SetName(wxT("m_auiSideBook"));
+    
+    boxSizer596->Add(m_auiSideBook, 1, wxEXPAND, WXC_FROM_DIP(5));
+    
+    m_bookPageFileExplorer = new wxPanel(m_auiSideBook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_auiSideBook, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    m_auiSideBook->AddPage(m_bookPageFileExplorer, _("File Explorer"), false);
+    
+    wxBoxSizer* boxSizer612 = new wxBoxSizer(wxVERTICAL);
+    m_bookPageFileExplorer->SetSizer(boxSizer612);
+    
+    m_panelFileExplorer = new wxPanel(m_bookPageFileExplorer, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_bookPageFileExplorer, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    
+    boxSizer612->Add(m_panelFileExplorer, 1, wxEXPAND, WXC_FROM_DIP(5));
+    
+    wxBoxSizer* boxSizer613 = new wxBoxSizer(wxVERTICAL);
+    m_panelFileExplorer->SetSizer(boxSizer613);
     
     m_mainPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL|wxBORDER_NONE);
     

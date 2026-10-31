@@ -5,6 +5,7 @@
 #include "app/ActivityView.hpp"
 #include "app/AssetBootstrap.h"
 #include "app/FileExplorerView.hpp"
+#include "app/SettingsDlg.hpp"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
 #include "core/Logger.h"
@@ -22,7 +23,7 @@ constexpr int kSidePaneWidthDip = 300;
 constexpr int kFloatingPaneWidthDip = 400;
 constexpr int kFloatingPaneHeightDip = 600;
 // The names of the side panes (see MainViewBase).
-const wxString kSidePanes[] = {"FileBrowser", "Activity"};
+const wxString kSidePanes[] = {"SideView", "Activity"};
 } // namespace
 
 MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
@@ -64,8 +65,15 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
   // What the user double clicks in the file explorer.
   Bind(wxEVT_FILETREE_ACTIVATED, &MainView::OnFileTreeActivated, this);
 
+  EventNotifier::Get()->Bind(wxEVT_APP_PREFS_CHANGED,
+                             &MainView::OnAppPrefsSaved, this);
   // Finalise frame construction.
   FinaliseConstruction();
+}
+
+MainView::~MainView() {
+  EventNotifier::Get()->Unbind(wxEVT_APP_PREFS_CHANGED,
+                               &MainView::OnAppPrefsSaved, this);
 }
 
 void MainView::BindFocusChildEvent(wxWindow *win, ChildFocusEvent handlerFn) {
@@ -82,9 +90,10 @@ void MainView::BindFocusChildEvent(wxWindow *win, ChildFocusEvent handlerFn) {
 
 void MainView::FinaliseConstruction() {
   BindFocusChildEvent(m_panelActivity, &MainView::OnActivityPanelChildFocus);
-  BindFocusChildEvent(m_panelFileExplorer,
+  BindFocusChildEvent(m_panelSideView,
                       &MainView::OnFileExplorerPanelChildFocus);
   BindFocusChildEvent(m_mainPanel, &MainView::OnMainPanelChildFocus);
+  ApplyPrefs();
 }
 
 // ---------------------------------------------------------------------------
@@ -304,6 +313,23 @@ void MainView::OnActivityPanelChildFocus(wxChildFocusEvent &event) {
 
 void MainView::OnFileExplorerPanelChildFocus(wxChildFocusEvent &event) {
   event.Skip();
-  if (MakeActive(m_panelFileExplorer))
+  if (MakeActive(m_panelSideView))
     m_auimgr->Update();
+}
+
+void MainView::OnAppPrefsSaved(wxCommandEvent &event) {
+  event.Skip();
+  ApplyPrefs();
+}
+
+void MainView::ApplyPrefs() {
+  const auto &prefs = AppManager::Get().GetPrefs();
+  auto theme = ThemeManager::Get().ActiveTheme().value_or(
+      wxSystemSettings::GetAppearance().IsDark()
+          ? wxTerminalTheme::MakeDarkTheme()
+          : wxTerminalTheme::MakeLightTheme());
+  m_auiSideBook->SetTheme(
+      theme, SettingsDlg::GetTabOutlineColourOf(theme, prefs.tabOutlineColour),
+      GlyphTabArt::Style::Browser);
+  m_auiSideBook->Refresh();
 }

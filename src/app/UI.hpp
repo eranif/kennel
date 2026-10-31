@@ -16,6 +16,9 @@
 #include <wx/sizer.h>
 #include <wx/aui/framemanager.h>
 #include <wx/aui/dockart.h>
+#include <wx/aui/auibook.h>
+#include "GlyphBook.h"
+#include <wx/imaglist.h>
 #include "app/MainNotebook.hpp"
 #include <wx/dialog.h>
 #include <wx/iconbndl.h>
@@ -30,7 +33,6 @@
 #include <wx/toolbar.h>
 #include <wx/dataview.h>
 #include <wx/notebook.h>
-#include <wx/imaglist.h>
 #include <wx/statbmp.h>
 #include <wx/stc/stc.h>
 #include <wx/pen.h>
@@ -81,6 +83,9 @@ class MainViewBase : public wxPanel
 protected:
     wxAuiManager* m_auimgr;
     wxPanel* m_panelActivity;
+    wxPanel* m_panelSideView;
+    GlyphBook* m_auiSideBook;
+    wxPanel* m_bookPageFileExplorer;
     wxPanel* m_panelFileExplorer;
     wxPanel* m_mainPanel;
     MainNotebook* m_sessionsBook;
@@ -90,6 +95,9 @@ protected:
 public:
     wxPanel* GetPanelActivity() { return m_panelActivity; }
     wxPanel* GetPanelFileExplorer() { return m_panelFileExplorer; }
+    wxPanel* GetBookPageFileExplorer() { return m_bookPageFileExplorer; }
+    GlyphBook* GetAuiSideBook() { return m_auiSideBook; }
+    wxPanel* GetPanelSideView() { return m_panelSideView; }
     MainNotebook* GetSessionsBook() { return m_sessionsBook; }
     wxPanel* GetMainPanel() { return m_mainPanel; }
     wxAuiManager* GetAuimgr() { return m_auimgr; }

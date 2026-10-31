@@ -544,7 +544,10 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.tabOutlineColour = settingsDlg.GetTabOutlineColour();
     ApplyAppTheme(prefs.appTheme);
     AppManager::Get().SavePrefs();
-    m_mainView->GetSessionsBook()->ApplyPrefs();
+
+    wxCommandEvent savedEvent{wxEVT_APP_PREFS_CHANGED};
+    EventNotifier::Get()->AddPendingEvent(savedEvent);
+
   } else {
     settingsDlg.RestoreThemeAndFont();
   }

@@ -17,7 +17,7 @@ class FileExplorerView;
 class MainView : public MainViewBase {
 public:
   explicit MainView(wxWindow *parent);
-  ~MainView() override = default;
+  ~MainView() override;
 
   // The layout of the panes (the AUI perspective) is remembered between runs in
   // the UI prefs. RestoreLayout() applies it (once the window has its final
@@ -52,6 +52,8 @@ private:
   void OnToolBarStyle(wxCommandEvent &event);
   // A file or a folder of the file explorer was double clicked: passed on.
   void OnFileTreeActivated(FileEvent &event);
+  void OnAppPrefsSaved(wxCommandEvent &event);
+  void ApplyPrefs();
 
   FileExplorerView *m_fileExplorer{nullptr};
   ActivityView *m_activityView{nullptr};

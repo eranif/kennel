@@ -166,6 +166,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
                              &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Bind(wxEVT_FILETREE_ACTIVATED,
                              &MainNotebook::OnFileTreeActivated, this);
+  EventNotifier::Get()->Bind(wxEVT_APP_PREFS_CHANGED,
+                             &MainNotebook::OnAppPrefsSaved, this);
   Bind(wxEVT_GOTOANYTHING_CHANGED, &MainNotebook::OnGotoChanged, this);
   Bind(wxEVT_GOTOANYTHING_CLOSED, &MainNotebook::OnGotoClosed, this);
   Bind(wxEVT_SESSION_IDLE, &MainNotebook::OnSessionIdle, this);
@@ -194,6 +196,8 @@ MainNotebook::~MainNotebook() {
                                &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Unbind(wxEVT_FILETREE_ACTIVATED,
                                &MainNotebook::OnFileTreeActivated, this);
+  EventNotifier::Get()->Unbind(wxEVT_APP_PREFS_CHANGED,
+                               &MainNotebook::OnAppPrefsSaved, this);
   Unbind(wxEVT_SESSION_IDLE, &MainNotebook::OnSessionIdle, this);
   Unbind(wxEVT_SESSION_ACTIVE, &MainNotebook::OnSessionActive, this);
   Unbind(wxEVT_SESSION_EXITED, &MainNotebook::OnSessionExited, this);
@@ -1856,4 +1860,9 @@ bool MainNotebook::CanFindNext() const {
   }
   auto *session = dynamic_cast<SessionPage *>(page);
   return session != nullptr && session->HasSearch();
+}
+
+void MainNotebook::OnAppPrefsSaved(wxCommandEvent &event) {
+  event.Skip();
+  ApplyPrefs();
 }
