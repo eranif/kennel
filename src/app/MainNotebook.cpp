@@ -243,10 +243,10 @@ void MainNotebook::OnFileTreeActivated(FileEvent &event) {
   if (account.IsRemote()) {
     OpenRemoteFile(RemoteHostDetails{account.m_name, account.m_user},
                    event.GetPath(), {});
-  } else if (account.IsWSL()) {
-    OpenLocalFile(wsl::ToWindowsPath(account.m_name, event.GetPath()));
   } else {
-    OpenLocalFile(event.GetPath());
+    OpenLocalFile(account.IsWSL()
+                      ? wsl::ToWindowsPath(account.m_name, event.GetPath())
+                      : event.GetPath());
   }
 }
 
@@ -869,6 +869,7 @@ void MainNotebook::OpenLocalFile(const wxString &path, bool restoring) {
     return;
   }
 
+  wxWindowUpdateLocker locker{this};
   auto *page = new FilePage(
       GetPageParent(), key,
       ThemeManager::Get().ActiveTheme().value_or(wxTerminalTheme{}));
@@ -901,6 +902,7 @@ void MainNotebook::OpenFileAt(const FileLocation &where) {
 void MainNotebook::ShowRemoteFile(const RemoteHostDetails &remoteHost,
                                   const wxString &path, const wxString &text,
                                   bool editable, bool reload, bool restoring) {
+  wxWindowUpdateLocker locker{this};
   const wxString key = FileEvent::MakeKey(path, remoteHost);
   if (auto *existing = FindFile(key)) {
     // The remote copy may have changed, but only a reload (the user agreed)
