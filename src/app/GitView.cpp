@@ -18,6 +18,7 @@
 #include <wx/stattext.h>
 
 #include <thread>
+#include <wx/wupdlock.h>
 
 namespace {
 const int kIdRefresh = wxWindow::NewControlId();
@@ -287,6 +288,7 @@ void GitView::OnRefresh(wxCommandEvent &event) {
 }
 
 void GitView::Refill() {
+  wxWindowUpdateLocker locker{m_list};
   m_list->DeleteAllItems();
   m_rowPaths.clear();
   const Entry *entry = ActiveEntry();
