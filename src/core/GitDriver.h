@@ -11,6 +11,7 @@
 #include <thread>
 #include <vector>
 #include <wx/event.h>
+#include <wx/filename.h>
 #include <wx/intl.h>
 #include <wx/string.h>
 
@@ -47,6 +48,9 @@ protected:
   // Runs `git <args>` in the folder and waits for it. Called on the worker
   // thread only.
   virtual ProcessOutput RunGit(const std::vector<std::string> &args) = 0;
+  // How the paths of the folder are written: UNIX, unless it is a folder of
+  // this machine.
+  virtual wxPathFormat GetPathFormat() const { return wxPATH_UNIX; }
 
   // Runs a program and waits for it. On Windows the command line is built from
   // `argv` with the quoting that programs expect (Process joins the elements

@@ -331,6 +331,7 @@ set(KENNEL_APP_SOURCES
     src/app/DataViewTypeHelper.cpp
     src/app/FileExplorerView.cpp
     src/app/GitView.cpp
+    src/app/TabIcon.cpp
     src/app/ActivityView.cpp
     src/app/MainNotebook.cpp
     src/app/SessionStatusEvent.cpp)

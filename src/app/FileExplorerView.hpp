@@ -10,19 +10,11 @@
 #include <vector>
 #include <wx/panel.h>
 
-class wxAuiToolBar;
 class wxSimplebook;
 
 // The files of the open sessions: one FileTreeCtrl for each session, in a
-// book, with a "Link with Session" tool above it.
-//
-//   [ link tool ]
-//   +-----------------------------------------------+
-//   |  the tree of the session that is showing      |
-//   +-----------------------------------------------+
-//
-// While Link is on, the tree follows the session that is showing (see
-// wxEVT_SESSION_PAGE_SHOWN); when it is off, the tree stays as it is.
+// book. The tree of the session that is showing is on the screen (see
+// wxEVT_SESSION_PAGE_SHOWN).
 //
 // Self contained: it listens on the EventNotifier to which sessions exist, and
 // to the events of the trees, which reach the parent windows (see
@@ -34,16 +26,12 @@ public:
   explicit FileExplorerView(wxWindow *parent);
   ~FileExplorerView() override;
 
-  bool IsLinked() const;
   // The file `path` (in the notation of `account`: a Linux path for WSL) is
-  // shown now. While Link is on, and when this view is on the screen, it is
+  // shown now. When this view is on the screen, it is
   // selected in the tree that is showing, if the file is inside it (the path is
   // converted between this machine and WSL when the tree is of the other one).
   // Never sends an event, and never lists a remote host.
   void RevealFile(const Account &account, const wxString &path);
-  // Gives the toolbar the style of the theme of the application (see
-  // toolbar::ApplyStyle()). Called when the theme changes.
-  void ApplyToolBarStyle();
   size_t GetSessionCount() const { return m_entries.size(); }
 
 private:
@@ -57,7 +45,7 @@ private:
     Clear();
   }
 
-  // The session the user is working in. While Link is on, its tree is shown.
+  // The session the user is working in. Its tree is shown.
   // Never sends events.
   void SetActiveSession(const SessionRef &ref);
   void Clear();
@@ -88,9 +76,7 @@ private:
   // not connected yet starts to connect (in the background).
   void ShowEntry(int index);
   void OnTreeConnected(FileTreeConnectedEvent &event);
-  void OnLink(wxCommandEvent &event);
 
-  wxAuiToolBar *m_toolbar{nullptr};
   wxSimplebook *m_book{nullptr};
   std::vector<Entry> m_entries;
   std::optional<SessionRef> m_active;

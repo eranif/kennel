@@ -15,6 +15,7 @@
 #include "app/PageSwitcherDlg.hpp"
 #include "app/SessionPage.hpp"
 #include "app/SettingsDlg.hpp"
+#include "app/TabIcon.h"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/ClientAdapter.h"
@@ -50,36 +51,6 @@ wxString TitleOf(wxWindow *page) {
     return file->GetDisplayName();
   }
   return wxString{};
-}
-
-// The icons of the tabs are made for menus (16 DIP): this bundle shows them
-// bigger. The source makes the bitmap at the size that is asked for.
-constexpr int kTabIconDip = 24;
-
-class TabIconImpl : public wxBitmapBundleImpl {
-public:
-  explicit TabIconImpl(const wxBitmapBundle &source) : m_source(source) {}
-
-  wxSize GetDefaultSize() const override {
-    return wxSize(kTabIconDip, kTabIconDip);
-  }
-
-  wxSize GetPreferredBitmapSizeAtScale(double scale) const override {
-    const int size = wxRound(kTabIconDip * scale);
-    return wxSize(size, size);
-  }
-
-  wxBitmap GetBitmap(const wxSize &size) override {
-    return m_source.GetBitmap(size);
-  }
-
-private:
-  wxBitmapBundle m_source;
-};
-
-wxBitmapBundle TabIcon(const wxBitmapBundle &source) {
-  return source.IsOk() ? wxBitmapBundle::FromImpl(new TabIconImpl(source))
-                       : wxBitmapBundle{};
 }
 
 wxBitmapBundle IconOf(wxWindow *page) {

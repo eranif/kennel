@@ -7,6 +7,7 @@
 #include "app/FileExplorerView.hpp"
 #include "app/GitView.hpp"
 #include "app/SettingsDlg.hpp"
+#include "app/TabIcon.h"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
 #include "core/Logger.h"
@@ -57,7 +58,7 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
   if (const int page = m_auiSideBook->FindPage(GetBookPageGit());
       page != wxNOT_FOUND) {
     m_auiSideBook->SetPageBitmap(
-        page, AppManager::Get().GetBitmaps().GetByAlias("git", false));
+        page, TabIcon(AppManager::Get().GetBitmaps().GetByAlias("git", false)));
   }
   m_activityView = new ActivityView(GetPanelActivity());
   GetPanelActivity()->GetSizer()->Add(m_activityView, wxSizerFlags(1).Expand());
@@ -110,7 +111,6 @@ void MainView::FinaliseConstruction() {
 
 void MainView::OnToolBarStyle(wxCommandEvent &event) {
   event.Skip(); // The main toolbar of the frame follows too
-  m_fileExplorer->ApplyToolBarStyle();
   m_gitView->ApplyToolBarStyle();
 }
 
@@ -213,9 +213,6 @@ void MainView::LoadBitmaps() {
 
   bmps.Load("up.svg");
   bmps.AddAlias("up.svg", "up");
-
-  bmps.Load("link.svg");
-  bmps.AddAlias("link.svg", "link");
 
   // The status of the activity view.
   bmps.Load("hand.svg");

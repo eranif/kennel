@@ -10,4 +10,5 @@ public:
 
 protected:
   ProcessOutput RunGit(const std::vector<std::string> &args) override;
+  wxPathFormat GetPathFormat() const override { return wxPATH_NATIVE; }
 };

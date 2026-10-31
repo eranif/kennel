@@ -1,42 +1,22 @@
 #include "app/FileExplorerView.hpp"
 
-#include "app/ToolBarUtils.h"
-#include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
 #include "core/Logger.h"
 #include "core/WslPath.h"
 
 #include "app/PageNames.h"
 #include <algorithm>
-#include <wx/aui/auibar.h>
 #include <wx/simplebook.h>
 #include <wx/sizer.h>
 
-namespace {
-const int kIdLink = wxWindow::NewControlId();
-} // namespace
-
 FileExplorerView::FileExplorerView(wxWindow *parent) : wxPanel(parent) {
-  m_toolbar = new wxAuiToolBar(this);
-  const auto &bitmaps = AppManager::Get().GetBitmaps();
-  toolbar::AddTool(m_toolbar, kIdLink, _("Link with Session"),
-                   bitmaps.GetByAlias("link", false),
-                   _("Link with Session: show the files of the session you are "
-                     "working in"),
-                   wxITEM_CHECK);
-  m_toolbar->ToggleTool(kIdLink, true);
-  m_toolbar->Realize();
-  toolbar::ApplyStyle(m_toolbar);
-
   m_book = new wxSimplebook(this);
 
   auto *sizer = new wxBoxSizer(wxVERTICAL);
-  sizer->Add(m_toolbar, wxSizerFlags(0).Expand());
   sizer->Add(m_book, wxSizerFlags(1).Expand());
   SetSizer(sizer);
 
   // The remote trees answer on the notifier (see ShowEntry()).
-  m_toolbar->Bind(wxEVT_TOOL, &FileExplorerView::OnLink, this, kIdLink);
   EventNotifier::Get()->Bind(wxEVT_FILETREE_CONNECTED,
                              &FileExplorerView::OnTreeConnected, this);
   EventNotifier::Get()->Bind(wxEVT_SESSION_PAGE_RENAMED,
@@ -70,12 +50,6 @@ FileExplorerView::~FileExplorerView() {
                                &FileExplorerView::OnFileReveal, this);
 }
 
-bool FileExplorerView::IsLinked() const {
-  return m_toolbar->GetToolToggled(kIdLink);
-}
-
-void FileExplorerView::ApplyToolBarStyle() { toolbar::ApplyStyle(m_toolbar); }
-
 int FileExplorerView::FindEntry(const SessionRef &ref) const {
   for (size_t i = 0; i < m_entries.size(); ++i) {
     if (m_entries[i].ref == ref) {
@@ -101,7 +75,7 @@ void FileExplorerView::AddSession(const SessionRef &ref,
 
   const int index = static_cast<int>(m_entries.size()) - 1;
   // The first session is shown, and so is the one the user is working in.
-  if (m_entries.size() == 1 || (IsLinked() && m_active == ref)) {
+  if (m_entries.size() == 1 || m_active == ref) {
     ShowEntry(index);
   }
 }
@@ -151,9 +125,6 @@ void FileExplorerView::Clear() {
 
 void FileExplorerView::SetActiveSession(const SessionRef &ref) {
   m_active = ref;
-  if (!IsLinked()) {
-    return;
-  }
   if (const int index = FindEntry(ref); index != wxNOT_FOUND) {
     ShowEntry(index);
   }
@@ -203,7 +174,7 @@ void FileExplorerView::OnTreeConnected(FileTreeConnectedEvent &event) {
 
 void FileExplorerView::RevealFile(const Account &account,
                                   const wxString &filePath) {
-  if (!IsLinked() || !IsShownOnScreen() || account.IsRemote()) {
+  if (!IsShownOnScreen() || account.IsRemote()) {
     return;
   }
   const int index = ShownIndex();
@@ -225,14 +196,6 @@ void FileExplorerView::RevealFile(const Account &account,
     return;
   }
   entry.tree->SelectPath(path);
-}
-
-void FileExplorerView::OnLink(wxCommandEvent &event) {
-  event.Skip();
-  // Linked again: go back to the session the user is working in.
-  if (IsLinked() && m_active) {
-    SetActiveSession(*m_active);
-  }
 }
 
 void FileExplorerView::OnSessionPageRemoved(PageViewEvent &event) {

@@ -4,6 +4,8 @@
 #include "core/GitEvent.h"
 #include "core/GitParser.h"
 
+#include <wx/filename.h>
+
 namespace {
 wxString Utf8(const std::string &text) {
   return wxString::FromUTF8(text.data(), text.size());
@@ -30,6 +32,21 @@ GitEvent MakeEvent(wxEventType type, GitDriver *driver,
 
 namespace {
 std::atomic<int> s_lastId{0};
+
+// `folder` and the way up from it (`cdup`: "../../", or empty when it is the
+// root), as one path in the notation `format`.
+wxString RootFrom(const wxString &folder, const wxString &cdup,
+                  wxPathFormat format) {
+  wxFileName root = wxFileName::DirName(folder, format);
+  for (const wxString &part : wxSplit(cdup, '/')) {
+    if (!part.empty()) {
+      root.AppendDir(part);
+    }
+  }
+  root.Normalize(wxPATH_NORM_DOTS, wxEmptyString, format);
+  wxString path = root.GetPath(wxPATH_GET_VOLUME, format);
+  return path.empty() ? wxString(root.GetPathSeparator(format)) : path;
+}
 
 #ifdef _WIN32
 // `arg` as one argument of a Windows command line (the rules of the C runtime).
@@ -133,8 +150,14 @@ void GitDriver::Status() {
                 "--untracked-files=all"});
     wxString root;
     if (output.ok) {
-      const ProcessOutput top = RunGit({"rev-parse", "--show-toplevel"});
-      root = Utf8(top.out).Strip(wxString::both);
+      // The root is found from the folder and the way up to it (`git rev-parse
+      // --show-toplevel` writes the paths of the git program: the git of MSYS2
+      // writes "/home/x", which this program can not open).
+      const ProcessOutput up = RunGit({"rev-parse", "--show-cdup"});
+      if (up.ok) {
+        root = RootFrom(GetFolder(), Utf8(up.out).Strip(wxString::both),
+                        GetPathFormat());
+      }
     }
     CallAfter(&GitDriver::OnStatusOutput, output, root);
   }});
