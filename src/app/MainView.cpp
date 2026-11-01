@@ -63,7 +63,7 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
   }
   m_activityView = new ActivityView(GetPanelActivity());
   GetPanelActivity()->GetSizer()->Add(m_activityView, wxSizerFlags(1).Expand());
-  m_auiSideBook->SetCursor(wxCURSOR_HAND);
+  m_auiSideBook->GetTabBar()->SetCursor(wxCURSOR_HAND);
 
   // The size a pane gets when it floats (it only matters then, so no Update()).
   for (const wxString &name : kSidePanes) {

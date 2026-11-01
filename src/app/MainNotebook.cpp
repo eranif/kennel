@@ -109,7 +109,7 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
       wxAUI_NB_CLOSE_ON_ACTIVE_TAB | wxAUI_NB_TAB_MOVE |
           wxAUI_NB_MIDDLE_CLICK_CLOSE | wxAUI_NB_CLOSE_ON_ALL_TABS |
           wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_RIGHT | wxBORDER_DEFAULT);
-  m_book->SetCursor(wxCURSOR_HAND);
+  m_book->GetTabBar()->SetCursor(wxCURSOR_HAND);
   GetSizer()->Add(m_book, wxSizerFlags(1).Expand());
   Layout();
 
