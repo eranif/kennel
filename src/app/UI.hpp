@@ -82,26 +82,26 @@ class MainViewBase : public wxPanel
 {
 protected:
     wxAuiManager* m_auimgr;
-    wxPanel* m_panelActivity;
     wxPanel* m_panelSideView;
     GlyphBook* m_auiSideBook;
     wxPanel* m_bookPageFileExplorer;
     wxPanel* m_panelFileExplorer;
     wxPanel* m_bookPageGit;
     wxPanel* m_panelGit;
+    wxPanel* m_panelActivity;
     wxPanel* m_mainPanel;
     MainNotebook* m_sessionsBook;
 
 protected:
 
 public:
-    wxPanel* GetPanelActivity() { return m_panelActivity; }
     wxPanel* GetPanelFileExplorer() { return m_panelFileExplorer; }
     wxPanel* GetBookPageFileExplorer() { return m_bookPageFileExplorer; }
     wxPanel* GetPanelGit() { return m_panelGit; }
     wxPanel* GetBookPageGit() { return m_bookPageGit; }
     GlyphBook* GetAuiSideBook() { return m_auiSideBook; }
     wxPanel* GetPanelSideView() { return m_panelSideView; }
+    wxPanel* GetPanelActivity() { return m_panelActivity; }
     MainNotebook* GetSessionsBook() { return m_sessionsBook; }
     wxPanel* GetMainPanel() { return m_mainPanel; }
     wxAuiManager* GetAuimgr() { return m_auimgr; }
