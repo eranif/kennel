@@ -10,10 +10,10 @@
 // worker thread, never from the UI thread. GUI-free; libssh stays out of this
 // header.
 //
-// The connections are kept open in a pool, one for each host, and reused by
-// the next call to that host. A call never shares a connection with another
-// call that runs at the same time. Only a connection whose call worked goes
-// back to the pool, and one that was idle for more than 5 minutes is not
+// The connections are kept open in a pool, one for each host and user, and
+// reused by the next call for them. A call never shares a connection with
+// another call that runs at the same time. Only a connection whose call worked
+// goes back to the pool, and one that was idle for more than 5 minutes is not
 // reused. When a host closed a connection while it was idle, the call is made
 // again on a new connection.
 class SftpClient {
@@ -26,7 +26,8 @@ public:
   // Connects to `host` (as `user`, when non-empty), locates `path` and reads
   // it. `host` may be an ~/.ssh/config alias; the config is honoured.
   //
-  // Absolute paths are used as-is and `~/` expands to the remote home. Any
+  // Absolute paths are used as-is and `~/` and `$HOME/` expand to the remote
+  // home. Any
   // other path is tried relative to each entry of `searchDirs` in order
   // (`$HOME`/`~` are expanded), then relative to the remote home.
   //

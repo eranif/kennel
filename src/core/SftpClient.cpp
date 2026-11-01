@@ -1,5 +1,7 @@
 #include "core/SftpClient.h"
 
+#include "core/SshSession.h"
+
 #include <libssh/libssh.h>
 #include <libssh/sftp.h>
 
@@ -9,21 +11,17 @@
 #include <chrono>
 
 #include <memory>
-#include <mutex>
 #include <random>
-#include <unordered_map>
 #include <utility>
 
 namespace {
 
-struct SshSessionDeleter {
-  void operator()(ssh_session s) const {
-    if (ssh_is_connected(s)) {
-      ssh_disconnect(s);
-    }
-    ssh_free(s);
-  }
-};
+using ssh_session_detail::Connect;
+using ssh_session_detail::ConnectionPool;
+using ssh_session_detail::PoolKey;
+using ssh_session_detail::SshError;
+using ssh_session_detail::SshSessionPtr;
+
 struct SftpSessionDeleter {
   void operator()(sftp_session s) const { sftp_free(s); }
 };
@@ -34,78 +32,9 @@ struct SftpAttrDeleter {
   void operator()(sftp_attributes a) const { sftp_attributes_free(a); }
 };
 
-using SshSessionPtr = std::unique_ptr<ssh_session_struct, SshSessionDeleter>;
 using SftpSessionPtr = std::unique_ptr<sftp_session_struct, SftpSessionDeleter>;
 using SftpFilePtr = std::unique_ptr<sftp_file_struct, SftpFileDeleter>;
 using SftpAttrPtr = std::unique_ptr<sftp_attributes_struct, SftpAttrDeleter>;
-
-constexpr int kConnectTimeoutSecs = 10;
-
-Status SshError(const wxString &what, ssh_session session) {
-  return Status::Error(wxString::Format(
-      "%s: %s", what, wxString::FromUTF8(ssh_get_error(session))));
-}
-
-// Verifies the server against ~/.ssh/known_hosts. A host that was never seen is
-// trusted and recorded on first use (OpenSSH's `accept-new`); a host whose key
-// changed, or is listed under a different key type, is refused.
-Status VerifyServer(ssh_session session) {
-  switch (ssh_session_is_known_server(session)) {
-  case SSH_KNOWN_HOSTS_OK:
-    return Status::Ok();
-  case SSH_KNOWN_HOSTS_NOT_FOUND:
-  case SSH_KNOWN_HOSTS_UNKNOWN:
-    // Best effort: failing to record the key must not fail the connection.
-    // (No logging here: this runs on worker threads and Logger is not
-    // thread-safe.)
-    ssh_session_update_known_hosts(session);
-    return Status::Ok();
-  case SSH_KNOWN_HOSTS_CHANGED:
-    return Status::Error("The host key has changed (possible "
-                         "man-in-the-middle attack); refusing to connect");
-  case SSH_KNOWN_HOSTS_OTHER:
-    return Status::Error("The host key type differs from the one recorded "
-                         "in known_hosts; refusing to connect");
-  default:
-    return SshError("Host key verification failed", session);
-  }
-}
-
-StatusOr<SshSessionPtr> Connect(const wxString &host, const wxString &user) {
-  SshSessionPtr session{ssh_new()};
-  if (!session) {
-    return Status::Error("Could not allocate an SSH session");
-  }
-
-  const std::string hostUtf8 = host.ToStdString(wxConvUTF8);
-  const std::string userUtf8 = user.ToStdString(wxConvUTF8);
-  long timeout = kConnectTimeoutSecs;
-  ssh_options_set(session.get(), SSH_OPTIONS_HOST, hostUtf8.c_str());
-  ssh_options_set(session.get(), SSH_OPTIONS_TIMEOUT, &timeout);
-  if (!userUtf8.empty()) {
-    ssh_options_set(session.get(), SSH_OPTIONS_USER, userUtf8.c_str());
-  }
-  // Apply ~/.ssh/config (HostName, Port, IdentityFile, User, ...) for this
-  // host. Explicit options set above win only for fields the config omits, so
-  // re-apply the user afterwards.
-  ssh_options_parse_config(session.get(), nullptr);
-  if (!userUtf8.empty()) {
-    ssh_options_set(session.get(), SSH_OPTIONS_USER, userUtf8.c_str());
-  }
-
-  if (ssh_connect(session.get()) != SSH_OK) {
-    return SshError("Could not connect", session.get());
-  }
-  if (Status st = VerifyServer(session.get()); !st.ok()) {
-    return st;
-  }
-  if (ssh_userauth_publickey_auto(session.get(), nullptr, nullptr) !=
-      SSH_AUTH_SUCCESS) {
-    return SshError("Authentication failed (key-based login is required)",
-                    session.get());
-  }
-  return session;
-}
 
 wxString JoinRemote(const wxString &dir, const wxString &name) {
   return dir.EndsWith("/") ? dir + name : dir + "/" + name;
@@ -127,38 +56,25 @@ wxString ExpandHome(const wxString &path, const wxString &home) {
 
 // An open connection: the SSH session, its SFTP channel, and the remote home.
 struct Connection {
-  wxString user;
   SshSessionPtr ssh;
   SftpSessionPtr sftp; // Freed before `ssh` (members go in reverse order)
   wxString home;
   // When it went back to the pool.
   std::chrono::steady_clock::time_point lastUsed;
+
+  // The session is connected and its SFTP channel is open. A call that timed
+  // out can leave a connection that still passes this; see WithConnection().
+  bool IsHealthy() const {
+    return ssh && sftp && ssh_is_connected(ssh.get()) &&
+           ssh_channel_is_open(sftp->channel) &&
+           !ssh_channel_is_eof(sftp->channel);
+  }
 };
 using ConnectionPtr = std::unique_ptr<Connection>;
 
-// A connection that was idle longer is not tried: after a long time the host
-// or the network has often closed it without telling.
-constexpr auto kMaxIdle = std::chrono::minutes(5);
-
-// The session is connected and its SFTP channel is open. A call that timed out
-// can leave a connection that still passes this; see WithConnection().
-bool IsHealthy(const Connection &conn) {
-  return conn.ssh && conn.sftp && ssh_is_connected(conn.ssh.get()) &&
-         ssh_channel_is_open(conn.sftp->channel) &&
-         !ssh_channel_is_eof(conn.sftp->channel);
-}
-
-// The idle connections, one for each host. A call takes the connection out
-// while it uses it (a libssh session is not for two threads at a time), so the
-// mutex is never held while talking to a host. Never freed: at exit the
-// sockets close with the process.
-struct ConnectionPool {
-  std::mutex mutex;
-  std::unordered_map<wxString, ConnectionPtr> idle;
-};
-
-ConnectionPool &Pool() {
-  static auto *pool = new ConnectionPool;
+// Never freed: at exit the sockets close with the process.
+ConnectionPool<Connection> &Pool() {
+  static auto *pool = new ConnectionPool<Connection>;
   return *pool;
 }
 
@@ -169,7 +85,6 @@ StatusOr<ConnectionPtr> NewConnection(const wxString &host,
     return session.status();
   }
   auto conn = std::make_unique<Connection>();
-  conn->user = user;
   conn->ssh = std::move(session.value());
   conn->sftp.reset(sftp_new(conn->ssh.get()));
   if (!conn->sftp || sftp_init(conn->sftp.get()) != SSH_OK) {
@@ -182,40 +97,6 @@ StatusOr<ConnectionPtr> NewConnection(const wxString &host,
   return conn;
 }
 
-// The idle connection of `host` when there is a healthy one for `user` that
-// was not idle too long (`*reused` is then true), else a new one.
-StatusOr<ConnectionPtr> TakeConnection(const wxString &host,
-                                       const wxString &user, bool *reused) {
-  ConnectionPtr conn;
-  {
-    std::lock_guard<std::mutex> lock(Pool().mutex);
-    if (auto it = Pool().idle.find(host); it != Pool().idle.end()) {
-      conn = std::move(it->second);
-      Pool().idle.erase(it);
-    }
-  }
-  // Another user, closed, or idle too long: it is freed here, out of the lock.
-  if (conn && conn->user == user && IsHealthy(*conn) &&
-      std::chrono::steady_clock::now() - conn->lastUsed < kMaxIdle) {
-    *reused = true;
-    return conn;
-  }
-  *reused = false;
-  return NewConnection(host, user);
-}
-
-// Puts `conn` back for the next call, if it is still healthy.
-void ReturnConnection(const wxString &host, ConnectionPtr conn) {
-  if (!IsHealthy(*conn)) {
-    return;
-  }
-  conn->lastUsed = std::chrono::steady_clock::now();
-  ConnectionPtr replaced; // Freed after the lock is released
-  std::lock_guard<std::mutex> lock(Pool().mutex);
-  // Two calls ran at the same time: the pool keeps one connection.
-  replaced = std::exchange(Pool().idle[host], std::move(conn));
-}
-
 // Runs `fn(Connection &)` on a connection to `host`. Only a connection whose
 // call worked goes back to the pool: after a failure (a timeout can leave the
 // SFTP stream out of step) the next call connects again, which is cheap next
@@ -224,18 +105,14 @@ void ReturnConnection(const wxString &host, ConnectionPtr conn) {
 // not healthy any more, it runs once more on a new connection.
 template <typename Result, typename Fn>
 Result WithConnection(const wxString &host, const wxString &user, Fn &&fn) {
-  bool reused = false;
-  auto conn = TakeConnection(host, user, &reused);
-  if (!conn.ok()) {
-    return conn.status();
-  }
-  {
-    Result result = fn(*conn.value());
+  const wxString key = PoolKey(host, user);
+  if (ConnectionPtr pooled = Pool().Take(key)) {
+    Result result = fn(*pooled);
     if (result.ok()) {
-      ReturnConnection(host, std::move(conn.value()));
+      Pool().Return(key, std::move(pooled));
       return result;
     }
-    if (!reused || IsHealthy(*conn.value())) {
+    if (pooled->IsHealthy()) {
       return result;
     }
   }
@@ -245,7 +122,7 @@ Result WithConnection(const wxString &host, const wxString &user, Fn &&fn) {
   }
   Result result = fn(*fresh.value());
   if (result.ok()) {
-    ReturnConnection(host, std::move(fresh.value()));
+    Pool().Return(key, std::move(fresh.value()));
   }
   return result;
 }
@@ -324,7 +201,8 @@ SftpClient::ReadFile(const wxString &host, const wxString &user,
         std::vector<wxString> candidates;
         if (path.StartsWith("/")) {
           candidates.push_back(path);
-        } else if (path == "~" || path.StartsWith("~/")) {
+        } else if (path == "~" || path.StartsWith("~/") || path == "$HOME" ||
+                   path.StartsWith("$HOME/")) {
           candidates.push_back(ExpandHome(path, home));
         } else {
           for (const wxString &dir : searchDirs) {
@@ -475,7 +353,7 @@ StatusOr<bool> SftpClient::Exists(const wxString &host, const wxString &user,
         if (attrs) {
           return true;
         }
-        if (!IsHealthy(conn)) {
+        if (!conn.IsHealthy()) {
           return SshError(wxString::Format("Could not check %s", path),
                           session);
         }

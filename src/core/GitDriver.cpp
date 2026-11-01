@@ -11,9 +11,16 @@ wxString Utf8(const std::string &text) {
   return wxString::FromUTF8(text.data(), text.size());
 }
 
-// What git wrote when it failed.
+// What git wrote when it failed. A folder that is not in a repository is a
+// common case, not a problem: it gets a plain message in place of git's
+// "fatal: not a git repository (or any of the parent directories): .git". The
+// check reads git's English text; a git that prints another language keeps its
+// own message.
 wxString ErrorText(const ProcessOutput &output) {
   const wxString text = Utf8(output.err.empty() ? output.out : output.err);
+  if (text.Lower().Contains("not a git repository")) {
+    return _("Not a git repository");
+  }
   return text.empty() ? wxString(_("git failed")) : text.Strip(wxString::both);
 }
 

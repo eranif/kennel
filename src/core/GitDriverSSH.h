@@ -2,8 +2,8 @@
 
 #include "core/GitDriver.h"
 
-// Git on a remote host, over ssh. `folder` is a path on the host. The login
-// needs a key: ssh never asks for a password here.
+// Git on a remote host, over SSH (SshClient). `folder` is a path on the host.
+// The login needs a key: nothing asks for a password here.
 class GitDriverSSH : public GitDriver {
 public:
   // `user` empty: the ssh default.

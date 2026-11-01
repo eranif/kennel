@@ -264,6 +264,8 @@ add_library(
   src/core/Helpers.cpp
   src/core/KennelRemote.cpp
   src/core/SftpClient.cpp
+  src/core/SshClient.cpp
+  src/core/SshSession.cpp
   src/core/CrashHandler.cpp
   src/core/EventNotifier.cpp
   src/core/ReviewLoop.cpp
@@ -277,8 +279,9 @@ add_library(
   src/core/GitDriverSSH.cpp)
 
 target_include_directories(kennel_core PUBLIC src ${wxWidgets_INCLUDE_DIRS})
-# libssh is an implementation detail of SftpClient.cpp; its headers never appear
-# in kennel_core's public headers.
+# libssh is an implementation detail of SftpClient.cpp, SshClient.cpp and their
+# shared SshSession.cpp; its headers never appear in kennel_core's public
+# headers.
 target_link_libraries(kennel_core PRIVATE ssh)
 target_compile_definitions(kennel_core PUBLIC ${wxWidgets_DEFINITIONS})
 target_compile_features(kennel_core PUBLIC cxx_std_20)
