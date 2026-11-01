@@ -7,7 +7,7 @@
 #include <cmath>
 
 namespace {
-constexpr int kTabIconDip = 24;
+constexpr int kTabIconDip = 16;
 
 // Draws a dot (with smooth edges) in the lower right corner of `bitmap`.
 wxBitmap WithModifiedDot(const wxBitmap &bitmap) {
