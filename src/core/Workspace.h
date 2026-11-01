@@ -60,6 +60,9 @@ struct Workspace {
   // Persistent sessions and open files, most recently used first. A file is in
   // the group of the Files container, named by its key.
   std::vector<SessionRef> recentSessions;
+  // The tabs of the main book in the order of the tabs: the sessions and the
+  // files (a file as in recentSessions). Pages that are not here go last.
+  std::vector<SessionRef> tabOrder;
 };
 
 // Inputs for creating a new session.

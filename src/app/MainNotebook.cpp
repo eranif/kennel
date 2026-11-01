@@ -123,8 +123,7 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
     m_checkIcon = wxBitmapBundle::FromSVGFile(path, wxSize(16, 16));
   }
 
-  m_book->Bind(wxEVT_BOOKCTRL_PAGE_CHANGED, &MainNotebook::OnPageChanged,
-               this);
+  m_book->Bind(wxEVT_BOOKCTRL_PAGE_CHANGED, &MainNotebook::OnPageChanged, this);
   m_book->Bind(wxEVT_GLYPHBOOK_PAGE_CLOSE, &MainNotebook::OnPageClose, this);
   // Runs before the book's own handler, which selects the page the focus went
   // into; not skipped, so a focus never changes the selected page.
@@ -311,6 +310,49 @@ void MainNotebook::AddTab(wxWindow *page) {
       m_book->SetPageToolTip(index, filepage->GetPath());
     } else {
       m_book->SetPageToolTip(index, title);
+    }
+  }
+  GroupPage(page);
+}
+
+void MainNotebook::GroupPage(wxWindow *page) {
+  if (!AppManager::Get().GetPrefs().groupTabs) {
+    return;
+  }
+  const auto ref = RefOf(page);
+  const int index = m_book->FindPage(page);
+  if (!ref || index == wxNOT_FOUND) {
+    return;
+  }
+  for (const int group : m_book->GetGroups()) {
+    if (m_book->GetGroupName(group) == ref->groupName) {
+      m_book->AddPageToGroup(static_cast<size_t>(index), group);
+      return;
+    }
+  }
+  // The same name gets the same colour in every run.
+  const auto &colours = GlyphBook::GetGroupColours();
+  size_t sum = 0;
+  for (const wxUniChar c : ref->groupName) {
+    sum = sum * 31 + static_cast<size_t>(c.GetValue());
+  }
+  m_book->AddPageToNewGroup(static_cast<size_t>(index), ref->groupName,
+                            colours[sum % colours.size()].colour);
+}
+
+void MainNotebook::ApplyTabGrouping() {
+  const bool wanted = AppManager::Get().GetPrefs().groupTabs;
+  const std::vector<int> groups = m_book->GetGroups();
+  if (wanted == !groups.empty()) {
+    return; // As it is (and the groups keep their state)
+  }
+  if (wanted) {
+    for (size_t i = 0; i < m_book->GetPageCount(); ++i) {
+      GroupPage(m_book->GetPage(i));
+    }
+  } else {
+    for (const int group : groups) {
+      m_book->Ungroup(group);
     }
   }
 }
@@ -521,6 +563,8 @@ void MainNotebook::TouchRecent(const SessionRef &ref) {
 void MainNotebook::RenameRecent(const SessionRef &from, const SessionRef &to) {
   SendPageEvent(wxEVT_SESSION_PAGE_RENAMED, to, Account::LocalHost(), from);
   std::replace(m_recent.begin(), m_recent.end(), from, to);
+  // The group of the page may be another one now.
+  GroupPage(FindPage(to));
 }
 
 void MainNotebook::SyncWorkspaceSoon() {
@@ -575,6 +619,41 @@ void MainNotebook::SyncWorkspaceToDisk() {
                      [&rankOf](const SessionFile &a, const SessionFile &b) {
                        return rankOf(a) < rankOf(b);
                      });
+  }
+
+  // The order of the tabs. A remote file that is still coming back keeps the
+  // place it had.
+  {
+    std::vector<SessionRef> current;
+    for (size_t i = 0; i < m_book->GetPageCount(); ++i) {
+      if (const auto ref = RefOf(m_book->GetPage(i))) {
+        current.push_back(*ref);
+      }
+    }
+    if (m_restoringFiles.empty()) {
+      ws.tabOrder = current;
+    } else {
+      const auto isPending = [this](const SessionRef &ref) {
+        return std::any_of(m_restoringFiles.begin(), m_restoringFiles.end(),
+                           [&](const SessionFile &file) {
+                             return ref.groupName == kFilesGroupName &&
+                                    ref.name == KeyOfFile(file);
+                           });
+      };
+      for (const SessionRef &ref :
+           AppManager::Get().InitialWorkspace().tabOrder) {
+        if (isPending(ref) ||
+            std::find(current.begin(), current.end(), ref) != current.end()) {
+          ws.tabOrder.push_back(ref);
+        }
+      }
+      for (const SessionRef &ref : current) {
+        if (std::find(ws.tabOrder.begin(), ws.tabOrder.end(), ref) ==
+            ws.tabOrder.end()) {
+          ws.tabOrder.push_back(ref);
+        }
+      }
+    }
   }
 
   for (const SessionRef &ref : GetPagesByRecency(std::nullopt)) {
@@ -984,6 +1063,26 @@ void MainNotebook::OnFilePathChanged(FileEvent &e) {
   }
 }
 
+void MainNotebook::ApplyTabOrder() {
+  // Without the groups, so that a tab can be moved anywhere. They are made
+  // again at the end, from the first tab to the last.
+  for (const int group : m_book->GetGroups()) {
+    m_book->Ungroup(group);
+  }
+  size_t place = 0;
+  for (const SessionRef &ref : AppManager::Get().InitialWorkspace().tabOrder) {
+    const wxWindow *page = FindPage(ref);
+    const int index = page ? m_book->FindPage(page) : wxNOT_FOUND;
+    if (index == wxNOT_FOUND) {
+      continue;
+    }
+    m_book->GetTabBar()->Move(static_cast<size_t>(index), place++);
+  }
+  for (size_t i = 0; i < m_book->GetPageCount(); ++i) {
+    GroupPage(m_book->GetPage(i));
+  }
+}
+
 void MainNotebook::OpenFileAt(const FileLocation &where) {
   OpenLocalFile(where.path);
   if (where.line <= 0) {
@@ -1017,6 +1116,9 @@ void MainNotebook::ShowRemoteFile(const RemoteHostDetails &remoteHost,
       remoteHost);
   page->LoadRemote(text, editable);
   AddFilePage(page);
+  if (restoring) {
+    ApplyTabOrder(); // It comes back after the others
+  }
   if (!restoring) {
     ShowPage(page);
   }
@@ -1291,6 +1393,8 @@ void MainNotebook::RestoreSessions() {
     }
   }
 
+  ApplyTabOrder();
+
   // Bring back the recent order and show the page used last.
   m_recent.clear();
   wxWindow *lastUsed = nullptr;
@@ -1351,6 +1455,7 @@ void MainNotebook::ApplyOptimizedDrawing() {
 
 void MainNotebook::ApplyPrefs() {
   const auto &prefs = AppManager::Get().GetPrefs();
+  ApplyTabGrouping();
   ApplyTheme(prefs.terminalTheme);
   wxFont font;
   font.SetNativeFontInfo(prefs.terminalFontDesc);
@@ -1928,5 +2033,6 @@ bool MainNotebook::CanFindNext() const {
 
 void MainNotebook::OnAppPrefsSaved(wxCommandEvent &event) {
   event.Skip();
+  wxWindowUpdateLocker locker{this};
   ApplyPrefs();
 }

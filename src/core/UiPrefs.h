@@ -30,6 +30,7 @@ struct UiPrefs {
   wxString terminalFontDesc;         // wxFont native info (empty => default)
   bool blockCursor{true};
   bool wrapLines{true};        // Wrap the long lines of the file editor
+  bool groupTabs{true};        // Tab groups in the main book, by session group
   bool highlightBraces{false}; // Highlight the brace at the caret and its pair
   bool highlightIndentLines{false}; // Highlight the indent line of the block
   bool terminalOptimizedDrawing{false}; // Enable optimized drawing?

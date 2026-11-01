@@ -354,6 +354,16 @@ private:
   void OnFileSaveDone(FileEvent &e);
   void OnFileModifiedChanged(FileEvent &e);
   void OnFilePathChanged(FileEvent &e);
+  // Puts the tabs in the order of the last run (the workspace). The pages that
+  // are not in it stay after the others. Called again when a remote file comes
+  // back.
+  void ApplyTabOrder();
+  // Puts the tab of `page` in the tab group named like the group of the page
+  // (the group of the session, "Files" for a file). The tab group is made when
+  // it is not there.
+  void GroupPage(wxWindow *page);
+  // Makes the tab groups, or takes them away, as the preferences say.
+  void ApplyTabGrouping();
   void OnRemoteFileRead(const RemoteReadResult &result);
   // Takes the file out of m_restoringFiles. Whether it was there.
   bool TakeRestoringFile(const wxString &key);

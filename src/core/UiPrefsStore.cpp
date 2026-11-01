@@ -47,6 +47,7 @@ json ToJson(const UiPrefs &p) {
       {"recentHosts", toStrArr(p.recentHosts)},
       {"blockCursor", p.blockCursor},
       {"wrapLines", p.wrapLines},
+      {"groupTabs", p.groupTabs},
       {"highlightBraces", p.highlightBraces},
       {"highlightIndentLines", p.highlightIndentLines},
       {"terminalLoginShell", ToUtf8(p.terminalLoginShell)},
@@ -82,6 +83,7 @@ void ParsePrefs(const json &root, UiPrefs &p) {
       GetBool(root, "terminalOptimizedDrawing", p.terminalOptimizedDrawing);
   p.blockCursor = GetBool(root, "blockCursor", p.blockCursor);
   p.wrapLines = GetBool(root, "wrapLines", p.wrapLines);
+  p.groupTabs = GetBool(root, "groupTabs", p.groupTabs);
   p.highlightBraces = GetBool(root, "highlightBraces", p.highlightBraces);
   p.highlightIndentLines =
       GetBool(root, "highlightIndentLines", p.highlightIndentLines);

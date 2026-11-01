@@ -16,6 +16,7 @@
 #include <vector>
 #include <wx/dir.h>
 #include <wx/sizer.h>
+#include <wx/wupdlock.h>
 
 namespace {
 // The width the side panes start with when there is no saved layout, in DIP.
@@ -340,6 +341,7 @@ void MainView::OnFileExplorerPanelChildFocus(wxChildFocusEvent &event) {
 
 void MainView::OnAppPrefsSaved(wxCommandEvent &event) {
   event.Skip();
+  wxWindowUpdateLocker locker{this};
   ApplyPrefs();
 }
 

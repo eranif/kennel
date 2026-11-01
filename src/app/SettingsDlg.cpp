@@ -41,10 +41,14 @@ const std::vector<TabOutlineColour> &GetTabOutlineColours() {
 wxColour SettingsDlg::GetTabOutlineColourOf(const wxTerminalTheme &theme,
                                             const wxString &key) {
   wxColour colour = theme.selectionBg;
-  for (const auto &entry : GetTabOutlineColours()) {
-    if (key == entry.label) {
-      colour = theme.*(entry.member);
-      break;
+  if (key == _("Default")) {
+    colour = theme.bg.ChangeLightness(70);
+  } else {
+    for (const auto &entry : GetTabOutlineColours()) {
+      if (key == entry.label) {
+        colour = theme.*(entry.member);
+        break;
+      }
     }
   }
 
@@ -57,6 +61,7 @@ wxArrayString GetTabOutlineColoursArray() {
   for (const auto &entry : GetTabOutlineColours()) {
     colours.Add(entry.label);
   }
+  colours.Add(_("Default"));
   return colours;
 }
 
@@ -128,7 +133,7 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
       break;
     }
   }
-
+  m_checkBoxGroupTabs->SetValue(prefs.groupTabs);
   m_choiceTabOutlineColour->Append(GetTabOutlineColoursArray());
   m_choiceTabOutlineColour->SetStringSelection(prefs.tabOutlineColour);
 

@@ -49,10 +49,20 @@ json ToJson(const Workspace &ws) {
         {"name", ToUtf8(r.name)},
     });
   }
+  json tabOrder = json::array();
+  for (const SessionRef &r : ws.tabOrder) {
+    tabOrder.push_back({
+        {"groupName", ToUtf8(r.groupName)},
+        {"name", ToUtf8(r.name)},
+    });
+  }
   return json{
       {"version", ws.version},
       {"workspace",
-       {{"sessions", sessions}, {"files", files}, {"recent", recent}}},
+       {{"sessions", sessions},
+        {"files", files},
+        {"recent", recent},
+        {"tabOrder", tabOrder}}},
   };
 }
 
@@ -112,6 +122,14 @@ Workspace ParseWorkspace(const json &root) {
       for (const auto &r : *rIt) {
         if (r.is_object()) {
           ws.recentSessions.push_back(ParseSessionRef(r));
+        }
+      }
+    }
+    if (auto tIt = wsIt->find("tabOrder");
+        tIt != wsIt->end() && tIt->is_array()) {
+      for (const auto &r : *tIt) {
+        if (r.is_object()) {
+          ws.tabOrder.push_back(ParseSessionRef(r));
         }
       }
     }

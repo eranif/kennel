@@ -1205,9 +1205,9 @@ SettingsDlgBase::SettingsDlgBase(wxWindow* parent, wxWindowID id, const wxString
     
     flexGridSizer602->Add(m_choiceTabPosition, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
     
-    m_staticText605 = new wxStaticText(m_panel353, wxID_ANY, _("Tab Outline Colour:"), wxDefaultPosition, wxDLG_UNIT(m_panel353, wxSize(-1,-1)), 0);
+    m_staticText621 = new wxStaticText(m_panel353, wxID_ANY, _("Outline Colour:"), wxDefaultPosition, wxDLG_UNIT(m_panel353, wxSize(-1,-1)), 0);
     
-    flexGridSizer602->Add(m_staticText605, 0, wxALL|wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+    flexGridSizer602->Add(m_staticText621, 0, wxALL|wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
     
     wxArrayString m_choiceTabOutlineColourArr;
     m_choiceTabOutlineColour = new wxChoice(m_panel353, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_panel353, wxSize(-1,-1)), m_choiceTabOutlineColourArr, 0);
@@ -1220,6 +1220,13 @@ SettingsDlgBase::SettingsDlgBase(wxWindow* parent, wxWindowID id, const wxString
     m_checkBoxCloseButtonOnTab->SetValue(false);
     
     flexGridSizer602->Add(m_checkBoxCloseButtonOnTab, 0, wxALL, WXC_FROM_DIP(5));
+    
+    flexGridSizer602->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
+    
+    m_checkBoxGroupTabs = new wxCheckBox(m_panel353, wxID_ANY, _("Group Tab Sessions"), wxDefaultPosition, wxDLG_UNIT(m_panel353, wxSize(-1,-1)), 0);
+    m_checkBoxGroupTabs->SetValue(false);
+    
+    flexGridSizer602->Add(m_checkBoxGroupTabs, 0, wxALL, WXC_FROM_DIP(5));
     
     wxStaticBoxSizer* staticBoxSizer569 = new wxStaticBoxSizer( new wxStaticBox(m_panel353, wxID_ANY, _("Theme:")), wxVERTICAL);
     

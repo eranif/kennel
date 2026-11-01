@@ -451,10 +451,30 @@ void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
   viewMenu->Append(XRCID("reset-layout"), _("Reset Kennel Layout"),
                    _("Restore the panes to their initial layout"));
   Bind(wxEVT_MENU, &MainFrame::OnResetLayout, this, XRCID("reset-layout"));
+  viewMenu->AppendCheckItem(XRCID("group-tabs"),
+                            _("Group Tabs by Session Group"),
+                            _("Show the tabs of a session group together"));
+  Bind(wxEVT_MENU, &MainFrame::OnGroupTabs, this, XRCID("group-tabs"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnGroupTabsUI, this, XRCID("group-tabs"));
   menuBar->Append(viewMenu, _("&View"));
 }
 
 void MainFrame::OnResetLayout(wxCommandEvent &) { m_mainView->ResetLayout(); }
+
+void MainFrame::OnGroupTabs(wxCommandEvent &) {
+  auto &prefs = AppManager::Get().GetPrefs();
+  prefs.groupTabs = !prefs.groupTabs;
+  if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+    KLOG_WARN() << "Could not save the tab groups option: " << st.message();
+  }
+  // The pages follow the preferences.
+  EventNotifier::Get()->AddPendingEvent(
+      wxCommandEvent(wxEVT_APP_PREFS_CHANGED));
+}
+
+void MainFrame::OnGroupTabsUI(wxUpdateUIEvent &event) {
+  event.Check(AppManager::Get().GetPrefs().groupTabs);
+}
 
 void MainFrame::BuildEditMenu(wxMenuBar *menuBar) {
   // The menu is in the bar only while a file is showing.
@@ -551,6 +571,7 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.tabHasCloseButton = settingsDlg.IsCloseButtonOnTab();
     prefs.tabPosition = settingsDlg.GetTabPosition();
     prefs.tabOutlineColour = settingsDlg.GetTabOutlineColour();
+    prefs.groupTabs = settingsDlg.GetGroupTabs();
     ApplyAppTheme(prefs.appTheme);
     AppManager::Get().SavePrefs();
 

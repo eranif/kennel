@@ -126,6 +126,8 @@ private:
   void BuildViewMenu(wxMenuBar *menuBar);
   // Puts the panes back to the layout they have without a saved one.
   void OnResetLayout(wxCommandEvent &e);
+  void OnGroupTabs(wxCommandEvent &e);
+  void OnGroupTabsUI(wxUpdateUIEvent &e);
 
   // Opens the global config.json for editing
   void OnSettings(wxCommandEvent &evt);

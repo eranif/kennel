@@ -17,6 +17,7 @@ public:
   }
   wxFont GetSelectedFont() const { return m_fontPicker->GetSelectedFont(); }
   bool GetUseBlockCursor() const { return m_checkBoxBlockCaret->IsChecked(); }
+  bool GetGroupTabs() const { return m_checkBoxGroupTabs->IsChecked(); }
   wxDirection GetTabPosition() const;
   wxString GetTabOutlineColour() const {
     return m_choiceTabOutlineColour->GetStringSelection();
