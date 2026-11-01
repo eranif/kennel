@@ -1,6 +1,6 @@
 #include "app/MainNotebook.hpp"
 
-#include "GlyphTabArt.h"
+#include "GlyphTabPainter.h"
 #include "StartAgentDialog.hpp"
 #include "ThemeLoader.h"
 #include "ThemeManager.h"
@@ -123,9 +123,9 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
     m_checkIcon = wxBitmapBundle::FromSVGFile(path, wxSize(16, 16));
   }
 
-  m_book->Bind(wxEVT_AUINOTEBOOK_PAGE_CHANGED, &MainNotebook::OnPageChanged,
+  m_book->Bind(wxEVT_BOOKCTRL_PAGE_CHANGED, &MainNotebook::OnPageChanged,
                this);
-  m_book->Bind(wxEVT_AUINOTEBOOK_PAGE_CLOSE, &MainNotebook::OnPageClose, this);
+  m_book->Bind(wxEVT_GLYPHBOOK_PAGE_CLOSE, &MainNotebook::OnPageClose, this);
   // Runs before the book's own handler, which selects the page the focus went
   // into; not skipped, so a focus never changes the selected page.
   m_book->Bind(wxEVT_CHILD_FOCUS, &MainNotebook::OnChildFocus, this);
@@ -197,7 +197,7 @@ MainNotebook::~MainNotebook() {
 // Events
 // ---------------------------------------------------------------------------
 
-void MainNotebook::OnPageChanged(wxAuiNotebookEvent &event) {
+void MainNotebook::OnPageChanged(wxBookCtrlEvent &event) {
   const int index = event.GetSelection();
   if (index == wxNOT_FOUND) {
     return;
@@ -213,7 +213,7 @@ void MainNotebook::OnChildFocus(wxChildFocusEvent &event) {
   wxUnusedVar(event);
 }
 
-void MainNotebook::OnPageClose(wxAuiNotebookEvent &event) {
+void MainNotebook::OnPageClose(GlyphBookEvent &event) {
   // The page is removed by CloseFile() / CloseSession(), not by the book.
   event.Veto();
   const int index = event.GetSelection();
@@ -1392,7 +1392,7 @@ void MainNotebook::OnThemeApplied(wxCommandEvent &event) {
   m_book->SetBackgroundColour(theme.bg);
   m_book->SetTheme(
       theme, SettingsDlg::GetTabOutlineColourOf(theme, prefs.tabOutlineColour),
-      GlyphTabArt::Style::Browser);
+      GlyphTabPainter::Style::Browser);
 
   auto flags = m_book->GetWindowStyleFlag();
   if (prefs.tabHasCloseButton) {

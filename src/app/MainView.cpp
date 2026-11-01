@@ -351,7 +351,7 @@ void MainView::ApplyPrefs() {
           : wxTerminalTheme::MakeLightTheme());
   m_auiSideBook->SetTheme(
       theme, SettingsDlg::GetTabOutlineColourOf(theme, prefs.tabOutlineColour),
-      GlyphTabArt::Style::Browser);
+      GlyphTabPainter::Style::Browser);
   // The side book has its tabs on the top or at the bottom only: left is top,
   // right is bottom.
   m_auiSideBook->SetTabPosition(
