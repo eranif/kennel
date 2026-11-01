@@ -65,29 +65,44 @@ wxArrayString GetTabOutlineColoursArray() {
   return colours;
 }
 
+namespace {
+// The entries of the choices of the tab position (the strings are the ones of
+// the dialog).
+wxString LabelOf(wxDirection direction) {
+  switch (direction) {
+  case wxTOP:
+    return "Top";
+  case wxRIGHT:
+    return "Right";
+  case wxBOTTOM:
+    return "Bottom";
+  default:
+    return "Left";
+  }
+}
+
+wxDirection DirectionOf(const wxString &label) {
+  if (label == "Top") {
+    return wxTOP;
+  } else if (label == "Bottom") {
+    return wxBOTTOM;
+  } else if (label == "Right") {
+    return wxRIGHT;
+  }
+  return wxLEFT;
+}
+} // namespace
+
 SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
   const auto &prefs = AppManager::Get().GetPrefs();
 
   m_initialFont.SetNativeFontInfo(prefs.terminalFontDesc);
   m_fontPicker->SetSelectedFont(m_initialFont);
 
-  wxString tabPos{"Right"};
-  switch (prefs.tabPosition) {
-  case wxTOP:
-    tabPos = "Top";
-    break;
-  case wxRIGHT:
-    tabPos = "Right";
-    break;
-  case wxBOTTOM:
-    tabPos = "Bottom";
-    break;
-  default:
-  case wxLEFT:
-    tabPos = "Left";
-    break;
-  }
-  m_choiceTabPosition->SetStringSelection(tabPos);
+  m_choiceTabPosition->SetStringSelection(LabelOf(prefs.tabPosition));
+  // The side bar has its tabs on the top or at the bottom only.
+  m_choiceSideBarTabPosition->SetStringSelection(
+      prefs.sideBarTabPosition == wxBOTTOM ? "Bottom" : "Top");
   m_checkBoxCloseButtonOnTab->SetValue(prefs.tabHasCloseButton);
   m_choiceTheme->Append(ThemeManager::Get().Names());
   int where = m_choiceTheme->FindString(prefs.terminalTheme);
@@ -194,14 +209,10 @@ void SettingsDlg::OnTabOutlineColour(wxCommandEvent &event) {
 }
 
 wxDirection SettingsDlg::GetTabPosition() const {
-  wxString pos = m_choiceTabPosition->GetStringSelection();
-  if (pos == "Top") {
-    return wxDirection::wxTOP;
-  } else if (pos == "Bottom") {
-    return wxDirection::wxBOTTOM;
-  } else if (pos == "Right") {
-    return wxDirection::wxRIGHT;
-  } else {
-    return wxDirection::wxLEFT;
-  }
+  return DirectionOf(m_choiceTabPosition->GetStringSelection());
+}
+
+wxDirection SettingsDlg::GetSideBarTabPosition() const {
+  return m_choiceSideBarTabPosition->GetStringSelection() == "Bottom" ? wxBOTTOM
+                                                                      : wxTOP;
 }

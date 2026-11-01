@@ -36,6 +36,7 @@ json ToJson(const UiPrefs &p) {
       {"tabHasCloseButton", p.tabHasCloseButton},
       {"tabOutlineColour", p.tabOutlineColour},
       {"tabPosition", static_cast<int>(p.tabPosition)},
+      {"sideBarTabPosition", static_cast<int>(p.sideBarTabPosition)},
       {"lastSelectedSession", ToUtf8(p.lastSelectedSession)},
       {"terminalTheme", ToUtf8(p.terminalTheme)},
       {"terminalFontDesc", ToUtf8(p.terminalFontDesc)},
@@ -70,6 +71,8 @@ void ParsePrefs(const json &root, UiPrefs &p) {
   p.tabOutlineColour = GetStr(root, "tabOutlineColour", p.tabOutlineColour);
   p.tabPosition = static_cast<wxDirection>(
       GetInt(root, "tabPosition", static_cast<int>(p.tabPosition)));
+  p.sideBarTabPosition = static_cast<wxDirection>(GetInt(
+      root, "sideBarTabPosition", static_cast<int>(p.sideBarTabPosition)));
   p.scrollbackLines = GetSizeT(root, "scrollbackLines", p.scrollbackLines);
   p.lastSelectedSession =
       GetStr(root, "lastSelectedSession", p.lastSelectedSession);

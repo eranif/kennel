@@ -19,6 +19,7 @@ public:
   bool GetUseBlockCursor() const { return m_checkBoxBlockCaret->IsChecked(); }
   bool GetGroupTabs() const { return m_checkBoxGroupTabs->IsChecked(); }
   wxDirection GetTabPosition() const;
+  wxDirection GetSideBarTabPosition() const;
   wxString GetTabOutlineColour() const {
     return m_choiceTabOutlineColour->GetStringSelection();
   }

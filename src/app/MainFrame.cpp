@@ -570,6 +570,7 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.scrollbackLines = settingsDlg.GetScrollBackLines();
     prefs.tabHasCloseButton = settingsDlg.IsCloseButtonOnTab();
     prefs.tabPosition = settingsDlg.GetTabPosition();
+    prefs.sideBarTabPosition = settingsDlg.GetSideBarTabPosition();
     prefs.tabOutlineColour = settingsDlg.GetTabOutlineColour();
     prefs.groupTabs = settingsDlg.GetGroupTabs();
     ApplyAppTheme(prefs.appTheme);

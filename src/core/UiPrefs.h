@@ -50,4 +50,6 @@ struct UiPrefs {
   std::vector<wxString> recentHosts;       // most-recent first, capped at 10
   wxString tabOutlineColour{"Default"};
   wxDirection tabPosition{wxDirection::wxRIGHT};
+  // Where the tabs of the side bar (file explorer, git) are.
+  wxDirection sideBarTabPosition{wxDirection::wxTOP};
 };

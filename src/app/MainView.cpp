@@ -354,10 +354,8 @@ void MainView::ApplyPrefs() {
   m_auiSideBook->SetTheme(
       theme, SettingsDlg::GetTabOutlineColourOf(theme, prefs.tabOutlineColour),
       GlyphTabPainter::Style::Browser);
-  // The side book has its tabs on the top or at the bottom only: left is top,
-  // right is bottom.
-  m_auiSideBook->SetTabPosition(
-      prefs.tabPosition == wxBOTTOM || prefs.tabPosition == wxRIGHT ? wxBOTTOM
-                                                                    : wxTOP);
+  // Top or bottom: a vertical tab bar would take the width of the side bar.
+  m_auiSideBook->SetTabPosition(prefs.sideBarTabPosition == wxBOTTOM ? wxBOTTOM
+                                                                     : wxTOP);
   m_auiSideBook->Refresh();
 }
