@@ -48,6 +48,6 @@ struct UiPrefs {
   wxString terminalHomeDir = ::wxGetHomeDir();
   std::vector<wxString> recentWorkingDirs; // most-recent first, capped at 10
   std::vector<wxString> recentHosts;       // most-recent first, capped at 10
-  wxString tabOutlineColour{"Selection"};
-  wxDirection tabPosition{wxDirection::wxBOTTOM};
+  wxString tabOutlineColour{"Default"};
+  wxDirection tabPosition{wxDirection::wxRIGHT};
 };

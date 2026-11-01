@@ -71,7 +71,7 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
   m_initialFont.SetNativeFontInfo(prefs.terminalFontDesc);
   m_fontPicker->SetSelectedFont(m_initialFont);
 
-  wxString tabPos{"Left"};
+  wxString tabPos{"Right"};
   switch (prefs.tabPosition) {
   case wxTOP:
     tabPos = "Top";
