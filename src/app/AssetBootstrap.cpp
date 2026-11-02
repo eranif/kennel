@@ -86,6 +86,11 @@ wxString ResolveIconPath(const wxString &iconPath) {
 
 wxBitmapBundle SessionIconFor(const Session &session, int size) {
   if (session.plainTerminal) {
+    // The terminals of the git view ("Git (<account>)", see
+    // MainNotebook::OnGitTerminal()).
+    if (session.name.StartsWith("Git (")) {
+      return AppManager::Get().GetBitmaps().GetByAlias("git", false);
+    }
     return AppManager::Get().GetBitmaps().Get("terminal", false);
   }
   const auto *agentDef =

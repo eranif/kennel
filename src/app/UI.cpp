@@ -1899,3 +1899,108 @@ JobLogViewerBase::~JobLogViewerBase()
     m_buttonClose->Unbind(wxEVT_COMMAND_BUTTON_CLICKED, &JobLogViewerBase::OnCloseButton, this);
     
 }
+
+GitCommitMessageDlgBase::GitCommitMessageDlgBase(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style)
+    : wxDialog(parent, id, title, pos, size, style)
+{
+    if ( !bBitmapLoaded ) {
+        // We need to initialise the default bitmap handler
+        wxXmlResource::Get()->AddHandler(new wxBitmapXmlHandler);
+        wxCrafterFiTVkcInitBitmapResources();
+        bBitmapLoaded = true;
+    }
+    
+    wxBoxSizer* boxSizer625 = new wxBoxSizer(wxVERTICAL);
+    this->SetSizer(boxSizer625);
+    
+    m_panel630 = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    
+    boxSizer625->Add(m_panel630, 1, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
+    wxBoxSizer* boxSizer631 = new wxBoxSizer(wxVERTICAL);
+    m_panel630->SetSizer(boxSizer631);
+    
+    m_stcCommitMessage = new wxStyledTextCtrl(m_panel630, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_panel630, wxSize(400,300)), 0);
+    // Configure the fold margin
+    m_stcCommitMessage->SetMarginType     (4, wxSTC_MARGIN_SYMBOL);
+    m_stcCommitMessage->SetMarginMask     (4, wxSTC_MASK_FOLDERS);
+    m_stcCommitMessage->SetMarginSensitive(4, true);
+    m_stcCommitMessage->SetMarginWidth    (4, 0);
+    
+    // Configure the tracker margin
+    m_stcCommitMessage->SetMarginWidth(1, 0);
+    
+    // Configure the symbol margin
+    m_stcCommitMessage->SetMarginType (2, wxSTC_MARGIN_SYMBOL);
+    m_stcCommitMessage->SetMarginMask (2, ~(wxSTC_MASK_FOLDERS));
+    m_stcCommitMessage->SetMarginWidth(2, 0);
+    m_stcCommitMessage->SetMarginSensitive(2, true);
+    
+    // Configure the line numbers margin
+    m_stcCommitMessage->SetMarginType(0, wxSTC_MARGIN_NUMBER);
+    m_stcCommitMessage->SetMarginWidth(0,0);
+    
+    // Configure the line symbol margin
+    m_stcCommitMessage->SetMarginType(3, wxSTC_MARGIN_FORE);
+    m_stcCommitMessage->SetMarginMask(3, 0);
+    m_stcCommitMessage->SetMarginWidth(3,0);
+    // Select the lexer
+    m_stcCommitMessage->SetLexer(wxSTC_LEX_NULL);
+    // Set default font / styles
+    m_stcCommitMessage->StyleClearAll();
+    m_stcCommitMessage->SetWrapMode(1);
+    m_stcCommitMessage->SetIndentationGuides(0);
+    m_stcCommitMessage->SetKeyWords(0, wxT(""));
+    m_stcCommitMessage->SetKeyWords(1, wxT(""));
+    m_stcCommitMessage->SetKeyWords(2, wxT(""));
+    m_stcCommitMessage->SetKeyWords(3, wxT(""));
+    m_stcCommitMessage->SetKeyWords(4, wxT(""));
+    
+    boxSizer631->Add(m_stcCommitMessage, 1, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
+    wxBoxSizer* boxSizer635 = new wxBoxSizer(wxHORIZONTAL);
+    
+    boxSizer631->Add(boxSizer635, 0, wxALL|wxALIGN_CENTER_HORIZONTAL, WXC_FROM_DIP(5));
+    
+    m_checkBoxSignoff = new wxCheckBox(m_panel630, wxID_ANY, _("Signoff"), wxDefaultPosition, wxDLG_UNIT(m_panel630, wxSize(-1,-1)), 0);
+    m_checkBoxSignoff->SetValue(false);
+    
+    boxSizer635->Add(m_checkBoxSignoff, 0, wxALL, WXC_FROM_DIP(5));
+    
+    m_checkBoxAmend = new wxCheckBox(m_panel630, wxID_ANY, _("Amend Commit"), wxDefaultPosition, wxDLG_UNIT(m_panel630, wxSize(-1,-1)), 0);
+    m_checkBoxAmend->SetValue(false);
+    
+    boxSizer635->Add(m_checkBoxAmend, 0, wxALL, WXC_FROM_DIP(5));
+    
+    m_stdBtnSizer626 = new wxStdDialogButtonSizer();
+    
+    boxSizer625->Add(m_stdBtnSizer626, 0, wxALL|wxALIGN_CENTER_HORIZONTAL, WXC_FROM_DIP(10));
+    
+    m_button627 = new wxButton(this, wxID_OK, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+    m_button627->SetDefault();
+    m_stdBtnSizer626->AddButton(m_button627);
+    
+    m_button628 = new wxButton(this, wxID_CANCEL, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+    m_stdBtnSizer626->AddButton(m_button628);
+    m_stdBtnSizer626->Realize();
+    
+    SetName(wxT("GitCommitMessageDlgBase"));
+    SetSize(wxDLG_UNIT(this, wxSize(-1,-1)));
+    if (GetSizer()) {
+         GetSizer()->Fit(this);
+    }
+    if(GetParent()) {
+        CentreOnParent(wxBOTH);
+    } else {
+        CentreOnScreen(wxBOTH);
+    }
+    if(!wxPersistenceManager::Get().Find(this)) {
+        wxPersistenceManager::Get().RegisterAndRestore(this);
+    } else {
+        wxPersistenceManager::Get().Restore(this);
+    }
+}
+
+GitCommitMessageDlgBase::~GitCommitMessageDlgBase()
+{
+}

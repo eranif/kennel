@@ -73,6 +73,8 @@ struct NewSessionRequest {
   bool resume{false};
   wxString groupName;
   bool plainTerminal{false};
+  // The shell of a plain terminal. Empty: the default one.
+  wxString loginShell;
 
   // Set for a one-shot job run; see Session::jobCommands/jobName.
   std::vector<wxString> jobCommands;

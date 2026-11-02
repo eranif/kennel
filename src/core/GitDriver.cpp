@@ -246,3 +246,29 @@ void GitDriver::OnDiffOutput(const wxString &path, bool staged,
   }
   EventNotifier::Get()->AddPendingEvent(event);
 }
+
+void GitDriver::RunCommand(const wxString &command,
+                           const std::vector<wxString> &args,
+                           const wxString &path) {
+  std::vector<std::string> argv;
+  argv.reserve(args.size());
+  for (const wxString &arg : args) {
+    argv.push_back(arg.ToStdString(wxConvUTF8));
+  }
+  AddJob({[this, command, path, argv = std::move(argv)] {
+    const ProcessOutput output = RunGit(argv);
+    CallAfter([this, command, path, output] {
+      OnCommandOutput(command, path, output);
+    });
+  }});
+}
+
+void GitDriver::OnCommandOutput(const wxString &command, const wxString &path,
+                                const ProcessOutput &output) {
+  GitEvent event = MakeEvent(wxEVT_GIT_COMMAND, this, output);
+  event.SetCommand(command);
+  event.SetPath(path);
+  event.SetText(Utf8(output.out));
+  event.SetStdErr(Utf8(output.err));
+  EventNotifier::Get()->AddPendingEvent(event);
+}

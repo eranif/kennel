@@ -142,6 +142,10 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
                              &MainNotebook::OnFileTreeActivated, this);
   EventNotifier::Get()->Bind(wxEVT_GITVIEW_SHOW_DIFF, &MainNotebook::OnShowDiff,
                              this);
+  EventNotifier::Get()->Bind(wxEVT_GITVIEW_SHOW_TEXT,
+                             &MainNotebook::OnShowGitText, this);
+  EventNotifier::Get()->Bind(wxEVT_GITVIEW_RUN_IN_TERMINAL,
+                             &MainNotebook::OnGitTerminal, this);
   EventNotifier::Get()->Bind(wxEVT_APP_PREFS_CHANGED,
                              &MainNotebook::OnAppPrefsSaved, this);
   EventNotifier::Get()->Bind(wxEVT_FILE_MODIFIED_CHANGED,
@@ -176,6 +180,10 @@ MainNotebook::~MainNotebook() {
                                &MainNotebook::OnFileTreeActivated, this);
   EventNotifier::Get()->Unbind(wxEVT_GITVIEW_SHOW_DIFF,
                                &MainNotebook::OnShowDiff, this);
+  EventNotifier::Get()->Unbind(wxEVT_GITVIEW_SHOW_TEXT,
+                               &MainNotebook::OnShowGitText, this);
+  EventNotifier::Get()->Unbind(wxEVT_GITVIEW_RUN_IN_TERMINAL,
+                               &MainNotebook::OnGitTerminal, this);
   EventNotifier::Get()->Unbind(wxEVT_APP_PREFS_CHANGED,
                                &MainNotebook::OnAppPrefsSaved, this);
   EventNotifier::Get()->Unbind(wxEVT_FILE_MODIFIED_CHANGED,
@@ -284,6 +292,17 @@ void MainNotebook::OnFileTreeActivated(FileEvent &event) {
 // A diff of the git view: a page with the text, read-only, that is not kept in
 // the session. The same diff again replaces the text of its page.
 void MainNotebook::OnShowDiff(FileEvent &event) {
+  ShowReadOnlyText(event, event.GetInt() != 0 ? ".staged.diff" : ".diff");
+}
+
+// The log or the blame of the git view: GetInt() is 0 for the log, 1 for the
+// blame.
+void MainNotebook::OnShowGitText(FileEvent &event) {
+  ShowReadOnlyText(event, event.GetInt() == 0 ? ".log" : ".blame");
+}
+
+void MainNotebook::ShowReadOnlyText(const FileEvent &event,
+                                    const wxString &suffix) {
   const Account &account = event.GetAccount();
   RemoteHostDetails remote;
   wxString path = event.GetPath();
@@ -296,7 +315,7 @@ void MainNotebook::OnShowDiff(FileEvent &event) {
     path = wxFileName(path).GetFullPath();
   }
   // The extension is what makes the editor use the diff language.
-  path += event.GetInt() != 0 ? ".staged.diff" : ".diff";
+  path += suffix;
   const wxString key = FileEvent::MakeKey(path, remote);
 
   wxWindowUpdateLocker locker{this};
@@ -1239,6 +1258,82 @@ void MainNotebook::CloseAllFiles() {
 // Launching sessions
 // ---------------------------------------------------------------------------
 
+// The git view asks to run a command (GetString()) in the terminal of the
+// account (GetAccount()) in the folder GetPath().
+void MainNotebook::OnGitTerminal(FileEvent &event) {
+  const Account &account = event.GetAccount();
+  const wxString where = account.IsLocalHost() ? wxString(_("Local"))
+                         : account.IsWSL()     ? account.m_name
+                                               : account.GetDisplayName();
+  LaunchTerminal("Git (" + where + ")", event.GetPath(), account,
+                 {event.GetString()});
+}
+
+// Like LaunchSession(), for a terminal that runs on `account`: a shell of the
+// distribution for WSL, a shell that logs in to the host with ssh for a remote
+// host. The commands are typed in the terminal (SendCommand()). A terminal with
+// this name is used again, and shown.
+bool MainNotebook::LaunchTerminal(const wxString &name,
+                                  const wxString &workingDir,
+                                  const Account &account,
+                                  const std::vector<wxString> &commands) {
+  if (SessionPage *page = FindSession(kTerminalsGroupName, name)) {
+    if (auto *terminal = page->GetTerminal()) {
+      for (const wxString &command : commands) {
+        terminal->SendCommand(command);
+      }
+      ShowPage(page);
+      return true;
+    }
+  }
+
+  NewSessionRequest request{
+      .name = name,
+      .agentName = _("Terminals"), // Fake name
+      .groupName = kTerminalsGroupName,
+      .plainTerminal = true,
+  };
+  request.loginShell = AppManager::Get().GetPrefs().terminalLoginShell;
+  std::vector<wxString> toSend;
+  if (account.IsWSL()) {
+    // The shell of the distribution, as the terminals list it.
+    request.loginShell.clear();
+    for (const auto &[shellName, shellCommand] : ::FindShells().shells) {
+      if (wsl::DistroOf(shellCommand) == account.m_name) {
+        request.loginShell = shellCommand;
+        break;
+      }
+    }
+    if (request.loginShell.empty()) {
+      KLOG_WARN() << "No shell for the WSL distribution " << account.m_name;
+      wxMessageBox(wxString::Format(_("No shell found for '%s'"),
+                                    account.GetDisplayName()),
+                   "Kennel", wxOK | wxICON_ERROR, this);
+      return false;
+    }
+  } else if (account.IsRemote()) {
+    toSend.push_back(wxString::Format(
+        "ssh -o ServerAliveInterval=10 %s",
+        account.m_user.empty() ? account.m_name
+                               : account.m_user + "@" + account.m_name));
+  } else {
+    request.workingDir = workingDir;
+  }
+
+  if (!LaunchSession(request, /*selectAfterLaunch=*/true)) {
+    return false;
+  }
+  SessionPage *page = FindSession(kTerminalsGroupName, name);
+  if (page == nullptr || page->GetTerminal() == nullptr) {
+    return false;
+  }
+  toSend.insert(toSend.end(), commands.begin(), commands.end());
+  for (const wxString &command : toSend) {
+    page->GetTerminal()->SendCommand(command);
+  }
+  return true;
+}
+
 void MainNotebook::StartTerminal() {
   // Restored terminals keep their names: skip the ones that are taken.
   static int terminalId{0};
@@ -1360,6 +1455,7 @@ bool MainNotebook::LaunchSession(const NewSessionRequest &req,
   session.workingDir = req.workingDir;
   session.groupName = req.groupName;
   session.plainTerminal = req.plainTerminal;
+  session.loginShell = req.loginShell;
   session.jobCommands = req.jobCommands;
   session.jobName = req.jobName;
 
@@ -1995,7 +2091,7 @@ void MainNotebook::OnSessionExited(wxCommandEvent &e) {
   const wxString &sessionName = e.GetString();
   if (auto *page = FindSessionByName(sessionName)) {
     const Session &session = page->GetSession();
-    if (session.IsJobRun()) {
+    if (session.IsJobRun() && !session.jobName.empty()) {
       AppendJobLogEntry(JobLogEntry{
           .event = "end",
           .job = session.jobName,

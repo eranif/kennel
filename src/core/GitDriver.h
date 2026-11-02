@@ -39,6 +39,11 @@ public:
   // HEAD), otherwise those of the work tree. `untracked`: a new file, which is
   // shown as all added. The answer is wxEVT_GIT_DIFF.
   void Diff(const wxString &path, bool staged, bool untracked = false);
+  // Runs `git <args>` (add, reset, log, blame, commit, push...). `command` is a
+  // tag for the caller, `path` too (e.g. the file of a blame): both come back
+  // in the answer, which is wxEVT_GIT_COMMAND.
+  void RunCommand(const wxString &command, const std::vector<wxString> &args,
+                  const wxString &path = wxEmptyString);
 
   const wxString &GetFolder() const { return m_folder; }
   // Tells the drivers apart: it is in the events (GetInt()). Never reused.
@@ -76,6 +81,8 @@ private:
   void OnBranchNameOutput(const ProcessOutput &output);
   void OnDiffOutput(const wxString &path, bool staged,
                     const ProcessOutput &output);
+  void OnCommandOutput(const wxString &command, const wxString &path,
+                       const ProcessOutput &output);
 
   int m_id;
   // A Status() job waits in the queue: another request needs no new job.

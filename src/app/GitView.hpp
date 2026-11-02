@@ -25,6 +25,16 @@ class wxStaticText;
 // it.
 wxDECLARE_EVENT(wxEVT_GITVIEW_SHOW_DIFF, FileEvent);
 
+// Sent on the EventNotifier to show the log or the blame of a file in a
+// read-only page: GetPath() is the file (or the folder of the repository, for
+// the log of all of it), GetInt() is 0 for the log and 1 for the blame,
+// GetString() is the text.
+wxDECLARE_EVENT(wxEVT_GITVIEW_SHOW_TEXT, FileEvent);
+
+// Sent on the EventNotifier to run a command line in the terminal "Git":
+// GetPath() is the folder to start it in, GetString() is the command line.
+wxDECLARE_EVENT(wxEVT_GITVIEW_RUN_IN_TERMINAL, FileEvent);
+
 // The git changes of the session that is showing.
 //
 //   [ refresh ]
@@ -59,6 +69,7 @@ private:
     bool staged{false};
     bool untracked{false};
     bool deleted{false};
+    bool added{false}; // New in the index
   };
 
   // One session.
@@ -85,8 +96,9 @@ private:
   void OnRefresh(wxCommandEvent &event);
   void OnActivated(wxDataViewEvent &event);
   void OnContextMenu(wxDataViewEvent &event);
-  void OnMenuShowDiff(wxCommandEvent &event);
-  void OnMenuOpenFile(wxCommandEvent &event);
+  void OnGitCommand(GitEvent &event);
+  // The actions of the context menu and of the actions menu.
+  void OnMenuAction(wxCommandEvent &event);
   void OnGitDiff(GitEvent &event);
 
   void RefreshView();
@@ -96,6 +108,19 @@ private:
   void ShowDiff(const Row &row);
   // Sends the file to the host to open.
   void OpenFile(const Row &row);
+  // The rows that are selected (not the messages).
+  std::vector<const Row *> SelectedRows() const;
+  // The pathspecs of `rows`, for the arguments of git (after "--"), one for
+  // each file.
+  static std::vector<wxString> PathSpecs(const std::vector<const Row *> &rows);
+  void AddFiles(const std::vector<const Row *> &rows);
+  void ResetFiles(const std::vector<const Row *> &rows);
+  void ResetRepo();
+  // The log of the file of `row`, or of the repository when it is null.
+  void ShowLog(const Row *row);
+  void ShowBlame(const Row &row);
+  void Commit();
+  void Push();
 
   int FindEntry(const SessionRef &ref) const;
   Entry *ActiveEntry();
@@ -105,6 +130,8 @@ private:
   void DeleteInBackground(std::unique_ptr<GitDriver> driver);
   // Fills the label and the table from the entry that shows.
   void Refill();
+  // Makes the columns as wide as their content.
+  void AutoSizeColumns();
 
   wxAuiToolBar *m_toolbar{nullptr};
   wxStaticText *m_branch{nullptr};
@@ -115,4 +142,6 @@ private:
   std::optional<SessionRef> m_active;
   // The rows of the table.
   std::vector<Row> m_rows;
+  // How many rows of the log to ask for.
+  long m_logLines{100};
 };

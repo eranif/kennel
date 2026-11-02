@@ -109,38 +109,63 @@ public:
     return wxEmptyString;
   }
 
+  // Gives `ctrl` the look of an editor: margins, caret, the colours of `theme`
+  // and the highlighting of `lang`. For any wxStyledTextCtrl, not only the one
+  // of an Editor.
+  static void InitEditor(wxStyledTextCtrl *ctrl, EditorLang lang,
+                         const wxTerminalTheme &theme);
+
 private:
-  void AddProperty(int style, const wxColour &bg, const wxColour &fg);
+  void InitEditor() { InitEditor(m_ctrl, m_lang, m_theme); }
+
+  static void AddProperty(wxStyledTextCtrl *ctrl, int style, const wxColour &bg,
+                          const wxColour &fg);
   // The colour of the line numbers: the text colour, dimmed towards the
   // background (the theme's "bright black" can be close to the background).
-  wxColour LineNumberColour() const;
+  static wxColour LineNumberColour(const wxTerminalTheme &theme);
   // The colour of every kind of comment: a muted green that suits a dark or a
   // light background. Both colours keep a minimum contrast with the background.
-  wxColour CommentColour() const;
-  void InitEditor();
-  void InitJsonStyle();
-  void InitTextStyle();
-  void InitCppLikeStyle(const char *keywords);
-  void InitCxxStyle();
-  void InitJavaStyle();
-  void InitCMakeStyle();
-  void InitBashStyle();
-  void InitMarkdownStyle();
-  void InitXmlStyle();
-  void InitRubyStyle();
-  void InitTypeScriptStyle();
-  void InitJavaScriptStyle();
-  void InitPythonStyle();
-  void InitMakefileStyle();
-  void InitRustStyle();
-  void InitDiffStyle();
+  static wxColour CommentColour(const wxTerminalTheme &theme);
+  static void InitJsonStyle(wxStyledTextCtrl *ctrl,
+                            const wxTerminalTheme &theme);
+  static void InitTextStyle(wxStyledTextCtrl *ctrl,
+                            const wxTerminalTheme &theme);
+  static void InitCppLikeStyle(wxStyledTextCtrl *ctrl,
+                               const wxTerminalTheme &theme,
+                               const char *keywords);
+  static void InitCxxStyle(wxStyledTextCtrl *ctrl,
+                           const wxTerminalTheme &theme);
+  static void InitJavaStyle(wxStyledTextCtrl *ctrl,
+                            const wxTerminalTheme &theme);
+  static void InitCMakeStyle(wxStyledTextCtrl *ctrl,
+                             const wxTerminalTheme &theme);
+  static void InitBashStyle(wxStyledTextCtrl *ctrl,
+                            const wxTerminalTheme &theme);
+  static void InitMarkdownStyle(wxStyledTextCtrl *ctrl,
+                                const wxTerminalTheme &theme);
+  static void InitXmlStyle(wxStyledTextCtrl *ctrl,
+                           const wxTerminalTheme &theme);
+  static void InitRubyStyle(wxStyledTextCtrl *ctrl,
+                            const wxTerminalTheme &theme);
+  static void InitTypeScriptStyle(wxStyledTextCtrl *ctrl,
+                                  const wxTerminalTheme &theme);
+  static void InitJavaScriptStyle(wxStyledTextCtrl *ctrl,
+                                  const wxTerminalTheme &theme);
+  static void InitPythonStyle(wxStyledTextCtrl *ctrl,
+                              const wxTerminalTheme &theme);
+  static void InitMakefileStyle(wxStyledTextCtrl *ctrl,
+                                const wxTerminalTheme &theme);
+  static void InitRustStyle(wxStyledTextCtrl *ctrl,
+                            const wxTerminalTheme &theme);
+  static void InitDiffStyle(wxStyledTextCtrl *ctrl,
+                            const wxTerminalTheme &theme);
   // Sizes the line-number margin to fit the current number of lines.
-  void UpdateLineNumberMargin();
+  static void UpdateLineNumberMargin(wxStyledTextCtrl *ctrl);
   void OnModified(wxStyledTextEvent &event);
   void OnUpdateUI(wxStyledTextEvent &event);
   void OnOptionsChanged(wxCommandEvent &event);
   // Applies the editor options of the preferences (the indent lines).
-  void ApplyOptions();
+  static void ApplyOptions(wxStyledTextCtrl *ctrl);
   // Highlights the brace at the caret (or before it) and its pair, like
   // CodeLite does. A brace without a pair is marked as bad.
   void DoBraceMatching();

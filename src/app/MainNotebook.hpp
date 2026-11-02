@@ -68,6 +68,13 @@ public:
   bool LaunchSession(const NewSessionRequest &req,
                      bool selectAfterLaunch = true);
 
+  // Shows a terminal named `name` that runs on `account`, and types `commands`
+  // in it. A terminal with that name is used again. `workingDir` is where a
+  // terminal of this machine starts.
+  bool LaunchTerminal(const wxString &name, const wxString &workingDir,
+                      const Account &account,
+                      const std::vector<wxString> &commands);
+
   // Shows the Start Agent dialog, then launches on OK. `agentName` preselects
   // an agent (empty -> first defined agent); `groupName` pre-sets the group
   // field (empty -> dialog default, "Default").
@@ -264,6 +271,11 @@ private:
   // A file or a folder of the file explorer was double clicked.
   void OnFileTreeActivated(FileEvent &event);
   void OnShowDiff(FileEvent &event);
+  void OnShowGitText(FileEvent &event);
+  void OnGitTerminal(FileEvent &event);
+  // Shows the text of `event` (GetString()) in a read-only page of the file
+  // GetPath() with `suffix` added.
+  void ShowReadOnlyText(const FileEvent &event, const wxString &suffix);
   void OnAppPrefsSaved(wxCommandEvent &event);
 
   // What the user types in the GotoAnythingBar, and how it closed.

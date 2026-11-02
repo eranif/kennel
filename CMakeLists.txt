@@ -333,6 +333,7 @@ set(KENNEL_APP_SOURCES
     src/app/FileTreeCtrl.cpp
     src/app/DataViewTypeHelper.cpp
     src/app/FileExplorerView.cpp
+    src/app/GitCommitMessageDlg.cpp
     src/app/GitView.cpp
     src/app/FileActions.cpp
     src/app/TabIcon.cpp

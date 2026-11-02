@@ -41,14 +41,25 @@ public:
   bool IsStaged() const { return m_staged; }
   void SetStaged(bool staged) { m_staged = staged; }
 
+  // wxEVT_GIT_COMMAND: the tag the request was made with, the standard output
+  // and the standard error of git (the result tells whether it worked).
+  const wxString &GetCommand() const { return m_command; }
+  void SetCommand(const wxString &command) { m_command = command; }
+  const wxString &GetStdErr() const { return m_stdErr; }
+  void SetStdErr(const wxString &text) { m_stdErr = text; }
+
 private:
   Status m_result;
   GitStatus m_repoStatus;
   wxString m_text;
   wxString m_path;
   bool m_staged{false};
+  wxString m_command;
+  wxString m_stdErr;
 };
 
 wxDECLARE_EVENT(wxEVT_GIT_STATUS, GitEvent);
 wxDECLARE_EVENT(wxEVT_GIT_BRANCH_NAME, GitEvent);
 wxDECLARE_EVENT(wxEVT_GIT_DIFF, GitEvent);
+// The answer of GitDriver::RunCommand().
+wxDECLARE_EVENT(wxEVT_GIT_COMMAND, GitEvent);

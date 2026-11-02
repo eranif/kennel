@@ -604,4 +604,27 @@ public:
     virtual ~JobLogViewerBase();
 };
 
+
+class GitCommitMessageDlgBase : public wxDialog
+{
+protected:
+    wxPanel* m_panel630;
+    wxStyledTextCtrl* m_stcCommitMessage;
+    wxCheckBox* m_checkBoxSignoff;
+    wxCheckBox* m_checkBoxAmend;
+    wxStdDialogButtonSizer* m_stdBtnSizer626;
+    wxButton* m_button627;
+    wxButton* m_button628;
+
+protected:
+
+public:
+    wxStyledTextCtrl* GetStcCommitMessage() { return m_stcCommitMessage; }
+    wxCheckBox* GetCheckBoxSignoff() { return m_checkBoxSignoff; }
+    wxCheckBox* GetCheckBoxAmend() { return m_checkBoxAmend; }
+    wxPanel* GetPanel630() { return m_panel630; }
+    GitCommitMessageDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Commit Message"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);
+    virtual ~GitCommitMessageDlgBase();
+};
+
 #endif
