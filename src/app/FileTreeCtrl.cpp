@@ -27,6 +27,7 @@ int s_lastRequestId = 0;
 
 const int kIdCopyPath = wxWindow::NewControlId();
 const int kIdOpenDefault = wxWindow::NewControlId();
+const int kIdRefresh = wxWindow::NewControlId();
 
 // Puts `text` on the clipboard.
 void CopyText(const wxString &text) {
@@ -241,6 +242,27 @@ void FileTreeCtrl::LoadChildren(const wxDataViewItem &item) {
   }
 }
 
+void FileTreeCtrl::RefreshFolder(const wxDataViewItem &item) {
+  Node *node = NodeOf(item);
+  if (node == nullptr || !node->file.IsFolder()) {
+    return;
+  }
+  // The open folders: `item` itself, when it is open, and the ones inside it.
+  std::set<wxString> expanded;
+  CollectExpanded(item, &expanded);
+  m_tree->Collapse(item);
+  m_tree->DeleteChildren(item);
+  // The empty child, so that the tree shows it can be opened (OnExpanding()).
+  m_tree->AppendItem(item, wxEmptyString);
+  node->loaded = false;
+  if (expanded.contains(node->file.path)) {
+    // Listed again now, and opened as they were.
+    LoadChildren(item);
+    m_tree->Expand(item);
+    RestoreExpanded(item, expanded);
+  }
+}
+
 void FileTreeCtrl::AddNode(const wxDataViewItem &parent,
                            const FileProvider::File &file) {
   const wxString name = file.path.AfterLast(m_provider->GetPathSeparator());
@@ -392,6 +414,18 @@ void FileTreeCtrl::OnContextMenu(wxDataViewEvent &event) {
   menu.Append(kIdCopyPath, _("Copy Path"));
   menu.Bind(
       wxEVT_MENU, [path](wxCommandEvent &) { CopyText(path); }, kIdCopyPath);
+  if (node->file.IsFolder()) {
+    const wxDataViewItem item = event.GetItem();
+    menu.Append(kIdRefresh, _("Refresh"));
+    // Deferred: the menu must not delete items while the tree handles the
+    // event.
+    menu.Bind(
+        wxEVT_MENU,
+        [this, item](wxCommandEvent &) {
+          CallAfter([this, item] { RefreshFolder(item); });
+        },
+        kIdRefresh);
+  }
   // A remote file is on another machine: this computer cannot open it.
   if (!m_account.IsRemote()) {
     menu.Append(kIdOpenDefault, _("Open with Default App"));

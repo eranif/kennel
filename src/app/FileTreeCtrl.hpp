@@ -122,6 +122,10 @@ private:
   void ShowTopText(const wxString &text);
   // Lists the folder of `item` if it was not done yet.
   void LoadChildren(const wxDataViewItem &item);
+  // Forgets the entries of the folder of `item`, and lists them again. An open
+  // folder is listed at once and stays open (with the folders in it that were
+  // open); a closed one is listed when it is opened.
+  void RefreshFolder(const wxDataViewItem &item);
   void AddNode(const wxDataViewItem &parent, const FileProvider::File &file);
   void CollectExpanded(const wxDataViewItem &item,
                        std::set<wxString> *expanded) const;
