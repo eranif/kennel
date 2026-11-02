@@ -124,6 +124,10 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
 
   m_book->Bind(wxEVT_BOOKCTRL_PAGE_CHANGED, &MainNotebook::OnPageChanged, this);
   m_book->Bind(wxEVT_GLYPHBOOK_PAGE_CLOSE, &MainNotebook::OnPageClose, this);
+  m_book->Bind(wxEVT_GLYPHBOOK_TAB_CONTEXT_MENU,
+               &MainNotebook::OnTabContextMenu, this);
+  m_book->Bind(wxEVT_GLYPHBOOK_BAR_CONTEXT_MENU,
+               &MainNotebook::OnBarContextMenu, this);
   // Runs before the book's own handler, which selects the page the focus went
   // into; not skipped, so a focus never changes the selected page.
   m_book->Bind(wxEVT_CHILD_FOCUS, &MainNotebook::OnChildFocus, this);
@@ -209,6 +213,20 @@ void MainNotebook::OnPageChanged(wxBookCtrlEvent &event) {
 
 void MainNotebook::OnChildFocus(wxChildFocusEvent &event) {
   wxUnusedVar(event);
+}
+
+void MainNotebook::OnTabContextMenu(GlyphBookEvent &event) {
+  const int index = event.GetSelection();
+  if (index == wxNOT_FOUND ||
+      static_cast<size_t>(index) >= m_book->GetPageCount()) {
+    return;
+  }
+  ShowPageMenu(m_book->GetPage(static_cast<size_t>(index)), m_book);
+}
+
+void MainNotebook::OnBarContextMenu(GlyphBookEvent &event) {
+  wxUnusedVar(event);
+  ShowBackgroundMenu(m_book);
 }
 
 void MainNotebook::OnPageClose(GlyphBookEvent &event) {
@@ -1769,6 +1787,12 @@ void MainNotebook::RenameGroup(const wxString &oldName) {
                  SessionRef{newName, page->GetSession().name});
     page->GetSession().groupName = newName;
   }
+  // The header of the group on the tab bar shows the new name.
+  for (const int group : m_book->GetGroups()) {
+    if (m_book->GetGroupName(group) == oldName) {
+      m_book->SetGroupName(group, newName);
+    }
+  }
   SyncWorkspaceToDisk();
 }
 
@@ -1859,6 +1883,8 @@ void MainNotebook::MoveSessionToGroup(const wxString &sessionName,
                SessionRef{toGroupName, sessionName});
   page->GetSession().groupName = toGroupName;
   ApplyPageIcon(page);
+  // The tab goes under the header of its new group (an empty group goes away).
+  GroupPage(page);
 
   SyncWorkspaceToDisk();
 

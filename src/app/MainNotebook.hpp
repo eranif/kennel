@@ -237,6 +237,11 @@ private:
   void OnPageChanged(wxBookCtrlEvent &event);
   // The user clicked the close button of a tab: its page is closed.
   void OnPageClose(GlyphBookEvent &event);
+  // A right click on a tab: the menu of its page.
+  void OnTabContextMenu(GlyphBookEvent &event);
+  // A right click on the bar, where there is no tab: start an agent or a
+  // terminal.
+  void OnBarContextMenu(GlyphBookEvent &event);
   // The focus went into a page: nothing is done (see the constructor).
   void OnChildFocus(wxChildFocusEvent &event);
   // A theme was applied: the book gets its background and the tabs of the
