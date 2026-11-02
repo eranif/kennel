@@ -126,19 +126,6 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     
     boxSizer596->Add(m_auiSideBook, 1, wxEXPAND, WXC_FROM_DIP(5));
     
-    m_bookPageFileExplorer = new wxPanel(m_auiSideBook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_auiSideBook, wxSize(-1,-1)), wxTAB_TRAVERSAL);
-    m_auiSideBook->AddPage(m_bookPageFileExplorer, _("File Explorer"), false);
-    
-    wxBoxSizer* boxSizer612 = new wxBoxSizer(wxVERTICAL);
-    m_bookPageFileExplorer->SetSizer(boxSizer612);
-    
-    m_panelFileExplorer = new wxPanel(m_bookPageFileExplorer, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_bookPageFileExplorer, wxSize(-1,-1)), wxTAB_TRAVERSAL);
-    
-    boxSizer612->Add(m_panelFileExplorer, 1, wxEXPAND, WXC_FROM_DIP(5));
-    
-    wxBoxSizer* boxSizer613 = new wxBoxSizer(wxVERTICAL);
-    m_panelFileExplorer->SetSizer(boxSizer613);
-    
     m_bookPageGit = new wxPanel(m_auiSideBook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_auiSideBook, wxSize(-1,-1)), wxTAB_TRAVERSAL);
     m_auiSideBook->AddPage(m_bookPageGit, _("Git"), false);
     
@@ -151,6 +138,19 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     
     wxBoxSizer* boxSizer617 = new wxBoxSizer(wxVERTICAL);
     m_panelGit->SetSizer(boxSizer617);
+    
+    m_bookPageFileExplorer = new wxPanel(m_auiSideBook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_auiSideBook, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    m_auiSideBook->AddPage(m_bookPageFileExplorer, _("File Explorer"), false);
+    
+    wxBoxSizer* boxSizer612 = new wxBoxSizer(wxVERTICAL);
+    m_bookPageFileExplorer->SetSizer(boxSizer612);
+    
+    m_panelFileExplorer = new wxPanel(m_bookPageFileExplorer, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_bookPageFileExplorer, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    
+    boxSizer612->Add(m_panelFileExplorer, 1, wxEXPAND, WXC_FROM_DIP(5));
+    
+    wxBoxSizer* boxSizer613 = new wxBoxSizer(wxVERTICAL);
+    m_panelFileExplorer->SetSizer(boxSizer613);
     
     m_panelActivity = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
     

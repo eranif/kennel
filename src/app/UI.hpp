@@ -84,10 +84,10 @@ protected:
     wxAuiManager* m_auimgr;
     wxPanel* m_panelSideView;
     GlyphBook* m_auiSideBook;
-    wxPanel* m_bookPageFileExplorer;
-    wxPanel* m_panelFileExplorer;
     wxPanel* m_bookPageGit;
     wxPanel* m_panelGit;
+    wxPanel* m_bookPageFileExplorer;
+    wxPanel* m_panelFileExplorer;
     wxPanel* m_panelActivity;
     wxPanel* m_mainPanel;
     MainNotebook* m_sessionsBook;
@@ -95,10 +95,10 @@ protected:
 protected:
 
 public:
-    wxPanel* GetPanelFileExplorer() { return m_panelFileExplorer; }
-    wxPanel* GetBookPageFileExplorer() { return m_bookPageFileExplorer; }
     wxPanel* GetPanelGit() { return m_panelGit; }
     wxPanel* GetBookPageGit() { return m_bookPageGit; }
+    wxPanel* GetPanelFileExplorer() { return m_panelFileExplorer; }
+    wxPanel* GetBookPageFileExplorer() { return m_bookPageFileExplorer; }
     GlyphBook* GetAuiSideBook() { return m_auiSideBook; }
     wxPanel* GetPanelSideView() { return m_panelSideView; }
     wxPanel* GetPanelActivity() { return m_panelActivity; }

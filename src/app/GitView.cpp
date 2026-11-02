@@ -122,6 +122,9 @@ GitView::GitView(wxWindow *parent) : wxPanel(parent) {
                    _("Refresh the git status"));
   const auto &bitmaps = AppManager::Get().GetBitmaps();
   m_toolbar->AddSeparator();
+  toolbar::AddTool(m_toolbar, kIdAdd, _("Add"),
+                   bitmaps.GetByAlias("git-add", false),
+                   _("Add the selected files to the index"));
   toolbar::AddTool(m_toolbar, kIdCommit, _("Commit"),
                    bitmaps.GetByAlias("git-commit", false),
                    _("Commit the staged changes..."));
@@ -151,7 +154,7 @@ GitView::GitView(wxWindow *parent) : wxPanel(parent) {
   SetSizer(sizer);
 
   m_toolbar->Bind(wxEVT_TOOL, &GitView::OnRefresh, this, kIdRefresh);
-  for (const int id : {kIdCommit, kIdPush, kIdRepoLog, kIdResetRepo}) {
+  for (const int id : {kIdAdd, kIdCommit, kIdPush, kIdRepoLog, kIdResetRepo}) {
     m_toolbar->Bind(wxEVT_TOOL, &GitView::OnMenuAction, this, id);
   }
   m_list->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &GitView::OnActivated, this);

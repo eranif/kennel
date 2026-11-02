@@ -233,7 +233,7 @@ void MainView::LoadBitmaps() {
   // The git view: the icon of its tab (the same for both appearances) and the
   // status of a file.
   for (const char *name : {"git", "git-new", "git-deleted", "git-modified",
-                           "git-commit", "git-push", "git-log", "git-reset",
+                           "git-add", "git-commit", "git-push", "git-log", "git-reset",
                            "git-renamed", "git-conflict", "git-untracked"}) {
     const wxString file = wxString(name) + ".svg";
     bmps.Load(file);
