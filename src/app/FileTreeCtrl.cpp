@@ -36,6 +36,7 @@ const int kIdRefresh = wxWindow::NewControlId();
 const int kIdNewFolder = wxWindow::NewControlId();
 const int kIdNewFile = wxWindow::NewControlId();
 const int kIdDelete = wxWindow::NewControlId();
+const int kIdOpen = wxWindow::NewControlId();
 const int kIdShowInFileManager = wxWindow::NewControlId();
 
 // Puts `text` on the clipboard.
@@ -106,7 +107,7 @@ FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
       m_provider(CreateFileProvider(account)) {
   m_tree =
       new wxDataViewTreeCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                             wxDV_NO_HEADER | wxDV_SINGLE | wxDV_ROW_LINES);
+                             wxDV_NO_HEADER | wxDV_MULTIPLE | wxDV_ROW_LINES);
   StylePageView(m_tree);
 
   // The names are not to be edited.
@@ -437,7 +438,20 @@ void FileTreeCtrl::OnSelectionChanged(wxDataViewEvent &event) {
   }
 }
 
+wxDataViewItemArray FileTreeCtrl::SelectedItems() const {
+  wxDataViewItemArray items;
+  m_tree->GetSelections(items);
+  return items;
+}
+
 void FileTreeCtrl::OnActivated(wxDataViewEvent &event) {
+  const wxDataViewItemArray selected = SelectedItems();
+  if (selected.size() > 1 && selected.Index(event.GetItem()) != wxNOT_FOUND) {
+    // Several entries: every selected file is opened (the folders stay as they
+    // are).
+    OpenItems(selected);
+    return;
+  }
   event.Skip(); // A folder opens or closes
   if (NodeOf(event.GetItem()) != nullptr) {
     SendFileEvent(wxEVT_FILETREE_ACTIVATED, event.GetItem());
@@ -450,6 +464,11 @@ void FileTreeCtrl::OnContextMenu(wxDataViewEvent &event) {
   const wxDataViewItem item = event.GetItem();
   const Node *node = NodeOf(item);
   if (node == nullptr) {
+    return;
+  }
+  if (const wxDataViewItemArray selected = SelectedItems();
+      selected.size() > 1 && selected.Index(item) != wxNOT_FOUND) {
+    ShowMultiSelectionMenu(selected);
     return;
   }
   const wxString path = node->file.path;
@@ -560,6 +579,132 @@ void FileTreeCtrl::NewEntry(const wxDataViewItem &folder, bool isFolder) {
   RefreshFolder(folder);
   // Opens the folder (it is listed with the new entry) and selects the entry.
   SelectPath(path);
+}
+
+void FileTreeCtrl::OpenItems(const wxDataViewItemArray &items) {
+  for (const wxDataViewItem &item : items) {
+    if (const Node *node = NodeOf(item); node && !node->file.IsFolder()) {
+      SendFileEvent(wxEVT_FILETREE_ACTIVATED, item);
+    }
+  }
+}
+
+void FileTreeCtrl::ShowMultiSelectionMenu(const wxDataViewItemArray &items) {
+  bool hasFile = false;
+  bool hasDeletable = false;
+  for (const wxDataViewItem &item : items) {
+    if (const Node *node = NodeOf(item)) {
+      hasFile |= !node->file.IsFolder();
+      hasDeletable |= m_tree->GetItemParent(item).IsOk(); // Not the top
+    }
+  }
+  wxMenu menu;
+  // The commands change the items of the tree: they run after the menu.
+  if (hasFile) {
+    menu.Append(kIdOpen, _("Open"));
+    menu.Bind(
+        wxEVT_MENU,
+        [this, items](wxCommandEvent &) {
+          CallAfter([this, items] { OpenItems(items); });
+        },
+        kIdOpen);
+  }
+  if (hasDeletable) {
+    if (hasFile) {
+      menu.AppendSeparator();
+    }
+    menu.Append(kIdDelete, _("Delete..."));
+    menu.Bind(
+        wxEVT_MENU,
+        [this, items](wxCommandEvent &) {
+          CallAfter([this, items] { DeleteEntries(items); });
+        },
+        kIdDelete);
+  }
+  if (menu.GetMenuItemCount() > 0) {
+    m_tree->PopupMenu(&menu);
+  }
+}
+
+void FileTreeCtrl::DeleteEntries(const wxDataViewItemArray &items) {
+  struct Target {
+    wxString path;
+    bool isFolder;
+    wxDataViewItem parent;
+    wxString compare;
+  };
+  std::vector<Target> targets;
+  for (const wxDataViewItem &item : items) {
+    const Node *node = NodeOf(item);
+    const wxDataViewItem parent = m_tree->GetItemParent(item);
+    if (node == nullptr || !parent.IsOk()) {
+      continue; // The top is not deleted from here
+    }
+    targets.push_back({node->file.path, node->file.IsFolder(), parent,
+                       ForCompare(node->file.path)});
+  }
+  // An entry inside a selected folder goes with the folder.
+  std::erase_if(targets, [&targets](const Target &t) {
+    return std::any_of(targets.begin(), targets.end(), [&t](const Target &o) {
+      return &o != &t && o.isFolder &&
+             t.compare.length() > o.compare.length() &&
+             t.compare.StartsWith(o.compare.EndsWith("/") ? o.compare
+                                                          : o.compare + "/");
+    });
+  });
+  if (targets.empty()) {
+    return;
+  }
+  if (targets.size() == 1) {
+    // Same as a single entry
+    for (const wxDataViewItem &item : items) {
+      if (const Node *node = NodeOf(item);
+          node && node->file.path == targets[0].path) {
+        DeleteEntry(item);
+        return;
+      }
+    }
+    return;
+  }
+  const wxString question = wxString::Format(
+      _("Delete these %d entries (folders with everything in them)?"),
+      static_cast<int>(targets.size()));
+  if (::wxMessageBox(question, "Kennel",
+                     wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) != wxYES) {
+    return;
+  }
+  wxString errors;
+  {
+    std::optional<wxBusyCursor> busy;
+    if (m_account.IsRemote()) {
+      busy.emplace(); // The host takes a while to answer
+    }
+    for (const Target &t : targets) {
+      if (Status st = m_provider->Remove(t.path); !st.ok()) {
+        KLOG_WARN() << "Could not delete " << t.path << ": " << st.message();
+        errors << t.path << ": " << st.message() << "\n";
+      }
+    }
+  }
+  if (!errors.empty()) {
+    ::wxMessageBox(errors, "Kennel", wxOK | wxICON_ERROR, this);
+  }
+  // Also after an error: a part of a folder may be gone. The deepest folders
+  // first: listing a folder makes the items of the folders in it go away.
+  std::vector<std::pair<wxString, wxDataViewItem>> parents;
+  for (const Target &t : targets) {
+    const wxString key = ForCompare(NodeOf(t.parent)->file.path);
+    if (std::none_of(parents.begin(), parents.end(),
+                     [&key](const auto &p) { return p.first == key; })) {
+      parents.emplace_back(key, t.parent);
+    }
+  }
+  std::sort(parents.begin(), parents.end(), [](const auto &a, const auto &b) {
+    return a.first.length() > b.first.length();
+  });
+  for (const auto &p : parents) {
+    RefreshFolder(p.second);
+  }
 }
 
 void FileTreeCtrl::DeleteEntry(const wxDataViewItem &item) {

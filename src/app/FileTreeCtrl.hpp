@@ -133,6 +133,13 @@ private:
   // Asks, then deletes the entry of `item` (a folder with all in it). Its
   // folder is listed again.
   void DeleteEntry(const wxDataViewItem &item);
+  // Like DeleteEntry(), for all of `items`, with one question.
+  void DeleteEntries(const wxDataViewItemArray &items);
+  // Sends wxEVT_FILETREE_ACTIVATED for each file of `items`.
+  void OpenItems(const wxDataViewItemArray &items);
+  // The context menu when several entries are selected.
+  void ShowMultiSelectionMenu(const wxDataViewItemArray &items);
+  wxDataViewItemArray SelectedItems() const;
   void CollectExpanded(const wxDataViewItem &item,
                        std::set<wxString> *expanded) const;
   void RestoreExpanded(const wxDataViewItem &item,
