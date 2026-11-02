@@ -31,6 +31,7 @@ struct UiPrefs {
   bool blockCursor{true};
   bool wrapLines{true};        // Wrap the long lines of the file editor
   bool groupTabs{true};        // Tab groups in the main book, by session group
+  bool gitSignoff{false};      // The "Signoff" box of the commit dialog
   bool highlightBraces{false}; // Highlight the brace at the caret and its pair
   bool highlightIndentLines{false}; // Highlight the indent line of the block
   bool terminalOptimizedDrawing{false}; // Enable optimized drawing?

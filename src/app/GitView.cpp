@@ -642,6 +642,8 @@ void GitView::Commit() {
   }
   // The parent is the main frame, so the dialog is in the middle of it.
   GitCommitMessageDlg dlg(wxGetTopLevelParent(this));
+  auto &prefs = AppManager::Get().GetPrefs();
+  dlg.GetCheckBoxSignoff()->SetValue(prefs.gitSignoff);
   dlg.CentreOnParent();
   if (dlg.ShowModal() != wxID_OK) {
     return;
@@ -650,6 +652,13 @@ void GitView::Commit() {
   message.Trim().Trim(false);
   const bool amend = dlg.GetCheckBoxAmend()->GetValue();
   const bool signoff = dlg.GetCheckBoxSignoff()->GetValue();
+  // Remembered for the next commit (and the next run).
+  if (prefs.gitSignoff != signoff) {
+    prefs.gitSignoff = signoff;
+    if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+      KLOG_WARN() << "Could not persist the signoff option: " << st.message();
+    }
+  }
   if (message.empty() && !amend) {
     ::wxMessageBox(_("The commit message is empty"), "Kennel",
                    wxOK | wxICON_ERROR, this);
