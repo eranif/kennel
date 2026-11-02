@@ -67,6 +67,8 @@ public:
   // is doing when the timer fires or "Run Now" is clicked).
   bool LaunchSession(const NewSessionRequest &req,
                      bool selectAfterLaunch = true);
+  // Adds `dir` to the folders the Start Agent dialog offers.
+  void RememberWorkingDir(const wxString &dir);
 
   // Shows a terminal named `name` that runs on `account`, and types `commands`
   // in it. A terminal with that name is used again. `workingDir` is where a

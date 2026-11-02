@@ -34,6 +34,7 @@ StartAgentDialog::StartAgentDialog(wxWindow *parent)
   existMessage << wxT("⚠") << _(" Session name already exists");
   m_staticTextErrorMessage->SetLabel(existMessage);
   PopulateClients();
+  PopulateRecentDirs();
   // Typing the name of the Terminals or Files container is not possible: the
   // text goes back to what it was.
   m_comboBoxGroup->Bind(wxEVT_TEXT, [this](wxCommandEvent &event) {
@@ -76,6 +77,26 @@ void StartAgentDialog::PopulateClients() {
 
   CenterOnParent();
   Move(GetPosition().x, GetParent()->GetPosition().y);
+}
+
+void StartAgentDialog::PopulateRecentDirs() {
+  // The folders the user picked before, the latest first.
+  m_comboBoxWorkingDir->Clear();
+  for (const wxString &dir : AppManager::Get().GetPrefs().recentWorkingDirs) {
+    m_comboBoxWorkingDir->Append(dir);
+  }
+  if (m_comboBoxWorkingDir->GetCount() > 0) {
+    m_comboBoxWorkingDir->SetSelection(0);
+  }
+}
+
+wxString StartAgentDialog::GetCustomWorkingDir() const {
+  if (!m_checkBoxCustomWorkingDirectory->IsChecked()) {
+    return wxString{};
+  }
+  wxString dir = m_comboBoxWorkingDir->GetValue();
+  dir.Trim().Trim(false);
+  return dir;
 }
 
 wxString StartAgentDialog::SelectedAgentId() const {

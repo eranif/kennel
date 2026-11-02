@@ -1431,7 +1431,20 @@ void MainNotebook::StartAgent(const wxString &agentName,
   if (dlg.ShowModal() != wxID_OK) {
     return;
   }
-  LaunchSession(dlg.GetRequest());
+  if (LaunchSession(dlg.GetRequest())) {
+    RememberWorkingDir(dlg.GetCustomWorkingDir());
+  }
+}
+
+// Keeps a folder the user chose for the Start Agent dialog (the last 10).
+void MainNotebook::RememberWorkingDir(const wxString &dir) {
+  if (dir.empty()) {
+    return;
+  }
+  PushRecent(AppManager::Get().GetPrefs().recentWorkingDirs, dir);
+  if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+    KLOG_WARN() << "Could not persist recent working dirs: " << st.message();
+  }
 }
 
 bool MainNotebook::LaunchSession(const NewSessionRequest &req,
@@ -1471,11 +1484,6 @@ bool MainNotebook::LaunchSession(const NewSessionRequest &req,
 
   SyncWorkspaceToDisk();
 
-  auto &prefs = AppManager::Get().GetPrefs();
-  PushRecent(prefs.recentWorkingDirs, req.workingDir);
-  if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
-    KLOG_WARN() << "Could not persist recent working dirs: " << st.message();
-  }
   return true;
 }
 
@@ -1910,7 +1918,9 @@ void MainNotebook::DuplicateSession(SessionPage *page) {
   if (dlg.ShowModal() != wxID_OK) {
     return;
   }
-  LaunchSession(dlg.GetRequest());
+  if (LaunchSession(dlg.GetRequest())) {
+    RememberWorkingDir(dlg.GetCustomWorkingDir());
+  }
 }
 
 void MainNotebook::RenameSession(SessionPage *page) {

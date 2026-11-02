@@ -13,6 +13,10 @@ public:
 
   NewSessionRequest GetRequest() const;
 
+  // The folder the user chose, empty when the default folder of the session is
+  // used.
+  wxString GetCustomWorkingDir() const;
+
   // Selects the agent with the given name, if present.
   bool SetSelectedClientName(const wxString &name);
 
@@ -35,5 +39,7 @@ protected:
 private:
   wxString m_lastGroupText; // The last group text that was allowed
   void PopulateClients();
+  // Fills the list of folders with the ones used before.
+  void PopulateRecentDirs();
   wxString SelectedAgentId() const;
 };
