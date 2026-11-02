@@ -37,3 +37,11 @@
 - [x] BUG: done is displayed on the active page and there is no way to clear it without selecting another tab and then coming back to it again.
 - [x] BUG: tab label should display a "modified" icon for a modified file.
 - [x] IMPROVEMENT: "Search" and "Goto Line" -> Center on the line.
+- [ ] GIT: add more actions:
+  - [ ] Add - Use `Process` class. Note: work on multiple files
+  - [ ] Log (in an editor) - Use `Process` class.
+  - [ ] Blame - Use `Process` class
+  - [ ] Commit - Open an editor for the message, add checkbox for "Amend" -> Open a terminal: "Git" -> run the command
+  - [ ] Push - Open a terminal: "Git" -> run the command
+  - [ ] Reset File. Note: work on multiple files
+  - [ ] Reset Repo
