@@ -7,10 +7,9 @@
 #include <span>
 
 class ActivityView;
-class FileExplorerView;
-class GitView;
+class SideView;
 
-// The main window's content: the side panes (the file explorer, the activity
+// The main window's content: the side panes (the side bar, the activity
 // view) and their layout. The pages are in the notebook (MainNotebook), which
 // this class does not know. The side views listen on the EventNotifier to what
 // happens to the sessions and files, and send what the user asks to it
@@ -56,8 +55,7 @@ private:
   void OnAppPrefsSaved(wxCommandEvent &event);
   void ApplyPrefs();
 
-  FileExplorerView *m_fileExplorer{nullptr};
-  GitView *m_gitView{nullptr};
+  SideView *m_sideView{nullptr};
   ActivityView *m_activityView{nullptr};
   bool m_layoutRestored{false};
   // The AUI perspective of the panes as they are created (see ResetLayout()).

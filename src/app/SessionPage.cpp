@@ -1214,7 +1214,9 @@ Account SessionPage::GetAccount() const {
     // A terminal can run a shell of a WSL distribution too.
     if (const wxString distro = wsl::DistroOf(m_session.loginShell);
         !distro.empty()) {
-      return Account::WSL(distro);
+      // The folder of the shell, if it is a Linux path.
+      const wxString dir = GetCurrentDir();
+      return Account::WSL(distro, dir.StartsWith("/") ? dir : wxString{});
     }
   }
   const wxString dir = GetCurrentDir();

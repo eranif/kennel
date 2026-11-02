@@ -4,9 +4,9 @@
 #include "ThemeManager.h"
 #include "app/ActivityView.hpp"
 #include "app/AssetBootstrap.h"
-#include "app/FileExplorerView.hpp"
-#include "app/GitView.hpp"
+#include "app/FileTreeCtrl.hpp"
 #include "app/SettingsDlg.hpp"
+#include "app/SideView.hpp"
 #include "app/TabIcon.h"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
@@ -51,19 +51,10 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
 
   LoadBitmaps();
 
-  m_fileExplorer = new FileExplorerView(GetPanelFileExplorer());
-  GetPanelFileExplorer()->GetSizer()->Add(m_fileExplorer,
-                                          wxSizerFlags(1).Expand());
-  m_gitView = new GitView(GetPanelGit());
-  GetPanelGit()->GetSizer()->Add(m_gitView, wxSizerFlags(1).Expand());
-  if (const int page = m_auiSideBook->FindPage(GetBookPageGit());
-      page != wxNOT_FOUND) {
-    m_auiSideBook->SetPageBitmap(
-        page, TabIcon(AppManager::Get().GetBitmaps().GetByAlias("git", false)));
-  }
+  m_sideView = new SideView(m_panelSideView);
+  m_panelSideView->GetSizer()->Add(m_sideView, wxSizerFlags(1).Expand());
   m_activityView = new ActivityView(GetPanelActivity());
   GetPanelActivity()->GetSizer()->Add(m_activityView, wxSizerFlags(1).Expand());
-  m_auiSideBook->GetTabBar()->SetCursor(wxCURSOR_HAND);
 
   // The size a pane gets when it floats (it only matters then, so no Update()).
   for (const wxString &name : kSidePanes) {
@@ -114,7 +105,7 @@ void MainView::FinaliseConstruction() {
 
 void MainView::OnToolBarStyle(wxCommandEvent &event) {
   event.Skip(); // The main toolbar of the frame follows too
-  m_gitView->ApplyToolBarStyle();
+  m_sideView->ApplyToolBarStyle();
 }
 
 void MainView::OnFileTreeActivated(FileEvent &event) {
@@ -132,10 +123,7 @@ void MainView::RestoreLayout() {
   CallAfter([this] {
     const wxString &layout = AppManager::Get().GetPrefs().auiLayout;
     const int sideTab = AppManager::Get().GetPrefs().sideTab;
-    if (sideTab >= 0 &&
-        sideTab < static_cast<int>(m_auiSideBook->GetPageCount())) {
-      m_auiSideBook->SetSelection(sideTab);
-    }
+    m_sideView->SetSelection(sideTab);
     bool restored = false;
     if (!layout.empty()) {
       restored = m_auimgr->LoadPerspective(layout, /*update=*/true);
@@ -199,7 +187,7 @@ void MainView::SaveLayout() {
   // which must not replace what was saved (see RestoreLayout()).
   if (m_layoutRestored) {
     AppManager::Get().GetPrefs().auiLayout = m_auimgr->SavePerspective();
-    AppManager::Get().GetPrefs().sideTab = m_auiSideBook->GetSelection();
+    AppManager::Get().GetPrefs().sideTab = m_sideView->GetSelection();
   }
 }
 
@@ -232,9 +220,10 @@ void MainView::LoadBitmaps() {
 
   // The git view: the icon of its tab (the same for both appearances) and the
   // status of a file.
-  for (const char *name : {"git", "git-new", "git-deleted", "git-modified",
-                           "git-add", "git-commit", "git-push", "git-log", "git-reset",
-                           "git-renamed", "git-conflict", "git-untracked"}) {
+  for (const char *name :
+       {"git", "git-new", "git-deleted", "git-modified", "git-add",
+        "git-commit", "git-push", "git-log", "git-reset", "git-renamed",
+        "git-conflict", "git-untracked"}) {
     const wxString file = wxString(name) + ".svg";
     bmps.Load(file);
     bmps.AddAlias(file, name);
@@ -348,17 +337,4 @@ void MainView::OnAppPrefsSaved(wxCommandEvent &event) {
   ApplyPrefs();
 }
 
-void MainView::ApplyPrefs() {
-  const auto &prefs = AppManager::Get().GetPrefs();
-  auto theme = ThemeManager::Get().ActiveTheme().value_or(
-      wxSystemSettings::GetAppearance().IsDark()
-          ? wxTerminalTheme::MakeDarkTheme()
-          : wxTerminalTheme::MakeLightTheme());
-  m_auiSideBook->SetTheme(
-      theme, SettingsDlg::GetTabOutlineColourOf(theme, prefs.tabOutlineColour),
-      GlyphTabPainter::Style::Browser);
-  // Top or bottom: a vertical tab bar would take the width of the side bar.
-  m_auiSideBook->SetTabPosition(prefs.sideBarTabPosition == wxBOTTOM ? wxBOTTOM
-                                                                     : wxTOP);
-  m_auiSideBook->Refresh();
-}
+void MainView::ApplyPrefs() { m_sideView->ApplyPrefs(); }

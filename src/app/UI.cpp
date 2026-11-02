@@ -121,37 +121,6 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     wxBoxSizer* boxSizer596 = new wxBoxSizer(wxVERTICAL);
     m_panelSideView->SetSizer(boxSizer596);
     
-    m_auiSideBook = new GlyphBook(m_panelSideView, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_panelSideView, wxSize(250,250)), wxAUI_NB_TOP);
-    m_auiSideBook->SetName(wxT("m_auiSideBook"));
-    
-    boxSizer596->Add(m_auiSideBook, 1, wxEXPAND, WXC_FROM_DIP(5));
-    
-    m_bookPageGit = new wxPanel(m_auiSideBook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_auiSideBook, wxSize(-1,-1)), wxTAB_TRAVERSAL);
-    m_auiSideBook->AddPage(m_bookPageGit, _("Git"), false);
-    
-    wxBoxSizer* boxSizer615 = new wxBoxSizer(wxVERTICAL);
-    m_bookPageGit->SetSizer(boxSizer615);
-    
-    m_panelGit = new wxPanel(m_bookPageGit, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_bookPageGit, wxSize(-1,-1)), wxTAB_TRAVERSAL);
-    
-    boxSizer615->Add(m_panelGit, 1, wxEXPAND, WXC_FROM_DIP(5));
-    
-    wxBoxSizer* boxSizer617 = new wxBoxSizer(wxVERTICAL);
-    m_panelGit->SetSizer(boxSizer617);
-    
-    m_bookPageFileExplorer = new wxPanel(m_auiSideBook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_auiSideBook, wxSize(-1,-1)), wxTAB_TRAVERSAL);
-    m_auiSideBook->AddPage(m_bookPageFileExplorer, _("File Explorer"), false);
-    
-    wxBoxSizer* boxSizer612 = new wxBoxSizer(wxVERTICAL);
-    m_bookPageFileExplorer->SetSizer(boxSizer612);
-    
-    m_panelFileExplorer = new wxPanel(m_bookPageFileExplorer, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_bookPageFileExplorer, wxSize(-1,-1)), wxTAB_TRAVERSAL);
-    
-    boxSizer612->Add(m_panelFileExplorer, 1, wxEXPAND, WXC_FROM_DIP(5));
-    
-    wxBoxSizer* boxSizer613 = new wxBoxSizer(wxVERTICAL);
-    m_panelFileExplorer->SetSizer(boxSizer613);
-    
     m_panelActivity = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
     
     m_auimgr->AddPane(m_panelActivity, wxAuiPaneInfo().Name(wxT("Activity")).Caption(_("Activity")).Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(1).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
@@ -2002,5 +1971,60 @@ GitCommitMessageDlgBase::GitCommitMessageDlgBase(wxWindow* parent, wxWindowID id
 }
 
 GitCommitMessageDlgBase::~GitCommitMessageDlgBase()
+{
+}
+
+SideViewBase::SideViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
+    : wxPanel(parent, id, pos, size, style)
+{
+    if ( !bBitmapLoaded ) {
+        // We need to initialise the default bitmap handler
+        wxXmlResource::Get()->AddHandler(new wxBitmapXmlHandler);
+        wxCrafterFiTVkcInitBitmapResources();
+        bBitmapLoaded = true;
+    }
+    
+    wxBoxSizer* boxSizer638 = new wxBoxSizer(wxVERTICAL);
+    this->SetSizer(boxSizer638);
+    
+    m_auiSideBook = new GlyphBook(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(250,250)), wxAUI_NB_TOP);
+    m_auiSideBook->SetName(wxT("m_auiSideBook"));
+    
+    boxSizer638->Add(m_auiSideBook, 1, wxEXPAND, WXC_FROM_DIP(5));
+    
+    m_bookPageGit = new wxPanel(m_auiSideBook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_auiSideBook, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    m_auiSideBook->AddPage(m_bookPageGit, _("Git"), false);
+    
+    wxBoxSizer* boxSizer615 = new wxBoxSizer(wxVERTICAL);
+    m_bookPageGit->SetSizer(boxSizer615);
+    
+    m_panelGit = new wxPanel(m_bookPageGit, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_bookPageGit, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    
+    boxSizer615->Add(m_panelGit, 1, wxEXPAND, WXC_FROM_DIP(5));
+    
+    wxBoxSizer* boxSizer617 = new wxBoxSizer(wxVERTICAL);
+    m_panelGit->SetSizer(boxSizer617);
+    
+    m_bookPageFileExplorer = new wxPanel(m_auiSideBook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_auiSideBook, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    m_auiSideBook->AddPage(m_bookPageFileExplorer, _("File Explorer"), false);
+    
+    wxBoxSizer* boxSizer612 = new wxBoxSizer(wxVERTICAL);
+    m_bookPageFileExplorer->SetSizer(boxSizer612);
+    
+    m_panelFileExplorer = new wxPanel(m_bookPageFileExplorer, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_bookPageFileExplorer, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    
+    boxSizer612->Add(m_panelFileExplorer, 1, wxEXPAND, WXC_FROM_DIP(5));
+    
+    wxBoxSizer* boxSizer613 = new wxBoxSizer(wxVERTICAL);
+    m_panelFileExplorer->SetSizer(boxSizer613);
+    
+    SetName(wxT("SideViewBase"));
+    SetSize(wxDLG_UNIT(this, wxSize(500,300)));
+    if (GetSizer()) {
+         GetSizer()->Fit(this);
+    }
+}
+
+SideViewBase::~SideViewBase()
 {
 }

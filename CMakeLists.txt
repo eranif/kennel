@@ -332,13 +332,13 @@ set(KENNEL_APP_SOURCES
     src/app/FileBrowserDlg.cpp
     src/app/FileTreeCtrl.cpp
     src/app/DataViewTypeHelper.cpp
-    src/app/FileExplorerView.cpp
     src/app/GitCommitMessageDlg.cpp
-    src/app/GitView.cpp
+    src/app/GitPanel.cpp
     src/app/FileActions.cpp
     src/app/TabIcon.cpp
     src/app/ActivityView.cpp
     src/app/MainNotebook.cpp
+    src/app/SideView.cpp
     src/app/SessionStatusEvent.cpp)
 
 if(APPLE)

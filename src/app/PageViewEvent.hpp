@@ -48,17 +48,20 @@ private:
 };
 
 // The events below are how the pages (MainNotebook) and the side views
-// (ActivityView, FileExplorerView) talk: neither knows the other. They travel
+// (ActivityView, SideView) talk: neither knows the other. They travel
 // on the EventNotifier.
 //
 // From the pages, on the EventNotifier (the receiver follows and sends nothing
 // back):
-//   wxEVT_SESSION_PAGE_ADDED:    a session with files to show: GetRef(),
-//                                GetAccount().
+//   wxEVT_SESSION_PAGE_ADDED:    a session or a terminal with files to show:
+//                                GetRef(), GetAccount().
 //   wxEVT_SESSION_PAGE_REMOVED:  GetRef() is gone.
 //   wxEVT_SESSION_PAGE_RENAMED:  GetOldRef() is GetRef() now.
 //   wxEVT_SESSION_PAGES_CLEARED: every session is gone.
 //   wxEVT_SESSION_PAGE_SHOWN:    the session GetRef() is the page showing now.
+//   wxEVT_SESSION_PAGE_MOVED:    the place of a terminal changed (it went to
+//                                another folder): GetRef(), GetAccount().
+//                                Only plain terminals send it.
 //   wxEVT_SESSION_PAGE_ACTIVITY: GetActivity() is what the program of GetRef()
 //                                is doing now (None: nothing), also for the
 //                                page that is showing.
@@ -71,6 +74,7 @@ wxDECLARE_EVENT(wxEVT_SESSION_PAGE_RENAMED, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGES_CLEARED, wxCommandEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_SHOWN, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_ACTIVITY, PageViewEvent);
+wxDECLARE_EVENT(wxEVT_SESSION_PAGE_MOVED, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_PAGES_TOOLBAR_STYLE, wxCommandEvent);
 
 // Sent on the EventNotifier with ProcessEvent() (so the answer is known when it

@@ -16,9 +16,6 @@
 #include <wx/sizer.h>
 #include <wx/aui/framemanager.h>
 #include <wx/aui/dockart.h>
-#include <wx/aui/auibook.h>
-#include "GlyphBook.h"
-#include <wx/imaglist.h>
 #include "app/MainNotebook.hpp"
 #include <wx/dialog.h>
 #include <wx/iconbndl.h>
@@ -33,6 +30,7 @@
 #include <wx/toolbar.h>
 #include <wx/dataview.h>
 #include <wx/notebook.h>
+#include <wx/imaglist.h>
 #include <wx/statbmp.h>
 #include <wx/stc/stc.h>
 #include <wx/pen.h>
@@ -48,6 +46,8 @@
 #include <wx/dateevt.h>
 #include <wx/statline.h>
 #include <wx/srchctrl.h>
+#include <wx/aui/auibook.h>
+#include "GlyphBook.h"
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
 #include <wx/persist/toplevel.h>
@@ -83,11 +83,6 @@ class MainViewBase : public wxPanel
 protected:
     wxAuiManager* m_auimgr;
     wxPanel* m_panelSideView;
-    GlyphBook* m_auiSideBook;
-    wxPanel* m_bookPageGit;
-    wxPanel* m_panelGit;
-    wxPanel* m_bookPageFileExplorer;
-    wxPanel* m_panelFileExplorer;
     wxPanel* m_panelActivity;
     wxPanel* m_mainPanel;
     MainNotebook* m_sessionsBook;
@@ -95,11 +90,6 @@ protected:
 protected:
 
 public:
-    wxPanel* GetPanelGit() { return m_panelGit; }
-    wxPanel* GetBookPageGit() { return m_bookPageGit; }
-    wxPanel* GetPanelFileExplorer() { return m_panelFileExplorer; }
-    wxPanel* GetBookPageFileExplorer() { return m_bookPageFileExplorer; }
-    GlyphBook* GetAuiSideBook() { return m_auiSideBook; }
     wxPanel* GetPanelSideView() { return m_panelSideView; }
     wxPanel* GetPanelActivity() { return m_panelActivity; }
     MainNotebook* GetSessionsBook() { return m_sessionsBook; }
@@ -625,6 +615,28 @@ public:
     wxPanel* GetPanel630() { return m_panel630; }
     GitCommitMessageDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Commit Message"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);
     virtual ~GitCommitMessageDlgBase();
+};
+
+
+class SideViewBase : public wxPanel
+{
+protected:
+    GlyphBook* m_auiSideBook;
+    wxPanel* m_bookPageGit;
+    wxPanel* m_panelGit;
+    wxPanel* m_bookPageFileExplorer;
+    wxPanel* m_panelFileExplorer;
+
+protected:
+
+public:
+    wxPanel* GetPanelGit() { return m_panelGit; }
+    wxPanel* GetBookPageGit() { return m_bookPageGit; }
+    wxPanel* GetPanelFileExplorer() { return m_panelFileExplorer; }
+    wxPanel* GetBookPageFileExplorer() { return m_bookPageFileExplorer; }
+    GlyphBook* GetAuiSideBook() { return m_auiSideBook; }
+    SideViewBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500,300), long style = wxTAB_TRAVERSAL);
+    virtual ~SideViewBase();
 };
 
 #endif

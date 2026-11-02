@@ -1,4 +1,4 @@
-#include "app/GitView.hpp"
+#include "app/GitPanel.hpp"
 
 #include "app/FileTreeCtrl.hpp"
 #include "app/GitCommitMessageDlg.hpp"
@@ -115,7 +115,9 @@ wxDEFINE_EVENT(wxEVT_GITVIEW_SHOW_DIFF, FileEvent);
 wxDEFINE_EVENT(wxEVT_GITVIEW_SHOW_TEXT, FileEvent);
 wxDEFINE_EVENT(wxEVT_GITVIEW_RUN_IN_TERMINAL, FileEvent);
 
-GitView::GitView(wxWindow *parent) : wxPanel(parent) {
+GitPanel::GitPanel(wxWindow *parent, const Account &account)
+    : wxPanel(parent), m_account(account), m_hasFolder(HasFolder(account)) {
+  m_message = m_hasFolder ? _("Loading...") : _("No working folder");
   m_toolbar = new wxAuiToolBar(this);
   toolbar::AddTool(m_toolbar, kIdRefresh, _("Refresh"),
                    AppManager::Get().GetBitmaps().GetByAlias("reload", false),
@@ -153,229 +155,99 @@ GitView::GitView(wxWindow *parent) : wxPanel(parent) {
   sizer->Add(m_list, wxSizerFlags(1).Expand());
   SetSizer(sizer);
 
-  m_toolbar->Bind(wxEVT_TOOL, &GitView::OnRefresh, this, kIdRefresh);
+  m_toolbar->Bind(wxEVT_TOOL, &GitPanel::OnRefresh, this, kIdRefresh);
   for (const int id : {kIdAdd, kIdCommit, kIdPush, kIdRepoLog, kIdResetRepo}) {
-    m_toolbar->Bind(wxEVT_TOOL, &GitView::OnMenuAction, this, id);
+    m_toolbar->Bind(wxEVT_TOOL, &GitPanel::OnMenuAction, this, id);
   }
-  m_list->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &GitView::OnActivated, this);
-  m_list->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &GitView::OnContextMenu, this);
+  m_list->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &GitPanel::OnActivated, this);
+  m_list->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &GitPanel::OnContextMenu,
+               this);
   auto *notifier = EventNotifier::Get();
-  notifier->Bind(wxEVT_SESSION_PAGE_ADDED, &GitView::OnSessionPageAdded, this);
-  notifier->Bind(wxEVT_SESSION_PAGE_ACTIVITY, &GitView::OnSessionPageActivity,
-                 this);
-  notifier->Bind(wxEVT_SESSION_PAGE_REMOVED, &GitView::OnSessionPageRemoved,
-                 this);
-  notifier->Bind(wxEVT_SESSION_PAGE_RENAMED, &GitView::OnSessionRenamed, this);
-  notifier->Bind(wxEVT_SESSION_PAGE_SHOWN, &GitView::OnSessionPageShown, this);
-  notifier->Bind(wxEVT_SESSION_PAGES_CLEARED, &GitView::OnSessionPagesCleared,
-                 this);
-  notifier->Bind(wxEVT_GIT_STATUS, &GitView::OnGitStatus, this);
-  notifier->Bind(wxEVT_GIT_DIFF, &GitView::OnGitDiff, this);
-  notifier->Bind(wxEVT_GIT_COMMAND, &GitView::OnGitCommand, this);
-  notifier->Bind(wxEVT_FILE_SAVED, &GitView::OnFileSaved, this);
+  notifier->Bind(wxEVT_GIT_STATUS, &GitPanel::OnGitStatus, this);
+  notifier->Bind(wxEVT_GIT_DIFF, &GitPanel::OnGitDiff, this);
+  notifier->Bind(wxEVT_GIT_COMMAND, &GitPanel::OnGitCommand, this);
   Refill();
 }
 
-// A driver ends by waiting for the git that runs, which can take seconds (an
-// ssh host that does not answer). That is done on another thread: the UI goes
-// on. The destructor of the view waits for these threads.
-void GitView::DeleteInBackground(std::unique_ptr<GitDriver> driver) {
-  if (driver) {
-    m_reapers.emplace_back(
-        [driver = std::move(driver)]() mutable { driver.reset(); });
-  }
-}
-
-GitView::~GitView() {
-  for (std::thread &reaper : m_reapers) {
-    reaper.join();
-  }
+GitPanel::~GitPanel() {
   auto *notifier = EventNotifier::Get();
-  notifier->Unbind(wxEVT_SESSION_PAGE_ACTIVITY, &GitView::OnSessionPageActivity,
-                   this);
-  notifier->Unbind(wxEVT_SESSION_PAGE_ADDED, &GitView::OnSessionPageAdded,
-                   this);
-  notifier->Unbind(wxEVT_SESSION_PAGE_REMOVED, &GitView::OnSessionPageRemoved,
-                   this);
-  notifier->Unbind(wxEVT_SESSION_PAGE_RENAMED, &GitView::OnSessionRenamed,
-                   this);
-  notifier->Unbind(wxEVT_SESSION_PAGE_SHOWN, &GitView::OnSessionPageShown,
-                   this);
-  notifier->Unbind(wxEVT_SESSION_PAGES_CLEARED, &GitView::OnSessionPagesCleared,
-                   this);
-  notifier->Unbind(wxEVT_GIT_STATUS, &GitView::OnGitStatus, this);
-  notifier->Unbind(wxEVT_GIT_DIFF, &GitView::OnGitDiff, this);
-  notifier->Unbind(wxEVT_GIT_COMMAND, &GitView::OnGitCommand, this);
-  notifier->Unbind(wxEVT_FILE_SAVED, &GitView::OnFileSaved, this);
+  notifier->Unbind(wxEVT_GIT_STATUS, &GitPanel::OnGitStatus, this);
+  notifier->Unbind(wxEVT_GIT_DIFF, &GitPanel::OnGitDiff, this);
+  notifier->Unbind(wxEVT_GIT_COMMAND, &GitPanel::OnGitCommand, this);
 }
 
-void GitView::ApplyToolBarStyle() { toolbar::ApplyStyle(m_toolbar); }
-
-int GitView::FindEntry(const SessionRef &ref) const {
-  for (size_t i = 0; i < m_entries.size(); ++i) {
-    if (m_entries[i].ref == ref) {
-      return static_cast<int>(i);
-    }
-  }
-  return wxNOT_FOUND;
+// The driver ends by waiting for the git that runs, which can take seconds (an
+// ssh host that does not answer): the caller ends it on another thread.
+std::unique_ptr<GitDriver> GitPanel::ReleaseDriver() {
+  return std::move(m_driver);
 }
 
-GitView::Entry *GitView::ActiveEntry() {
-  if (!m_active) {
-    return nullptr;
-  }
-  const int index = FindEntry(*m_active);
-  return index == wxNOT_FOUND ? nullptr : &m_entries[index];
-}
-
-void GitView::Request(Entry &entry) {
-  if (!entry.hasFolder) {
-    return;
-  }
-  // The driver (and its thread) starts when the session is first shown.
-  if (!entry.driver) {
-    entry.driver = MakeDriver(entry.account);
-  }
-  entry.driver->Status();
-}
-
-void GitView::OnSessionPageActivity(PageViewEvent &event) {
-  event.Skip();
-  RefreshView();
-}
-
-void GitView::OnSessionPageAdded(PageViewEvent &event) {
-  event.Skip();
-  if (FindEntry(event.GetRef()) != wxNOT_FOUND) {
-    return;
-  }
-  Entry entry;
-  entry.ref = event.GetRef();
-  entry.account = event.GetAccount();
-  entry.hasFolder = HasFolder(entry.account);
-  entry.message = entry.hasFolder ? _("Loading...") : _("No working folder");
-  m_entries.push_back(std::move(entry));
-  if (m_active == m_entries.back().ref) {
-    Request(m_entries.back());
-    Refill();
-  }
-}
-
-void GitView::OnSessionPageRemoved(PageViewEvent &event) {
-  event.Skip();
-  const int index = FindEntry(event.GetRef());
-  if (index == wxNOT_FOUND) {
-    return;
-  }
-  DeleteInBackground(std::move(m_entries[index].driver));
-  m_entries.erase(m_entries.begin() + index);
-  if (m_active == event.GetRef()) {
-    m_active.reset();
-    Refill();
-  }
-}
-
-void GitView::OnSessionRenamed(PageViewEvent &event) {
-  event.Skip();
-  if (const int index = FindEntry(event.GetOldRef()); index != wxNOT_FOUND) {
-    m_entries[index].ref = event.GetRef();
-  }
-  if (m_active == event.GetOldRef()) {
-    m_active = event.GetRef();
-  }
-}
-
-void GitView::OnSessionPagesCleared(wxCommandEvent &event) {
-  event.Skip();
-  for (Entry &entry : m_entries) {
-    DeleteInBackground(std::move(entry.driver));
-  }
-  m_entries.clear();
-  m_active.reset();
+std::unique_ptr<GitDriver> GitPanel::SetRootDir(const wxString &dir) {
+  m_account.m_rootDir = dir;
+  m_hasFolder = HasFolder(m_account);
+  m_status = GitStatus{};
+  m_message = m_hasFolder ? _("Loading...") : _("No working folder");
   Refill();
+  return std::move(m_driver);
 }
 
-void GitView::OnSessionPageShown(PageViewEvent &event) {
-  event.Skip();
-  m_active = event.GetRef();
-  if (Entry *entry = ActiveEntry()) {
-    Request(*entry); // Shows what it has now, and the answer comes later
+void GitPanel::ApplyToolBarStyle() { toolbar::ApplyStyle(m_toolbar); }
+
+void GitPanel::Activate() {
+  if (!m_hasFolder) {
+    return;
   }
-  Refill();
+  // The driver (and its thread) starts when the panel is first shown.
+  if (!m_driver) {
+    m_driver = MakeDriver(m_account);
+  }
+  m_driver->Status();
 }
 
-void GitView::OnGitStatus(GitEvent &event) {
+void GitPanel::OnGitStatus(GitEvent &event) {
   event.Skip(); // The driver may be someone else's
-  for (Entry &entry : m_entries) {
-    if (!entry.driver || entry.driver->GetId() != event.GetInt()) {
-      continue;
-    }
-    if (event.GetResult().ok()) {
-      entry.status = event.GetRepoStatus();
-      entry.message.clear();
-    } else {
-      KLOG_DEBUG() << "git status of " << entry.ref.name << ": "
-                   << event.GetResult().message();
-      entry.status = GitStatus{};
-      entry.message = event.GetResult().message();
-    }
-    if (&entry == ActiveEntry()) {
-      Refill();
-    }
+  if (!m_driver || m_driver->GetId() != event.GetInt()) {
     return;
   }
-}
-
-void GitView::OnFileSaved(FileEvent &event) {
-  event.Skip();
-  // Only a file of the account of the session that shows can be in its
-  // repository.
-  Entry *entry = ActiveEntry();
-  if (entry != nullptr &&
-      event.GetAccount().GetId() == entry->account.GetId()) {
-    Request(*entry);
+  if (event.GetResult().ok()) {
+    m_status = event.GetRepoStatus();
+    m_message.clear();
+  } else {
+    KLOG_DEBUG() << "git status of " << m_account.GetDisplayName() << ": "
+                 << event.GetResult().message();
+    m_status = GitStatus{};
+    m_message = event.GetResult().message();
   }
+  Refill();
 }
 
-void GitView::RefreshView() {
-  if (Entry *entry = ActiveEntry()) {
-    Request(*entry);
-  }
-}
-
-void GitView::OnRefresh(wxCommandEvent &event) {
+void GitPanel::OnRefresh(wxCommandEvent &event) {
   event.Skip();
-  RefreshView();
+  Activate();
 }
 
-void GitView::AutoSizeColumns() {
+void GitPanel::AutoSizeColumns() {
   for (unsigned int i = 0; i < m_list->GetColumnCount(); ++i) {
     m_list->GetColumn(i)->SetWidth(wxCOL_WIDTH_AUTOSIZE);
   }
 }
 
-void GitView::Refill() {
+void GitPanel::Refill() {
   wxWindowUpdateLocker locker{m_list};
   m_list->DeleteAllItems();
   m_rows.clear();
-  const Entry *entry = ActiveEntry();
-  if (entry == nullptr) {
-    m_branch->SetLabel(wxEmptyString);
-    return;
-  }
-
-  if (!entry->message.empty()) {
+  if (!m_message.empty()) {
     m_branch->SetLabel(wxEmptyString);
     // The first line: the error of git can have many.
     m_list->AppendItem(
-        {IconText(wxEmptyString), IconText(entry->message.BeforeFirst('\n'))});
+        {IconText(wxEmptyString), IconText(m_message.BeforeFirst('\n'))});
     m_rows.emplace_back();
     Layout();
     AutoSizeColumns();
     return;
   }
 
-  const GitStatus &status = entry->status;
+  const GitStatus &status = m_status;
   wxString label =
       status.detached ? wxString(_("(detached HEAD)")) : status.branch;
   if (status.ahead != 0 || status.behind != 0) {
@@ -425,7 +297,7 @@ void GitView::Refill() {
   AutoSizeColumns();
 }
 
-const GitView::Row *GitView::RowOf(const wxDataViewItem &item) const {
+const GitPanel::Row *GitPanel::RowOf(const wxDataViewItem &item) const {
   const int row = m_list->ItemToRow(item);
   if (row < 0 || row >= static_cast<int>(m_rows.size()) ||
       m_rows[row].path.empty()) {
@@ -434,14 +306,14 @@ const GitView::Row *GitView::RowOf(const wxDataViewItem &item) const {
   return &m_rows[row];
 }
 
-void GitView::OnActivated(wxDataViewEvent &event) {
+void GitPanel::OnActivated(wxDataViewEvent &event) {
   event.Skip();
   if (const Row *row = RowOf(event.GetItem())) {
     ShowDiff(*row);
   }
 }
 
-std::vector<const GitView::Row *> GitView::SelectedRows() const {
+std::vector<const GitPanel::Row *> GitPanel::SelectedRows() const {
   wxDataViewItemArray items;
   m_list->GetSelections(items);
   std::vector<const Row *> rows;
@@ -453,7 +325,8 @@ std::vector<const GitView::Row *> GitView::SelectedRows() const {
   return rows;
 }
 
-std::vector<wxString> GitView::PathSpecs(const std::vector<const Row *> &rows) {
+std::vector<wxString>
+GitPanel::PathSpecs(const std::vector<const Row *> &rows) {
   std::vector<wxString> specs;
   for (const Row *row : rows) {
     // Relative to the root of the repository, and a name, not a pattern.
@@ -466,7 +339,7 @@ std::vector<wxString> GitView::PathSpecs(const std::vector<const Row *> &rows) {
   return specs;
 }
 
-void GitView::OnContextMenu(wxDataViewEvent &event) {
+void GitPanel::OnContextMenu(wxDataViewEvent &event) {
   event.Skip();
   const Row *clicked = RowOf(event.GetItem());
   if (clicked == nullptr) {
@@ -495,11 +368,11 @@ void GitView::OnContextMenu(wxDataViewEvent &event) {
   }
   menu.AppendSeparator();
   menu.Append(kIdResetFile, _("Reset File..."));
-  menu.Bind(wxEVT_MENU, &GitView::OnMenuAction, this);
+  menu.Bind(wxEVT_MENU, &GitPanel::OnMenuAction, this);
   m_list->PopupMenu(&menu);
 }
 
-void GitView::OnMenuAction(wxCommandEvent &event) {
+void GitPanel::OnMenuAction(wxCommandEvent &event) {
   event.Skip();
   const int id = event.GetId();
   const std::vector<const Row *> rows = SelectedRows();
@@ -527,9 +400,8 @@ void GitView::OnMenuAction(wxCommandEvent &event) {
   }
 }
 
-void GitView::AddFiles(const std::vector<const Row *> &rows) {
-  Entry *entry = ActiveEntry();
-  if (entry == nullptr || !entry->driver) {
+void GitPanel::AddFiles(const std::vector<const Row *> &rows) {
+  if (!m_driver) {
     return;
   }
   std::vector<const Row *> unstaged;
@@ -545,12 +417,11 @@ void GitView::AddFiles(const std::vector<const Row *> &rows) {
   for (const wxString &spec : PathSpecs(unstaged)) {
     args.push_back(spec);
   }
-  entry->driver->RunCommand("add", args);
+  m_driver->RunCommand("add", args);
 }
 
-void GitView::ResetFiles(const std::vector<const Row *> &rows) {
-  Entry *entry = ActiveEntry();
-  if (entry == nullptr || !entry->driver || rows.empty()) {
+void GitPanel::ResetFiles(const std::vector<const Row *> &rows) {
+  if (!m_driver || rows.empty()) {
     return;
   }
   const std::vector<wxString> all = PathSpecs(rows);
@@ -582,16 +453,15 @@ void GitView::ResetFiles(const std::vector<const Row *> &rows) {
     for (const wxString &spec : PathSpecs(group)) {
       args.push_back(spec);
     }
-    entry->driver->RunCommand("reset-file", args);
+    m_driver->RunCommand("reset-file", args);
   };
   run({"restore", "--source=HEAD", "--staged", "--worktree"}, tracked);
   run({"rm", "-f", "-q"}, added);
   run({"clean", "-f", "-q"}, untracked);
 }
 
-void GitView::ResetRepo() {
-  Entry *entry = ActiveEntry();
-  if (entry == nullptr || !entry->driver) {
+void GitPanel::ResetRepo() {
+  if (!m_driver) {
     return;
   }
   if (::wxMessageBox(
@@ -601,12 +471,11 @@ void GitView::ResetRepo() {
           "Kennel", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) != wxYES) {
     return;
   }
-  entry->driver->RunCommand("reset-repo", {"reset", "--hard", "HEAD"});
+  m_driver->RunCommand("reset-repo", {"reset", "--hard", "HEAD"});
 }
 
-void GitView::ShowLog(const Row *row) {
-  Entry *entry = ActiveEntry();
-  if (entry == nullptr || !entry->driver) {
+void GitPanel::ShowLog(const Row *row) {
+  if (!m_driver) {
     return;
   }
   const long lines =
@@ -623,24 +492,21 @@ void GitView::ShowLog(const Row *row) {
     args.push_back("--");
     args.push_back(":(top,literal)" + row->path);
   }
-  entry->driver->RunCommand("log", args, row ? row->path : wxString());
+  m_driver->RunCommand("log", args, row ? row->path : wxString());
 }
 
-void GitView::ShowBlame(const Row &row) {
-  Entry *entry = ActiveEntry();
-  if (entry == nullptr || !entry->driver || entry->status.root.empty()) {
+void GitPanel::ShowBlame(const Row &row) {
+  if (!m_driver || m_status.root.empty()) {
     return;
   }
   // blame has no pathspecs: it runs in the root, where the path is right.
-  entry->driver->RunCommand(
-      "blame",
-      {"-C", entry->status.root, "blame", "--date=short", "--", row.path},
+  m_driver->RunCommand(
+      "blame", {"-C", m_status.root, "blame", "--date=short", "--", row.path},
       row.path);
 }
 
-void GitView::Commit() {
-  Entry *entry = ActiveEntry();
-  if (entry == nullptr || !entry->driver || entry->status.root.empty()) {
+void GitPanel::Commit() {
+  if (!m_driver || m_status.root.empty()) {
     return;
   }
   // The parent is the main frame, so the dialog is in the middle of it.
@@ -681,38 +547,30 @@ void GitView::Commit() {
     args.push_back(message);
   }
   // Runs in the background; a failure comes back as an error (OnGitCommand()).
-  entry->driver->RunCommand("commit", args);
+  m_driver->RunCommand("commit", args);
 }
 
-void GitView::Push() {
-  const Entry *entry = ActiveEntry();
-  if (entry == nullptr || entry->status.root.empty()) {
+void GitPanel::Push() {
+  if (m_status.root.empty()) {
     return;
   }
   // The terminal of the account runs it (the git of a WSL distribution or of a
   // remote host asks for its passwords there). Only the terminal knows when it
   // is done: nothing is refreshed here.
-  const wxString &root = entry->status.root;
+  const wxString &root = m_status.root;
   FileEvent run{wxEVT_GITVIEW_RUN_IN_TERMINAL};
   run.SetEventObject(this);
   run.SetPath(root);
-  run.SetAccount(entry->account);
-  run.SetString(entry->account.IsLocalHost()
+  run.SetAccount(m_account);
+  run.SetString(m_account.IsLocalHost()
                     ? "git -C " + QuoteForShell(root) + " push"
                     : "cd " + QuoteForShell(root) + " && git push");
   EventNotifier::Get()->AddPendingEvent(run);
 }
 
-void GitView::OnGitCommand(GitEvent &event) {
+void GitPanel::OnGitCommand(GitEvent &event) {
   event.Skip(); // The driver may be someone else's
-  Entry *entry = nullptr;
-  for (Entry &candidate : m_entries) {
-    if (candidate.driver && candidate.driver->GetId() == event.GetInt()) {
-      entry = &candidate;
-      break;
-    }
-  }
-  if (entry == nullptr) {
+  if (!m_driver || m_driver->GetId() != event.GetInt()) {
     return;
   }
   const wxString &command = event.GetCommand();
@@ -722,10 +580,10 @@ void GitView::OnGitCommand(GitEvent &event) {
   } else if (command == "log" || command == "blame") {
     FileEvent show{wxEVT_GITVIEW_SHOW_TEXT};
     show.SetEventObject(this);
-    show.SetAccount(entry->account);
+    show.SetAccount(m_account);
     // The log of the repository has no file: a name in its folder.
     show.SetPath(
-        FullPath(entry->account, entry->status.root,
+        FullPath(m_account, m_status.root,
                  event.GetPath().empty() ? wxString("git") : event.GetPath()));
     show.SetInt(command == "log" ? 0 : 1);
     show.SetString(event.GetText().empty() ? wxString(_("(nothing to show)"))
@@ -734,51 +592,46 @@ void GitView::OnGitCommand(GitEvent &event) {
     return;
   }
   // The files changed, also after an error (a part of the work may be done).
-  Request(*entry);
+  Activate();
 }
 
-void GitView::OpenFile(const Row &row) {
-  const Entry *entry = ActiveEntry();
-  if (entry == nullptr || entry->status.root.empty()) {
+void GitPanel::OpenFile(const Row &row) {
+  if (m_status.root.empty()) {
     return;
   }
   FileEvent open{wxEVT_FILETREE_ACTIVATED};
   open.SetEventObject(this);
-  open.SetPath(FullPath(entry->account, entry->status.root, row.path));
+  open.SetPath(FullPath(m_account, m_status.root, row.path));
   open.SetIsDir(false);
-  open.SetAccount(entry->account);
+  open.SetAccount(m_account);
   EventNotifier::Get()->AddPendingEvent(open);
 }
 
-void GitView::ShowDiff(const Row &row) {
-  Entry *entry = ActiveEntry();
-  if (entry == nullptr || !entry->driver) {
+void GitPanel::ShowDiff(const Row &row) {
+  if (!m_driver) {
     return;
   }
   // The answer comes on wxEVT_GIT_DIFF (see OnGitDiff()).
-  entry->driver->Diff(row.path, row.staged, row.untracked);
+  m_driver->Diff(row.path, row.staged, row.untracked);
 }
 
-void GitView::OnGitDiff(GitEvent &event) {
+void GitPanel::OnGitDiff(GitEvent &event) {
   event.Skip(); // The driver may be someone else's
-  for (const Entry &entry : m_entries) {
-    if (!entry.driver || entry.driver->GetId() != event.GetInt()) {
-      continue;
-    }
-    if (!event.GetResult().ok()) {
-      ::wxMessageBox(event.GetResult().message(), "Kennel", wxOK | wxICON_ERROR,
-                     this);
-      return;
-    }
-    // The host shows it (see MainNotebook).
-    FileEvent show{wxEVT_GITVIEW_SHOW_DIFF};
-    show.SetEventObject(this);
-    show.SetPath(FullPath(entry.account, entry.status.root, event.GetPath()));
-    show.SetAccount(entry.account);
-    show.SetInt(event.IsStaged() ? 1 : 0);
-    show.SetString(event.GetText().empty() ? wxString(_("(no differences)"))
-                                           : event.GetText());
-    EventNotifier::Get()->AddPendingEvent(show);
+  if (!m_driver || m_driver->GetId() != event.GetInt()) {
     return;
   }
+  if (!event.GetResult().ok()) {
+    ::wxMessageBox(event.GetResult().message(), "Kennel", wxOK | wxICON_ERROR,
+                   this);
+    return;
+  }
+  // The host shows it (see MainNotebook).
+  FileEvent show{wxEVT_GITVIEW_SHOW_DIFF};
+  show.SetEventObject(this);
+  show.SetPath(FullPath(m_account, m_status.root, event.GetPath()));
+  show.SetAccount(m_account);
+  show.SetInt(event.IsStaged() ? 1 : 0);
+  show.SetString(event.GetText().empty() ? wxString(_("(no differences)"))
+                                         : event.GetText());
+  EventNotifier::Get()->AddPendingEvent(show);
 }

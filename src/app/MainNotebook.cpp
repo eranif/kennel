@@ -7,9 +7,9 @@
 #include "app/ActivityView.hpp"
 #include "app/AppTheme.h"
 #include "app/AssetBootstrap.h"
-#include "app/FileExplorerView.hpp"
 #include "app/FilePage.hpp"
-#include "app/GitView.hpp"
+#include "app/FileTreeCtrl.hpp"
+#include "app/GitPanel.hpp"
 #include "app/GotoAnythingBar.hpp"
 #include "app/MainFrame.h"
 #include "app/PageNames.h"
@@ -822,10 +822,8 @@ SessionPage *MainNotebook::AddSession(SessionPage *page) {
   }
   AddTab(page);
   const SessionRef ref{session.groupName, session.name};
-  // Sessions only: a plain terminal has no tree.
-  if (!page->IsPlainTerminal()) {
-    SendPageEvent(wxEVT_SESSION_PAGE_ADDED, ref, page->GetAccount());
-  }
+  // A terminal too: the side bar shows the files of the folder it is in.
+  SendPageEvent(wxEVT_SESSION_PAGE_ADDED, ref, page->GetAccount());
   return page;
 }
 
@@ -2025,6 +2023,11 @@ void MainNotebook::OnSessionCwd(wxCommandEvent &e) {
     if (page == e.GetEventObject()) {
       if (page->GetSession().plainTerminal) {
         SyncWorkspaceSoon();
+        // The side bar follows the terminal to its folder.
+        const Session &session = page->GetSession();
+        SendPageEvent(wxEVT_SESSION_PAGE_MOVED,
+                      SessionRef{session.groupName, session.name},
+                      page->GetAccount());
       }
       break;
     }

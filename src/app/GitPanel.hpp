@@ -10,7 +10,6 @@
 
 #include <memory>
 #include <optional>
-#include <thread>
 #include <vector>
 #include <wx/panel.h>
 
@@ -35,9 +34,10 @@ wxDECLARE_EVENT(wxEVT_GITVIEW_SHOW_TEXT, FileEvent);
 // GetPath() is the folder to start it in, GetString() is the command line.
 wxDECLARE_EVENT(wxEVT_GITVIEW_RUN_IN_TERMINAL, FileEvent);
 
-// The git changes of the session that is showing.
+// The git changes of one place: the repository of an Account (this machine, a
+// WSL distribution or a remote host) and its working folder.
 //
-//   [ refresh ]
+//   [ refresh ] [ add ] [ commit ] [ push ] [ log ] [ reset ]
 //   main  ahead 1, behind 0
 //   Status               Path
 //   Modified (staged)    src/app/a.cpp
@@ -46,18 +46,32 @@ wxDECLARE_EVENT(wxEVT_GITVIEW_RUN_IN_TERMINAL, FileEvent);
 //
 // A file that has changes in the index and in the work tree has two rows. A
 // double click shows the diff of the row (wxEVT_GITVIEW_SHOW_DIFF); the context
-// menu has Show Diff and Open File.
+// menu has the actions of the files.
 //
-// Self contained, like FileExplorerView: it listens on the EventNotifier to
-// which sessions exist and which one shows, keeps one GitDriver for each
-// session (the kind comes from the Account of the session; it starts when the
-// session is first shown), and sends the file to open
-// (wxEVT_FILETREE_ACTIVATED) and the diff to show on the EventNotifier. A
-// session without a working folder has no driver.
-class GitView : public wxPanel {
+// A panel knows nothing of the sessions: SideView makes one for each place and
+// shows the right one. It has one GitDriver (the kind comes from the Account;
+// it starts with the first Activate()), listens on the EventNotifier to the
+// answers of its own driver, and sends the file to open
+// (wxEVT_FILETREE_ACTIVATED), the texts to show and the commands for the
+// terminal on the EventNotifier. An account without a working folder has no
+// driver.
+class GitPanel : public wxPanel {
 public:
-  explicit GitView(wxWindow *parent);
-  ~GitView() override;
+  GitPanel(wxWindow *parent, const Account &account);
+  ~GitPanel() override;
+
+  const Account &GetAccount() const { return m_account; }
+
+  // Reads the status of the repository (the answer comes later). Call it when
+  // the panel is shown, and when the files may have changed.
+  void Activate();
+  // Gives the driver away, for the caller to end it on another thread (see
+  // the definition): a panel that is about to be deleted does it.
+  std::unique_ptr<GitDriver> ReleaseDriver();
+  // The panel shows the repository of another folder of the same account. The
+  // driver of the folder it had is given away like ReleaseDriver() does. Call
+  // Activate() to read the new one.
+  std::unique_ptr<GitDriver> SetRootDir(const wxString &dir);
 
   // Gives the toolbar the style of the theme of the application.
   void ApplyToolBarStyle();
@@ -72,36 +86,15 @@ private:
     bool added{false}; // New in the index
   };
 
-  // One session.
-  struct Entry {
-    SessionRef ref;
-    Account account;
-    bool hasFolder{false};
-    // Null until the session is first shown, and for a session with no folder.
-    std::unique_ptr<GitDriver> driver;
-    // The last answer. `message` is what the table shows instead of the files
-    // (an error, or "Loading...").
-    GitStatus status;
-    wxString message;
-  };
-
-  void OnSessionPageActivity(PageViewEvent &event);
-  void OnSessionPageAdded(PageViewEvent &event);
-  void OnSessionPageRemoved(PageViewEvent &event);
-  void OnSessionRenamed(PageViewEvent &event);
-  void OnSessionPageShown(PageViewEvent &event);
-  void OnSessionPagesCleared(wxCommandEvent &event);
   void OnGitStatus(GitEvent &event);
-  void OnFileSaved(FileEvent &event);
   void OnRefresh(wxCommandEvent &event);
   void OnActivated(wxDataViewEvent &event);
   void OnContextMenu(wxDataViewEvent &event);
   void OnGitCommand(GitEvent &event);
-  // The actions of the context menu and of the actions menu.
+  // The actions of the context menu and of the toolbar.
   void OnMenuAction(wxCommandEvent &event);
   void OnGitDiff(GitEvent &event);
 
-  void RefreshView();
   // The row of the table at `item`, null for a message.
   const Row *RowOf(const wxDataViewItem &item) const;
   // Asks for the diff of the file (the answer is OnGitDiff()).
@@ -122,24 +115,23 @@ private:
   void Commit();
   void Push();
 
-  int FindEntry(const SessionRef &ref) const;
-  Entry *ActiveEntry();
-  // Asks the driver of the entry for the status, if it has one.
-  void Request(Entry &entry);
-  // Deletes the driver on another thread (see the definition).
-  void DeleteInBackground(std::unique_ptr<GitDriver> driver);
-  // Fills the label and the table from the entry that shows.
+  // Fills the label and the table from the last answer.
   void Refill();
   // Makes the columns as wide as their content.
   void AutoSizeColumns();
 
+  Account m_account;
+  bool m_hasFolder{false};
+  // Null until the first Activate(), and for an account with no folder.
+  std::unique_ptr<GitDriver> m_driver;
+  // The last answer. `m_message` is what the table shows instead of the files
+  // (an error, or "Loading...").
+  GitStatus m_status;
+  wxString m_message;
+
   wxAuiToolBar *m_toolbar{nullptr};
   wxStaticText *m_branch{nullptr};
   wxDataViewListCtrl *m_list{nullptr};
-  std::vector<Entry> m_entries;
-  // The threads that end the drivers of the sessions that went.
-  std::vector<std::thread> m_reapers;
-  std::optional<SessionRef> m_active;
   // The rows of the table.
   std::vector<Row> m_rows;
   // How many rows of the log to ask for.
