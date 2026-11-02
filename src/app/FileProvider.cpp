@@ -2,8 +2,10 @@
 #include "core/Logger.h"
 
 #include <wx/dir.h>
+#include <wx/file.h>
 #include <wx/filename.h>
 #include <wx/intl.h>
+#include <wx/log.h>
 #include <wx/utils.h>
 
 //===------------------------
@@ -45,6 +47,50 @@ LocalFilesProvider::ListFiles(const wxString &dir) {
   }
 
   return result;
+}
+
+Status LocalFilesProvider::MakeFolder(const wxString &path) {
+  if (wxFileName::Exists(path, wxFILE_EXISTS_ANY | wxFILE_EXISTS_NO_FOLLOW)) {
+    return Status::Error(wxString::Format(_("%s already exists"), path));
+  }
+  wxLogNull noLog; // The error is returned, not shown by wx
+  if (!wxFileName::Mkdir(path, wxS_DIR_DEFAULT)) {
+    return Status::Error(
+        wxString::Format(_("Could not create the folder %s"), path));
+  }
+  return Status::Ok();
+}
+
+Status LocalFilesProvider::MakeFile(const wxString &path) {
+  if (wxFileName::Exists(path, wxFILE_EXISTS_ANY | wxFILE_EXISTS_NO_FOLLOW)) {
+    return Status::Error(wxString::Format(_("%s already exists"), path));
+  }
+  wxLogNull noLog; // The error is returned, not shown by wx
+  wxFile file;
+  if (!file.Create(path, /*overwrite=*/false)) {
+    return Status::Error(
+        wxString::Format(_("Could not create the file %s"), path));
+  }
+  return Status::Ok();
+}
+
+Status LocalFilesProvider::Remove(const wxString &path) {
+  wxLogNull noLog; // The error is returned, not shown by wx
+  // A symbolic link (also one to a folder) is a file here: only the link goes.
+  const bool isLink =
+      wxFileName::Exists(path, wxFILE_EXISTS_SYMLINK | wxFILE_EXISTS_NO_FOLLOW);
+  bool removed = false;
+  if (!isLink && wxDirExists(path)) {
+    // Recursive: it does not follow the symbolic links inside (see
+    // wxFileName::Rmdir()).
+    removed = wxFileName::Rmdir(path, wxPATH_RMDIR_RECURSIVE);
+  } else {
+    removed = wxRemoveFile(path);
+  }
+  if (!removed) {
+    return Status::Error(wxString::Format(_("Could not delete %s"), path));
+  }
+  return Status::Ok();
 }
 
 void LocalFilesProvider::ChangeDir(const wxString &path) {

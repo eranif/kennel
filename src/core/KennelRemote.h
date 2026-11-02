@@ -51,6 +51,14 @@ public:
   };
   std::vector<FileEntry> ListFiles(const wxString &dir, wxString *outCwd);
 
+  // Make the folder or the empty file `path` (its parent must exist), or
+  // delete `path` (a folder with all in it; a symbolic link is removed, not
+  // followed). A leading `$HOME` or `~` is the remote home. Making a path that
+  // exists is an error. Blocking, like ListFiles().
+  Status MakeFolder(const wxString &path);
+  Status MakeFile(const wxString &path);
+  Status Remove(const wxString &path);
+
   // High-level: find AI CLI tools on the remote machine.
   // Results are cached per host+user for the lifetime of the process.
   std::vector<FoundCli> FindCli();
@@ -62,6 +70,9 @@ public:
   wxString ConnectString() const;
 
 private:
+  // Sends `command <path>` to the script, which answers "ok" or "error: ...".
+  Status RunPathCommand(const std::string &command, const wxString &path);
+
   wxString m_host;
   wxString m_user;
   std::optional<bool> m_scriptUploaded{std::nullopt};

@@ -127,6 +127,12 @@ private:
   // open); a closed one is listed when it is opened.
   void RefreshFolder(const wxDataViewItem &item);
   void AddNode(const wxDataViewItem &parent, const FileProvider::File &file);
+  // Asks for a name and makes a folder (or an empty file) in the folder of
+  // `folder`, which is listed again with the new entry selected.
+  void NewEntry(const wxDataViewItem &folder, bool isFolder);
+  // Asks, then deletes the entry of `item` (a folder with all in it). Its
+  // folder is listed again.
+  void DeleteEntry(const wxDataViewItem &item);
   void CollectExpanded(const wxDataViewItem &item,
                        std::set<wxString> *expanded) const;
   void RestoreExpanded(const wxDataViewItem &item,

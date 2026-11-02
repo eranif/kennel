@@ -18,14 +18,19 @@ static const wxString kScriptContent = R"#(#!/bin/bash
 # Each response ends with the line: <<output-end>>
 set -o pipefail
 
-do_list_files() {
-    local dir="${1:-.}"
-    # The path comes as text, not through a shell: expand a leading $HOME or ~
-    # (a session folder is stored as "$HOME/...").
-    case "$dir" in
-        '$HOME'|'$HOME/'*) dir="$HOME${dir#\$HOME}" ;;
-        '~'|'~/'*) dir="$HOME${dir#\~}" ;;
+# The path comes as text, not through a shell: expand a leading $HOME or ~
+# (a session folder is stored as "$HOME/...").
+expand_home() {
+    case "$1" in
+        '$HOME'|'$HOME/'*) printf '%s' "$HOME${1#\$HOME}" ;;
+        '~'|'~/'*) printf '%s' "$HOME${1#\~}" ;;
+        *) printf '%s' "$1" ;;
     esac
+}
+
+do_list_files() {
+    local dir
+    dir=$(expand_home "${1:-.}")
     if [ ! -d "$dir" ]; then
         echo "error: not a directory: $dir"
         echo "<<output-end>>"
@@ -49,6 +54,55 @@ do_list_files() {
             echo "${name}|${size}|file"
         fi
     done
+    echo "<<output-end>>"
+}
+
+# The commands that change files print "ok", or "error: <why>".
+do_new_folder() {
+    local p msg
+    p=$(expand_home "$1")
+    if [ -e "$p" ] || [ -L "$p" ]; then
+        echo "error: $p already exists"
+    elif msg=$(mkdir -- "$p" 2>&1); then
+        echo "ok"
+    else
+        echo "error: $msg"
+    fi
+    echo "<<output-end>>"
+}
+
+do_new_file() {
+    local p msg
+    p=$(expand_home "$1")
+    if [ -e "$p" ] || [ -L "$p" ]; then
+        echo "error: $p already exists"
+    elif msg=$( (set -C; : > "$p") 2>&1); then
+        echo "ok"
+    else
+        echo "error: $msg"
+    fi
+    echo "<<output-end>>"
+}
+
+# Deletes a file, or a folder and all in it. A symbolic link is removed, never
+# followed.
+do_delete() {
+    local p msg
+    p=$(expand_home "$1")
+    case "$p" in
+        ''|/|"$HOME"|"$HOME/")
+            echo "error: refusing to delete $p"
+            echo "<<output-end>>"
+            return
+            ;;
+    esac
+    if [ ! -e "$p" ] && [ ! -L "$p" ]; then
+        echo "error: $p does not exist"
+    elif msg=$(rm -rf -- "$p" 2>&1); then
+        echo "ok"
+    else
+        echo "error: $msg"
+    fi
     echo "<<output-end>>"
 }
 
@@ -105,6 +159,9 @@ while IFS= read -r line; do
     case "$cmd" in
         list-files) do_list_files "$arg" ;;
         find-cli) do_find_cli ;;
+        new-folder) do_new_folder "$arg" ;;
+        new-file) do_new_file "$arg" ;;
+        delete) do_delete "$arg" ;;
         *) echo "error: unknown command: $cmd"; echo "<<output-end>>" ;;
     esac
 done
@@ -265,6 +322,48 @@ std::optional<std::string> KennelRemote::SendCommand(const std::string &cmd,
     result.erase(pos);
   }
   return result;
+}
+
+Status KennelRemote::RunPathCommand(const std::string &command,
+                                    const wxString &path) {
+  // One command is one line: a path with a line break can not be sent.
+  if (path.empty() || path.find_first_of("\r\n") != wxString::npos) {
+    return Status::Error(wxString::Format(_("Invalid path: %s"), path));
+  }
+  if (Status st = Start(); !st.ok()) {
+    return st;
+  }
+  auto output = SendCommand(command + " " + path.ToStdString(wxConvUTF8), 30);
+  if (!output) {
+    return Status::Error(
+        wxString::Format(_("%s did not answer in time"), ConnectString()));
+  }
+  auto lines =
+      ::wxStringTokenize(wxString::FromUTF8(*output), "\r\n", wxTOKEN_STRTOK);
+  wxString error;
+  for (auto &line : lines) {
+    line.Trim().Trim(false);
+    if (line == "ok") {
+      return Status::Ok();
+    }
+    if (line.StartsWith("error:", &error)) {
+      return Status::Error(error.Trim(false));
+    }
+  }
+  return Status::Error(
+      wxString::Format(_("Unexpected answer from %s"), ConnectString()));
+}
+
+Status KennelRemote::MakeFolder(const wxString &path) {
+  return RunPathCommand("new-folder", path);
+}
+
+Status KennelRemote::MakeFile(const wxString &path) {
+  return RunPathCommand("new-file", path);
+}
+
+Status KennelRemote::Remove(const wxString &path) {
+  return RunPathCommand("delete", path);
 }
 
 std::vector<KennelRemote::FileEntry>

@@ -4,16 +4,21 @@
 #include "app/DataViewTypeHelper.h"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
+#include "core/Logger.h"
 #include "core/WslPath.h"
 
 #include <wx/clipbrd.h>
 #include <wx/dataobj.h>
+#include <wx/filename.h>
 #include <wx/menu.h>
+#include <wx/msgdlg.h>
 #include <wx/settings.h>
 #include <wx/sizer.h>
+#include <wx/textdlg.h>
 #include <wx/utils.h>
 
 #include <algorithm>
+#include <optional>
 #include <thread>
 
 wxDEFINE_EVENT(wxEVT_FILETREE_SELECTED, FileEvent);
@@ -28,6 +33,10 @@ int s_lastRequestId = 0;
 const int kIdCopyPath = wxWindow::NewControlId();
 const int kIdOpenDefault = wxWindow::NewControlId();
 const int kIdRefresh = wxWindow::NewControlId();
+const int kIdNewFolder = wxWindow::NewControlId();
+const int kIdNewFile = wxWindow::NewControlId();
+const int kIdDelete = wxWindow::NewControlId();
+const int kIdShowInFileManager = wxWindow::NewControlId();
 
 // Puts `text` on the clipboard.
 void CopyText(const wxString &text) {
@@ -35,6 +44,39 @@ void CopyText(const wxString &text) {
     wxTheClipboard->SetData(new wxTextDataObject(text));
     wxTheClipboard->Close();
   }
+}
+
+// "Show in Finder" and the like: the file manager of this system.
+wxString ShowInFileManagerLabel() {
+#if defined(__WXMAC__)
+  return _("Show in Finder");
+#elif defined(__WXMSW__)
+  return _("Show in Explorer");
+#else
+  return _("Show in File Manager");
+#endif
+}
+
+// Shows `path` (a path of this machine) in the file manager, selected where the
+// system can do it.
+void ShowInFileManager(const wxString &path) {
+#if defined(__WXMAC__)
+  const wchar_t *argv[] = {L"open", L"-R", path.wc_str(), nullptr};
+  ::wxExecute(argv, wxEXEC_ASYNC);
+#elif defined(__WXMSW__)
+  ::wxExecute(wxString::Format("explorer.exe /select,\"%s\"",
+                               wxFileName(path).GetFullPath()),
+              wxEXEC_ASYNC);
+#else
+  // No standard way to select it: the folder that holds it.
+  ::wxLaunchDefaultApplication(wxFileName(path).GetPath());
+#endif
+}
+
+// Whether `name` can be the name of a new entry: not empty, one part of a path.
+bool IsValidEntryName(const wxString &name) {
+  return !name.empty() && name != "." && name != ".." &&
+         name.find_first_of("/\\\r\n") == wxString::npos;
 }
 
 // Folders first, then by name, ignoring the case.
@@ -405,39 +447,150 @@ void FileTreeCtrl::OnActivated(wxDataViewEvent &event) {
 void FileTreeCtrl::OnContextMenu(wxDataViewEvent &event) {
   // On empty space the item is not ok: the event has no path.
   SendFileEvent(wxEVT_FILETREE_MENU, event.GetItem());
-  const Node *node = NodeOf(event.GetItem());
+  const wxDataViewItem item = event.GetItem();
+  const Node *node = NodeOf(item);
   if (node == nullptr) {
     return;
   }
   const wxString path = node->file.path;
+  const bool isFolder = node->file.IsFolder();
+  // The top of the tree is not deleted from here.
+  const bool isTop = !m_tree->GetItemParent(item).IsOk();
+
   wxMenu menu;
-  menu.Append(kIdCopyPath, _("Copy Path"));
-  menu.Bind(
-      wxEVT_MENU, [path](wxCommandEvent &) { CopyText(path); }, kIdCopyPath);
-  if (node->file.IsFolder()) {
-    const wxDataViewItem item = event.GetItem();
+  const auto separate = [&menu] {
+    if (menu.GetMenuItemCount() > 0) {
+      menu.AppendSeparator();
+    }
+  };
+  // The commands change the items of the tree: they run after the menu, not
+  // while the tree handles the event.
+  const auto bind = [this, &menu](int id, auto fn) {
+    menu.Bind(wxEVT_MENU, [this, fn](wxCommandEvent &) { CallAfter(fn); }, id);
+  };
+  if (isFolder) {
     menu.Append(kIdRefresh, _("Refresh"));
-    // Deferred: the menu must not delete items while the tree handles the
-    // event.
-    menu.Bind(
-        wxEVT_MENU,
-        [this, item](wxCommandEvent &) {
-          CallAfter([this, item] { RefreshFolder(item); });
-        },
-        kIdRefresh);
+    bind(kIdRefresh, [this, item] { RefreshFolder(item); });
+    separate();
+    menu.Append(kIdNewFolder, _("New Folder..."));
+    bind(kIdNewFolder, [this, item] { NewEntry(item, /*isFolder=*/true); });
+    menu.Append(kIdNewFile, _("New File..."));
+    bind(kIdNewFile, [this, item] { NewEntry(item, /*isFolder=*/false); });
   }
-  // A remote file is on another machine: this computer cannot open it.
-  if (!m_account.IsRemote()) {
+  // A remote file is on another machine: this computer cannot show or open
+  // it. A WSL path is a Linux path: Windows needs the path of its share.
+  const bool isLocal = !m_account.IsRemote();
+  const wxString localPath =
+      m_account.IsWSL() ? wsl::ToWindowsPath(m_account.m_name, path) : path;
+  if (isLocal && !isFolder) {
+    separate();
     menu.Append(kIdOpenDefault, _("Open with Default App"));
     menu.Bind(
         wxEVT_MENU,
-        [account = m_account, path](wxCommandEvent &) {
-          // A WSL path is a Linux path: Windows needs the path of its share.
-          ::wxLaunchDefaultApplication(
-              account.IsWSL() ? wsl::ToWindowsPath(account.m_name, path)
-                              : path);
+        [localPath](wxCommandEvent &) {
+          ::wxLaunchDefaultApplication(localPath);
         },
         kIdOpenDefault);
   }
+  const auto appendCopyPath = [&menu, &separate, path] {
+    separate();
+    menu.Append(kIdCopyPath, _("Copy Path"));
+    menu.Bind(
+        wxEVT_MENU, [path](wxCommandEvent &) { CopyText(path); }, kIdCopyPath);
+  };
+  // Delete is never the first entry (nor the last when it can be helped), so
+  // that a click near the edge of the menu does not hit it.
+  const bool copyPathFirst = menu.GetMenuItemCount() == 0;
+  if (copyPathFirst) {
+    appendCopyPath();
+  }
+  if (!isTop) {
+    separate();
+    menu.Append(kIdDelete, _("Delete..."));
+    bind(kIdDelete, [this, item] { DeleteEntry(item); });
+  }
+  if (isLocal) {
+    separate();
+    menu.Append(kIdShowInFileManager, ShowInFileManagerLabel());
+    menu.Bind(
+        wxEVT_MENU,
+        [localPath](wxCommandEvent &) { ShowInFileManager(localPath); },
+        kIdShowInFileManager);
+  }
+  if (!copyPathFirst) {
+    appendCopyPath();
+  }
   m_tree->PopupMenu(&menu);
+}
+
+void FileTreeCtrl::NewEntry(const wxDataViewItem &folder, bool isFolder) {
+  const Node *node = NodeOf(folder);
+  if (node == nullptr || !node->file.IsFolder()) {
+    return;
+  }
+  wxString name = ::wxGetTextFromUser(
+      isFolder ? _("Name of the new folder:") : _("Name of the new file:"),
+      isFolder ? _("New Folder") : _("New File"), wxEmptyString, this);
+  name.Trim().Trim(false);
+  if (name.empty()) {
+    return; // Cancelled
+  }
+  if (!IsValidEntryName(name)) {
+    ::wxMessageBox(wxString::Format(_("'%s' is not a valid name"), name),
+                   "Kennel", wxOK | wxICON_ERROR, this);
+    return;
+  }
+  const wxChar sep = m_provider->GetPathSeparator();
+  const wxString &dir = node->file.path;
+  const wxString path = dir.EndsWith(sep) ? dir + name : dir + sep + name;
+
+  Status st;
+  {
+    std::optional<wxBusyCursor> busy;
+    if (m_account.IsRemote()) {
+      busy.emplace(); // The host takes a while to answer
+    }
+    st = isFolder ? m_provider->MakeFolder(path) : m_provider->MakeFile(path);
+  }
+  if (!st.ok()) {
+    KLOG_WARN() << "Could not create " << path << ": " << st.message();
+    ::wxMessageBox(st.message(), "Kennel", wxOK | wxICON_ERROR, this);
+    return;
+  }
+  RefreshFolder(folder);
+  // Opens the folder (it is listed with the new entry) and selects the entry.
+  SelectPath(path);
+}
+
+void FileTreeCtrl::DeleteEntry(const wxDataViewItem &item) {
+  const Node *node = NodeOf(item);
+  const wxDataViewItem parent = m_tree->GetItemParent(item);
+  if (node == nullptr || !parent.IsOk()) {
+    return;
+  }
+  // Copied: the node goes away with the item.
+  const wxString path = node->file.path;
+  const wxString question =
+      node->file.IsFolder()
+          ? wxString::Format(_("Delete the folder '%s' and everything in it?"),
+                             path)
+          : wxString::Format(_("Delete the file '%s'?"), path);
+  if (::wxMessageBox(question, "Kennel",
+                     wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) != wxYES) {
+    return;
+  }
+  Status st;
+  {
+    std::optional<wxBusyCursor> busy;
+    if (m_account.IsRemote()) {
+      busy.emplace(); // The host takes a while to answer
+    }
+    st = m_provider->Remove(path);
+  }
+  if (!st.ok()) {
+    KLOG_WARN() << "Could not delete " << path << ": " << st.message();
+    ::wxMessageBox(st.message(), "Kennel", wxOK | wxICON_ERROR, this);
+  }
+  // Also after an error: a part of a folder may be gone.
+  RefreshFolder(parent);
 }

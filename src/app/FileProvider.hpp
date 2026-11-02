@@ -36,6 +36,13 @@ struct FileProvider {
   // it can run on a worker thread (and so can ListFiles() of a remote host).
   virtual Status Connect() { return Status::Ok(); }
   virtual std::vector<File> ListFiles(const wxString &dir) = 0;
+  // Make the folder or the empty file `path` (in the notation of ListFiles();
+  // the parent must exist). A path that exists is an error.
+  virtual Status MakeFolder(const wxString &path) = 0;
+  virtual Status MakeFile(const wxString &path) = 0;
+  // Deletes the file `path`, or the folder `path` and all in it. A symbolic
+  // link is removed, never followed.
+  virtual Status Remove(const wxString &path) = 0;
   virtual wxString GetCurrentWorkingDir() const = 0;
   virtual void ChangeDir(const wxString &path) = 0;
   virtual wxString GetHome() const = 0;
@@ -66,6 +73,9 @@ struct LocalFilesProvider : public FileProvider {
   }
 
   std::vector<File> ListFiles(const wxString &dir) override;
+  Status MakeFolder(const wxString &path) override;
+  Status MakeFile(const wxString &path) override;
+  Status Remove(const wxString &path) override;
   void ChangeDir(const wxString &path) override;
   wxString GetCurrentWorkingDir() const override {
     wxString dir{m_dir};
@@ -97,6 +107,17 @@ struct WSLFilesProvider : public LocalFilesProvider {
   }
 
   std::vector<File> ListFiles(const wxString &dir) override;
+  // The paths are the Linux paths: the files are changed through the share of
+  // the distribution (\\wsl$\<distro>).
+  Status MakeFolder(const wxString &path) override {
+    return LocalFilesProvider::MakeFolder(ToSharePath(path));
+  }
+  Status MakeFile(const wxString &path) override {
+    return LocalFilesProvider::MakeFile(ToSharePath(path));
+  }
+  Status Remove(const wxString &path) override {
+    return LocalFilesProvider::Remove(ToSharePath(path));
+  }
   wxString GetCurrentWorkingDir() const override { return m_dir; }
   bool HasHome() const override { return true; }
   wxString GetHome() const override { return "/home"; }
@@ -115,6 +136,14 @@ struct WSLFilesProvider : public LocalFilesProvider {
   }
 
   void NormalizePath(wxString &) override {}
+
+private:
+  // The Linux path `path` as a path of the share.
+  wxString ToSharePath(const wxString &path) const {
+    wxString share = path;
+    share.Replace("/", "\\");
+    return m_uncPrefix + (share.StartsWith("\\") ? "" : "\\") + share;
+  }
 };
 
 struct RemoteFilesProvider : public FileProvider {
@@ -126,6 +155,15 @@ struct RemoteFilesProvider : public FileProvider {
                       bool dirsOnly = false);
   Status Connect() override { return m_remote->Start(); }
   std::vector<File> ListFiles(const wxString &dir) override;
+  Status MakeFolder(const wxString &path) override {
+    return m_remote->MakeFolder(path);
+  }
+  Status MakeFile(const wxString &path) override {
+    return m_remote->MakeFile(path);
+  }
+  Status Remove(const wxString &path) override {
+    return m_remote->Remove(path);
+  }
   void ChangeDir(const wxString &path) override;
   wxString GetCurrentWorkingDir() const override { return m_dir; }
   bool HasHome() const override { return false; }
