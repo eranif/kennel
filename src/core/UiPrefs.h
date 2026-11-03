@@ -50,6 +50,15 @@ struct UiPrefs {
   // The last answer to the dialog at the end of a review: also close the
   // Review Buddy?
   bool closeReviewBuddyOnDismiss{false};
+  // The first run looks for claude, codex and kiro-cli on this machine once;
+  // this says it did (see MainFrame::StartLocalAgentScan()). Set it to false in
+  // the prefs file to scan again (a missing key counts as true, see
+  // ParsePrefs()).
+  bool localAgentsScanned{false};
+  // The user was asked once whether to look for agents in WSL and on the SSH
+  // hosts. Set it to false in the prefs file to be asked again (a missing key
+  // counts as true).
+  bool remoteScanOffered{false};
   // The shell the user chose last for a new terminal: the question offers it
   // first. Empty: the default shell (terminalLoginShell).
   wxString lastTerminalShell;

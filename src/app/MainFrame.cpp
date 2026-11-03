@@ -3,6 +3,7 @@
 
 #include "SettingsDlg.hpp"
 #include "app/AboutDialog.hpp"
+#include "app/AgentScan.hpp"
 #include "app/AppTheme.h"
 #include "app/AssetBootstrap.h"
 #include "app/EditAgentsDlg.hpp"
@@ -19,10 +20,12 @@
 #include "app/SessionPage.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
+#include "core/ClientAdapter.h"
 #include "core/EventNotifier.hpp"
 #include "core/Logger.h"
 #include "core/UpdateChecker.h"
 #include "core/Version.h"
+#include "core/WslPath.h"
 
 #include "terminal_view.h"
 #include <algorithm>
@@ -30,6 +33,7 @@
 #include <wx/app.h>
 #include <wx/artprov.h>
 #include <wx/bmpbndl.h>
+#include <wx/choicdlg.h>
 #include <wx/display.h>
 #include <wx/fontdlg.h>
 #include <wx/iconbndl.h>
@@ -145,6 +149,9 @@ void MainFrame::FinaliseStartup() {
   if (AppManager::Get().GetPrefs().checkForUpdatesOnStartup) {
     CheckForUpdates(/*silent=*/true);
   }
+
+  EventNotifier::Get()->Bind(wxEVT_AGENT_SCAN, &MainFrame::OnAgentScan, this);
+  StartLocalAgentScan();
 }
 
 void MainFrame::CreateStatusFields() {
@@ -236,6 +243,9 @@ void MainFrame::ClearSessionStatus() {
 }
 
 MainFrame::~MainFrame() {
+  // A scan that is still running ends without telling us.
+  AgentScan::Stop();
+  EventNotifier::Get()->Unbind(wxEVT_AGENT_SCAN, &MainFrame::OnAgentScan, this);
   mainFrame = nullptr;
   Unbind(wxEVT_ACTIVATE, &MainFrame::OnActivate, this);
 }
@@ -552,6 +562,182 @@ void MainFrame::OnCloseAction(wxCommandEvent &e) {
 void MainFrame::OnCloseActionUI(wxUpdateUIEvent &e) {
   e.Check(AppManager::Get().GetPrefs().sessionCloseAction ==
           CloseActionOfMenuId(e.GetId()));
+}
+
+// ---------------------------------------------------------------------------
+// Finding agents on a first run
+// ---------------------------------------------------------------------------
+
+void MainFrame::StartLocalAgentScan() {
+  if (AppManager::Get().GetPrefs().localAgentsScanned) {
+    // Done on an earlier run. The question about WSL and the hosts is asked
+    // only if it was not asked yet. After this handler: it shows a dialog.
+    CallAfter(&MainFrame::OfferRemoteAgentScan);
+    return;
+  }
+  SetActivityText(_("Looking for AI agents on this computer..."));
+  StartActivityIndicator();
+  AgentScan::StartLocal();
+}
+
+void MainFrame::OfferRemoteAgentScan() {
+  auto &prefs = AppManager::Get().GetPrefs();
+  if (prefs.remoteScanOffered) {
+    return;
+  }
+  const auto distros = agentscan::ListWslDistros();
+  const auto hosts = agentscan::ListRemoteHosts();
+  if (distros.empty() && hosts.empty()) {
+    return; // Nothing to offer (asked again when there is)
+  }
+
+  wxArrayString choices;
+  for (const auto &distro : distros) {
+    choices.Add(_("WSL: ") + distro.distro);
+  }
+  for (const auto &host : hosts) {
+    choices.Add(
+        host.name.empty() || host.name == host.address
+            ? _("SSH: ") + host.address
+            : wxString::Format(_("SSH: %s (%s)"), host.name, host.address));
+  }
+
+  wxMultiChoiceDialog dlg(
+      this,
+      _("Kennel can look for AI agents (claude, codex, kiro-cli) on these "
+        "machines and define them for you.\nChoose the machines to check:"),
+      _("Kennel"), choices);
+  // The distros of this machine are checked; the SSH hosts are the user's to
+  // choose (a jump host or a git server is not a place for agents).
+  wxArrayInt preselected;
+  for (size_t i = 0; i < distros.size(); ++i) {
+    preselected.Add(static_cast<int>(i));
+  }
+  dlg.SetSelections(preselected);
+  const bool accepted = dlg.ShowModal() == wxID_OK;
+
+  // Asked once, whatever the answer.
+  prefs.remoteScanOffered = true;
+  if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+    KLOG_WARN() << "Could not save the preferences: " << st.message();
+  }
+  if (!accepted) {
+    return;
+  }
+
+  std::vector<agentscan::WslTarget> chosenDistros;
+  std::vector<SshHostEntry> chosenHosts;
+  for (int index : dlg.GetSelections()) {
+    const size_t i = static_cast<size_t>(index);
+    if (i < distros.size()) {
+      chosenDistros.push_back(distros[i]);
+    } else {
+      chosenHosts.push_back(hosts[i - distros.size()]);
+    }
+  }
+  if (chosenDistros.empty() && chosenHosts.empty()) {
+    return;
+  }
+  SetActivityText(_("Looking for AI agents on the selected machines..."));
+  StartActivityIndicator();
+  AgentScan::StartRemote(std::move(chosenDistros), std::move(chosenHosts));
+}
+
+namespace {
+wxString JoinNames(const wxArrayString &names) {
+  wxString joined;
+  for (const wxString &name : names) {
+    joined << (joined.empty() ? "" : ", ") << name;
+  }
+  return joined;
+}
+} // namespace
+
+void MainFrame::OnAgentScan(AgentScanEvent &e) {
+  if (e.starting) {
+    // Where the search is now: it can take a while for a host.
+    SetActivityText(
+        wxString::Format(_("Looking for AI agents on %s (%zu/%zu)..."), e.where,
+                         e.index, e.total));
+    KLOG_INFO() << "Agent scan: looking on " << e.where;
+    return;
+  }
+
+  if (!e.last || e.local) {
+    const wxString where = e.local ? _("this computer") : e.where;
+    const wxArrayString names = AddFoundAgents(e.agents);
+    KLOG_INFO() << "Agent scan: " << where << ": found " << e.agents.size()
+                << ", added " << names.size();
+    if (!names.empty()) {
+      m_scanSummary.Add(
+          wxString::Format(_("%s: added %s"), where, JoinNames(names)));
+    } else if (e.agents.empty()) {
+      m_scanSummary.Add(wxString::Format(_("%s: no agents found"), where));
+    } else {
+      m_scanSummary.Add(wxString::Format(_("%s: already defined"), where));
+    }
+    if (!e.last) {
+      return;
+    }
+  }
+
+  StopActivityIndicator();
+  ClearActivityText();
+  const wxString summary = wxJoin(m_scanSummary, '\n', '\0');
+  m_scanSummary.Clear();
+  if (e.local) {
+    // Never again, even if nothing was found: the user can add agents by hand.
+    auto &prefs = AppManager::Get().GetPrefs();
+    prefs.localAgentsScanned = true;
+    if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+      KLOG_WARN() << "Could not save the preferences: " << st.message();
+    }
+    SetActivityText(summary);
+    // After the event: it shows a dialog.
+    CallAfter(&MainFrame::OfferRemoteAgentScan);
+    return;
+  }
+  // The scan of the selected machines is over: tell what happened.
+  SetActivityText(_("Looking for AI agents: done"));
+  ::wxMessageBox(summary, _("Looking for AI agents"), wxOK | wxICON_INFORMATION,
+                 this);
+}
+
+wxArrayString MainFrame::AddFoundAgents(const std::vector<AgentDef> &agents) {
+  auto &config = AppManager::Get().Config();
+  // Where an agent runs, and what tool it is: two agents with the same place
+  // and tool are the same agent, whatever they are named.
+  const auto sameAgent = [](const AgentDef &a, const AgentDef &b) {
+    return a.remoteHost == b.remoteHost &&
+           wsl::DistroOf(a.loginShell) == wsl::DistroOf(b.loginShell) &&
+           ClientKindOf(a.executable) == ClientKindOf(b.executable);
+  };
+  wxArrayString addedNames;
+  for (const AgentDef &agent : agents) {
+    const bool exists = std::any_of(
+        config.agents.begin(), config.agents.end(), [&](const AgentDef &a) {
+          return a.name == agent.name || sameAgent(a, agent);
+        });
+    if (!exists) {
+      config.agents.push_back(agent);
+      addedNames.Add(agent.name);
+    }
+  }
+  const size_t added = addedNames.size();
+  if (added == 0) {
+    return addedNames;
+  }
+  if (Status st = AppManager::Get().Configs().Save(config); !st.ok()) {
+    // Reload() reads the file: it would drop the agents that were just added.
+    // They stay in memory for this run.
+    KLOG_WARN() << "Could not save the agents: " << st.message();
+  } else {
+    AppManager::Get().Reload();
+  }
+  BuildLaunchTools();
+  m_toolBar->Realize();
+  PostSizeEvent();
+  return addedNames;
 }
 
 void MainFrame::OnArchivedSessions(wxCommandEvent &) {

@@ -23,6 +23,11 @@ public:
   };
 
   KennelRemote(const wxString &host, const wxString &user);
+
+  // For a connection nobody can answer (a scan in the background): ssh never
+  // asks for a password, a passphrase or a host key, and gives up on a host
+  // that does not answer in a few seconds.
+  void SetBatchMode(bool batch) { m_batch = batch; }
   ~KennelRemote();
 
   // Ensures the script is uploaded and the interactive process is running.
@@ -73,6 +78,10 @@ private:
   // Sends `command <path>` to the script, which answers "ok" or "error: ...".
   Status RunPathCommand(const std::string &command, const wxString &path);
 
+  // The options to give ssh and scp (see SetBatchMode()).
+  void AppendOptions(std::vector<std::string> &argv) const;
+
+  bool m_batch{false};
   wxString m_host;
   wxString m_user;
   std::optional<bool> m_scriptUploaded{std::nullopt};
@@ -83,5 +92,7 @@ private:
   std::string m_outputBuf;
   bool m_outputComplete{false};
 
+  // The scan of the agents and the dialogs both use it, on different threads.
+  static std::mutex s_cliCacheMutex;
   static std::unordered_map<wxString, std::vector<FoundCli>> s_cliCache;
 };

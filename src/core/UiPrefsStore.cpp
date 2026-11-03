@@ -35,6 +35,8 @@ json ToJson(const UiPrefs &p) {
       {"scrollbackLines", p.scrollbackLines},
       {"tabHasCloseButton", p.tabHasCloseButton},
       {"sessionCloseAction", static_cast<int>(p.sessionCloseAction)},
+      {"localAgentsScanned", p.localAgentsScanned},
+      {"remoteScanOffered", p.remoteScanOffered},
       {"lastTerminalShell", ToUtf8(p.lastTerminalShell)},
       {"tabOutlineColour", p.tabOutlineColour},
       {"tabPosition", static_cast<int>(p.tabPosition)},
@@ -78,8 +80,13 @@ void ParsePrefs(const json &root, UiPrefs &p) {
         action <= static_cast<int>(CloseAction::Close)) {
       p.sessionCloseAction = static_cast<CloseAction>(action);
     }
-  p.lastTerminalShell = GetStr(root, "lastTerminalShell", p.lastTerminalShell);
   }
+  // A prefs file from before the agents were looked for is not a first run:
+  // the user has set up Kennel already, and an agent they removed must not come
+  // back. Only a missing file (no one ran Kennel here) is a first run.
+  p.localAgentsScanned = GetBool(root, "localAgentsScanned", true);
+  p.remoteScanOffered = GetBool(root, "remoteScanOffered", true);
+  p.lastTerminalShell = GetStr(root, "lastTerminalShell", p.lastTerminalShell);
   p.tabOutlineColour = GetStr(root, "tabOutlineColour", p.tabOutlineColour);
   p.tabPosition = static_cast<wxDirection>(
       GetInt(root, "tabPosition", static_cast<int>(p.tabPosition)));

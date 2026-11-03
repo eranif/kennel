@@ -4,6 +4,7 @@
 #include <wx/filename.h>
 #include <wx/string.h>
 
+#include <mutex>
 #include <sstream>
 #include <vector>
 
@@ -78,6 +79,8 @@ private:
   void EnsureOpen();
 
   LogLevel m_level{LogLevel::kInfo};
+  // Any thread may log (the scan of the agents does).
+  std::mutex m_mutex;
   wxString m_logPath;
   wxFFile m_file;
 };

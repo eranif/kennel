@@ -2,6 +2,7 @@
 
 #include "MainView.hpp"
 #include "app/SessionStatusEvent.hpp"
+#include "core/Config.h"
 #include "core/JobScheduler.h"
 #include "core/UpdateChecker.h"
 
@@ -20,6 +21,7 @@
 // iconPath), and the main view (session list + terminal area). Choosing a
 // client from the Launch menu or toolbar opens the New Client Launch dialog
 // with that client preselected. Shared state is reached via AppManager::Get().
+class AgentScanEvent;
 class EditMenu;
 class SessionPage;
 struct GotoItem;
@@ -128,6 +130,19 @@ private:
   // Puts the panes back to the layout they have without a saved one.
   void OnResetLayout(wxCommandEvent &e);
   void OnArchivedSessions(wxCommandEvent &e);
+
+  // ---- Finding agents on a first run --------------------------------------
+  // All in the background; the window never waits (see AgentScan).
+  // The first run looks for the agents of this machine, once.
+  void StartLocalAgentScan();
+  // Then the user is asked, once, whether to look in WSL and on the SSH hosts.
+  void OfferRemoteAgentScan();
+  void OnAgentScan(AgentScanEvent &e);
+  // Adds the agents that are not defined yet. Returns the names of the ones
+  // added.
+  wxArrayString AddFoundAgents(const std::vector<AgentDef> &agents);
+  // What the scan found, a line for each machine (shown when it ends).
+  wxArrayString m_scanSummary;
   void OnCloseAction(wxCommandEvent &e);
   void OnCloseActionUI(wxUpdateUIEvent &e);
   // Ctrl+Shift+P: a search box over the menu items, the pages and the actions

@@ -26,6 +26,7 @@ Logger &Logger::Get() {
 }
 
 void Logger::SetLogFile(const wxString &path) {
+  std::lock_guard<std::mutex> lock(m_mutex);
   if (m_file.IsOpened()) {
     m_file.Close();
   }
@@ -41,6 +42,7 @@ void Logger::EnsureOpen() {
 }
 
 void Logger::Write(LogLevel level, const wxString &msg) {
+  std::lock_guard<std::mutex> lock(m_mutex);
   EnsureOpen();
   if (!m_file.IsOpened()) {
     return;

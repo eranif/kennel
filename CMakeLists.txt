@@ -263,6 +263,7 @@ add_library(
   src/core/Process.cpp
   src/core/Helpers.cpp
   src/core/KennelRemote.cpp
+  src/core/AgentScanner.cpp
   src/core/SftpClient.cpp
   src/core/SshClient.cpp
   src/core/SshSession.cpp
@@ -333,6 +334,7 @@ set(KENNEL_APP_SOURCES
     src/app/FileTreeCtrl.cpp
     src/app/DataViewTypeHelper.cpp
     src/app/ArchiveDlg.cpp
+    src/app/AgentScan.cpp
     src/app/GotoAnythingDlg.cpp
     src/app/GitCommitMessageDlg.cpp
     src/app/GitPanel.cpp

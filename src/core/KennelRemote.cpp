@@ -183,6 +183,14 @@ wxString KennelRemote::ConnectString() const {
   return wxString::Format("%s@%s", m_user, m_host);
 }
 
+void KennelRemote::AppendOptions(std::vector<std::string> &argv) const {
+  if (m_batch) {
+    for (const char *arg : {"-o", "BatchMode=yes", "-o", "ConnectTimeout=5"}) {
+      argv.push_back(arg);
+    }
+  }
+}
+
 bool KennelRemote::IsRunning() const {
   return m_process && m_process->IsRunning();
 }
@@ -245,8 +253,11 @@ Status KennelRemote::Start() {
   {
     const std::string mkdirCmd =
         wxString::Format("mkdir -p %s", remoteTmpDir).ToStdString(wxConvUTF8);
-    auto mkResult = RunProcessWithTimeout(
-        {"ssh", ConnectString().ToStdString(wxConvUTF8), mkdirCmd}, 5);
+    std::vector<std::string> mkArgv{"ssh"};
+    AppendOptions(mkArgv);
+    mkArgv.push_back(ConnectString().ToStdString(wxConvUTF8));
+    mkArgv.push_back(mkdirCmd);
+    auto mkResult = RunProcessWithTimeout(mkArgv, 5);
     if (!mkResult.ok()) {
       m_scriptUploaded = false;
       return Status::Error(wxString::Format(
@@ -256,11 +267,13 @@ Status KennelRemote::Start() {
   }
 
   {
-    auto scpResult = RunProcessWithTimeout(
-        {"scp", localScriptPath.ToStdString(wxConvUTF8),
-         wxString::Format("%s:%s", ConnectString(), remoteScriptPath)
-             .ToStdString(wxConvUTF8)},
-        10);
+    std::vector<std::string> scpArgv{"scp"};
+    AppendOptions(scpArgv);
+    scpArgv.push_back(localScriptPath.ToStdString(wxConvUTF8));
+    scpArgv.push_back(
+        wxString::Format("%s:%s", ConnectString(), remoteScriptPath)
+            .ToStdString(wxConvUTF8));
+    auto scpResult = RunProcessWithTimeout(scpArgv, 10);
     if (!scpResult.ok()) {
       m_scriptUploaded = false;
       return Status::Error(
@@ -281,11 +294,13 @@ Status KennelRemote::Start() {
     return true;
   };
 
-  m_process = Process::StartInteractive(
-      {"ssh", "-o", "ServerAliveInterval=10", "-tt",
-       ConnectString().ToStdString(wxConvUTF8),
-       wxString::Format("bash %s", remoteScriptPath).ToStdString(wxConvUTF8)},
-      outputCb);
+  std::vector<std::string> sshArgv{"ssh", "-o", "ServerAliveInterval=10"};
+  AppendOptions(sshArgv);
+  sshArgv.push_back("-tt");
+  sshArgv.push_back(ConnectString().ToStdString(wxConvUTF8));
+  sshArgv.push_back(
+      wxString::Format("bash %s", remoteScriptPath).ToStdString(wxConvUTF8));
+  m_process = Process::StartInteractive(sshArgv, outputCb);
 
   if (!m_process) {
     m_scriptUploaded = false;
@@ -418,11 +433,15 @@ KennelRemote::ListFiles(const wxString &dir, wxString *outCwd) {
 
 std::unordered_map<wxString, std::vector<KennelRemote::FoundCli>>
     KennelRemote::s_cliCache;
+std::mutex KennelRemote::s_cliCacheMutex;
 
 std::vector<KennelRemote::FoundCli> KennelRemote::FindCli() {
   const wxString cacheKey = ConnectString();
-  if (s_cliCache.count(cacheKey)) {
-    return s_cliCache[cacheKey];
+  {
+    std::lock_guard<std::mutex> lock(s_cliCacheMutex);
+    if (const auto it = s_cliCache.find(cacheKey); it != s_cliCache.end()) {
+      return it->second;
+    }
   }
 
   if (!EnsureReady()) {
@@ -449,8 +468,14 @@ std::vector<KennelRemote::FoundCli> KennelRemote::FindCli() {
     results.push_back({parts[0], parts[1]});
   }
 
-  s_cliCache[cacheKey] = results;
+  {
+    std::lock_guard<std::mutex> lock(s_cliCacheMutex);
+    s_cliCache[cacheKey] = results;
+  }
   return results;
 }
 
-void KennelRemote::ClearCliCache() { s_cliCache.clear(); }
+void KennelRemote::ClearCliCache() {
+  std::lock_guard<std::mutex> lock(s_cliCacheMutex);
+  s_cliCache.clear();
+}
