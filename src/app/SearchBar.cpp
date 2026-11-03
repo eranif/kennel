@@ -20,6 +20,7 @@ constexpr int kButtonMargin = 10;
 SearchBar::SearchBar(wxWindow *parent, Kind kind) {
   wxPanel::Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                   kSearchBarStyle);
+  SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_3DFACE));
   const bool editor = kind == Kind::kEditor;
   const wxSizerFlags flags = wxSizerFlags(0).Expand().Border(wxALL, 2);
 
