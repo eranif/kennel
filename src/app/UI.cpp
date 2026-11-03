@@ -2028,3 +2028,79 @@ SideViewBase::SideViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
 SideViewBase::~SideViewBase()
 {
 }
+
+ArchiveDlgBase::ArchiveDlgBase(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style)
+    : wxDialog(parent, id, title, pos, size, style)
+{
+    if ( !bBitmapLoaded ) {
+        // We need to initialise the default bitmap handler
+        wxXmlResource::Get()->AddHandler(new wxBitmapXmlHandler);
+        wxCrafterFiTVkcInitBitmapResources();
+        bBitmapLoaded = true;
+    }
+    
+    wxBoxSizer* boxSizer649 = new wxBoxSizer(wxVERTICAL);
+    this->SetSizer(boxSizer649);
+    
+    m_panel652 = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    
+    boxSizer649->Add(m_panel652, 1, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
+    wxBoxSizer* boxSizer653 = new wxBoxSizer(wxVERTICAL);
+    m_panel652->SetSizer(boxSizer653);
+    
+    m_searchCtrl = new wxSearchCtrl(m_panel652, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(m_panel652, wxSize(-1,-1)), wxTE_PROCESS_ENTER);
+    m_searchCtrl->ShowSearchButton(true);
+    m_searchCtrl->ShowCancelButton(false);
+    
+    boxSizer653->Add(m_searchCtrl, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
+    wxBoxSizer* boxSizer656 = new wxBoxSizer(wxHORIZONTAL);
+    
+    boxSizer653->Add(boxSizer656, 1, wxEXPAND, WXC_FROM_DIP(5));
+    
+    m_dvListCtrl = new wxDataViewListCtrl(m_panel652, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_panel652, wxSize(500,300)), wxDV_ROW_LINES|wxDV_SINGLE);
+    
+    boxSizer656->Add(m_dvListCtrl, 1, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
+    wxBoxSizer* boxSizer657 = new wxBoxSizer(wxVERTICAL);
+    
+    boxSizer656->Add(boxSizer657, 0, wxEXPAND, WXC_FROM_DIP(5));
+    
+    m_buttonRestore = new wxButton(m_panel652, wxID_ANY, _("Restore"), wxDefaultPosition, wxDLG_UNIT(m_panel652, wxSize(-1,-1)), 0);
+    
+    boxSizer657->Add(m_buttonRestore, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
+    m_buttonDelete = new wxButton(m_panel652, wxID_ANY, _("Delete"), wxDefaultPosition, wxDLG_UNIT(m_panel652, wxSize(-1,-1)), 0);
+    
+    boxSizer657->Add(m_buttonDelete, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
+    m_stdBtnSizer650 = new wxStdDialogButtonSizer();
+    
+    boxSizer649->Add(m_stdBtnSizer650, 0, wxALL|wxALIGN_CENTER_HORIZONTAL, WXC_FROM_DIP(5));
+    
+    m_buttonClose = new wxButton(this, wxID_CLOSE, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+    m_buttonClose->SetDefault();
+    m_stdBtnSizer650->AddButton(m_buttonClose);
+    m_stdBtnSizer650->Realize();
+    
+    SetName(wxT("ArchiveDlgBase"));
+    SetSize(wxDLG_UNIT(this, wxSize(-1,-1)));
+    if (GetSizer()) {
+         GetSizer()->Fit(this);
+    }
+    if(GetParent()) {
+        CentreOnParent(wxBOTH);
+    } else {
+        CentreOnScreen(wxBOTH);
+    }
+    if(!wxPersistenceManager::Get().Find(this)) {
+        wxPersistenceManager::Get().RegisterAndRestore(this);
+    } else {
+        wxPersistenceManager::Get().Restore(this);
+    }
+}
+
+ArchiveDlgBase::~ArchiveDlgBase()
+{
+}

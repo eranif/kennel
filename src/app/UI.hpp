@@ -639,4 +639,28 @@ public:
     virtual ~SideViewBase();
 };
 
+
+class ArchiveDlgBase : public wxDialog
+{
+protected:
+    wxPanel* m_panel652;
+    wxSearchCtrl* m_searchCtrl;
+    wxDataViewListCtrl* m_dvListCtrl;
+    wxButton* m_buttonRestore;
+    wxButton* m_buttonDelete;
+    wxStdDialogButtonSizer* m_stdBtnSizer650;
+    wxButton* m_buttonClose;
+
+protected:
+
+public:
+    wxSearchCtrl* GetSearchCtrl() { return m_searchCtrl; }
+    wxDataViewListCtrl* GetDvListCtrl() { return m_dvListCtrl; }
+    wxButton* GetButtonRestore() { return m_buttonRestore; }
+    wxButton* GetButtonDelete() { return m_buttonDelete; }
+    wxPanel* GetPanel652() { return m_panel652; }
+    ArchiveDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT(""), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);
+    virtual ~ArchiveDlgBase();
+};
+
 #endif

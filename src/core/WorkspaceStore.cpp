@@ -15,23 +15,33 @@ using jsonutil::ToUtf8;
 using jsonutil::WriteFileUtf8;
 using nlohmann::json;
 
+json SessionToJson(const Session &s) {
+  json entry = {
+      {"name", ToUtf8(s.name)},
+      {"agentName", ToUtf8(s.agentName)},
+      {"workingDir", ToUtf8(s.workingDir)},
+      {"groupName", ToUtf8(s.groupName)},
+  };
+  if (s.plainTerminal) {
+    entry["plainTerminal"] = true;
+    entry["loginShell"] = ToUtf8(s.loginShell);
+  }
+  return entry;
+}
+
 json ToJson(const Workspace &ws) {
   json sessions = json::array();
   for (const Session &s : ws.sessions) {
     if (!s.IsPersistent())
       // do not persist one-shot job runs
       continue;
-    json entry = {
-        {"name", ToUtf8(s.name)},
-        {"agentName", ToUtf8(s.agentName)},
-        {"workingDir", ToUtf8(s.workingDir)},
-        {"groupName", ToUtf8(s.groupName)},
-    };
-    if (s.plainTerminal) {
-      entry["plainTerminal"] = true;
-      entry["loginShell"] = ToUtf8(s.loginShell);
-    }
-    sessions.push_back(std::move(entry));
+    sessions.push_back(SessionToJson(s));
+  }
+  json archived = json::array();
+  for (const ArchivedSession &a : ws.archived) {
+    json entry = SessionToJson(a.session);
+    entry["archivedAt"] = ToUtf8(a.archivedAt);
+    archived.push_back(std::move(entry));
   }
   json files = json::array();
   for (const SessionFile &f : ws.files) {
@@ -62,7 +72,8 @@ json ToJson(const Workspace &ws) {
        {{"sessions", sessions},
         {"files", files},
         {"recent", recent},
-        {"tabOrder", tabOrder}}},
+        {"tabOrder", tabOrder},
+        {"archived", archived}}},
   };
 }
 
@@ -104,6 +115,15 @@ Workspace ParseWorkspace(const json &root) {
       for (const auto &s : *sIt) {
         if (s.is_object()) {
           ws.sessions.push_back(ParseSession(s));
+        }
+      }
+    }
+    if (auto aIt = wsIt->find("archived");
+        aIt != wsIt->end() && aIt->is_array()) {
+      for (const auto &a : *aIt) {
+        if (a.is_object()) {
+          ws.archived.push_back(
+              ArchivedSession{ParseSession(a), GetStr(a, "archivedAt")});
         }
       }
     }

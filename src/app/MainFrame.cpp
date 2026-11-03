@@ -377,6 +377,10 @@ void MainFrame::BuildMenuBar() {
                    _("Close every session in every group"));
   Bind(wxEVT_MENU, &MainFrame::OnCloseAllSessions, this, wxID_CLOSE_ALL);
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnCloseAllSessionsUI, this, wxID_CLOSE_ALL);
+  fileMenu->Append(XRCID("archived-sessions"), _("Archived Sessions..."),
+                   _("Restore or delete the archived sessions"));
+  Bind(wxEVT_MENU, &MainFrame::OnArchivedSessions, this,
+       XRCID("archived-sessions"));
 
 #ifndef __WXMAC__
   fileMenu->AppendSeparator();
@@ -484,6 +488,10 @@ void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
 }
 
 void MainFrame::OnResetLayout(wxCommandEvent &) { m_mainView->ResetLayout(); }
+
+void MainFrame::OnArchivedSessions(wxCommandEvent &) {
+  m_mainView->GetSessionsBook()->ShowArchiveDialog();
+}
 
 namespace {
 // The pane a View menu item shows or hides.

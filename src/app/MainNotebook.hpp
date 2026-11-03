@@ -134,6 +134,23 @@ public:
   // Closes the session; the notebook may be asked from a handler of the page.
   void CloseSession(const wxString &groupName, const wxString &sessionName);
 
+  // ---- Archive -------------------------------------------------------------
+  // Closes an agent session and keeps it in the archive (saved in
+  // workspace.json). Asks first when the agent is working; the program gets no
+  // command (like /exit), the session is just closed. Terminals are not
+  // archived.
+  void ArchiveSession(const wxString &groupName, const wxString &sessionName);
+  // The archived sessions, oldest first.
+  const std::vector<ArchivedSession> &GetArchived() const { return m_archived; }
+  // Starts the archived session `index` again (the agent resumes) and takes it
+  // out of the archive. A name that is used already gets a number. Whether it
+  // started.
+  bool RestoreArchived(size_t index);
+  // Takes the archived session `index` out of the archive for good.
+  void DeleteArchived(size_t index);
+  // Shows the list of the archived sessions (File -> Archived Sessions...).
+  void ShowArchiveDialog();
+
   // ---- Files -------------------------------------------------------------
   // Go to a line of the file that is showing: opens the box on top of the page
   // with ":" in it (GotoAnythingBar); the caret follows what the user types.
@@ -356,6 +373,10 @@ private:
   void CloseAllFiles();
 
   void OnSessionIdle(wxCommandEvent &e);
+  // The archive dialog asks to restore / delete a session; the list is shown
+  // again after.
+  void OnArchiveRestore(wxCommandEvent &e);
+  void OnArchiveDelete(wxCommandEvent &e);
   void OnSessionActive(wxCommandEvent &e);
   void OnSessionExited(wxCommandEvent &e);
   // A page started / stopped working, or is done (OSC 7501).
@@ -413,6 +434,8 @@ private:
   // The remote files of the last run that are being fetched again: they stay in
   // workspace.json until the fetch is over, so a quit in between loses none.
   std::vector<SessionFile> m_restoringFiles;
+  // The archive (see ArchiveSession()); loaded from workspace.json.
+  std::vector<ArchivedSession> m_archived;
   // Remote files that were being restored when the workspace was cleared: their
   // results are dropped.
   std::set<wxString> m_ignoreRemote;

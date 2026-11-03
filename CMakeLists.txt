@@ -332,6 +332,7 @@ set(KENNEL_APP_SOURCES
     src/app/FileBrowserDlg.cpp
     src/app/FileTreeCtrl.cpp
     src/app/DataViewTypeHelper.cpp
+    src/app/ArchiveDlg.cpp
     src/app/GitCommitMessageDlg.cpp
     src/app/GitPanel.cpp
     src/app/FileActions.cpp

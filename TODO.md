@@ -12,7 +12,7 @@
 - [x] Add goto line to file editor
 - [x] Design and implement a file explorer view (maybe we can import clTreeCtrlPanel)
 - [x] Design and implement a git view.
-- [ ] Add Archive feature
+- [x] Add Archive feature
 - [x] Notebook: closing a tab, selects the first one. We should select the next one from the MRU.
 - [x] Update the `File Browser` with the following: add `Refresh` context menu. `Open with Default App`, `Copy Path`.
 - [x] Make `Cobalt2` the default theme

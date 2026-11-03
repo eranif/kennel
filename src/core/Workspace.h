@@ -51,6 +51,14 @@ struct SessionFile {
   wxString remoteUser; // Empty: the ssh default
 };
 
+// A session that was archived: closed, but kept so it can be restored
+// (workspace.json -> archived[]).
+struct ArchivedSession {
+  Session session;
+  // When it was archived, local time as "YYYY-MM-DD HH:MM:SS" (sorts by time).
+  wxString archivedAt;
+};
+
 // The single implicit workspace and its sessions.
 struct Workspace {
   int version = 1;
@@ -63,6 +71,8 @@ struct Workspace {
   // The tabs of the main book in the order of the tabs: the sessions and the
   // files (a file as in recentSessions). Pages that are not here go last.
   std::vector<SessionRef> tabOrder;
+  // The archived sessions, oldest first.
+  std::vector<ArchivedSession> archived;
 };
 
 // Inputs for creating a new session.

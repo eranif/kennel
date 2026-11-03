@@ -80,6 +80,16 @@ void MainNotebook::ShowSessionMenu(SessionPage *page, wxWindow *on) {
     menu.Bind(
         wxEVT_MENU, [page, this](wxCommandEvent &) { DuplicateSession(page); },
         XRCID("duplicate-session"));
+    menu.Append(XRCID("archive-session"), _("Archive"),
+                _("Close the session and keep it in the archive"));
+    menu.Bind(
+        wxEVT_MENU,
+        [currentGroupName, sessionName, this](wxCommandEvent &) {
+          // Deferred: see RemovePage.
+          CallAfter(&MainNotebook::ArchiveSession, currentGroupName,
+                    sessionName);
+        },
+        XRCID("archive-session"));
     menu.AppendSeparator();
 
     wxMenu *moveMenu = new wxMenu;

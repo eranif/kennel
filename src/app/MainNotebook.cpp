@@ -1,5 +1,7 @@
 #include "app/MainNotebook.hpp"
 
+#include "app/ArchiveDlg.hpp"
+
 #include "GlyphTabPainter.h"
 #include "StartAgentDialog.hpp"
 #include "ThemeLoader.h"
@@ -97,7 +99,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
     : wxPanel(parent, winid, pos, size, style, name),
       m_registry(&AppManager::Get().Adapters()),
       m_workspaceStore(&AppManager::Get().Workspace()),
-      m_paths(AppManager::Get().Paths()) {
+      m_paths(AppManager::Get().Paths()),
+      m_archived(AppManager::Get().InitialWorkspace().archived) {
   SetSizer(new wxBoxSizer(wxVERTICAL));
   // Above the pages; hidden until it is asked for.
   m_gotoBar = new GotoAnythingBar(this);
@@ -702,6 +705,8 @@ void MainNotebook::SyncWorkspaceToDisk() {
       ws.recentSessions.push_back(ref);
     }
   }
+
+  ws.archived = m_archived;
 
   if (Status st = m_workspaceStore->Save(ws); !st.ok()) {
     KLOG_WARN() << "Could not persist workspace.json: " << st.message();
@@ -1962,6 +1967,95 @@ void MainNotebook::CloseSession(const wxString &groupName,
   CHECK_NOT_NULL_RETURN(page);
   RemovePage(page);
   SyncWorkspaceToDisk();
+}
+
+void MainNotebook::ArchiveSession(const wxString &groupName,
+                                  const wxString &sessionName) {
+  auto *page = FindSession(groupName, sessionName);
+  CHECK_NOT_NULL_RETURN(page);
+  if (page->IsPlainTerminal() || !page->GetSession().IsPersistent()) {
+    return; // Only agent sessions are archived
+  }
+  if (page->GetProgramActivity() == SessionPage::ProgramActivity::Working) {
+    const int answer = wxMessageBox(
+        wxString::Format(_("'%s' is working. Archive it anyway?"), sessionName),
+        "Kennel", wxYES_NO | wxNO_DEFAULT | wxICON_QUESTION, this);
+    if (answer != wxYES) {
+      return;
+    }
+    // The dialog ran events: the page may be gone.
+    page = FindSession(groupName, sessionName);
+    CHECK_NOT_NULL_RETURN(page);
+  }
+
+  m_archived.push_back(ArchivedSession{
+      page->GetSession(), wxDateTime::Now().Format("%Y-%m-%d %H:%M:%S")});
+  RemovePage(page);
+  SyncWorkspaceToDisk();
+}
+
+bool MainNotebook::RestoreArchived(size_t index) {
+  if (index >= m_archived.size()) {
+    return false;
+  }
+  const Session &archived = m_archived[index].session;
+
+  NewSessionRequest req;
+  req.name = archived.name;
+  req.agentName = archived.agentName;
+  req.workingDir = archived.workingDir;
+  req.groupName = archived.groupName;
+  req.resume = true;
+  for (int suffix = 1; IsNameExist(req.name, req.groupName); ++suffix) {
+    req.name = wxString::Format("%s%d", archived.name, suffix);
+  }
+
+  if (!LaunchSession(req)) {
+    return false;
+  }
+  m_archived.erase(m_archived.begin() + index);
+  SyncWorkspaceToDisk();
+  return true;
+}
+
+void MainNotebook::DeleteArchived(size_t index) {
+  if (index >= m_archived.size()) {
+    return;
+  }
+  m_archived.erase(m_archived.begin() + index);
+  SyncWorkspaceToDisk();
+}
+
+void MainNotebook::ShowArchiveDialog() {
+  ArchiveDlg dlg(this);
+  dlg.Bind(wxEVT_ARCHIVE_RESTORE, &MainNotebook::OnArchiveRestore, this);
+  dlg.Bind(wxEVT_ARCHIVE_DELETE, &MainNotebook::OnArchiveDelete, this);
+  dlg.SetItems(m_archived);
+  dlg.CenterOnParent();
+  dlg.ShowModal();
+}
+
+void MainNotebook::OnArchiveRestore(wxCommandEvent &e) {
+  auto *dlg = dynamic_cast<ArchiveDlg *>(e.GetEventObject());
+  if (RestoreArchived(static_cast<size_t>(e.GetInt()))) {
+    // The session is showing behind the dialog: close it. The name may have a
+    // number (see RestoreArchived()); the tab shows it.
+    if (dlg != nullptr) {
+      dlg->EndModal(wxID_OK);
+    }
+    return;
+  }
+  if (dlg != nullptr) {
+    dlg->SetItems(m_archived);
+  }
+}
+
+void MainNotebook::OnArchiveDelete(wxCommandEvent &e) {
+  auto *dlg = dynamic_cast<ArchiveDlg *>(e.GetEventObject());
+  DeleteArchived(static_cast<size_t>(e.GetInt()));
+  if (dlg != nullptr) {
+    dlg->SetItems(m_archived);
+  }
 }
 
 void MainNotebook::MoveSessionToGroup(const wxString &sessionName,
