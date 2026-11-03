@@ -263,6 +263,10 @@ private:
   void OnPageChanged(wxBookCtrlEvent &event);
   // The user clicked the close button of a tab: its page is closed.
   void OnPageClose(GlyphBookEvent &event);
+  // The close button of an agent session: archives it or closes it, as the
+  // preferences say (asks, by default).
+  void CloseOrArchiveSession(const wxString &groupName,
+                             const wxString &sessionName);
   // A right click on a tab: the menu of its page.
   void OnTabContextMenu(GlyphBookEvent &event);
   // A right click on the bar, where there is no tab: start an agent or a

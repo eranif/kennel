@@ -489,6 +489,22 @@ void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
 
 void MainFrame::OnResetLayout(wxCommandEvent &) { m_mainView->ResetLayout(); }
 
+  // What the close button of the tab of an agent session does (the choice of
+  // the "Do not ask again" box of the question it asks).
+  auto *closeMenu = new wxMenu();
+  closeMenu->AppendRadioItem(XRCID("close-action-ask"), _("Ask"),
+                             _("Ask whether to archive or close"));
+  closeMenu->AppendRadioItem(XRCID("close-action-archive"), _("Archive"),
+                             _("Archive the session, so it can be restored"));
+  closeMenu->AppendRadioItem(XRCID("close-action-close"), _("Close"),
+                             _("Close the session"));
+  for (const char *name :
+       {"close-action-ask", "close-action-archive", "close-action-close"}) {
+    Bind(wxEVT_MENU, &MainFrame::OnCloseAction, this, XRCID(name));
+    Bind(wxEVT_UPDATE_UI, &MainFrame::OnCloseActionUI, this, XRCID(name));
+  }
+  viewMenu->AppendSubMenu(closeMenu, _("Close Button of a Session"));
+  viewMenu->AppendSeparator();
 void MainFrame::OnArchivedSessions(wxCommandEvent &) {
   m_mainView->GetSessionsBook()->ShowArchiveDialog();
 }
@@ -502,6 +518,31 @@ wxString PaneOfMenuId(int id) {
 } // namespace
 
 void MainFrame::OnShowPane(wxCommandEvent &e) {
+namespace {
+CloseAction CloseActionOfMenuId(int id) {
+  if (id == XRCID("close-action-archive")) {
+    return CloseAction::Archive;
+  }
+  if (id == XRCID("close-action-close")) {
+    return CloseAction::Close;
+  }
+  return CloseAction::Ask;
+}
+} // namespace
+
+void MainFrame::OnCloseAction(wxCommandEvent &e) {
+  auto &prefs = AppManager::Get().GetPrefs();
+  prefs.sessionCloseAction = CloseActionOfMenuId(e.GetId());
+  if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+    KLOG_WARN() << "Could not save the close action: " << st.message();
+  }
+}
+
+void MainFrame::OnCloseActionUI(wxUpdateUIEvent &e) {
+  e.Check(AppManager::Get().GetPrefs().sessionCloseAction ==
+          CloseActionOfMenuId(e.GetId()));
+}
+
   const wxString name = PaneOfMenuId(e.GetId());
   m_mainView->ShowPane(name, !m_mainView->IsPaneShown(name));
 }

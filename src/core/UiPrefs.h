@@ -14,6 +14,13 @@ struct WindowGeometry {
   bool maximized = false;
 };
 
+// What the close button of the tab of an agent session does.
+enum class CloseAction {
+  Ask,     // Ask: archive (so it can be restored) or close
+  Archive, // Archive the session
+  Close,   // Close the session
+};
+
 // UI preferences (.persist.json). Non-essential and safely deletable: a
 // missing file yields these defaults (never an error).
 struct UiPrefs {
@@ -44,6 +51,8 @@ struct UiPrefs {
   // Review Buddy?
   bool closeReviewBuddyOnDismiss{false};
   bool tabHasCloseButton{false};
+  // What the close button of the tab of an agent session does.
+  CloseAction sessionCloseAction{CloseAction::Ask};
   size_t scrollbackLines{5000};
   wxString terminalLoginShell = ::FindShells().GetDefaultShellCmd();
   wxString terminalHomeDir = ::wxGetHomeDir();

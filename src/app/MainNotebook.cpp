@@ -38,6 +38,7 @@
 #include <wx/fontdlg.h>
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
+#include <wx/richmsgdlg.h>
 #include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/textdlg.h>
@@ -251,7 +252,54 @@ void MainNotebook::OnPageClose(GlyphBookEvent &event) {
   if (auto *file = dynamic_cast<FilePage *>(page)) {
     CloseFile(file);
   } else if (auto *session = dynamic_cast<SessionPage *>(page)) {
-    CloseSession(session->GetSession().groupName, session->GetSession().name);
+    const wxString group = session->GetSession().groupName;
+    const wxString name = session->GetSession().name;
+    // Deferred: leave the handler of the tab first (a dialog may be shown).
+    CallAfter(&MainNotebook::CloseOrArchiveSession, group, name);
+  }
+}
+
+void MainNotebook::CloseOrArchiveSession(const wxString &groupName,
+                                         const wxString &sessionName) {
+  auto *page = FindSession(groupName, sessionName);
+  CHECK_NOT_NULL_RETURN(page);
+  // Only an agent session can be archived.
+  if (page->IsPlainTerminal() || !page->GetSession().IsPersistent()) {
+    CloseSession(groupName, sessionName);
+    return;
+  }
+
+  auto &prefs = AppManager::Get().GetPrefs();
+  CloseAction action = prefs.sessionCloseAction;
+  if (action == CloseAction::Ask) {
+    wxRichMessageDialog dlg(
+        this,
+        wxString::Format(_("Archive '%s' instead of closing it?"), sessionName),
+        "Kennel", wxYES_NO | wxCANCEL | wxYES_DEFAULT | wxICON_QUESTION);
+    dlg.SetExtendedMessage(
+        _("An archived session can be restored later (File -> Archived "
+          "Sessions...)."));
+    dlg.SetYesNoCancelLabels(_("Archive"), _("Close"), _("Cancel"));
+    dlg.ShowCheckBox(_("Do not ask again"));
+    const int answer = dlg.ShowModal();
+    if (answer == wxID_CANCEL) {
+      return;
+    }
+    action = answer == wxID_YES ? CloseAction::Archive : CloseAction::Close;
+    if (dlg.IsCheckBoxChecked()) {
+      prefs.sessionCloseAction = action;
+      if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+        KLOG_WARN() << "Could not save the close action: " << st.message();
+      }
+    }
+    // The dialog ran events: the page may be gone.
+    CHECK_NOT_NULL_RETURN(FindSession(groupName, sessionName));
+  }
+
+  if (action == CloseAction::Archive) {
+    ArchiveSession(groupName, sessionName);
+  } else {
+    CloseSession(groupName, sessionName);
   }
 }
 
@@ -2037,14 +2085,8 @@ void MainNotebook::ShowArchiveDialog() {
 
 void MainNotebook::OnArchiveRestore(wxCommandEvent &e) {
   auto *dlg = dynamic_cast<ArchiveDlg *>(e.GetEventObject());
-  if (RestoreArchived(static_cast<size_t>(e.GetInt()))) {
-    // The session is showing behind the dialog: close it. The name may have a
-    // number (see RestoreArchived()); the tab shows it.
-    if (dlg != nullptr) {
-      dlg->EndModal(wxID_OK);
-    }
-    return;
-  }
+  // The dialog stays open, to restore more than one session.
+  RestoreArchived(static_cast<size_t>(e.GetInt()));
   if (dlg != nullptr) {
     dlg->SetItems(m_archived);
   }

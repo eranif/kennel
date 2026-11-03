@@ -34,6 +34,7 @@ json ToJson(const UiPrefs &p) {
       {"sideTab", p.sideTab},
       {"scrollbackLines", p.scrollbackLines},
       {"tabHasCloseButton", p.tabHasCloseButton},
+      {"sessionCloseAction", static_cast<int>(p.sessionCloseAction)},
       {"tabOutlineColour", p.tabOutlineColour},
       {"tabPosition", static_cast<int>(p.tabPosition)},
       {"sideBarTabPosition", static_cast<int>(p.sideBarTabPosition)},
@@ -69,6 +70,14 @@ void ParsePrefs(const json &root, UiPrefs &p) {
   p.auiLayout = GetStr(root, "auiLayout", p.auiLayout);
   p.sideTab = GetInt(root, "sideTab", p.sideTab);
   p.tabHasCloseButton = GetBool(root, "tabHasCloseButton", p.tabHasCloseButton);
+  {
+    const int action = GetInt(root, "sessionCloseAction",
+                              static_cast<int>(p.sessionCloseAction));
+    if (action >= static_cast<int>(CloseAction::Ask) &&
+        action <= static_cast<int>(CloseAction::Close)) {
+      p.sessionCloseAction = static_cast<CloseAction>(action);
+    }
+  }
   p.tabOutlineColour = GetStr(root, "tabOutlineColour", p.tabOutlineColour);
   p.tabPosition = static_cast<wxDirection>(
       GetInt(root, "tabPosition", static_cast<int>(p.tabPosition)));

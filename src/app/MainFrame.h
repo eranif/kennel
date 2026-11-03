@@ -128,6 +128,8 @@ private:
   void OnResetLayout(wxCommandEvent &e);
   void OnArchivedSessions(wxCommandEvent &e);
   void OnShowPane(wxCommandEvent &e);
+  void OnCloseAction(wxCommandEvent &e);
+  void OnCloseActionUI(wxUpdateUIEvent &e);
   void OnShowPaneUI(wxUpdateUIEvent &e);
   void OnGroupTabs(wxCommandEvent &e);
   void OnGroupTabsUI(wxUpdateUIEvent &e);
