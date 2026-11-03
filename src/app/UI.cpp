@@ -116,14 +116,14 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     
     m_panelSideView = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
     
-    m_auimgr->AddPane(m_panelSideView, wxAuiPaneInfo().Name(wxT("SideView")).Caption(_("Side Bar")).Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(0).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
+    m_auimgr->AddPane(m_panelSideView, wxAuiPaneInfo().Name(wxT("SideView")).Caption(_("Side Bar")).Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(0).CaptionVisible(true).MaximizeButton(false).CloseButton(true).MinimizeButton(false).PinButton(false));
     
     wxBoxSizer* boxSizer596 = new wxBoxSizer(wxVERTICAL);
     m_panelSideView->SetSizer(boxSizer596);
     
     m_panelActivity = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
     
-    m_auimgr->AddPane(m_panelActivity, wxAuiPaneInfo().Name(wxT("Activity")).Caption(_("Activity")).Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(1).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
+    m_auimgr->AddPane(m_panelActivity, wxAuiPaneInfo().Name(wxT("Activity")).Caption(_("Activity")).Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(1).CaptionVisible(true).MaximizeButton(false).CloseButton(true).MinimizeButton(false).PinButton(false));
     
     wxBoxSizer* boxSizer600 = new wxBoxSizer(wxVERTICAL);
     m_panelActivity->SetSizer(boxSizer600);

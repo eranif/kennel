@@ -448,6 +448,30 @@ void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
 
 void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
   auto *viewMenu = new wxMenu();
+  viewMenu->AppendCheckItem(XRCID("show-side-view"), _("Side Bar"),
+                            _("Show or hide the side bar"));
+  viewMenu->AppendCheckItem(XRCID("show-activity"), _("Activity"),
+                            _("Show or hide the activity view"));
+#ifdef __WXOSX__
+  // The physical Ctrl key, not Cmd.
+  const wxString toggleLabel = _("Toggle All Views\tRawCtrl+M");
+#else
+  // AcceleratorInterceptor handles the key (a terminal would get it otherwise);
+  // the text after the tab shows it.
+  const wxString toggleLabel = _("Toggle All Views\tCtrl+M");
+#endif
+  viewMenu->Append(XRCID("toggle-all-views"), toggleLabel,
+                   _("Hide all the views except for the main view, or show "
+                     "them again"));
+  viewMenu->AppendSeparator();
+  Bind(wxEVT_MENU, &MainFrame::OnShowPane, this, XRCID("show-side-view"));
+  Bind(wxEVT_MENU, &MainFrame::OnShowPane, this, XRCID("show-activity"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnShowPaneUI, this,
+       XRCID("show-side-view"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnShowPaneUI, this, XRCID("show-activity"));
+  Bind(
+      wxEVT_MENU, [this](wxCommandEvent &) { m_mainView->ToggleAllPanes(); },
+      XRCID("toggle-all-views"));
   viewMenu->Append(XRCID("reset-layout"), _("Reset Kennel Layout"),
                    _("Restore the panes to their initial layout"));
   Bind(wxEVT_MENU, &MainFrame::OnResetLayout, this, XRCID("reset-layout"));
@@ -460,6 +484,23 @@ void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
 }
 
 void MainFrame::OnResetLayout(wxCommandEvent &) { m_mainView->ResetLayout(); }
+
+namespace {
+// The pane a View menu item shows or hides.
+wxString PaneOfMenuId(int id) {
+  return id == XRCID("show-side-view") ? wxString("SideView")
+                                       : wxString("Activity");
+}
+} // namespace
+
+void MainFrame::OnShowPane(wxCommandEvent &e) {
+  const wxString name = PaneOfMenuId(e.GetId());
+  m_mainView->ShowPane(name, !m_mainView->IsPaneShown(name));
+}
+
+void MainFrame::OnShowPaneUI(wxUpdateUIEvent &e) {
+  e.Check(m_mainView->IsPaneShown(PaneOfMenuId(e.GetId())));
+}
 
 void MainFrame::OnGroupTabs(wxCommandEvent &) {
   auto &prefs = AppManager::Get().GetPrefs();

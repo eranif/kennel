@@ -1,7 +1,8 @@
 # TODO tasks before version 2.0.0 is released.
 
 ## Must for 2.0
-===
+
+----
 
 - [x] Update CI to include installer for Windows (Similar to CodeLite's MSYS2 CI installer stage)
       Workflow added (`.github/workflows/msys2.yml`): check its first run on GitHub, then tick this. Later: attach
@@ -20,7 +21,7 @@
 - [x] IMPORTANT: allow the user to change the tab position.
 - [x] Allow changing the tab outline colour.
 - [x] Main Toolbar icons are not aligned (different size).
-- [ ] Start Agent Dialog: remember 10 paths used.
+- [x] Start Agent Dialog: remember 10 paths used.
 - [x] Main ToolBar: tooltip should have the full path of the file.
 - [x] For files, display the first folder name, e.g. src/TODO.md app/TODO.md etc.
 - [x] Make the spinner lighter on dark theme.
@@ -45,9 +46,11 @@
   - [x] Push - Open a terminal: "Git" -> run the command
   - [x] Reset File. Note: work on multiple files
   - [x] Reset Repo
+- [x] View Menu: add option to Show / Hide the various views
+- [x] View Menu: add option to "toggle" all views (hide everything except for the main view)
 
 ## Low Items
-===
+---
 
 - [ ] Settings dialog:
   - [ ] Review timeout.

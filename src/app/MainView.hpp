@@ -29,6 +29,12 @@ public:
   // with the default width of the side panes: what a start without a saved
   // layout shows.
   void ResetLayout();
+  // Shows or hides a side pane ("SideView" or "Activity").
+  bool IsPaneShown(const wxString &name) const;
+  void ShowPane(const wxString &name, bool show);
+  // Hides all the side panes, leaving only the main view. When they are all
+  // hidden already, shows the ones that were hidden by the previous call.
+  void ToggleAllPanes();
 
   const std::vector<LoadedTheme> &Themes() const {
     return ThemeManager::Get().Themes();
@@ -60,4 +66,6 @@ private:
   bool m_layoutRestored{false};
   // The AUI perspective of the panes as they are created (see ResetLayout()).
   wxString m_defaultLayout;
+  // The panes ToggleAllPanes() hid.
+  std::vector<wxString> m_hiddenByToggle;
 };

@@ -166,6 +166,44 @@ void MainView::ResetLayout() {
   ApplyDefaultPaneWidths(kSidePanes);
 }
 
+bool MainView::IsPaneShown(const wxString &name) const {
+  return m_auimgr->GetPane(name).IsShown();
+}
+
+void MainView::ShowPane(const wxString &name, bool show) {
+  wxAuiPaneInfo &pane = m_auimgr->GetPane(name);
+  if (!pane.IsOk() || pane.IsShown() == show) {
+    return;
+  }
+  pane.Show(show);
+  m_auimgr->Update();
+}
+
+void MainView::ToggleAllPanes() {
+  wxWindowUpdateLocker locker{this};
+  std::vector<wxString> shown;
+  for (const wxString &name : kSidePanes) {
+    if (IsPaneShown(name)) {
+      shown.push_back(name);
+    }
+  }
+  if (!shown.empty()) {
+    for (const wxString &name : shown) {
+      m_auimgr->GetPane(name).Show(false);
+    }
+    m_hiddenByToggle = std::move(shown);
+  } else {
+    if (m_hiddenByToggle.empty()) {
+      m_hiddenByToggle.assign(std::begin(kSidePanes), std::end(kSidePanes));
+    }
+    for (const wxString &name : m_hiddenByToggle) {
+      m_auimgr->GetPane(name).Show(true);
+    }
+    m_hiddenByToggle.clear();
+  }
+  m_auimgr->Update();
+}
+
 void MainView::ApplyDefaultPaneWidths(std::span<const wxString> names) {
   // A dock keeps the size it got when it was created (and a new dock is at most
   // 30% of the window wide), so BestSize() cannot change it any more. A minimum
