@@ -50,6 +50,9 @@ struct UiPrefs {
   // The last answer to the dialog at the end of a review: also close the
   // Review Buddy?
   bool closeReviewBuddyOnDismiss{false};
+  // The shell the user chose last for a new terminal: the question offers it
+  // first. Empty: the default shell (terminalLoginShell).
+  wxString lastTerminalShell;
   bool tabHasCloseButton{false};
   // What the close button of the tab of an agent session does.
   CloseAction sessionCloseAction{CloseAction::Ask};

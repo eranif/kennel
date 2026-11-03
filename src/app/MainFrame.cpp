@@ -821,6 +821,10 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.appTheme = settingsDlg.GetAppThemeName();
     prefs.blockCursor = settingsDlg.GetUseBlockCursor();
     prefs.blockCursor = settingsDlg.GetUseBlockCursor();
+    if (prefs.terminalLoginShell != settingsDlg.GetDefaultLoginShell()) {
+      // A new default: the question for a new terminal starts with it again.
+      prefs.lastTerminalShell.clear();
+    }
     prefs.terminalLoginShell = settingsDlg.GetDefaultLoginShell();
     prefs.terminalHomeDir = settingsDlg.GetDefaultHomeDir();
     prefs.terminalOptimizedDrawing = settingsDlg.OptimizeTerminalDrawing();

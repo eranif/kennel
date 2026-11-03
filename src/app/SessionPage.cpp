@@ -446,14 +446,22 @@ void SessionPage::CreateTerminal() {
 
     // For plain terminals, we use the following logic to determine the
     // terminal: Assume the default terminal. If we have multiple terminals,
-    // prompt the user to pick one (we set the default terminal as the default
-    // terminal in the selection dialog).
+    // prompt the user to pick one (the shell chosen last time, or else the
+    // default one, is selected in the dialog).
     if (m_session.loginShell.empty() && shells.size() > 1) {
       wxArrayString shell_names_arr;
       std::unordered_map<wxString, wxString> m;
       wxString selectedShellName;
+      // The one chosen last time, as long as it is still there; otherwise the
+      // default shell.
+      const bool lastIsThere = std::any_of(
+          shells.begin(), shells.end(), [&prefs](const auto &shell) {
+            return shell.second == prefs.lastTerminalShell;
+          });
+      const wxString &preferred =
+          lastIsThere ? prefs.lastTerminalShell : prefs.terminalLoginShell;
       for (const auto &[shell_name, shell_cmd] : shells) {
-        if (shell_cmd == prefs.terminalLoginShell) {
+        if (shell_cmd == preferred) {
           selectedShellName = shell_name;
         }
         shell_names_arr.push_back(shell_name);
@@ -461,6 +469,14 @@ void SessionPage::CreateTerminal() {
       }
 
       int selection = shell_names_arr.Index(selectedShellName);
+      // Offered first next time.
+      auto &mutablePrefs = AppManager::Get().GetPrefs();
+      if (mutablePrefs.lastTerminalShell != shellCommand) {
+        mutablePrefs.lastTerminalShell = shellCommand;
+        if (::Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+          KLOG_WARN() << "Could not save the terminal shell: " << st.message();
+        }
+      }
       wxString selectionShell = ::wxGetSingleChoice(
           _("Choose a Login Shell:"), "Kennel", shell_names_arr, selection);
       if (selectionShell.empty()) {
