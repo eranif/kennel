@@ -2,6 +2,7 @@
 // or a file), or for empty space. The commands of a
 // group are in the menu of each of its sessions (AppendGroupMenu()).
 #include "app/MainNotebook.hpp"
+#include "core/AppManager.h"
 
 #include "app/FilePage.hpp"
 #include "app/PageNames.h"
@@ -195,5 +196,32 @@ void MainNotebook::ShowBackgroundMenu(wxWindow *on) {
   menu.Bind(
       wxEVT_MENU, [this](wxCommandEvent &) { StartTerminal(); },
       XRCID("start-terminal"));
+
+  // Where the tabs are (the same as Settings).
+  menu.AppendSeparator();
+  struct Place {
+    const char *id;
+    const char *label;
+    wxDirection direction;
+  };
+  static const Place kPlaces[] = {
+      {"tab-position-top", "Top", wxTOP},
+      {"tab-position-bottom", "Bottom", wxBOTTOM},
+      {"tab-position-left", "Left", wxLEFT},
+      {"tab-position-right", "Right", wxRIGHT},
+  };
+  auto *placeMenu = new wxMenu;
+  const wxDirection current = AppManager::Get().GetPrefs().tabPosition;
+  for (const Place &place : kPlaces) {
+    placeMenu->AppendRadioItem(XRCID(place.id), wxGetTranslation(place.label))
+        ->Check(place.direction == current);
+    placeMenu->Bind(
+        wxEVT_MENU,
+        [this, direction = place.direction](wxCommandEvent &) {
+          SetTabPosition(direction);
+        },
+        XRCID(place.id));
+  }
+  menu.AppendSubMenu(placeMenu, _("Tab Position"));
   on->PopupMenu(&menu);
 }

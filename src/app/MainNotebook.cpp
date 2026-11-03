@@ -142,6 +142,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
                              this);
   EventNotifier::Get()->Bind(wxEVT_ACTIVITYVIEW_SESSION_SELECTED,
                              &MainNotebook::OnShowSessionRequested, this);
+  EventNotifier::Get()->Bind(wxEVT_SESSION_OPEN_TERMINAL,
+                             &MainNotebook::OnOpenTerminalRequested, this);
   EventNotifier::Get()->Bind(wxEVT_FILETREE_ACTIVATED,
                              &MainNotebook::OnFileTreeActivated, this);
   EventNotifier::Get()->Bind(wxEVT_GITVIEW_SHOW_DIFF, &MainNotebook::OnShowDiff,
@@ -180,6 +182,8 @@ MainNotebook::~MainNotebook() {
                                this);
   EventNotifier::Get()->Unbind(wxEVT_ACTIVITYVIEW_SESSION_SELECTED,
                                &MainNotebook::OnShowSessionRequested, this);
+  EventNotifier::Get()->Unbind(wxEVT_SESSION_OPEN_TERMINAL,
+                               &MainNotebook::OnOpenTerminalRequested, this);
   EventNotifier::Get()->Unbind(wxEVT_FILETREE_ACTIVATED,
                                &MainNotebook::OnFileTreeActivated, this);
   EventNotifier::Get()->Unbind(wxEVT_GITVIEW_SHOW_DIFF,
@@ -323,6 +327,21 @@ void MainNotebook::OnShowSessionRequested(PageViewEvent &event) {
   if (page != nullptr && page != GetCurrentPage()) {
     ShowPage(page);
   }
+}
+
+void MainNotebook::OnOpenTerminalRequested(PageViewEvent &event) {
+  const Account &account = event.GetAccount();
+  const wxString &dir = account.m_rootDir;
+  // A terminal on a remote host or in a WSL distribution starts in the home
+  // folder: it goes to the folder of the session with a command.
+  std::vector<wxString> commands;
+  if (!dir.empty() && !account.IsLocalHost()) {
+    wxString quoted = dir;
+    quoted.Replace("'", "'\\''");
+    commands.push_back("cd '" + quoted + "'");
+  }
+  LaunchTerminal(event.GetRef().name + " | " + _("Terminal"), dir, account,
+                 commands);
 }
 
 void MainNotebook::OnFileTreeActivated(FileEvent &event) {
@@ -1383,6 +1402,18 @@ bool MainNotebook::LaunchTerminal(const wxString &name,
     page->GetTerminal()->SendCommand(command);
   }
   return true;
+}
+
+void MainNotebook::SetTabPosition(wxDirection direction) {
+  auto &prefs = AppManager::Get().GetPrefs();
+  if (prefs.tabPosition == direction) {
+    return;
+  }
+  prefs.tabPosition = direction;
+  m_book->SetTabPosition(direction);
+  if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+    KLOG_WARN() << "Could not save the tab position: " << st.message();
+  }
 }
 
 void MainNotebook::StartTerminal() {

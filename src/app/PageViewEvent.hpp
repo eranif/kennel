@@ -67,6 +67,12 @@ private:
 //                                page that is showing.
 //   wxEVT_PAGES_TOOLBAR_STYLE:   the toolbars take the style of the theme
 //   again.
+// From a page, on the EventNotifier (the pages answer):
+//   wxEVT_SESSION_OPEN_TERMINAL: the session GetRef() asks for a terminal in
+//   its
+//                                place (the same host and folder):
+//                                GetAccount(), its start folder is the folder
+//                                to go to.
 // (A file that is showing is reported with wxEVT_FILE_REVEAL, see FileEvent.)
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_ADDED, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_REMOVED, PageViewEvent);
@@ -76,6 +82,7 @@ wxDECLARE_EVENT(wxEVT_SESSION_PAGE_SHOWN, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_ACTIVITY, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_MOVED, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_PAGES_TOOLBAR_STYLE, wxCommandEvent);
+wxDECLARE_EVENT(wxEVT_SESSION_OPEN_TERMINAL, PageViewEvent);
 
 // Sent on the EventNotifier with ProcessEvent() (so the answer is known when it
 // returns) when the application is closing. A listener that needs the user (a

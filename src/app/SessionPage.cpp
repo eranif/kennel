@@ -10,6 +10,7 @@
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/ClientAdapter.h"
+#include "core/EventNotifier.hpp"
 #include "core/FileLocation.h"
 #include "core/Helpers.h"
 #include "core/Logger.h"
@@ -927,6 +928,10 @@ void SessionPage::CreateToolBar() {
   toolbar::AddTool(m_toolbar, ID_REVIEW_BUDDY, _("Review Buddy"),
                    bmps.Get("code-reviewer", false), _("Run Review Buddy"),
                    wxITEM_DROPDOWN);
+  toolbar::AddTool(m_toolbar, ID_TERMINAL, _("Terminal"),
+                   bmps.Get("terminal", false),
+                   _("Open a terminal in the folder and on the host of this "
+                     "session"));
   m_toolbar->AddSeparator();
   toolbar::AddTool(m_toolbar, ID_COPY, _("Copy"), bmps.Get("copy", false),
                    _("Copy the selected text"));
@@ -942,6 +947,9 @@ void SessionPage::CreateToolBar() {
                   &SessionPage::OnToolReviewBuddy, this, ID_REVIEW_BUDDY);
   m_toolbar->Bind(wxEVT_TOOL, &SessionPage::OnToolReviewBuddy, this,
                   ID_REVIEW_BUDDY);
+  m_toolbar->Bind(wxEVT_TOOL, &SessionPage::OnToolTerminal, this, ID_TERMINAL);
+  m_toolbar->Bind(wxEVT_UPDATE_UI, &SessionPage::OnToolHasTerminalUI, this,
+                  ID_TERMINAL);
   m_toolbar->Bind(wxEVT_TOOL, &SessionPage::OnToolCopy, this, ID_COPY);
   m_toolbar->Bind(wxEVT_TOOL, &SessionPage::OnToolPaste, this, ID_PASTE);
   m_toolbar->Bind(wxEVT_TOOL, &SessionPage::OnToolFind, this, ID_FIND);
@@ -970,6 +978,15 @@ void SessionPage::OnToolRestart(wxCommandEvent &) {
   // Deferred: leave the toolbar's callback first, the restart destroys the
   // terminal.
   CallAfter(&SessionPage::Restart);
+}
+
+void SessionPage::OnToolTerminal(wxCommandEvent &) {
+  PageViewEvent event(wxEVT_SESSION_OPEN_TERMINAL);
+  event.SetEventObject(this);
+  event.SetRef(SessionRef{m_session.groupName, m_session.name});
+  event.SetAccount(GetAccount());
+  // Pending: the toolbar's callback ends first.
+  EventNotifier::Get()->AddPendingEvent(event);
 }
 
 void SessionPage::OnToolCopy(wxCommandEvent &) {

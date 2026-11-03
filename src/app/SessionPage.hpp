@@ -186,6 +186,8 @@ private:
   // The terminal the Copy button works on: one that has a selection.
   wxTerminalViewCtrl *CopyTerminal() const;
   void OnToolRestart(wxCommandEvent &event);
+  // Asks (on the EventNotifier) for a terminal in the place of this session.
+  void OnToolTerminal(wxCommandEvent &event);
   void OnToolReviewBuddy(wxCommandEvent &event);
   void OnToolCopy(wxCommandEvent &event);
   void OnToolPaste(wxCommandEvent &event);
@@ -228,6 +230,7 @@ private:
   enum {
     ID_RESTART = wxID_HIGHEST + 1000,
     ID_REVIEW_BUDDY,
+    ID_TERMINAL,
     ID_COPY,
     ID_PASTE,
     ID_FIND,

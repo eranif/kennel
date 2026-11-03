@@ -85,6 +85,8 @@ public:
 
   // Shows a plain terminal.
   void StartTerminal();
+  // Moves the tabs to `direction` and remembers it in the preferences.
+  void SetTabPosition(wxDirection direction);
 
   // Launches a one-shot session running `job`'s command/prompt, under a
   // "Jobs" group. Never persisted to workspace.json. `selectAfterLaunch`
@@ -291,6 +293,8 @@ private:
   // The side views ask (they arrive on the EventNotifier):
   // The user chose a session in the file explorer or in the activity view.
   void OnShowSessionRequested(PageViewEvent &event);
+  // A session asks for a terminal on its host, in its folder.
+  void OnOpenTerminalRequested(PageViewEvent &event);
   // A file or a folder of the file explorer was double clicked.
   void OnFileTreeActivated(FileEvent &event);
   void OnShowDiff(FileEvent &event);

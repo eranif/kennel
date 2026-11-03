@@ -2,6 +2,7 @@
 
 #include <wx/button.h>
 #include <wx/checkbox.h>
+#include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/textctrl.h>
 
