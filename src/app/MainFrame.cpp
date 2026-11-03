@@ -30,6 +30,7 @@
 #include <wx/app.h>
 #include <wx/artprov.h>
 #include <wx/bmpbndl.h>
+#include <wx/display.h>
 #include <wx/fontdlg.h>
 #include <wx/iconbndl.h>
 #include <wx/menu.h>
@@ -85,13 +86,23 @@ MainFrame::MainFrame()
   BuildToolBar();
   BuildMenuBar();
 
-  // Restore the persisted window geometry. Size always applies; position only
-  // when previously saved (x/y == -1 means "let the platform place it"). If the
-  // window was maximized last time, maximize after setting the restore bounds.
+  // Restore the persisted window geometry. A negative x or y (-1 is "nothing
+  // saved", and a window off the main screen has a negative one) is not used:
+  // the window gets the default size and place, most of the screen. Otherwise
+  // the saved size and position apply. If the window was maximized last time,
+  // maximize after setting the restore bounds.
   const WindowGeometry &g = AppManager::Get().GetPrefs().window;
   const wxPoint pos =
       (g.x >= 0 && g.y >= 0) ? wxPoint(g.x, g.y) : wxDefaultPosition;
-  if (g.width > 0 && g.height > 0) {
+  if (pos == wxDefaultPosition) {
+    // Nothing saved yet (a first run): most of the screen, not a small window.
+    // The size is in pixels, so a high resolution screen gets a big window too.
+    const wxRect area = wxDisplay(this).GetClientArea();
+    wxSize size(std::max(FromDIP(1280), area.width * 8 / 10),
+                std::max(FromDIP(800), area.height * 8 / 10));
+    size.DecTo(area.GetSize()); // Not bigger than the screen
+    SetSize(wxRect(area.GetPosition() + (area.GetSize() - size) / 2, size));
+  } else if (g.width > 0 && g.height > 0) {
     SetSize(wxRect(pos, wxSize(g.width, g.height)));
   } else if (pos != wxDefaultPosition) {
     Move(pos);
