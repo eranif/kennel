@@ -469,14 +469,6 @@ void SessionPage::CreateTerminal() {
       }
 
       int selection = shell_names_arr.Index(selectedShellName);
-      // Offered first next time.
-      auto &mutablePrefs = AppManager::Get().GetPrefs();
-      if (mutablePrefs.lastTerminalShell != shellCommand) {
-        mutablePrefs.lastTerminalShell = shellCommand;
-        if (::Status st = AppManager::Get().SavePrefs(); !st.ok()) {
-          KLOG_WARN() << "Could not save the terminal shell: " << st.message();
-        }
-      }
       wxString selectionShell = ::wxGetSingleChoice(
           _("Choose a Login Shell:"), "Kennel", shell_names_arr, selection);
       if (selectionShell.empty()) {
@@ -485,6 +477,14 @@ void SessionPage::CreateTerminal() {
       shellCommand = m[selectionShell];
       // Only a shell the user picked is kept: the default follows the prefs.
       m_session.loginShell = shellCommand;
+      // Offered first next time.
+      auto &mutablePrefs = AppManager::Get().GetPrefs();
+      if (mutablePrefs.lastTerminalShell != shellCommand) {
+        mutablePrefs.lastTerminalShell = shellCommand;
+        if (::Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+          KLOG_WARN() << "Could not save the terminal shell: " << st.message();
+        }
+      }
     }
   }
 
