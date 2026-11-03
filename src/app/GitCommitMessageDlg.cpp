@@ -9,6 +9,7 @@ GitCommitMessageDlg::GitCommitMessageDlg(wxWindow *parent)
       isDark ? wxTerminalTheme::MakeDarkTheme()
              : wxTerminalTheme::MakeLightTheme());
   Editor::InitEditor(m_stcCommitMessage, EditorLang::kMarkdown, theme);
+  m_stcCommitMessage->CallAfter(&wxStyledTextCtrl::SetFocus);
 }
 
 GitCommitMessageDlg::~GitCommitMessageDlg() {}
