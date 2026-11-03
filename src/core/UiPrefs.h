@@ -32,9 +32,9 @@ struct UiPrefs {
   wxString auiLayout;
   // The page of the side book (file explorer, git) that was selected.
   int sideTab{0};
-  wxString lastSelectedSession;      // empty => no prior selection
-  wxString terminalTheme{"Cobalt2"}; // name of the last-applied terminal theme
-  wxString terminalFontDesc;         // wxFont native info (empty => default)
+  wxString lastSelectedSession;       // empty => no prior selection
+  wxString terminalTheme{"one_dark"}; // name of the last-applied terminal theme
+  wxString terminalFontDesc;          // wxFont native info (empty => default)
   bool blockCursor{true};
   bool wrapLines{true};        // Wrap the long lines of the file editor
   bool groupTabs{true};        // Tab groups in the main book, by session group
@@ -59,7 +59,7 @@ struct UiPrefs {
   std::vector<wxString> recentWorkingDirs; // most-recent first, capped at 10
   std::vector<wxString> recentHosts;       // most-recent first, capped at 10
   wxString tabOutlineColour{"Default"};
-  wxDirection tabPosition{wxDirection::wxRIGHT};
+  wxDirection tabPosition{wxDirection::wxTOP};
   // Where the tabs of the side bar (file explorer, git) are.
   wxDirection sideBarTabPosition{wxDirection::wxTOP};
 };
