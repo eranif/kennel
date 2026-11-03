@@ -113,7 +113,9 @@ private:
   void ShowLog(const Row *row);
   void ShowBlame(const Row &row);
   void Commit();
-  void Push();
+  // Runs `git <command>` (push, pull) in the terminal of the account, where
+  // git can ask for a password.
+  void RunInTerminal(const wxString &command);
 
   // Fills the label and the table from the last answer.
   void Refill();

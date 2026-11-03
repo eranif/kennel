@@ -24,7 +24,8 @@ LocalFilesProvider::ListFiles(const wxString &dir) {
   }
 
   wxString entry;
-  const int flags = wxDIR_DIRS | (m_dirsOnly ? 0 : wxDIR_FILES);
+  // Hidden entries too (dot-files, and the hidden ones of Windows).
+  const int flags = wxDIR_DIRS | wxDIR_HIDDEN | (m_dirsOnly ? 0 : wxDIR_FILES);
 
   if (d.GetFirst(&entry, wxEmptyString, flags)) {
     do {
@@ -164,10 +165,6 @@ RemoteFilesProvider::ListFiles(const wxString &dir) {
 
   std::vector<File> files;
   for (const auto &e : entries) {
-    if (e.name.StartsWith(".")) {
-      continue;
-    }
-
     File f;
     f.path = m_dir + "/" + e.name;
     NormalizePath(f.path);

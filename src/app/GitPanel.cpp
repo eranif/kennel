@@ -39,6 +39,7 @@ const int kIdBlame = wxWindow::NewControlId();
 const int kIdFileLog = wxWindow::NewControlId();
 const int kIdCommit = wxWindow::NewControlId();
 const int kIdPush = wxWindow::NewControlId();
+const int kIdPull = wxWindow::NewControlId();
 const int kIdRepoLog = wxWindow::NewControlId();
 const int kIdResetRepo = wxWindow::NewControlId();
 
@@ -132,6 +133,8 @@ GitPanel::GitPanel(wxWindow *parent, const Account &account)
                    _("Commit the staged changes..."));
   toolbar::AddTool(m_toolbar, kIdPush, _("Push"),
                    bitmaps.GetByAlias("git-push", false), _("Push"));
+  toolbar::AddTool(m_toolbar, kIdPull, _("Pull"),
+                   bitmaps.GetByAlias("git-pull", false), _("Pull"));
   toolbar::AddTool(m_toolbar, kIdRepoLog, _("Log"),
                    bitmaps.GetByAlias("git-log", false),
                    _("Show the log of the repository"));
@@ -156,7 +159,8 @@ GitPanel::GitPanel(wxWindow *parent, const Account &account)
   SetSizer(sizer);
 
   m_toolbar->Bind(wxEVT_TOOL, &GitPanel::OnRefresh, this, kIdRefresh);
-  for (const int id : {kIdAdd, kIdCommit, kIdPush, kIdRepoLog, kIdResetRepo}) {
+  for (const int id :
+       {kIdAdd, kIdCommit, kIdPush, kIdPull, kIdRepoLog, kIdResetRepo}) {
     m_toolbar->Bind(wxEVT_TOOL, &GitPanel::OnMenuAction, this, id);
   }
   m_list->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &GitPanel::OnActivated, this);
@@ -392,7 +396,9 @@ void GitPanel::OnMenuAction(wxCommandEvent &event) {
   } else if (id == kIdCommit) {
     Commit();
   } else if (id == kIdPush) {
-    Push();
+    RunInTerminal("push");
+  } else if (id == kIdPull) {
+    RunInTerminal("pull");
   } else if (id == kIdRepoLog) {
     ShowLog(nullptr);
   } else if (id == kIdResetRepo) {
@@ -550,7 +556,7 @@ void GitPanel::Commit() {
   m_driver->RunCommand("commit", args);
 }
 
-void GitPanel::Push() {
+void GitPanel::RunInTerminal(const wxString &command) {
   if (m_status.root.empty()) {
     return;
   }
@@ -563,8 +569,8 @@ void GitPanel::Push() {
   run.SetPath(root);
   run.SetAccount(m_account);
   run.SetString(m_account.IsLocalHost()
-                    ? "git -C " + QuoteForShell(root) + " push"
-                    : "cd " + QuoteForShell(root) + " && git push");
+                    ? "git -C " + QuoteForShell(root) + " " + command
+                    : "cd " + QuoteForShell(root) + " && git " + command);
   EventNotifier::Get()->AddPendingEvent(run);
 }
 

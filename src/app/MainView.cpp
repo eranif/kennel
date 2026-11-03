@@ -222,8 +222,8 @@ void MainView::LoadBitmaps() {
   // status of a file.
   for (const char *name :
        {"git", "git-new", "git-deleted", "git-modified", "git-add",
-        "git-commit", "git-push", "git-log", "git-reset", "git-renamed",
-        "git-conflict", "git-untracked"}) {
+        "git-commit", "git-push", "git-pull", "git-log", "git-reset",
+        "git-renamed", "git-conflict", "git-untracked"}) {
     const wxString file = wxString(name) + ".svg";
     bmps.Load(file);
     bmps.AddAlias(file, name);
