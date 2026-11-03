@@ -53,8 +53,10 @@ void MainNotebook::ShowSessionMenu(SessionPage *page, wxWindow *on) {
   menu.Bind(
       wxEVT_MENU,
       [currentGroupName, sessionName, this](wxCommandEvent &) {
-        // Deferred: see RemovePage.
-        CallAfter(&MainNotebook::CloseSession, currentGroupName, sessionName);
+        // Deferred: see RemovePage. Like the close button of the tab: an agent
+        // session offers to archive (a terminal just closes).
+        CallAfter(&MainNotebook::CloseOrArchiveSession, currentGroupName,
+                  sessionName);
       },
       XRCID("session-group-close-session"));
 
