@@ -1,4 +1,7 @@
-## TODO tasks before version 2.0.0 is released.
+# TODO tasks before version 2.0.0 is released.
+
+## Must for 2.0
+===
 
 - [x] Update CI to include installer for Windows (Similar to CodeLite's MSYS2 CI installer stage)
       Workflow added (`.github/workflows/msys2.yml`): check its first run on GitHub, then tick this. Later: attach
@@ -8,9 +11,6 @@
 - [x] Add goto line to file editor
 - [x] Design and implement a file explorer view (maybe we can import clTreeCtrlPanel)
 - [x] Design and implement a git view.
-- [ ] Settings dialog:
-  - [ ] Review timeout.
-  - [ ] Review turns.
 - [ ] Add Archive feature
 - [x] Notebook: closing a tab, selects the first one. We should select the next one from the MRU.
 - [x] Update the `File Browser` with the following: add `Refresh` context menu. `Open with Default App`, `Copy Path`.
@@ -45,3 +45,11 @@
   - [x] Push - Open a terminal: "Git" -> run the command
   - [x] Reset File. Note: work on multiple files
   - [x] Reset Repo
+
+## Low Items
+===
+
+- [ ] Settings dialog:
+  - [ ] Review timeout.
+  - [ ] Review turns.
+
