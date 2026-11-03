@@ -2104,3 +2104,51 @@ ArchiveDlgBase::ArchiveDlgBase(wxWindow* parent, wxWindowID id, const wxString& 
 ArchiveDlgBase::~ArchiveDlgBase()
 {
 }
+
+GotoAnythingDlgBase::GotoAnythingDlgBase(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style)
+    : wxDialog(parent, id, title, pos, size, style)
+{
+    if ( !bBitmapLoaded ) {
+        // We need to initialise the default bitmap handler
+        wxXmlResource::Get()->AddHandler(new wxBitmapXmlHandler);
+        wxCrafterFiTVkcInitBitmapResources();
+        bBitmapLoaded = true;
+    }
+    
+    wxBoxSizer* boxSizer661 = new wxBoxSizer(wxVERTICAL);
+    this->SetSizer(boxSizer661);
+    
+    m_searchCtrl = new wxSearchCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTE_PROCESS_ENTER);
+    m_searchCtrl->SetFocus();
+    m_searchCtrl->ShowSearchButton(true);
+    m_searchCtrl->ShowCancelButton(false);
+    
+    boxSizer661->Add(m_searchCtrl, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
+    m_dvListCtrl = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(500,300)), wxDV_ROW_LINES|wxDV_SINGLE);
+    
+    boxSizer661->Add(m_dvListCtrl, 1, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
+    m_dvListCtrl->AppendTextColumn(_("Action"), wxDATAVIEW_CELL_INERT, WXC_FROM_DIP(-2), wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
+    m_dvListCtrl->AppendTextColumn(_("Keyboard Shortcut"), wxDATAVIEW_CELL_INERT, WXC_FROM_DIP(-2), wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
+    
+    SetName(wxT("GotoAnythingDlgBase"));
+    SetSize(wxDLG_UNIT(this, wxSize(-1,-1)));
+    if (GetSizer()) {
+         GetSizer()->Fit(this);
+    }
+    if(GetParent()) {
+        CentreOnParent(wxBOTH);
+    } else {
+        CentreOnScreen(wxBOTH);
+    }
+    if(!wxPersistenceManager::Get().Find(this)) {
+        wxPersistenceManager::Get().RegisterAndRestore(this);
+    } else {
+        wxPersistenceManager::Get().Restore(this);
+    }
+}
+
+GotoAnythingDlgBase::~GotoAnythingDlgBase()
+{
+}

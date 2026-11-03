@@ -10,9 +10,13 @@
 #include "app/EditJobsDlg.hpp"
 #include "app/EditMenu.hpp"
 #include "app/FileActions.h"
+#include "app/FilePage.hpp"
+#include "app/GotoAnythingDlg.hpp"
 #include "app/JobLogViewer.hpp"
 #include "app/NewAgentWizard.hpp"
+#include "app/PageNames.h"
 #include "app/PageViewEvent.hpp"
+#include "app/SessionPage.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
@@ -22,6 +26,7 @@
 
 #include "terminal_view.h"
 #include <algorithm>
+#include <optional>
 #include <wx/app.h>
 #include <wx/artprov.h>
 #include <wx/bmpbndl.h>
@@ -426,6 +431,14 @@ void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
   Bind(wxEVT_MENU, &MainFrame::OnPrevSession, this, wxID_BACKWARD);
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnNextSessionUI, this, wxID_FORWARD);
   searchMenu->AppendSeparator();
+  // AcceleratorInterceptor handles the key before the menu sees it (a terminal
+  // would get it otherwise); the text after the tab shows it.
+  searchMenu->Append(XRCID("goto-anything"),
+                     _("Goto Anything...\tCtrl+Shift+P"),
+                     _("Search the menus, the pages and the actions of the "
+                       "page that is showing"));
+  Bind(wxEVT_MENU, &MainFrame::OnGotoAnything, this, XRCID("goto-anything"));
+  searchMenu->AppendSeparator();
   // AcceleratorInterceptor handles these keys before the menu sees them (the
   // terminal would get them otherwise); the text after the tab shows them.
   searchMenu->Append(wxID_FIND, _("Find...\tCtrl+F"),
@@ -476,19 +489,6 @@ void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
   Bind(
       wxEVT_MENU, [this](wxCommandEvent &) { m_mainView->ToggleAllPanes(); },
       XRCID("toggle-all-views"));
-  viewMenu->Append(XRCID("reset-layout"), _("Reset Kennel Layout"),
-                   _("Restore the panes to their initial layout"));
-  Bind(wxEVT_MENU, &MainFrame::OnResetLayout, this, XRCID("reset-layout"));
-  viewMenu->AppendCheckItem(XRCID("group-tabs"),
-                            _("Group Tabs by Session Group"),
-                            _("Show the tabs of a session group together"));
-  Bind(wxEVT_MENU, &MainFrame::OnGroupTabs, this, XRCID("group-tabs"));
-  Bind(wxEVT_UPDATE_UI, &MainFrame::OnGroupTabsUI, this, XRCID("group-tabs"));
-  menuBar->Append(viewMenu, _("&View"));
-}
-
-void MainFrame::OnResetLayout(wxCommandEvent &) { m_mainView->ResetLayout(); }
-
   // What the close button of the tab of an agent session does (the choice of
   // the "Do not ask again" box of the question it asks).
   auto *closeMenu = new wxMenu();
@@ -505,19 +505,19 @@ void MainFrame::OnResetLayout(wxCommandEvent &) { m_mainView->ResetLayout(); }
   }
   viewMenu->AppendSubMenu(closeMenu, _("Close Button of a Session"));
   viewMenu->AppendSeparator();
-void MainFrame::OnArchivedSessions(wxCommandEvent &) {
-  m_mainView->GetSessionsBook()->ShowArchiveDialog();
+  viewMenu->Append(XRCID("reset-layout"), _("Reset Kennel Layout"),
+                   _("Restore the panes to their initial layout"));
+  Bind(wxEVT_MENU, &MainFrame::OnResetLayout, this, XRCID("reset-layout"));
+  viewMenu->AppendCheckItem(XRCID("group-tabs"),
+                            _("Group Tabs by Session Group"),
+                            _("Show the tabs of a session group together"));
+  Bind(wxEVT_MENU, &MainFrame::OnGroupTabs, this, XRCID("group-tabs"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnGroupTabsUI, this, XRCID("group-tabs"));
+  menuBar->Append(viewMenu, _("&View"));
 }
 
-namespace {
-// The pane a View menu item shows or hides.
-wxString PaneOfMenuId(int id) {
-  return id == XRCID("show-side-view") ? wxString("SideView")
-                                       : wxString("Activity");
-}
-} // namespace
+void MainFrame::OnResetLayout(wxCommandEvent &) { m_mainView->ResetLayout(); }
 
-void MainFrame::OnShowPane(wxCommandEvent &e) {
 namespace {
 CloseAction CloseActionOfMenuId(int id) {
   if (id == XRCID("close-action-archive")) {
@@ -543,6 +543,174 @@ void MainFrame::OnCloseActionUI(wxUpdateUIEvent &e) {
           CloseActionOfMenuId(e.GetId()));
 }
 
+void MainFrame::OnArchivedSessions(wxCommandEvent &) {
+  m_mainView->GetSessionsBook()->ShowArchiveDialog();
+}
+
+// ---------------------------------------------------------------------------
+// Goto Anything
+// ---------------------------------------------------------------------------
+
+void MainFrame::OnGotoAnything(wxCommandEvent &) {
+  std::optional<GotoItem> chosen;
+  {
+    GotoAnythingDlg dlg(this);
+    dlg.SetItems(CollectGotoItems());
+    dlg.CenterOnParent();
+    if (dlg.ShowModal() == wxID_OK && dlg.GetChosen() != nullptr) {
+      chosen = *dlg.GetChosen();
+    }
+  }
+  // After the dialog is gone: wx gives the focus back to the window that had it
+  // before, which must not take it from the page that is shown now.
+  if (chosen) {
+    RunGotoItem(*chosen);
+  }
+}
+
+void MainFrame::CollectMenuItems(wxMenu *menu, const wxString &path,
+                                 std::vector<GotoItem> &items) {
+  // Brings the enabled state of the items up to date.
+  menu->UpdateUI(this);
+  for (wxMenuItem *menuItem : menu->GetMenuItems()) {
+    if (menuItem->IsSeparator()) {
+      continue;
+    }
+    const wxString text = menuItem->GetItemLabelText();
+    if (menuItem->IsSubMenu()) {
+      CollectMenuItems(menuItem->GetSubMenu(), path + text + " > ", items);
+      continue;
+    }
+    if (!menuItem->IsEnabled() || menuItem->GetId() == XRCID("goto-anything")) {
+      continue;
+    }
+    GotoItem item;
+    item.kind = GotoItem::Kind::Menu;
+    item.label = path + text;
+    const wxString full = menuItem->GetItemLabel();
+    if (const int tab = full.Find('\t'); tab != wxNOT_FOUND) {
+      item.shortcut = full.Mid(tab + 1);
+    }
+    item.menuId = menuItem->GetId();
+    item.checkable = menuItem->IsCheckable();
+    item.checked = menuItem->IsChecked();
+    items.push_back(std::move(item));
+  }
+}
+
+std::vector<GotoItem> MainFrame::CollectGotoItems() {
+  std::vector<GotoItem> items;
+  MainNotebook *book = m_mainView->GetSessionsBook();
+
+  // What can be done with the page that is showing.
+  if (SessionPage *active = book->GetActiveSessionPage()) {
+    const Session &session = active->GetSession();
+    const SessionRef ref{session.groupName, session.name};
+    GotoItem restart;
+    restart.kind = GotoItem::Kind::Restart;
+    restart.label = active->IsPlainTerminal() ? _("Restart Terminal")
+                                              : _("Restart Session");
+    restart.ref = ref;
+    items.push_back(std::move(restart));
+
+    if (!active->IsPlainTerminal()) {
+      for (const AgentDef &agent : active->GetReviewBuddyChoices()) {
+        GotoItem review;
+        review.kind = GotoItem::Kind::StartReview;
+        review.label =
+            wxString::Format(_("Start Review Buddy with %s"), agent.name);
+        review.ref = ref;
+        review.agentName = agent.name;
+        items.push_back(std::move(review));
+      }
+      if (active->HasReviewBuddy()) {
+        GotoItem stop;
+        stop.kind = GotoItem::Kind::StopReview;
+        stop.label = _("Close Review Buddy");
+        stop.ref = ref;
+        items.push_back(std::move(stop));
+      }
+    }
+  }
+
+  // The open pages.
+  for (SessionPage *page : book->GetSessions()) {
+    const Session &session = page->GetSession();
+    GotoItem item;
+    item.kind = GotoItem::Kind::Page;
+    item.label = (page->IsPlainTerminal() ? _("Select Terminal: ")
+                                          : _("Select Session: ")) +
+                 session.name;
+    item.ref = SessionRef{session.groupName, session.name};
+    items.push_back(std::move(item));
+  }
+  for (FilePage *file : book->GetFiles()) {
+    GotoItem item;
+    item.kind = GotoItem::Kind::Page;
+    item.label = _("Select File: ") +
+                 (file->GetPath().empty() ? file->GetKey() : file->GetPath());
+    item.ref = SessionRef{kFilesGroupName, file->GetKey()};
+    items.push_back(std::move(item));
+  }
+
+  // The menu bar, as it is now: the Edit menu is in it only while a file is
+  // showing, so its items are only here then.
+  if (wxMenuBar *menuBar = GetMenuBar()) {
+    for (size_t i = 0; i < menuBar->GetMenuCount(); ++i) {
+      CollectMenuItems(menuBar->GetMenu(i),
+                       menuBar->GetMenuLabelText(i) + " > ", items);
+    }
+  }
+  return items;
+}
+
+void MainFrame::RunGotoItem(const GotoItem &item) {
+  MainNotebook *book = m_mainView->GetSessionsBook();
+  switch (item.kind) {
+  case GotoItem::Kind::Menu: {
+    wxCommandEvent event{wxEVT_MENU, item.menuId};
+    event.SetEventObject(this);
+    if (item.checkable) {
+      event.SetInt(item.checked ? 0 : 1);
+    }
+    GetEventHandler()->AddPendingEvent(event);
+    break;
+  }
+  case GotoItem::Kind::Page:
+    if (wxWindow *page = book->FindPage(item.ref)) {
+      book->ShowPage(page);
+    }
+    break;
+  case GotoItem::Kind::Restart:
+    if (SessionPage *page =
+            book->FindSession(item.ref.groupName, item.ref.name)) {
+      page->CallAfter(&SessionPage::Restart);
+    }
+    break;
+  case GotoItem::Kind::StartReview:
+    if (SessionPage *page =
+            book->FindSession(item.ref.groupName, item.ref.name)) {
+      page->StartReviewBuddy(item.agentName);
+    }
+    break;
+  case GotoItem::Kind::StopReview:
+    if (SessionPage *page =
+            book->FindSession(item.ref.groupName, item.ref.name)) {
+      page->StopReviewBuddy();
+    }
+    break;
+  }
+}
+
+namespace {
+// The pane a View menu item shows or hides.
+wxString PaneOfMenuId(int id) {
+  return id == XRCID("show-side-view") ? wxString("SideView")
+                                       : wxString("Activity");
+}
+} // namespace
+
+void MainFrame::OnShowPane(wxCommandEvent &e) {
   const wxString name = PaneOfMenuId(e.GetId());
   m_mainView->ShowPane(name, !m_mainView->IsPaneShown(name));
 }

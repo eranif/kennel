@@ -1085,6 +1085,34 @@ void SessionPage::AppendReviewControls(wxMenu &menu) {
       kIdClose);
 }
 
+std::vector<AgentDef> SessionPage::GetReviewBuddyChoices() {
+  if (m_review || !m_agent || m_session.IsJobRun()) {
+    return {};
+  }
+  RefreshGitState();
+  wxString whyNot;
+  if (!CanHaveReviewBuddy(whyNot)) {
+    return {};
+  }
+  return GetReviewerCandidates();
+}
+
+void SessionPage::StartReviewBuddy(const wxString &agentName) {
+  for (const AgentDef &agent : GetReviewBuddyChoices()) {
+    if (agent.name == agentName) {
+      // Deferred: the caller may be a handler of a dialog.
+      CallAfter(&SessionPage::LaunchReviewBuddy, agent);
+      return;
+    }
+  }
+}
+
+void SessionPage::StopReviewBuddy() {
+  if (m_review) {
+    CallAfter(&SessionPage::CloseReviewBuddy);
+  }
+}
+
 std::vector<AgentDef> SessionPage::GetReviewerCandidates() const {
   std::vector<AgentDef> result;
   if (!m_agent) {

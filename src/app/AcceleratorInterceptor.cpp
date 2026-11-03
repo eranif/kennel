@@ -57,6 +57,12 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     GetMainFrame()->GetEventHandler()->AddPendingEvent(evtGoto);
     return;
 #endif
+  } else if (keyEvent.GetUnicodeKey() == 'P' &&
+             keyEvent.GetModifiers() == (wxMOD_CONTROL | wxMOD_SHIFT)) {
+    // Goto Anything. The terminal would get it otherwise.
+    wxCommandEvent evtGotoAnything{wxEVT_MENU, XRCID("goto-anything")};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtGotoAnything);
+    return;
   } else if (keyEvent.GetUnicodeKey() == 'M' &&
              keyEvent.GetModifiers() == wxMOD_RAW_CONTROL) {
     // Toggle All Views. The terminal would get it otherwise (Ctrl+M is Enter).

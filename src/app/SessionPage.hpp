@@ -91,6 +91,16 @@ public:
   // Whether there is a search for FindNext() to repeat.
   bool HasSearch() const { return !m_findText.empty(); }
 
+  // ---- Review buddy, for the commands outside of the toolbar -------------
+  // The agents this session can be reviewed with now. Empty if it cannot (a
+  // terminal, no git repository, a review buddy is open already...).
+  std::vector<AgentDef> GetReviewBuddyChoices();
+  // Starts a review buddy with the agent `agentName` (one of the choices).
+  void StartReviewBuddy(const wxString &agentName);
+  bool HasReviewBuddy() const { return m_review != nullptr; }
+  // Closes the review buddy that is open.
+  void StopReviewBuddy();
+
 private:
   void CreateTerminal();
   // Everything both terminals need once they exist: theme, scrollback, links,

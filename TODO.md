@@ -48,6 +48,7 @@
   - [x] Reset Repo
 - [x] View Menu: add option to Show / Hide the various views
 - [x] View Menu: add option to "toggle" all views (hide everything except for the main view)
+- [x] GotoAnything - implementation.
 
 ## Low Items
 ---

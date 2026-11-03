@@ -22,6 +22,7 @@
 // with that client preselected. Shared state is reached via AppManager::Get().
 class EditMenu;
 class SessionPage;
+struct GotoItem;
 class MainFrame : public wxFrame {
 public:
   MainFrame();
@@ -127,9 +128,16 @@ private:
   // Puts the panes back to the layout they have without a saved one.
   void OnResetLayout(wxCommandEvent &e);
   void OnArchivedSessions(wxCommandEvent &e);
-  void OnShowPane(wxCommandEvent &e);
   void OnCloseAction(wxCommandEvent &e);
   void OnCloseActionUI(wxUpdateUIEvent &e);
+  // Ctrl+Shift+P: a search box over the menu items, the pages and the actions
+  // of the page that is showing.
+  void OnGotoAnything(wxCommandEvent &e);
+  std::vector<GotoItem> CollectGotoItems();
+  void CollectMenuItems(wxMenu *menu, const wxString &path,
+                        std::vector<GotoItem> &items);
+  void RunGotoItem(const GotoItem &item);
+  void OnShowPane(wxCommandEvent &e);
   void OnShowPaneUI(wxUpdateUIEvent &e);
   void OnGroupTabs(wxCommandEvent &e);
   void OnGroupTabsUI(wxUpdateUIEvent &e);

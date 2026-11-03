@@ -663,4 +663,20 @@ public:
     virtual ~ArchiveDlgBase();
 };
 
+
+class GotoAnythingDlgBase : public wxDialog
+{
+protected:
+    wxSearchCtrl* m_searchCtrl;
+    wxDataViewListCtrl* m_dvListCtrl;
+
+protected:
+
+public:
+    wxSearchCtrl* GetSearchCtrl() { return m_searchCtrl; }
+    wxDataViewListCtrl* GetDvListCtrl() { return m_dvListCtrl; }
+    GotoAnythingDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Goto Anything"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxRESIZE_BORDER);
+    virtual ~GotoAnythingDlgBase();
+};
+
 #endif
