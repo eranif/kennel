@@ -3,14 +3,16 @@
 *Covers changes since tag `1.4.0`.*
 
 Kennel 2.0.0 makes the terminal page a tool you can work with: every session has a toolbar
-(Restart, Review Buddy, Copy, Paste, Find) instead of a right-click menu, a header that shows
+(Restart, Review Buddy, Terminal, Copy, Paste, Find) instead of a right-click menu, a header that shows
 what the session is, a search bar, and a thin progress bar. Review Buddy reports its progress
 right in that header. The main window has a new layout: one notebook for all your sessions
-and files, a **File Explorer** with a tree for each session, and an **Activity** pane that
-tells you which sessions are working, done or blocked. The application can follow the theme of
-the terminal, file links from the terminal follow `cd` and open at the right line, open files
-come back with the session, and Windows gets a newer ConPTY, a newer wxWidgets and an
-installer built on GitHub Actions.
+and files, a **Side Bar** with a **File Explorer** and a **Git** view, and an **Activity** pane
+that tells you which sessions are working, done or blocked. You can **archive** a session and
+restore it later, find any command, page or action with **Goto Anything** (Ctrl+Shift+P), and a
+first-time user gets the installed agents defined for them. The application can follow the
+theme of the terminal, file links from the terminal follow `cd` and open at the right line,
+open files come back with the session, and Windows gets a newer ConPTY, a newer wxWidgets and
+an installer built on GitHub Actions.
 
 ## Major Improvements
 
@@ -19,26 +21,47 @@ installer built on GitHub Actions.
 - **One notebook for sessions and files** — the session tree, the flat list and the lists of
   files and terminals are gone. Every session, terminal and file is a tab of one notebook.
   The tabs are painted in the colors of the terminal theme (and follow it when you change
-  it), the close button is on every tab, a middle click closes a tab, and the tooltip of a
+  it), a middle click closes a tab (and a close button on every tab is an option), and the tooltip of a
   tab shows its full title. **Ctrl+Tab** still switches between the pages, most recent first.
   - **Closing a tab shows the page you used before it** — the next one in the recent order,
     as Ctrl+Tab would, and not the tab next to it. The same goes for closing a group.
   - **Program status on the tabs** — a program that reports its state with OSC 7501 gets a
     spinner (working), a green check mark (done) or a hand (blocked, it needs you) on its tab.
     The mark goes away when you look at the page. The reviewer's terminal is followed too.
-- **File Explorer** — a new pane with the files of your sessions: a choice of the sessions
-  and one tree for each of them. Double click a file to open it.
-  - **Link with Session** (a tool on top of the pane) makes the tree follow the session you
-    work in, and select the file that is open in the editor (local and WSL sessions).
+- **Side Bar** — a new pane with two tabs, the **File Explorer** and the **Git** view (see
+  "Git in the Side Bar"). The tab you used last is selected at the next start, and
+  **Settings** has the place of its tabs (top or bottom).
+  - The side bar has one tree and one git view for each place: the folder of a session on
+    this machine, in a WSL distribution, or on a remote host. They follow the page you are
+    working in. A **terminal** has its own tree and git view, which follow the folder the
+    shell is in.
+  - Double click a file to open it. Typing in the tree selects the next entry that starts with
+    the letters you type.
   - A **WSL** session shows the files of its distribution; a session on a **remote host**
     shows the files of the host. A remote tree connects in the background and shows
     `Connecting...` until it is ready, so the window does not wait for a slow host.
-  - Choosing a session in the pane shows that session.
+  - The tree shows hidden files, and the context menu has **Refresh**,
+    **New Folder...**, **New File...**, **Delete...**, **Show in Finder / Explorer / File
+    Manager**, **Open with Default App** and **Copy Path**. Delete is never the first entry
+    and asks first. Select **several files** to open or delete them together.
 - **Activity** — a new pane that lists the sessions whose program is working, done or
   blocked, with an icon (a turning spinner, a check mark, a hand). Blocked sessions come
   first, then done, then working. A working or blocked row stays while the program is in
   that state, also for the page you are looking at. A done row goes when you are in that
   session. Click a row to show the session.
+- **Tab groups** — the tabs of the sessions of a group sit together under a header with the
+  name of the group (Files and Terminals have one too). **Move To Group** and **Rename Group**
+  update the tabs at once, and **View → Group Tabs by Session Group** turns it off. The order of
+  the tabs is saved and comes back at the next start.
+- **Tab options** — **Settings** has the **position of the tabs** (top, bottom, left or
+  right), the **colour of the tab outline**, and a **Close button on the tab** option. The tabs
+  have the look of a browser, a file tab shows the folder and the name (`c/file.cpp`) and the
+  tooltip shows the full path, and a file with unsaved changes has an orange dot on its icon.
+  The tab position is also in the menu of the tab bar: right click on the empty bar, **Tab
+  Position**. Tabs are on top by default.
+- **View menu** — **Side Bar** and **Activity** show or hide a pane, and **Toggle All Views**
+  (**Ctrl+M**, also in a terminal; the Ctrl key on macOS too) hides every pane but the pages, or
+  brings them back.
 - **View → Reset Kennel Layout** — puts the panes back to the layout they have at the first
   start. The layout of the panes is saved between runs; a saved layout that does not know a
   new pane shows that pane again. The side panes start 300 DIP wide, and float at 400x600 DIP.
@@ -47,16 +70,91 @@ installer built on GitHub Actions.
   instead of making a new SSH connection for every call. Opening a remote file no longer
   waits for a new handshake, which took seconds on a host far away.
 
+### Git in the Side Bar
+
+- **Git view** — the second tab of the Side Bar shows the git status of the place you work in
+  (a local folder, a WSL distribution or a remote host, over SSH): the branch, and a list of the
+  files with their status and a file type icon. It is refreshed when you save a file and after
+  each action. A double click shows the **diff** in a read-only page that is not kept in the
+  session (the editor colours the added and deleted lines); the context menu has **Show Diff**
+  and **Open File**.
+- **Actions** — a toolbar with one button for each action. You can work on several files at
+  once.
+  - **Add** (the **+** button) stages the selected files, **Reset** puts the selected files
+    back, and **Reset Repo** resets the whole repository (after asking).
+  - **Commit** opens a message box with **Amend** and **Signoff** (Signoff is remembered) and
+    runs the commit in the background, with the errors reported to you.
+  - **Log** asks for the number of lines (100 by default) and shows the log in an editor.
+    **Blame** shows the blame of the selected file.
+  - **Push** and **Pull** run in a terminal named `Git (<place>)` that Kennel opens (or uses
+    again), on the same host, so passwords are asked where git asks them.
+
+### Archive a session
+
+- **Archive** — a session can be archived instead of closed: its tab goes away, and it is kept
+  in `workspace.json`, with the date. Use **Archive** in the menu of the tab. If the agent is
+  working, Kennel asks first. Terminals are not archived.
+- **File → Archived Sessions...** lists the archived sessions (name, agent, folder, date) with
+  a filter box. Sort by any column; the newest is first. **Restore** starts the agent again with
+  its resume option (it gets a number when its name is taken) and the dialog stays open so you
+  can restore more than one. **Delete** removes the entry for good.
+- **The close button asks** — closing an agent session (the close button of the tab, or
+  **Close** in its menu) asks **Archive**, **Close** or **Cancel**. **Do not ask again** keeps
+  your answer; **View → Close Button of a Session** (Ask, Archive, Close) changes it later.
+
+### Goto Anything
+
+- **Ctrl+Shift+P** (also **Search → Goto Anything...**, also in a terminal) opens a box with a
+  search field and a list; there are no buttons. Type words to filter the list, move with the
+  arrow keys or Page Up / Page Down, press Enter to choose and Escape to close.
+- **What it finds** — the actions of the page that is showing (**Restart Session** or **Restart
+  Terminal**, **Start Review Buddy with ...** for each agent that can review the session, and
+  **Close Review Buddy**), the open pages (`Select Session: ...`, `Select Terminal: ...`,
+  `Select File: ...`), and **every enabled item of the menu bar**, with its keyboard shortcut.
+  The **Edit** menu is in the list only while a file is showing.
+
+### The first start
+
+- **Agents are found for you** — the first time Kennel starts, it looks in the background for
+  `claude`, `codex` and `kiro-cli` on this machine and defines an agent for each, with the right
+  icon. It is done once (`localAgentsScanned` in `.persist.json`) and never shows a dialog. A
+  tool that is defined already is not added again, and an upgrade from an older version does not
+  scan.
+- **WSL and SSH hosts** — then Kennel asks, once, in one dialog, whether to look on your WSL
+  distributions (on Windows) and on the hosts of your SSH config. The distributions are checked,
+  the hosts are for you to choose. The search runs in the background: the status bar shows
+  where it is, ssh never asks for a password (`BatchMode`), and a summary tells what was added.
+  Agents get a name such as `Claude (WSL: Ubuntu)` or `Codex (myhost)` and the WSL or remote
+  icon.
+- **A bigger window** — a new user's window is 80% of the screen, centered.
+
+### The editor and the files
+
+- **Edit menu** — in the menu bar only while a file is showing, so a terminal keeps its keys
+  (Ctrl+R, Ctrl+C, Ctrl+D...): **Close Editor** (Ctrl+W), **Reload File**, **Undo**, **Redo**,
+  **Copy**, **Paste**, **Select All**, **Delete Line** and **Duplicate Line**, and the options
+  **Wrap Lines**, **Highlight Braces** and **Highlight Indent Lines** (saved; open editors follow
+  a change). Wrap Lines is also a tool on the toolbar of a file.
+- **New File and Open File** — **File → New File** (Ctrl+N) opens an empty `Untitled` editor
+  (Save asks for the file name) and **File → Open File** (Ctrl+Shift+O) opens a file. **Rename
+  Session** (F2) is in the File menu.
+- **Unsaved changes are not lost** — when Kennel closes, each file with changes asks **Save**,
+  **Discard** or **Cancel**, and Cancel keeps the application open.
+- **Diff and Rust** — `.diff` and `.patch` files are coloured, and Rust is a supported language.
+- **The caret line is centred** when a search match or Go to Line moves the caret.
+
 ### A toolbar and a header for every terminal
 
 - **Terminal toolbar** — a toolbar above every session has **Restart**, **Review Buddy**,
-  **Copy**, **Paste** and **Find**. The terminal has no right-click menu any more: the
+  **Terminal**, **Copy**, **Paste** and **Find**. The terminal has no right-click menu any more: the
   actions are in the toolbar. (The old menu's **Clear buffer** entry is gone with it.)
   - **Copy** copies the selected text. When nothing is selected, it copies the text the
     program in the terminal copied itself (for example tmux, or a TUI such as Claude Code),
     all of it and not only the first line. It is disabled when there is nothing to copy.
   - **Paste** and **Find** work on the terminal that has the focus (the agent's or the
     reviewer's).
+  - **Terminal** opens a terminal named `<Session> | Terminal` on the same host and in the same
+    folder as the session (local, WSL or remote). Press it again to go back to that terminal.
   - **Review Buddy** is a drop-down. With no review open, it lists the agents on the same host
     to review with ("Review with ..."), or says why a review is not possible (no working
     directory, not a git repository). With a review open, it shows the state and offers
@@ -194,6 +292,10 @@ installer built on GitHub Actions.
 
 - **Ctrl+Click on a link** — a trailing `.` or `:` is cut from the link text, so
   `src/main.cpp:` opens the file.
+- **New Terminal remembers the shell** — the list of shells starts with the one you chose last
+  (until you change the default shell in Settings).
+- **Start Agent remembers the last 10 folders** you chose.
+- **Default theme** — the default terminal theme is `one_dark`.
 - **A Code Reviewer icon** — a teal magnifying glass with a green check mark, readable on dark
   and light themes.
 - **The header of the reviewer** — the terminal of Review Buddy has its own header,
@@ -264,4 +366,9 @@ installer built on GitHub Actions.
   **View → Reset Kennel Layout**.
 - **The terminal has no context menu.** Use the toolbar above the terminal. The shortcut for
   Find is Ctrl+F (Cmd+F on macOS).
+- **New defaults.** The terminal theme is `one_dark` and the tabs are on top. Your saved choices
+  are kept.
+- **The session close button asks.** Choose **Ask**, **Archive** or **Close** in **View → Close
+  Button of a Session**.
+- **Ctrl+N is New File** (it was Configure New Agent), and **Ctrl+M** toggles the panes.
 - **The Windows installer** now also ships `conpty.dll` and `OpenConsole.exe`.
