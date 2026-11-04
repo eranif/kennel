@@ -46,6 +46,22 @@ function check_prerequistes() {
   fi
 }
 
+# Applies our patches to the wxWidgets sources (the current directory is
+# .build-release/wxWidgets/.build-release). A patch that does not apply, for
+# example because it is already in the wxWidgets version, is skipped.
+function apply_wx_patches() {
+  local patch
+  for patch in "${ROOT_DIR}"/patches/wxwidgets-*.patch; do
+    [ -f "${patch}" ] || continue
+    if git -C .. apply --check "${patch}" >/dev/null 2>&1; then
+      INFO "Applying $(basename "${patch}") to wxWidgets"
+      git -C .. apply "${patch}"
+    else
+      WARN "Skipping $(basename "${patch}"): it does not apply to wxWidgets ${WX_VERSION}"
+    fi
+  done
+}
+
 function build_wx_widgets_Linux() {
   local wx_install_dir=${BUILD_DIR}/wxWidgets-install
   if [ -x "${wx_install_dir}/bin/wx-config" ]; then
@@ -62,6 +78,7 @@ function build_wx_widgets_Linux() {
   git submodule update --init --depth 1
   mkdir .build-release
   cd .build-release
+  apply_wx_patches
   ../configure --disable-debug_flag --with-gtk=3 --enable-stl --prefix=/home/eran/devl/kennel/.build-release/wxWidgets-install --disable-shared --enable-monolithic
   ${KENNEL_MAKE} -j$(nproc) install
   export PATH="${wx_install_dir}/bin":$PATH
@@ -84,6 +101,7 @@ function build_wx_widgets_macOS() {
   git submodule update --init --depth 1
   mkdir .build-release
   cd .build-release
+  apply_wx_patches
   cmake .. -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOS_DEPLOYMENT_TARGET} \
     -DwxBUILD_DEBUG_LEVEL=0 \
@@ -114,6 +132,7 @@ function build_wx_widgets_MSW() {
   git submodule update --init --depth 1
   mkdir .build-release
   cd .build-release
+  apply_wx_patches
   cmake .. -G"MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release \
     -DwxBUILD_DEBUG_LEVEL=0 \
     -DwxBUILD_MONOLITHIC=1 -DwxBUILD_SAMPLES=OFF -DwxUSE_STL=ON \
