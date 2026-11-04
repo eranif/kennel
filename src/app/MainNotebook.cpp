@@ -144,6 +144,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
                              &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Bind(wxEVT_SESSION_OPEN_TERMINAL,
                              &MainNotebook::OnOpenTerminalRequested, this);
+  EventNotifier::Get()->Bind(wxEVT_SESSION_SIDE_DIR_CHANGED,
+                             &MainNotebook::OnSideDirChanged, this);
   EventNotifier::Get()->Bind(wxEVT_FILETREE_ACTIVATED,
                              &MainNotebook::OnFileTreeActivated, this);
   EventNotifier::Get()->Bind(wxEVT_GITVIEW_SHOW_DIFF, &MainNotebook::OnShowDiff,
@@ -184,6 +186,8 @@ MainNotebook::~MainNotebook() {
                                &MainNotebook::OnShowSessionRequested, this);
   EventNotifier::Get()->Unbind(wxEVT_SESSION_OPEN_TERMINAL,
                                &MainNotebook::OnOpenTerminalRequested, this);
+  EventNotifier::Get()->Unbind(wxEVT_SESSION_SIDE_DIR_CHANGED,
+                               &MainNotebook::OnSideDirChanged, this);
   EventNotifier::Get()->Unbind(wxEVT_FILETREE_ACTIVATED,
                                &MainNotebook::OnFileTreeActivated, this);
   EventNotifier::Get()->Unbind(wxEVT_GITVIEW_SHOW_DIFF,
@@ -342,6 +346,15 @@ void MainNotebook::OnOpenTerminalRequested(PageViewEvent &event) {
   }
   LaunchTerminal(event.GetRef().name + " | " + _("Terminal"), dir, account,
                  commands);
+}
+
+void MainNotebook::OnSideDirChanged(PageViewEvent &event) {
+  event.Skip();
+  const SessionRef &ref = event.GetRef();
+  if (SessionPage *page = FindSession(ref.groupName, ref.name)) {
+    page->GetSession().sideDir = event.GetAccount().m_rootDir;
+    SyncWorkspaceSoon();
+  }
 }
 
 void MainNotebook::OnFileTreeActivated(FileEvent &event) {
@@ -895,7 +908,15 @@ SessionPage *MainNotebook::AddSession(SessionPage *page) {
   AddTab(page);
   const SessionRef ref{session.groupName, session.name};
   // A terminal too: the side bar shows the files of the folder it is in.
-  SendPageEvent(wxEVT_SESSION_PAGE_ADDED, ref, page->GetAccount());
+  // The folder the user chose for the side bar (and the last run saved) wins
+  // over the folder of the session. A folder of this machine that is gone does
+  // not.
+  Account account = page->GetAccount();
+  if (!session.plainTerminal && !session.sideDir.empty() &&
+      (!account.IsLocalHost() || ::wxDirExists(session.sideDir))) {
+    account.m_rootDir = session.sideDir;
+  }
+  SendPageEvent(wxEVT_SESSION_PAGE_ADDED, ref, account);
   return page;
 }
 

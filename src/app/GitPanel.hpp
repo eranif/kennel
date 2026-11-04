@@ -34,10 +34,16 @@ wxDECLARE_EVENT(wxEVT_GITVIEW_SHOW_TEXT, FileEvent);
 // GetPath() is the folder to start it in, GetString() is the command line.
 wxDECLARE_EVENT(wxEVT_GITVIEW_RUN_IN_TERMINAL, FileEvent);
 
+// Sent on the EventNotifier when the user chose another folder for the git
+// view: GetPath() is the folder (in the notation of GetAccount()). The event
+// object is the panel; the event is pending, so the panel may be gone: compare
+// the pointer only. The host decides what moves (see SideView).
+wxDECLARE_EVENT(wxEVT_GITVIEW_CHANGE_FOLDER, FileEvent);
+
 // The git changes of one place: the repository of an Account (this machine, a
 // WSL distribution or a remote host) and its working folder.
 //
-//   [ refresh ] [ add ] [ commit ] [ push ] [ log ] [ reset ]
+//   [ refresh ] [ folder ] [ add ] [ commit ] [ push ] [ log ] [ reset ]
 //   main  ahead 1, behind 0
 //   Status               Path
 //   Modified (staged)    src/app/a.cpp
@@ -94,6 +100,9 @@ private:
   // The actions of the context menu and of the toolbar.
   void OnMenuAction(wxCommandEvent &event);
   void OnGitDiff(GitEvent &event);
+  // Asks for a folder with the file browser (any kind of host) and tells the
+  // host with wxEVT_GITVIEW_CHANGE_FOLDER.
+  void ChangeFolder();
 
   // The row of the table at `item`, null for a message.
   const Row *RowOf(const wxDataViewItem &item) const;

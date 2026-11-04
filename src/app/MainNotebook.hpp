@@ -295,6 +295,8 @@ private:
   void OnShowSessionRequested(PageViewEvent &event);
   // A session asks for a terminal on its host, in its folder.
   void OnOpenTerminalRequested(PageViewEvent &event);
+  // The user chose another folder for the side bar of a session: it is saved.
+  void OnSideDirChanged(PageViewEvent &event);
   // A file or a folder of the file explorer was double clicked.
   void OnFileTreeActivated(FileEvent &event);
   void OnShowDiff(FileEvent &event);

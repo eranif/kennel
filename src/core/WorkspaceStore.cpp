@@ -22,6 +22,9 @@ json SessionToJson(const Session &s) {
       {"workingDir", ToUtf8(s.workingDir)},
       {"groupName", ToUtf8(s.groupName)},
   };
+  if (!s.sideDir.empty()) {
+    entry["sideDir"] = ToUtf8(s.sideDir);
+  }
   if (s.plainTerminal) {
     entry["plainTerminal"] = true;
     entry["loginShell"] = ToUtf8(s.loginShell);
@@ -87,6 +90,7 @@ Session ParseSession(const json &j) {
     s.plainTerminal = it->get<bool>();
   }
   s.loginShell = GetStr(j, "loginShell");
+  s.sideDir = GetStr(j, "sideDir");
   return s;
 }
 

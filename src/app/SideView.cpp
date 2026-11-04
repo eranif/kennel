@@ -43,6 +43,8 @@ SideView::SideView(wxWindow *parent) : SideViewBase(parent) {
   notifier->Bind(wxEVT_SESSION_PAGE_ACTIVITY, &SideView::OnSessionPageActivity,
                  this);
   notifier->Bind(wxEVT_SESSION_PAGE_MOVED, &SideView::OnSessionPageMoved, this);
+  notifier->Bind(wxEVT_FILETREE_SET_ROOT, &SideView::OnChangeFolder, this);
+  notifier->Bind(wxEVT_GITVIEW_CHANGE_FOLDER, &SideView::OnChangeFolder, this);
   notifier->Bind(wxEVT_FILE_SAVED, &SideView::OnFileSaved, this);
   notifier->Bind(wxEVT_FILE_REVEAL, &SideView::OnFileReveal, this);
   // The remote trees answer on the notifier (see ShowContext()).
@@ -64,6 +66,9 @@ SideView::~SideView() {
   notifier->Unbind(wxEVT_SESSION_PAGE_ACTIVITY,
                    &SideView::OnSessionPageActivity, this);
   notifier->Unbind(wxEVT_SESSION_PAGE_MOVED, &SideView::OnSessionPageMoved,
+                   this);
+  notifier->Unbind(wxEVT_FILETREE_SET_ROOT, &SideView::OnChangeFolder, this);
+  notifier->Unbind(wxEVT_GITVIEW_CHANGE_FOLDER, &SideView::OnChangeFolder,
                    this);
   notifier->Unbind(wxEVT_FILE_SAVED, &SideView::OnFileSaved, this);
   notifier->Unbind(wxEVT_FILE_REVEAL, &SideView::OnFileReveal, this);
@@ -347,6 +352,92 @@ void SideView::OnSessionPageMoved(PageViewEvent &event) {
   ReapDriver(context->git->SetRootDir(account.m_rootDir));
   if (ShownContext() == context) {
     context->git->Activate();
+  }
+}
+
+void SideView::OnChangeFolder(FileEvent &event) {
+  event.Skip();
+  // The context of the tree or the git panel that sent it (it may be gone by
+  // now).
+  for (const auto &[key, context] : m_contexts) {
+    if (context.tree == event.GetEventObject() ||
+        context.git == event.GetEventObject()) {
+      ChangeFolder(key, event.GetPath());
+      return;
+    }
+  }
+}
+
+void SideView::ChangeFolder(const wxString &key, const wxString &dir) {
+  const auto it = m_contexts.find(key);
+  if (it == m_contexts.end() || it->second.account.m_rootDir == dir) {
+    return;
+  }
+  Context &context = it->second;
+  Account account = context.account;
+  account.m_rootDir = dir;
+
+  // The session that moves: the only one, or the one the user works in.
+  const bool single = context.sessions.size() <= 1;
+  std::optional<SessionRef> moving;
+  if (single && !context.sessions.empty()) {
+    moving = context.sessions.front();
+  } else if (m_active && FindContext(*m_active) == &context) {
+    moving = m_active;
+  }
+  if (!moving) {
+    return;
+  }
+  const wxString newKey = wxString::Format("folder#%d", ++m_nextTerminalId);
+  // The page keeps the choice (it is saved). A terminal goes where its shell
+  // goes.
+  if (!context.isTerminal) {
+    PageViewEvent saved(wxEVT_SESSION_SIDE_DIR_CHANGED);
+    saved.SetEventObject(this);
+    saved.SetRef(*moving);
+    saved.SetAccount(account);
+    EventNotifier::Get()->ProcessEvent(saved);
+  }
+
+  // One session: the tree and the panel go to the folder. A remote tree is
+  // reused only when it is connected: while it connects it must not be used.
+  const bool usable = !account.IsRemote() ||
+                      (context.connectStarted && context.connectRequestId == 0);
+  if (single && usable) {
+    context.account = account;
+    context.tree->SetRoot(dir);
+    ReapDriver(context.git->SetRootDir(dir));
+    if (ShownContext() == &context) {
+      context.git->Activate();
+    }
+    if (!context.isTerminal) {
+      // The key tells the place of the sessions that share a context: this one
+      // is not at the folder of its session any more.
+      auto node = m_contexts.extract(it);
+      node.key() = newKey;
+      m_contexts.insert(std::move(node));
+    }
+    return;
+  }
+
+  // Several sessions share the place: the session that moves gets a context of
+  // its own, new tree and new panel.
+  Context &moved = m_contexts.try_emplace(newKey).first->second;
+  moved.account = account;
+  moved.isTerminal = context.isTerminal;
+  moved.tree = new FileTreeCtrl(m_explorerBook, account);
+  m_explorerBook->AddPage(moved.tree, account.GetDisplayName(), false);
+  moved.git = new GitPanel(m_gitBook, account);
+  m_gitBook->AddPage(moved.git, account.GetDisplayName(), false);
+  moved.sessions.push_back(*moving);
+
+  auto &sessions = context.sessions;
+  sessions.erase(std::find(sessions.begin(), sessions.end(), *moving));
+  const bool oldIsEmpty = sessions.empty();
+  ShowContext(moved);
+  if (oldIsEmpty) {
+    // Last: it invalidates `context`. Another context shows already.
+    DeleteContext(key, /*reshow=*/false);
   }
 }
 

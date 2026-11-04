@@ -29,6 +29,12 @@ wxDECLARE_EVENT(wxEVT_FILETREE_SELECTED, FileEvent);
 wxDECLARE_EVENT(wxEVT_FILETREE_ACTIVATED, FileEvent);
 wxDECLARE_EVENT(wxEVT_FILETREE_MENU, FileEvent);
 
+// Sent on the EventNotifier (pending, the event object is the tree: compare the
+// pointer only) when the user chose "Set This Folder as Root" for a folder of
+// the tree: GetPath() is the folder, GetAccount() the account of the tree. The
+// tree does not change by itself; the host decides (see SideView).
+wxDECLARE_EVENT(wxEVT_FILETREE_SET_ROOT, FileEvent);
+
 // Sent on the EventNotifier, from a worker thread, when the request of
 // FileTreeCtrl::ConnectAsync() is done. Each request has its own id (a number
 // that only goes up): a listener handles only the request that it started,

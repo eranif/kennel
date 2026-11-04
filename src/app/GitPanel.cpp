@@ -1,5 +1,6 @@
 #include "app/GitPanel.hpp"
 
+#include "app/FileBrowserDlg.hpp"
 #include "app/FileTreeCtrl.hpp"
 #include "app/GitCommitMessageDlg.hpp"
 #include "app/ToolBarUtils.h"
@@ -31,6 +32,7 @@
 
 namespace {
 const int kIdRefresh = wxWindow::NewControlId();
+const int kIdChangeFolder = wxWindow::NewControlId();
 const int kIdOpenFile = wxWindow::NewControlId();
 const int kIdShowDiff = wxWindow::NewControlId();
 const int kIdAdd = wxWindow::NewControlId();
@@ -115,6 +117,7 @@ wxString QuoteForShell(const wxString &path) {
 wxDEFINE_EVENT(wxEVT_GITVIEW_SHOW_DIFF, FileEvent);
 wxDEFINE_EVENT(wxEVT_GITVIEW_SHOW_TEXT, FileEvent);
 wxDEFINE_EVENT(wxEVT_GITVIEW_RUN_IN_TERMINAL, FileEvent);
+wxDEFINE_EVENT(wxEVT_GITVIEW_CHANGE_FOLDER, FileEvent);
 
 GitPanel::GitPanel(wxWindow *parent, const Account &account)
     : wxPanel(parent), m_account(account), m_hasFolder(HasFolder(account)) {
@@ -124,6 +127,9 @@ GitPanel::GitPanel(wxWindow *parent, const Account &account)
                    AppManager::Get().GetBitmaps().GetByAlias("reload", false),
                    _("Refresh the git status"));
   const auto &bitmaps = AppManager::Get().GetBitmaps();
+  toolbar::AddTool(m_toolbar, kIdChangeFolder, _("Folder"),
+                   bitmaps.GetByAlias("folder", false),
+                   _("Show the git status of another folder..."));
   m_toolbar->AddSeparator();
   toolbar::AddTool(m_toolbar, kIdAdd, _("Add"),
                    bitmaps.GetByAlias("git-add", false),
@@ -159,8 +165,8 @@ GitPanel::GitPanel(wxWindow *parent, const Account &account)
   SetSizer(sizer);
 
   m_toolbar->Bind(wxEVT_TOOL, &GitPanel::OnRefresh, this, kIdRefresh);
-  for (const int id :
-       {kIdAdd, kIdCommit, kIdPush, kIdPull, kIdRepoLog, kIdResetRepo}) {
+  for (const int id : {kIdAdd, kIdCommit, kIdPush, kIdPull, kIdRepoLog,
+                       kIdResetRepo, kIdChangeFolder}) {
     m_toolbar->Bind(wxEVT_TOOL, &GitPanel::OnMenuAction, this, id);
   }
   m_list->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &GitPanel::OnActivated, this);
@@ -381,7 +387,9 @@ void GitPanel::OnMenuAction(wxCommandEvent &event) {
   const int id = event.GetId();
   const std::vector<const Row *> rows = SelectedRows();
   const Row *first = rows.empty() ? nullptr : rows[0];
-  if (id == kIdShowDiff && first) {
+  if (id == kIdChangeFolder) {
+    ChangeFolder();
+  } else if (id == kIdShowDiff && first) {
     ShowDiff(*first);
   } else if (id == kIdOpenFile && first) {
     OpenFile(*first);
@@ -404,6 +412,27 @@ void GitPanel::OnMenuAction(wxCommandEvent &event) {
   } else if (id == kIdResetRepo) {
     ResetRepo();
   }
+}
+
+void GitPanel::ChangeFolder() {
+  // Starts in the folder of the panel: the user can go up from there. The same
+  // dialog for this machine, a WSL distribution and a remote host.
+  FileBrowserDlg dlg(wxGetTopLevelParent(this),
+                     CreateFileProvider(m_account, /*dirsOnly=*/true));
+  if (dlg.ShowModal() != wxID_OK) {
+    return;
+  }
+  wxString dir = dlg.GetPath();
+  dir.Trim(true).Trim(false);
+  if (dir.empty() || dir == m_account.m_rootDir) {
+    return;
+  }
+  FileEvent change{wxEVT_GITVIEW_CHANGE_FOLDER};
+  change.SetEventObject(this);
+  change.SetPath(dir);
+  change.SetIsDir(true);
+  change.SetAccount(m_account);
+  EventNotifier::Get()->AddPendingEvent(change);
 }
 
 void GitPanel::AddFiles(const std::vector<const Row *> &rows) {

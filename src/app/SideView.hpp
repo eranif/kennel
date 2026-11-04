@@ -30,6 +30,10 @@ class wxSimplebook;
 // sessions exist and which one shows (see PageViewEvent.hpp), and shows the
 // tree and the panel of the context of that session in both tabs.
 //
+// The user can choose another folder for both views (the folder button of the
+// git view, or "Set This Folder as Root"
+// in the menu of the tree). See ChangeFolder().
+//
 // A remote tree is connected when its context is first shown (see
 // FileTreeCtrl::ConnectAsync()); a git panel reads its repository when its
 // context is shown.
@@ -88,6 +92,14 @@ private:
   void ReapDriver(std::unique_ptr<GitDriver> driver);
   // Waits for the threads that end the drivers.
   void JoinReapers();
+  // The user chose `dir` for the tree and the git panel of the context under
+  // `key`. When the context has one session (and its tree can be used: a
+  // remote one must be connected), it moves to `dir`. Otherwise the session the
+  // user works in gets a new context (a new tree and a new panel) at `dir`, and
+  // the others keep the old one. The session no longer shares the place with
+  // the sessions that start in the old folder: the choice lives until the
+  // session ends.
+  void ChangeFolder(const wxString &key, const wxString &dir);
 
   void OnSessionPageAdded(PageViewEvent &event);
   void OnSessionPageRemoved(PageViewEvent &event);
@@ -96,6 +108,7 @@ private:
   void OnSessionPagesCleared(wxCommandEvent &event);
   void OnSessionPageActivity(PageViewEvent &event);
   void OnSessionPageMoved(PageViewEvent &event);
+  void OnChangeFolder(FileEvent &event);
   void OnFileSaved(FileEvent &event);
   void OnFileReveal(FileEvent &event);
   void OnTreeConnected(FileTreeConnectedEvent &event);

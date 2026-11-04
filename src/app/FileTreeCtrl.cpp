@@ -24,6 +24,7 @@
 wxDEFINE_EVENT(wxEVT_FILETREE_SELECTED, FileEvent);
 wxDEFINE_EVENT(wxEVT_FILETREE_ACTIVATED, FileEvent);
 wxDEFINE_EVENT(wxEVT_FILETREE_MENU, FileEvent);
+wxDEFINE_EVENT(wxEVT_FILETREE_SET_ROOT, FileEvent);
 wxDEFINE_EVENT(wxEVT_FILETREE_CONNECTED, FileTreeConnectedEvent);
 
 namespace {
@@ -33,6 +34,7 @@ int s_lastRequestId = 0;
 const int kIdCopyPath = wxWindow::NewControlId();
 const int kIdOpenDefault = wxWindow::NewControlId();
 const int kIdRefresh = wxWindow::NewControlId();
+const int kIdSetRoot = wxWindow::NewControlId();
 const int kIdNewFolder = wxWindow::NewControlId();
 const int kIdNewFile = wxWindow::NewControlId();
 const int kIdDelete = wxWindow::NewControlId();
@@ -490,6 +492,21 @@ void FileTreeCtrl::OnContextMenu(wxDataViewEvent &event) {
   if (isFolder) {
     menu.Append(kIdRefresh, _("Refresh"));
     bind(kIdRefresh, [this, item] { RefreshFolder(item); });
+    if (!isTop) {
+      // The host moves the tree and the git view (see SideView).
+      menu.Append(kIdSetRoot, _("Set This Folder as Root"));
+      menu.Bind(
+          wxEVT_MENU,
+          [this, path](wxCommandEvent &) {
+            FileEvent event{wxEVT_FILETREE_SET_ROOT};
+            event.SetEventObject(this);
+            event.SetPath(path);
+            event.SetIsDir(true);
+            event.SetAccount(m_account);
+            EventNotifier::Get()->AddPendingEvent(event);
+          },
+          kIdSetRoot);
+    }
     separate();
     menu.Append(kIdNewFolder, _("New Folder..."));
     bind(kIdNewFolder, [this, item] { NewEntry(item, /*isFolder=*/true); });

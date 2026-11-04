@@ -73,6 +73,14 @@ private:
 //                                place (the same host and folder):
 //                                GetAccount(), its start folder is the folder
 //                                to go to.
+// From the side bar (SideView), on the EventNotifier:
+//   wxEVT_SESSION_SIDE_DIR_CHANGED: the user chose another folder for the files
+//                                of the session GetRef():
+//                                GetAccount().m_rootDir is the folder. The page
+//                                keeps it in its session (it is saved), and
+//                                wxEVT_SESSION_PAGE_ADDED has it the next time.
+//                                Never sent for a terminal (it follows its
+//                                shell).
 // (A file that is showing is reported with wxEVT_FILE_REVEAL, see FileEvent.)
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_ADDED, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_REMOVED, PageViewEvent);
@@ -83,6 +91,7 @@ wxDECLARE_EVENT(wxEVT_SESSION_PAGE_ACTIVITY, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_MOVED, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_PAGES_TOOLBAR_STYLE, wxCommandEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_OPEN_TERMINAL, PageViewEvent);
+wxDECLARE_EVENT(wxEVT_SESSION_SIDE_DIR_CHANGED, PageViewEvent);
 
 // Sent on the EventNotifier with ProcessEvent() (so the answer is known when it
 // returns) when the application is closing. A listener that needs the user (a

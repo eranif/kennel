@@ -88,6 +88,12 @@ an installer built on GitHub Actions.
     **Blame** shows the blame of the selected file.
   - **Push** and **Pull** run in a terminal named `Git (<place>)` that Kennel opens (or uses
     again), on the same host, so passwords are asked where git asks them.
+- **Another folder** — the explorer and the git view can show a folder other than the one of the
+  session. Right click on a folder of the file explorer and choose **Set This Folder as Root**,
+  or press **Folder** on the toolbar of the git view to browse for a folder (also a parent of the
+  current one; it works the same on this machine, in WSL and on a remote host). Only the session
+  you work in moves (the sessions that share its place keep theirs). The choice is saved with the
+  session.
 
 ### Archive a session
 

@@ -10,6 +10,9 @@ struct Session {
   wxString agentName;  // references an AgentDef::name
   wxString workingDir; // cwd the client runs in
   wxString groupName;
+  // The folder the user chose for the file explorer and the git view of the
+  // session (in the notation of its host). Empty: the working folder.
+  wxString sideDir;
   bool plainTerminal{false}; // This session represents a plain terminal
   // The shell a plain terminal runs. Empty: the default one (or ask, when
   // there are several). Saved so that a restored terminal does not ask again.
