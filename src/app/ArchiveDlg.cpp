@@ -26,6 +26,7 @@ ArchiveDlg::ArchiveDlg(wxWindow *parent) : ArchiveDlgBase(parent) {
 
   m_searchCtrl->SetDescriptiveText(_("Filter"));
   m_searchCtrl->Bind(wxEVT_TEXT, &ArchiveDlg::OnFilter, this);
+  m_searchCtrl->Bind(wxEVT_CHAR_HOOK, &ArchiveDlg::OnCharHook, this);
   m_buttonRestore->Bind(wxEVT_BUTTON, &ArchiveDlg::OnRestore, this);
   m_buttonDelete->Bind(wxEVT_BUTTON, &ArchiveDlg::OnDelete, this);
   m_buttonClose->Bind(wxEVT_BUTTON, &ArchiveDlg::OnClose, this);
@@ -33,6 +34,7 @@ ArchiveDlg::ArchiveDlg(wxWindow *parent) : ArchiveDlgBase(parent) {
   m_buttonDelete->Bind(wxEVT_UPDATE_UI, &ArchiveDlg::OnButtonUI, this);
   m_dvListCtrl->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &ArchiveDlg::OnActivated,
                      this);
+  m_buttonRestore->SetDefault();
   m_searchCtrl->SetFocus();
 }
 
@@ -72,6 +74,9 @@ void ArchiveDlg::Populate() {
   for (unsigned i = 0; i < m_dvListCtrl->GetColumnCount(); ++i) {
     m_dvListCtrl->GetColumn(i)->SetWidth(wxCOL_WIDTH_AUTOSIZE);
   }
+
+  if (m_dvListCtrl->GetItemCount())
+    m_dvListCtrl->SelectRow(0);
 }
 
 int ArchiveDlg::SelectedIndex() const {
@@ -94,6 +99,40 @@ void ArchiveDlg::SendRequest(const wxEventTypeTag<wxCommandEvent> &type) {
 }
 
 void ArchiveDlg::OnFilter(wxCommandEvent &) { Populate(); }
+
+void ArchiveDlg::OnCharHook(wxKeyEvent &event) {
+  switch (event.GetKeyCode()) {
+  case WXK_DOWN: {
+    CallAfter([this]() {
+      int selection = m_dvListCtrl->GetSelectedRow();
+      if (selection + 1 < m_dvListCtrl->GetItemCount()) {
+        m_dvListCtrl->SelectRow(selection + 1);
+      }
+    });
+  } break;
+  case WXK_UP: {
+    CallAfter([this]() {
+      int selection = m_dvListCtrl->GetSelectedRow();
+      if (selection > 0) {
+        m_dvListCtrl->SelectRow(selection - 1);
+      }
+    });
+  } break;
+  case WXK_RETURN:
+  case WXK_NUMPAD_ENTER:
+    if (m_dvListCtrl->GetSelectedRow() != wxNOT_FOUND) {
+      CallAfter([this] {
+        wxCommandEvent dummy;
+        OnRestore(dummy);
+      });
+    }
+    break;
+
+  default:
+    event.Skip();
+    break;
+  }
+}
 
 void ArchiveDlg::OnRestore(wxCommandEvent &) {
   SendRequest(wxEVT_ARCHIVE_RESTORE);

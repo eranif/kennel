@@ -31,6 +31,7 @@ private:
   void SendRequest(const wxEventTypeTag<wxCommandEvent> &type);
 
   void OnFilter(wxCommandEvent &event);
+  void OnCharHook(wxKeyEvent &event);
   void OnRestore(wxCommandEvent &event);
   void OnDelete(wxCommandEvent &event);
   void OnClose(wxCommandEvent &event);
