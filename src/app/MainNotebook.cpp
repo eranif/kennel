@@ -1347,6 +1347,7 @@ bool MainNotebook::LaunchTerminal(const wxString &name,
                                   const wxString &workingDir,
                                   const Account &account,
                                   const std::vector<wxString> &commands) {
+  wxWindowUpdateLocker locker{this};
   if (SessionPage *page = FindSession(kTerminalsGroupName, name)) {
     if (auto *terminal = page->GetTerminal()) {
       for (const wxString &command : commands) {

@@ -928,10 +928,13 @@ void SessionPage::CreateToolBar() {
   toolbar::AddTool(m_toolbar, ID_REVIEW_BUDDY, _("Review Buddy"),
                    bmps.Get("code-reviewer", false), _("Run Review Buddy"),
                    wxITEM_DROPDOWN);
-  toolbar::AddTool(m_toolbar, ID_TERMINAL, _("Terminal"),
-                   bmps.Get("terminal", false),
-                   _("Open a terminal in the folder and on the host of this "
-                     "session"));
+  // A terminal is that terminal already: only an agent gets this tool.
+  if (!IsPlainTerminal()) {
+    toolbar::AddTool(m_toolbar, ID_TERMINAL, _("Terminal"),
+                     bmps.Get("terminal", false),
+                     _("Open a terminal in the folder and on the host of this "
+                       "session"));
+  }
   m_toolbar->AddSeparator();
   toolbar::AddTool(m_toolbar, ID_COPY, _("Copy"), bmps.Get("copy", false),
                    _("Copy the selected text"));
