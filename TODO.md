@@ -49,6 +49,7 @@
 - [x] View Menu: add option to Show / Hide the various views
 - [x] View Menu: add option to "toggle" all views (hide everything except for the main view)
 - [x] GotoAnything - implementation.
+- [ ] Allow to choose a different folder for the git for a specific session.
 
 ## Low Items
 ---
