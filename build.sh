@@ -51,13 +51,17 @@ function check_prerequistes() {
 # example because it is already in the wxWidgets version, is skipped.
 function apply_wx_patches() {
   local patch
+  local reason
   for patch in "${ROOT_DIR}"/patches/wxwidgets-*.patch; do
     [ -f "${patch}" ] || continue
-    if git -C .. apply --check "${patch}" >/dev/null 2>&1; then
+    # --ignore-whitespace: the wxWidgets sources can have CRLF line endings on
+    # Windows, the patches have LF.
+    if reason=$(git -C .. apply --check --ignore-whitespace "${patch}" 2>&1); then
       INFO "Applying $(basename "${patch}") to wxWidgets"
-      git -C .. apply "${patch}"
+      git -C .. apply --ignore-whitespace "${patch}"
     else
       WARN "Skipping $(basename "${patch}"): it does not apply to wxWidgets ${WX_VERSION}"
+      WARN "${reason}"
     fi
   done
 }
