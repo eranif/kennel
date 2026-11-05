@@ -1,0 +1,102 @@
+diff --git a/src/app/GotoAnythingDlg.cpp b/src/app/GotoAnythingDlg.cpp
+index 009601c..497a17c 100644
+--- a/src/app/GotoAnythingDlg.cpp
++++ b/src/app/GotoAnythingDlg.cpp
+@@ -23,6 +23,9 @@ GotoAnythingDlg::GotoAnythingDlg(wxWindow *parent)
+   // The keys of the search box: the dialog has no buttons to take them.
+   Bind(wxEVT_CHAR_HOOK, &GotoAnythingDlg::OnCharHook, this);
+   m_searchCtrl->SetFocus();
++  if (wxString demoText; wxGetEnv("KENNEL_DEMO_TEXT", &demoText)) { // DEMO-TMP
++    m_searchCtrl->SetValue(demoText);
++  }
+ }
+ 
+ GotoAnythingDlg::~GotoAnythingDlg() = default;
+diff --git a/src/app/MainFrame.cpp b/src/app/MainFrame.cpp
+index 2ee2506..6e264f1 100644
+--- a/src/app/MainFrame.cpp
++++ b/src/app/MainFrame.cpp
+@@ -153,6 +153,26 @@ void MainFrame::FinaliseStartup() {
+ 
+   EventNotifier::Get()->Bind(wxEVT_AGENT_SCAN, &MainFrame::OnAgentScan, this);
+   StartLocalAgentScan();
++
++  // DEMO-TMP: opens a dialog or a pane for a screenshot (not to be committed)
++  if (wxString demo; wxGetEnv("KENNEL_DEMO", &demo)) {
++    auto *timer = new wxTimer();
++    timer->Bind(wxEVT_TIMER, [this, demo](wxTimerEvent &) {
++      if (demo == "switch") {
++        m_mainView->GetSessionsBook()->SwitchPage(true);
++      } else if (demo == "goto") {
++        wxCommandEvent e;
++        OnGotoAnything(e);
++      } else if (demo == "explorer") {
++        m_mainView->DemoSideSelect(1);
++      } else if (demo == "review") {
++        if (auto *page = m_mainView->GetSessionsBook()->GetActiveSessionPage()) {
++          page->StartReviewBuddy("kiro-cli");
++        }
++      }
++    });
++    timer->StartOnce(4000);
++  }
+ }
+ 
+ void MainFrame::CreateStatusFields() {
+diff --git a/src/app/MainNotebook.cpp b/src/app/MainNotebook.cpp
+index 3322585..0af3850 100644
+--- a/src/app/MainNotebook.cpp
++++ b/src/app/MainNotebook.cpp
+@@ -876,7 +876,7 @@ void MainNotebook::SwitchPage(bool forward) {
+ 
+   // With Ctrl already released (e.g. picked from the menu) there is nothing to
+   // hold on to, so skip the popup.
+-  if (wxGetMouseState().RawControlDown()) {
++  if (wxGetMouseState().RawControlDown() || wxGetEnv("KENNEL_DEMO", nullptr)) { // DEMO-TMP
+     std::vector<PageSwitcherItem> items;
+     for (const SessionRef &ref : ordered) {
+       items.push_back(DescribePage(FindPage(ref)));
+diff --git a/src/app/MainView.cpp b/src/app/MainView.cpp
+index 0b5b7ab..1f078cc 100644
+--- a/src/app/MainView.cpp
++++ b/src/app/MainView.cpp
+@@ -380,3 +380,10 @@ void MainView::OnAppPrefsSaved(wxCommandEvent &event) {
+ }
+ 
+ void MainView::ApplyPrefs() { m_sideView->ApplyPrefs(); }
++
++// DEMO-TMP
++void MainView::DemoSideSelect(int index) {
++  if (m_sideView) {
++    m_sideView->SetSelection(index);
++  }
++}
+diff --git a/src/app/MainView.hpp b/src/app/MainView.hpp
+index 5089ae6..5bd479b 100644
+--- a/src/app/MainView.hpp
++++ b/src/app/MainView.hpp
+@@ -62,6 +62,10 @@ private:
+   void ApplyPrefs();
+ 
+   SideView *m_sideView{nullptr};
++
++public:
++  void DemoSideSelect(int index); // DEMO-TMP
++private:
+   ActivityView *m_activityView{nullptr};
+   bool m_layoutRestored{false};
+   // The AUI perspective of the panes as they are created (see ResetLayout()).
+diff --git a/src/app/PageSwitcherDlg.cpp b/src/app/PageSwitcherDlg.cpp
+index 865d0ef..152b492 100644
+--- a/src/app/PageSwitcherDlg.cpp
++++ b/src/app/PageSwitcherDlg.cpp
+@@ -157,6 +157,9 @@ void PageSwitcherDlg::OnKeyUp(wxKeyEvent &event) {
+ 
+ void PageSwitcherDlg::OnTimer(wxTimerEvent &event) {
+   wxUnusedVar(event);
++  if (wxGetEnv("KENNEL_DEMO", nullptr)) { // DEMO-TMP
++    return;
++  }
+   if (!wxGetMouseState().RawControlDown()) {
+     Finish(true);
+   }
