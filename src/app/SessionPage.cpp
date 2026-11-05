@@ -1093,10 +1093,11 @@ void SessionPage::OnToolReviewBuddy(wxCommandEvent &) {
   if (menu.GetMenuItemCount() == 0) {
     return;
   }
-  // Line up the menu with the button.
+  // Below the button: the top-left corner of the menu at the bottom-left
+  // corner of the button.
   m_toolbar->SetToolSticky(ID_REVIEW_BUDDY, true);
   const wxRect rect = m_toolbar->GetToolRect(ID_REVIEW_BUDDY);
-  m_toolbar->PopupMenu(&menu, rect.GetTopLeft());
+  m_toolbar->PopupMenu(&menu, rect.GetLeft(), rect.GetBottom() + 1);
   m_toolbar->SetToolSticky(ID_REVIEW_BUDDY, false);
   m_toolbar->Refresh();
 }
