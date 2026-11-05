@@ -446,7 +446,7 @@ Sessions that exit on their own (with `Ctrl-D` or `exit`) are removed automatica
 ## Customization
 
 - **Terminal themes.** Pick from a large collection of color themes in **Settings → Theme**, with
-  a live preview. Changes apply immediately, without a restart. The default is `one_dark`.
+  a live preview. Changes apply immediately, without a restart. The default is `Mariana`.
 - **Application theme.** Choose **Follow terminal theme**, **System**, **Dark** or **Light** in
   **Settings**. Toolbars, icons and lists follow the theme.
 - **Font.** Set the terminal font and size in **Settings → Change Terminal Font...**, with a live

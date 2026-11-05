@@ -41,8 +41,8 @@ const std::vector<TabOutlineColour> &GetTabOutlineColours() {
 wxColour SettingsDlg::GetTabOutlineColourOf(const wxTerminalTheme &theme,
                                             const wxString &key) {
   wxColour colour = theme.selectionBg;
-  if (key == _("Default")) {
-    colour = theme.bg.ChangeLightness(70);
+  if (key == _("default")) {
+    colour = theme.bg.ChangeLightness(theme.IsDark() ? 120 : 80);
   } else {
     for (const auto &entry : GetTabOutlineColours()) {
       if (key == entry.label) {
@@ -61,7 +61,7 @@ wxArrayString GetTabOutlineColoursArray() {
   for (const auto &entry : GetTabOutlineColours()) {
     colours.Add(entry.label);
   }
-  colours.Add(_("Default"));
+  colours.Add(_("default"));
   return colours;
 }
 

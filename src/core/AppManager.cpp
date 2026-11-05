@@ -68,7 +68,7 @@ void AppManager::Initialize(const AppPaths &paths) {
 
   // A saved empty name stays empty in the file, so the default is set here too.
   if (m_uiPrefs.terminalTheme.empty()) {
-    m_uiPrefs.terminalTheme = "one_dark";
+    m_uiPrefs.terminalTheme = "Mariana";
   }
 
   if (m_uiPrefs.terminalFontDesc.empty()) {
