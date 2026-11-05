@@ -1,5 +1,6 @@
 #include "app/MainFrame.h"
 #include "app/ToolBarUtils.h"
+#include <wx/sysopt.h>
 
 #include "SettingsDlg.hpp"
 #include "app/AboutDialog.hpp"
@@ -287,9 +288,14 @@ void MainFrame::OnClose(wxCloseEvent &evt) {
 
 void MainFrame::BuildToolBar() {
 #ifdef __WXMAC__
-  m_toolBar = CreateToolBar(wxTB_HORIZONTAL);
+  // The native toolbar of a frame is always horizontal. Without it, wxWidgets
+  // draws a generic toolbar that can be vertical, on the left of the main view.
+  wxSystemOptions::SetOption("mac.toolbar.no-native", 1);
+  m_toolBar = new wxToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                            wxTB_VERTICAL | wxTB_NODIVIDER);
   // In pixels, not DIPs: the bundles are scaled to this size.
   m_toolBar->SetToolBitmapSize(FromDIP(Bitmaps::GetToolBarIconSize()));
+  GetSizer()->Insert(0, m_toolBar, wxSizerFlags(0).Expand());
 #else
   // A wxAuiToolBar on the left of the main view. It takes the icons at the size
   // of their bundles, and follows the theme of the application.
