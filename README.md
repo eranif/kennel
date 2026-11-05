@@ -93,6 +93,29 @@ and the upgrade notes. Previous releases:
 
 ## Screenshots
 
+### Kennel at work
+
+Real screenshots of Kennel 2.0 with demo sessions. They are made with the scripts in
+[`media/`](media/AGENTS.md), which also builds the promo video.
+
+| One window for every agent | Working, done and blocked at a glance |
+|---|---|
+| ![Sessions in one window, grouped by session group](media/screenshots/api-refactor.jpg) | ![A spinner, a check mark and a pulse on the tabs and in the Activity pane](media/screenshots/infra.jpg) |
+
+| Ctrl+Tab: switch in most-recently-used order | Goto Anything |
+|---|---|
+| ![The Ctrl+Tab session switcher](media/screenshots/switcher.jpg) | ![Goto Anything](media/screenshots/goto-anything.jpg) |
+
+| File Explorer of the active session | ...and of another session |
+|---|---|
+| ![File Explorer of a session](media/screenshots/explorer-api.jpg) | ![File Explorer follows the active session](media/screenshots/explorer-docs.jpg) |
+
+| Review Buddy: a second agent reviews the first | First start: Kennel finds your agents |
+|---|---|
+| ![Review Buddy next to its session](media/screenshots/review-buddy.jpg) | ![The agents that the first scan found, in the toolbar](media/screenshots/first-scan.jpg) |
+
+### Start an agent
+
 | Start an agent |
 |---|
 | ![Start Agent dialog](screenshots/Start-Agent.png) |
