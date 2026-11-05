@@ -11,6 +11,7 @@
 #include "core/GitDriverSSH.h"
 #include "core/GitDriverWSL.h"
 #include "core/Logger.h"
+#include "core/WslPath.h"
 #include <wx/app.h>
 #include <wx/aui/auibar.h>
 #include <wx/button.h>
@@ -25,6 +26,7 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
+#include <wx/utils.h>
 
 #include <algorithm>
 #include <thread>
@@ -34,6 +36,7 @@ namespace {
 const int kIdRefresh = wxWindow::NewControlId();
 const int kIdChangeFolder = wxWindow::NewControlId();
 const int kIdOpenFile = wxWindow::NewControlId();
+const int kIdOpenDefault = wxWindow::NewControlId();
 const int kIdShowDiff = wxWindow::NewControlId();
 const int kIdAdd = wxWindow::NewControlId();
 const int kIdResetFile = wxWindow::NewControlId();
@@ -368,6 +371,11 @@ void GitPanel::OnContextMenu(wxDataViewEvent &event) {
   if (single) {
     menu.Append(kIdShowDiff, _("Show Diff"));
     menu.Append(kIdOpenFile, _("Open File"))->Enable(!rows[0]->deleted);
+    // A file on a remote host cannot be opened by this computer.
+    if (!m_account.IsRemote()) {
+      menu.Append(kIdOpenDefault, _("Open with Default App"))
+          ->Enable(!rows[0]->deleted);
+    }
     menu.AppendSeparator();
   }
   menu.Append(kIdAdd, _("Add"))->Enable(anyUnstaged);
@@ -393,6 +401,8 @@ void GitPanel::OnMenuAction(wxCommandEvent &event) {
     ShowDiff(*first);
   } else if (id == kIdOpenFile && first) {
     OpenFile(*first);
+  } else if (id == kIdOpenDefault && first) {
+    OpenWithDefaultApp(*first);
   } else if (id == kIdAdd) {
     AddFiles(rows);
   } else if (id == kIdFileLog && first) {
@@ -640,6 +650,18 @@ void GitPanel::OpenFile(const Row &row) {
   open.SetIsDir(false);
   open.SetAccount(m_account);
   EventNotifier::Get()->AddPendingEvent(open);
+}
+
+void GitPanel::OpenWithDefaultApp(const Row &row) {
+  if (m_status.root.empty() || m_account.IsRemote()) {
+    return;
+  }
+  wxString path = FullPath(m_account, m_status.root, row.path);
+  if (m_account.IsWSL()) {
+    // A WSL path is a Linux path: Windows needs the path of its share.
+    path = wsl::ToWindowsPath(m_account.m_name, path);
+  }
+  ::wxLaunchDefaultApplication(path);
 }
 
 void GitPanel::ShowDiff(const Row &row) {

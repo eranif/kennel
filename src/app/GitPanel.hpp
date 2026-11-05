@@ -110,6 +110,8 @@ private:
   void ShowDiff(const Row &row);
   // Sends the file to the host to open.
   void OpenFile(const Row &row);
+  // Opens the file with the application of the system (this machine and WSL).
+  void OpenWithDefaultApp(const Row &row);
   // The rows that are selected (not the messages).
   std::vector<const Row *> SelectedRows() const;
   // The pathspecs of `rows`, for the arguments of git (after "--"), one for
