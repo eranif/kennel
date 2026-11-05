@@ -32,7 +32,8 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
                    const wxTerminalTheme &theme,
                    const RemoteHostDetails &remoteHost)
     : wxPanel(parent), m_path{path}, m_remoteHost{remoteHost} {
-  m_toolbar = new wxAuiToolBar(this);
+  m_toolbar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                               wxAUI_TB_VERTICAL);
   AppManager::Get().GetBitmaps().Get("save", false);
   toolbar::AddTool(m_toolbar, ID_CLOSE, _("Close"),
                    AppManager::Get().GetBitmaps().Get("close", false),
@@ -59,10 +60,14 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
   m_editor = new Editor(this, EditFileDlg::LangFromPath(path), theme);
   m_searchBar = new SearchBar(this, SearchBar::Kind::kEditor);
   m_searchBar->Hide();
-  SetSizer(new wxBoxSizer(wxVERTICAL));
-  GetSizer()->Add(m_toolbar, wxSizerFlags(0).Expand());
-  GetSizer()->Add(m_editor, wxSizerFlags(1).Expand());
-  GetSizer()->Add(m_searchBar, wxSizerFlags(0).Expand());
+  // The toolbar is vertical, on the left of the editor and the search bar.
+  auto *outer = new wxBoxSizer(wxHORIZONTAL);
+  auto *body = new wxBoxSizer(wxVERTICAL);
+  SetSizer(outer);
+  outer->Add(m_toolbar, wxSizerFlags(0).Expand());
+  outer->Add(body, wxSizerFlags(1).Expand());
+  body->Add(m_editor, wxSizerFlags(1).Expand());
+  body->Add(m_searchBar, wxSizerFlags(0).Expand());
 
   wxStyledTextCtrl *ctrl = m_editor->GetCtrl();
   m_acceleratorInterceptor = std::make_unique<AcceleratorInterceptor>(ctrl);

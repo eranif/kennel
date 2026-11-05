@@ -262,14 +262,18 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
         wxEVT_REVIEW_BUDDY_ERROR, wxEVT_REVIEW_BUDDY_STOPPED}) {
     Bind(type, &SessionPage::OnReviewChanged, this);
   }
-  // The toolbar is the first item; CreateTerminal() puts the splitter after it
-  // and the search bar comes last.
+  // The toolbar is vertical, on the right. Next to it is the body: the splitter
+  // (CreateTerminal() puts it first) and the search bar below it.
   CreateToolBar();
-  GetSizer()->Add(m_toolbar, wxSizerFlags(0).Expand());
+  auto *outer = new wxBoxSizer(wxHORIZONTAL);
+  m_body = new wxBoxSizer(wxVERTICAL);
+  SetSizer(outer); // Replaces (and deletes) the vertical sizer of the base
+  outer->Add(m_body, wxSizerFlags(1).Expand());
+  outer->Add(m_toolbar, wxSizerFlags(0).Expand());
   // Below the terminals: CreateTerminal() puts the splitter before it.
   m_searchBar = new SearchBar(this, SearchBar::Kind::kFindOnly);
   m_searchBar->Hide();
-  GetSizer()->Add(m_searchBar, wxSizerFlags(0).Expand());
+  m_body->Add(m_searchBar, wxSizerFlags(0).Expand());
   Bind(wxEVT_SEARCHBAR_FIND, &SessionPage::OnSearchBarFind, this);
   Bind(wxEVT_SEARCHBAR_CLOSE, &SessionPage::OnSearchBarClose, this);
   Bind(wxEVT_REVIEW_BUDDY_CLOSE, [this](ReviewBuddyEvent &event) {
@@ -527,7 +531,7 @@ void SessionPage::CreateTerminal() {
                              wxSP_LIVE_UPDATE | wxSP_3DSASH);
     m_splitter->SetSashGravity(0.5);
     m_splitter->SetMinimumPaneSize(150);
-    GetSizer()->Insert(1, m_splitter, wxSizerFlags(1).Expand());
+    m_body->Insert(0, m_splitter, wxSizerFlags(1).Expand());
   }
   m_mainPane = NewTerminalPane();
   m_terminal = new wxTerminalViewCtrl(m_mainPane, shellCommand, env, cwd);
@@ -636,7 +640,7 @@ void SessionPage::Restart() {
   KLOG_DEBUG() << "Restarting session '" << m_session.name << "'";
   CloseReviewBuddy();
   if (m_splitter != nullptr) {
-    GetSizer()->Detach(m_splitter);
+    m_body->Detach(m_splitter);
     m_splitter->Destroy(); // and the panes, with the terminal in it
     m_splitter = nullptr;
     m_mainPane = nullptr;
@@ -920,7 +924,7 @@ void SessionPage::ApplyToolBarStyle() { toolbar::ApplyStyle(m_toolbar); }
 void SessionPage::CreateToolBar() {
   auto &bmps = AppManager::Get().GetBitmaps();
   m_toolbar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                               wxAUI_TB_DEFAULT_STYLE);
+                               wxAUI_TB_VERTICAL);
   toolbar::ApplyStyle(m_toolbar);
   toolbar::AddTool(m_toolbar, ID_RESTART, _("Restart"),
                    bmps.Get("restart", false), _("Restart the session"));
@@ -1092,7 +1096,7 @@ void SessionPage::OnToolReviewBuddy(wxCommandEvent &) {
   // Line up the menu with the button.
   m_toolbar->SetToolSticky(ID_REVIEW_BUDDY, true);
   const wxRect rect = m_toolbar->GetToolRect(ID_REVIEW_BUDDY);
-  m_toolbar->PopupMenu(&menu, rect.GetBottomLeft());
+  m_toolbar->PopupMenu(&menu, rect.GetTopLeft());
   m_toolbar->SetToolSticky(ID_REVIEW_BUDDY, false);
   m_toolbar->Refresh();
 }

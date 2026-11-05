@@ -236,6 +236,8 @@ private:
     ID_FIND,
   };
   wxAuiToolBar *m_toolbar{nullptr};
+  // The part of the page next to the toolbar: the terminals and the search bar.
+  wxBoxSizer *m_body{nullptr};
 
   AppPaths m_paths;
   std::optional<AgentDef> m_agent{std::nullopt};
