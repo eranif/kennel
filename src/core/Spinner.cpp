@@ -20,6 +20,7 @@ void Spinner::Start() {
     for (int i = 0; i < kFrameCount; ++i) {
       s_frames[i] =
           bitmaps.GetByAlias(wxString::Format("spinner-%d", i), false);
+      s_pulse[i] = bitmaps.GetByAlias(wxString::Format("blocked-%d", i), false);
     }
   }
   m_timer.Start(kIntervalMs);

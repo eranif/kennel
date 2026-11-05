@@ -11,6 +11,7 @@
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
 #include "core/Logger.h"
+#include "core/Spinner.h"
 
 #include <algorithm>
 #include <vector>
@@ -250,10 +251,13 @@ void MainView::LoadBitmaps() {
   bmps.Load("check.svg");
   bmps.AddAlias("check.svg", "check");
 
-  for (int i = 0; i < 8; ++i) {
+  for (int i = 0; i < Spinner::kFrameCount; ++i) {
     const wxString file = wxString::Format("spinner-%d.svg", i);
     bmps.Load(file);
     bmps.AddAlias(file, wxString::Format("spinner-%d", i));
+    const wxString pulse = wxString::Format("blocked-%d.svg", i);
+    bmps.Load(pulse);
+    bmps.AddAlias(pulse, wxString::Format("blocked-%d", i));
   }
 
   // The git view: the icon of its tab (the same for both appearances) and the

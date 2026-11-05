@@ -125,7 +125,9 @@ wxVariant ActivityView::StatusCell(const Row &row) const {
   wxBitmapBundle icon;
   switch (row.activity) {
   case PageActivity::Blocked:
-    icon = bitmaps.GetByAlias("hand", false);
+    icon = m_spinner.GetPulseBitmap().IsOk()
+               ? m_spinner.GetPulseBitmap()
+               : bitmaps.GetByAlias("hand", false);
     break;
   case PageActivity::Done:
     icon = bitmaps.GetByAlias("check", false);
@@ -162,7 +164,8 @@ void ActivityView::Refill() {
   // Before the cells: the spinner has its frames when it starts.
   const bool working =
       std::any_of(m_rows.begin(), m_rows.end(), [](const Row &row) {
-        return row.activity == PageActivity::Working;
+        return row.activity == PageActivity::Working ||
+               row.activity == PageActivity::Blocked;
       });
   if (working) {
     m_spinner.Start();
@@ -191,7 +194,8 @@ void ActivityView::OnSpinnerFrame() {
     return;
   }
   for (size_t i = 0; i < m_rows.size(); ++i) {
-    if (m_rows[i].activity == PageActivity::Working) {
+    if (m_rows[i].activity == PageActivity::Working ||
+        m_rows[i].activity == PageActivity::Blocked) {
       m_list->SetValue(StatusCell(m_rows[i]), static_cast<unsigned>(i),
                        kStatusColumn);
     }

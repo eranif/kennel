@@ -8,8 +8,9 @@ namespace {
 // Braille orbit: ⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧
 const wchar_t kSpinnerFrames[] = {L'⠋', L'⠙', L'⠹', L'⠸',
                                   L'⠼', L'⠴', L'⠦', L'⠧'};
-static_assert(sizeof(kSpinnerFrames) / sizeof(kSpinnerFrames[0]) ==
-              Spinner::kFrameCount);
+constexpr int kSpinnerChars =
+    sizeof(kSpinnerFrames) / sizeof(kSpinnerFrames[0]);
+static_assert(Spinner::kFrameCount % kSpinnerChars == 0);
 
 // In front of the final status: the review is clean, it failed, or the round
 // limit was reached (findings are still open).
@@ -57,8 +58,9 @@ void ReviewBuddyHeader::SetText(wxTerminalViewCtrl *terminal,
   const wxColour stripBg = dark ? bg.ChangeLightness(60) : wxNullColour;
 
   // Not again for the same text: the strip is laid out each time.
-  if (force || !terminal->HasHeader() || terminal->GetHeaderText() != text) {
-    terminal->AddHeader(text, fg, stripBg);
+  // The strip is at the bottom of the terminal (a footer of the terminal).
+  if (force || !terminal->HasFooter() || terminal->GetFooterText() != text) {
+    terminal->AddFooter(text, fg, stripBg);
   }
 }
 
@@ -108,7 +110,9 @@ void ReviewBuddyHeader::OnSpinnerFrame() {
 void ReviewBuddyHeader::Render(bool force) {
   wxString text;
   if (m_spinning) {
-    text << wxString(kSpinnerFrames[m_spinner.GetFrame()]) << " ";
+    text << wxString(kSpinnerFrames[m_spinner.GetFrame() * kSpinnerChars /
+                                    Spinner::kFrameCount])
+         << " ";
   } else if (!m_mark.empty()) {
     text << m_mark << " ";
   }

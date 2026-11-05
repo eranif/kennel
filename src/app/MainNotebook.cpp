@@ -2248,22 +2248,27 @@ void MainNotebook::OnSessionProgram(wxCommandEvent &e) {
 }
 
 void MainNotebook::OnSpinnerFrame() {
-  bool working = false;
+  // The spinner of a working page and the pulse of a blocked one.
+  bool animated = false;
   for (auto *page : GetSessions()) {
-    if (page->GetProgramActivity() == SessionPage::ProgramActivity::Working) {
-      working = true;
+    const auto activity = page->GetProgramActivity();
+    if (activity == SessionPage::ProgramActivity::Working ||
+        activity == SessionPage::ProgramActivity::Blocked) {
+      animated = true;
       ApplyPageIcon(page);
     }
   }
-  if (!working) {
+  if (!animated) {
     m_spinner.Stop();
   }
 }
 
 void MainNotebook::UpdateSpinnerTimer() {
   for (auto *page : GetSessions()) {
-    if (page->GetProgramActivity() == SessionPage::ProgramActivity::Working) {
-      m_spinner.Start(); // It stops itself when nobody is working any more.
+    const auto activity = page->GetProgramActivity();
+    if (activity == SessionPage::ProgramActivity::Working ||
+        activity == SessionPage::ProgramActivity::Blocked) {
+      m_spinner.Start(); // It stops itself when nothing is animated any more.
       return;
     }
   }
@@ -2280,8 +2285,10 @@ void MainNotebook::ApplyPageIcon(SessionPage *page) {
     status = m_checkIcon;
     break;
   case SessionPage::ProgramActivity::Blocked:
-    // The program needs the user: it raises its hand.
-    status = m_handIcon;
+    // The program needs the user: an orange pulse (the raised hand until the
+    // timer has its frames).
+    status = m_spinner.GetPulseBitmap().IsOk() ? m_spinner.GetPulseBitmap()
+                                               : m_handIcon;
     break;
   case SessionPage::ProgramActivity::None:
     break;
