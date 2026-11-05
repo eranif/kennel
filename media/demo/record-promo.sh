@@ -43,5 +43,5 @@ pkill -f "user-data-dir=/tmp/chrome-rec" || true
 
 # screencapture needs about 0.6 seconds to start; keep 0.8 seconds of the first frame.
 TRIM=$(python3 -c "print(max(0, $LEAD_MS / 1000 - 0.6 - 0.8))")
-swift "$HERE/trim-video.swift" "$TMP/raw.mov" "$PROMO/kennel-promo.mp4" "$TRIM" 61 800 2>&1 | grep -E "^(ok|failed|cannot)"
+swift "$HERE/trim-video.swift" "$TMP/raw.mov" "$PROMO/kennel-promo.mp4" "$TRIM" 61 3000 1920 1080 2>&1 | grep -E "^(ok|failed|cannot)"
 ls -la "$PROMO/kennel-promo.mp4"

@@ -1,6 +1,6 @@
-// swift trim-video.swift <in.mov> <out.mp4> <start-seconds> <duration-seconds> [bitrate-kbps]
-// Cuts a part of a screen recording and writes it as H.264, 1280x720, 30 fps.
-// The default bitrate (1500 kbit/s) is enough for this content: mostly still screenshots.
+// swift trim-video.swift <in.mov> <out.mp4> <start-seconds> <duration-seconds> [bitrate-kbps] [width] [height]
+// Cuts a part of a screen recording and writes it as H.264, 1920x1080 by default, 30 fps.
+// The default (3000 kbit/s at 1920x1080) keeps the text sharp: the screen is captured at 2x.
 // (macOS has no ffmpeg; this uses AVFoundation.)
 import AVFoundation
 import Foundation
@@ -10,7 +10,9 @@ guard args.count >= 5, let start = Double(args[3]), let duration = Double(args[4
   print("usage: swift trim-video.swift in.mov out.mp4 start duration [kbps]")
   exit(2)
 }
-let kbps = args.count > 5 ? (Int(args[5]) ?? 1500) : 1500
+let kbps = args.count > 5 ? (Int(args[5]) ?? 3000) : 3000
+let outW = args.count > 6 ? (Int(args[6]) ?? 1920) : 1920
+let outH = args.count > 7 ? (Int(args[7]) ?? 1080) : 1080
 let asset = AVURLAsset(url: URL(fileURLWithPath: args[1]))
 let outURL = URL(fileURLWithPath: args[2])
 try? FileManager.default.removeItem(at: outURL)
@@ -32,7 +34,7 @@ Task {
     let writer = try AVAssetWriter(outputURL: outURL, fileType: .mp4)
     let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
       AVVideoCodecKey: AVVideoCodecType.h264,
-      AVVideoWidthKey: 1280, AVVideoHeightKey: 720,
+      AVVideoWidthKey: outW, AVVideoHeightKey: outH,
       AVVideoScalingModeKey: AVVideoScalingModeResizeAspect,
       AVVideoCompressionPropertiesKey: [
         AVVideoAverageBitRateKey: kbps * 1000,

@@ -10,7 +10,7 @@ media/
   promo/build.py         builds promo/kennel-promo.html (scenes, captions, timings, camera)
   promo/kennel-promo.html  the promo: one HTML file, the screenshots are inside (about 3 MB)
   promo/kennel-promo.mp4   a recording of the promo, for README.md (about 6 MB)
-  promo/poster.jpg       the picture that links to the video in README.md
+  promo/teaser.gif       the 18 second animated teaser at the top of README.md (links to the video)
   demo/setup-demo.sh     makes the demo environment (fake agents, git repos, config)
   demo/capture.sh        one screenshot of the real app
   demo/capture-all.sh    all the screenshots, saved in screenshots/
@@ -128,7 +128,7 @@ README.md links to `promo/kennel-promo.mp4`, a recording of the page. Make it af
 It opens the page in Chrome in its own window (`#rec@<time>`: no controls, and the clock starts at
 a given time while the page shows its first frame, so the recording can start before it), records
 that rectangle of the screen with `screencapture -v`, and cuts and encodes it with
-`demo/trim-video.swift` (H.264, 1280x720, 800 kbit/s: about 6 MB). While it runs: do not touch the
+`demo/trim-video.swift` (H.264, 1920x1080, 3000 kbit/s: about 21 MB; the screen is captured at 2x, so the text stays sharp). While it runs: do not touch the
 mouse or the keyboard, and close windows with private content that could show if the window moves
 (the first version of the video had an IDE in its first frame, because the recording started before
 the window was up: the script now waits for the window).
@@ -139,8 +139,20 @@ Look at the video before you commit it. This prints frames at the given seconds 
 swift media/demo/frames.swift media/promo/kennel-promo.mp4 /tmp/frame 0 10 30 58   
 ```
 
-`demo/frames.swift` uses `AVAssetImageGenerator` (one PNG per time). The poster is `screenshots/api-refactor.jpg` resized to
-1600 pixels (`sips --resampleWidth 1600`).
+`demo/frames.swift` uses `AVAssetImageGenerator` (one PNG per time). 
+### The teaser GIF
+
+GitHub does not play a video from the repository inside a README, but it shows a GIF. Make the
+teaser from the finished video (a few clips, 720 pixels wide, 8 frames per second, about 3 MB):
+
+```bash
+# Look at the video first (every 1.5 s) to find the times of the highlights, then:
+swift media/demo/make-gif.swift media/promo/kennel-promo.mp4 media/promo/teaser.gif 720 8 \
+  9.0-10.8 15.0-17.4 22.4-23.8 24.2-26.0 33.3-38.8 43.0-44.8 46.0-47.2 49.0-50.8
+```
+
+The times of the video are not the times of the page (the recording starts before the page does):
+find them in the video, with `demo/frames.swift`, not in `build.py`.
 
 ### Check the promo without a screen
 

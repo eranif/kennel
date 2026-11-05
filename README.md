@@ -4,7 +4,7 @@
 
 **A workspace for AI CLI agents, terminals and files**
 
-[![Kennel in one minute](media/promo/poster.jpg)](media/promo/kennel-promo.mp4)
+[![Kennel in action](media/promo/teaser.gif)](media/promo/kennel-promo.mp4)
 
 **[▶ Watch the one-minute tour](media/promo/kennel-promo.mp4)** ·
 **[Open the interactive tour](https://htmlpreview.github.io/?https://github.com/eranif/kennel/blob/main/media/promo/kennel-promo.html)**
