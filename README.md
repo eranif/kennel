@@ -6,6 +6,12 @@
 
 [![Kennel in action](media/promo/teaser.gif)](media/promo/kennel-promo.mp4)
 
+| Platform | Download | Notes |
+|---|---|---|
+| **macOS (Apple Silicon)** | **[kennel-macOS_26.5.2_arm64.zip](https://github.com/eranif/kennel/releases/download/2.0.0/kennel-macOS_26.5.2_arm64.zip)** | A signed and notarized application bundle. |
+| **Windows 11** | **[kennel-2.0.0-amd64-installer.exe](https://github.com/eranif/kennel/releases/download/2.0.0/kennel-2.0.0-amd64-installer.exe)** | An installer, built on GitHub Actions. |
+| **Linux** | [Build from source](BUILDING.md) | Run `./build.sh`. |
+
 **[▶ Watch the one-minute tour](media/promo/kennel-promo.mp4)** ·
 **[Open the interactive tour](https://htmlpreview.github.io/?https://github.com/eranif/kennel/blob/main/media/promo/kennel-promo.html)**
 
@@ -27,31 +33,11 @@ machine, every session returns where it left off**, using the native resume flag
 
 ---
 
-## Contents
-
-[Download](#download) · [Why Kennel?](#why-kennel) · [Screenshots](#screenshots) ·
-[What's New in 2.0](#whats-new-in-20) · [Core Concepts](#core-concepts) ·
-[Getting Started](#getting-started) · [The Side Bar](#the-side-bar) ·
-[Archive a Session](#archive-a-session) · [Goto Anything](#goto-anything) ·
-[The Terminal](#the-terminal) · [Review Buddy](#review-buddy) ·
-[Files and Search](#files-and-search) · [Scheduled Jobs](#scheduled-jobs) ·
-[Managing Agents](#managing-agents) · [Keyboard Shortcuts](#keyboard-shortcuts) ·
-[Session Persistence](#session-persistence--restore) · [Customization](#customization) ·
-[Installation](#installation) · [Where Kennel Stores Things](#where-kennel-stores-things) ·
-[Troubleshooting](#troubleshooting)
-
----
-
 ## Download
 
-Get the installer or the application bundle for your platform from the
-**[Releases](https://github.com/eranif/kennel/releases)** page:
-
-| Platform | Notes |
-|---|---|
-| **macOS (Apple Silicon)** | A signed and notarized application bundle (`.zip`). |
-| **Windows 11** | An installer (`.exe`), built on GitHub Actions. |
-| **Linux** | Build from source, see [BUILDING.md](BUILDING.md). |
+The downloads of Kennel 2.0.0 are in the table at the top of this page, and all the files are on the
+**[Releases](https://github.com/eranif/kennel/releases)** page. On Linux, build Kennel from source,
+see [BUILDING.md](BUILDING.md).
 
 ---
 
