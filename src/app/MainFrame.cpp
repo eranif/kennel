@@ -610,8 +610,9 @@ void MainFrame::OfferRemoteAgentScan() {
 
   wxMultiChoiceDialog dlg(
       this,
-      _("Kennel can look for AI agents (claude, codex, kiro-cli) on these "
-        "machines and define them for you.\nChoose the machines to check:"),
+      _("Kennel can look for AI agents (claude, codex, kiro-cli, opencode) on "
+        "these machines and define them for you.\nChoose the machines to "
+        "check:"),
       _("Kennel"), choices);
   // The distros of this machine are checked; the SSH hosts are the user's to
   // choose (a jump host or a git server is not a place for agents).

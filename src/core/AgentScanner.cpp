@@ -24,6 +24,7 @@ constexpr Tool kTools[] = {
     {"claude", "Claude"},
     {"codex", "Codex"},
     {"kiro-cli", "Kiro"},
+    {"opencode", "OpenCode"},
 };
 
 const char *TitleOf(const wxString &executable) {

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 24 24"
+   version="1.1"
+   id="svg3"
+   sodipodi:docname="opencode.svg"
+   inkscape:version="1.4 (86a8ad7, 2024-10-11)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs3" />
+  <sodipodi:namedview
+     id="namedview3"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="36.666667"
+     inkscape:cx="12.013636"
+     inkscape:cy="12"
+     inkscape:window-width="1859"
+     inkscape:window-height="1186"
+     inkscape:window-x="923"
+     inkscape:window-y="535"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg3" />
+  <!-- OpenCode icon -->
+  <g
+     transform="matrix(1,0,0,1,0,0)"
+     id="g1">
+    <path
+       d="M 3,1 H 21 V 23 H 3 Z M 7,6 V 18 H 17 V 6 Z"
+       fill="#7d7878"
+       fill-rule="evenodd"
+       id="path1" />
+    <path
+       d="M 7,6 H 17 V 18 H 7 Z"
+       fill="#d6d2d2"
+       id="path1b" />
+    <path
+       d="M 7,12 H 17 V 18 H 7 Z"
+       fill="#a8a3a3"
+       id="path1c" />
+  </g>
+</svg>

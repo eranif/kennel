@@ -75,6 +75,9 @@ ClientKind ClientKindOf(const wxString &executable) {
   if (name == "kiro-cli" || name == "kiro-cli-chat") {
     return ClientKind::Kiro;
   }
+  if (name == "opencode") {
+    return ClientKind::OpenCode;
+  }
   return ClientKind::Unknown;
 }
 
@@ -91,6 +94,10 @@ void ApplyClientDefaults(AgentDef &agent) {
   case ClientKind::Kiro:
     agent.resumeArg = "chat --resume";
     agent.nonInteractiveArg = "chat --no-interactive";
+    break;
+  case ClientKind::OpenCode:
+    agent.resumeArg = "--continue";
+    agent.nonInteractiveArg = "run";
     break;
   case ClientKind::Unknown:
     agent.resumeArg.clear();
@@ -110,6 +117,9 @@ wxString DefaultIconFor(const AgentDef &agent) {
     break;
   case ClientKind::Kiro:
     base = "kiro";
+    break;
+  case ClientKind::OpenCode:
+    base = "opencode";
     break;
   case ClientKind::Unknown:
     return "agent.svg";
@@ -167,6 +177,11 @@ std::vector<wxString> BuildCommandLine(const AgentDef &agent,
       cmd << " " << arg;
     }
     if (!initialPrompt.empty()) {
+      // opencode takes a bare argument as a project path: the first message
+      // needs --prompt.
+      if (ClientKindOf(agent.executable) == ClientKind::OpenCode) {
+        cmd << " --prompt";
+      }
       cmd << " " << QuoteForShell(initialPrompt);
     }
     return cmd;

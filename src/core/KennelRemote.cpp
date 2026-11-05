@@ -111,6 +111,7 @@ do_find_cli() {
         claude
         kiro-cli
         codex
+        opencode
         aider
         copilot
         cursor

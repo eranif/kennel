@@ -61,6 +61,7 @@ void NewAgentWizard::PopulateExecutables() {
         platform::Which("claude"),
         platform::Which("kiro-cli"),
         platform::Which("codex"),
+        platform::Which("opencode"),
     };
     for (const auto &e : found) {
       if (e.has_value()) {

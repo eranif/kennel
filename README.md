@@ -119,7 +119,7 @@ Define a new agent in three guided steps:
 
 | Concept | Description |
 |---|---|
-| **Agent** | A definition of *how to launch* an AI CLI: its executable, arguments, environment, icon and, optionally, a remote host or a WSL distribution. Kennel detects and defines **Claude Code**, **Kiro CLI** and **OpenAI Codex** when they are installed. |
+| **Agent** | A definition of *how to launch* an AI CLI: its executable, arguments, environment, icon and, optionally, a remote host or a WSL distribution. Kennel detects and defines **Claude Code**, **Kiro CLI**, **OpenAI Codex** and **OpenCode** when they are installed. |
 | **Session** | A named, running instance of an agent in a working directory. Each session is a live terminal. |
 | **Group** | A set of related sessions. The tabs of a group are shown together under a header with the name of the group. The **Default** group always exists. |
 | **Terminal** | A plain terminal without an agent. Kennel restores it with its folder and shell. |
@@ -386,7 +386,7 @@ Configure the identity and the command of the agent:
 | Field | Purpose |
 |---|---|
 | **Name** | Display name shown in menus and tabs. |
-| **Executable** | The command to run. The wizard discovers known CLIs (`claude`, `kiro-cli`, `codex`) locally or on the remote host. |
+| **Executable** | The command to run. The wizard discovers known CLIs (`claude`, `kiro-cli`, `codex`, `opencode`) locally or on the remote host. |
 | **Launch Args** | Arguments passed on every launch (for example `--agent my-agent`). |
 | **Resume Args** | Flags used to resume a previous session (for example `--resume` or `--continue`). Suggestions are available with **...**. |
 | **Image** | An SVG icon for the agent. Shipped assets can be browsed with **...**. |

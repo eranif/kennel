@@ -91,8 +91,9 @@ AgentDef ParseAgent(const json &j) {
   // The resume and one-shot arguments belong to the tool, not to the config.
   ApplyClientDefaults(out);
   if (!IsSupportedClient(out.executable)) {
-    KLOG_WARN() << "Agent '" << out.name << "': '" << out.executable
-                << "' is not a supported tool (claude, codex, kiro-cli)";
+    KLOG_WARN()
+        << "Agent '" << out.name << "': '" << out.executable
+        << "' is not a supported tool (claude, codex, kiro-cli, opencode)";
   }
   if (auto e = j.find("env"); e != j.end() && e->is_object()) {
     for (auto it = e->begin(); it != e->end(); ++it) {

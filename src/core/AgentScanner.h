@@ -6,11 +6,12 @@
 #include <vector>
 #include <wx/string.h>
 
-// Looks for the AI tools Kennel supports (claude, codex, kiro-cli) and makes an
-// AgentDef for each one it finds, with the arguments and the icon of the tool.
-// GUI-free. ScanLocal(), ScanWsl() and ScanRemote() block (a remote one for
-// seconds), so call them from a worker thread; ListWslDistros() and
-// ListRemoteHosts() only read a few small files and can run on the UI thread.
+// Looks for the AI tools Kennel supports (claude, codex, kiro-cli, opencode)
+// and makes an AgentDef for each one it finds, with the arguments and the icon
+// of the tool. GUI-free. ScanLocal(), ScanWsl() and ScanRemote() block (a
+// remote one for seconds), so call them from a worker thread; ListWslDistros()
+// and ListRemoteHosts() only read a few small files and can run on the UI
+// thread.
 namespace agentscan {
 
 // A WSL distro (Windows only).

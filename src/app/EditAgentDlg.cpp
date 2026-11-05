@@ -39,6 +39,7 @@ EditAgentDlg::EditAgentDlg(wxWindow *parent, const AgentDef *agent)
         platform::Which("claude"),
         platform::Which("kiro-cli"),
         platform::Which("codex"),
+        platform::Which("opencode"),
     };
     for (const auto &e : executables) {
       if (e.has_value()) {

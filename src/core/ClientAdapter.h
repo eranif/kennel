@@ -8,7 +8,7 @@
 
 // The CLI tools Kennel supports. Anything else needs code changes here: the
 // resume and one-shot arguments are fixed per tool, not set by the user.
-enum class ClientKind { Unknown, Claude, Codex, Kiro };
+enum class ClientKind { Unknown, Claude, Codex, Kiro, OpenCode };
 
 // The tool behind `executable`: the file name decides (a path, a ".exe" or a
 // ".cmd" is fine).
