@@ -1,7 +1,7 @@
 #include "app/FileTreeCtrl.hpp"
 
-#include "PageViewEvent.hpp"
 #include "app/DataViewTypeHelper.h"
+#include "app/DataViewUtils.hpp"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
 #include "core/Logger.h"
@@ -110,7 +110,7 @@ FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
   m_tree =
       new wxDataViewTreeCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                              wxDV_NO_HEADER | wxDV_MULTIPLE | wxDV_ROW_LINES);
-  StylePageView(m_tree);
+  dv::StylePageView(m_tree);
 
   // The names are not to be edited.
   m_tree->GetColumn(0)->GetRenderer()->SetMode(wxDATAVIEW_CELL_INERT);

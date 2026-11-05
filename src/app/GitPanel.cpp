@@ -1,5 +1,6 @@
 #include "app/GitPanel.hpp"
 
+#include "app/DataViewUtils.hpp"
 #include "app/FileBrowserDlg.hpp"
 #include "app/FileTreeCtrl.hpp"
 #include "app/GitCommitMessageDlg.hpp"
@@ -10,7 +11,6 @@
 #include "core/GitDriverSSH.h"
 #include "core/GitDriverWSL.h"
 #include "core/Logger.h"
-
 #include <wx/app.h>
 #include <wx/aui/auibar.h>
 #include <wx/button.h>
@@ -154,7 +154,7 @@ GitPanel::GitPanel(wxWindow *parent, const Account &account)
   m_list =
       new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                              wxDV_MULTIPLE | wxDV_ROW_LINES);
-  StylePageView(m_list);
+  dv::StylePageView(m_list);
   m_list->AppendIconTextColumn(_("Status"), wxDATAVIEW_CELL_INERT, 130);
   m_list->AppendIconTextColumn(_("Path"), wxDATAVIEW_CELL_INERT, 300);
 

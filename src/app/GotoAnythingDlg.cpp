@@ -2,6 +2,7 @@
 
 #include "app/PageViewEvent.hpp"
 
+#include "app/DataViewUtils.hpp"
 #include <algorithm>
 #include <wx/tokenzr.h>
 #include <wx/wupdlock.h>
@@ -13,7 +14,7 @@ constexpr int kPageSize = 10;
 
 GotoAnythingDlg::GotoAnythingDlg(wxWindow *parent)
     : GotoAnythingDlgBase(parent) {
-  StylePageView(m_dvListCtrl);
+  dv::StylePageView(m_dvListCtrl);
   m_dvListCtrl->Bind(wxEVT_SIZE, &GotoAnythingDlg::OnListSize, this);
 
   m_searchCtrl->SetDescriptiveText(_("Type to search..."));
@@ -71,7 +72,8 @@ void GotoAnythingDlg::Populate() {
   if (m_dvListCtrl->GetItemCount() > 0) {
     m_dvListCtrl->SelectRow(0);
   }
-  FitColumns();
+  dv::AutoSizeColumns(m_dvListCtrl);
+  // FitColumns();
 }
 
 void GotoAnythingDlg::FitColumns() {
@@ -96,7 +98,7 @@ void GotoAnythingDlg::FitColumns() {
 
 void GotoAnythingDlg::OnListSize(wxSizeEvent &event) {
   event.Skip();
-  FitColumns();
+  dv::AutoSizeColumns(m_dvListCtrl);
 }
 
 void GotoAnythingDlg::Accept() {

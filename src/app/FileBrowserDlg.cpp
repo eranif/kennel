@@ -3,7 +3,7 @@
 #include "core/AppManager.h"
 #include <wx/msgdlg.h>
 
-#include "PageViewEvent.hpp"
+#include "app/DataViewUtils.hpp"
 #include <algorithm>
 #include <wx/artprov.h>
 #include <wx/dir.h>
@@ -29,7 +29,7 @@ FileBrowserDlg::FileBrowserDlg(wxWindow *parent,
     // Hide the preview
     m_panelPreview->Hide();
   }
-  StylePageView(m_dvListCtrl);
+  dv::StylePageView(m_dvListCtrl);
   auto &bmps = AppManager::Get().GetBitmaps();
   toolbar::AddTool(m_auibar, wxID_UP, _("Up"), bmps.GetByAlias("up", false));
   toolbar::AddTool(m_auibar, wxID_HOME, _("Home"),

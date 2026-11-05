@@ -1,5 +1,6 @@
 #include "app/ActivityView.hpp"
 
+#include "app/DataViewUtils.hpp"
 #include "core/AppManager.h"
 
 #include "core/EventNotifier.hpp"
@@ -15,7 +16,7 @@ ActivityView::ActivityView(wxWindow *parent)
       m_spinner([this](const wxBitmapBundle &) { OnSpinnerFrame(); }) {
   m_list = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition,
                                   wxDefaultSize, wxDV_SINGLE | wxDV_ROW_LINES);
-  StylePageView(m_list);
+  dv::StylePageView(m_list);
   // The status is the icon only, in a column of a fixed width (flags 0: the
   // user cannot resize it). The other columns fit their content (see Refill()).
   m_list->AppendIconTextColumn(wxEmptyString, wxDATAVIEW_CELL_INERT,

@@ -99,7 +99,3 @@ wxDECLARE_EVENT(wxEVT_SESSION_SIDE_DIR_CHANGED, PageViewEvent);
 // when the application must not close. CanVeto() is false when the system is
 // ending the session: nobody can be asked then.
 wxDECLARE_EVENT(wxEVT_APP_CLOSING, wxCloseEvent);
-
-// Settings of the lists of the pages: alternating row colours (ignored by the
-// native implementations).
-void StylePageView(wxDataViewCtrl *ctrl);

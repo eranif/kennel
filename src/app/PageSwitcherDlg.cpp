@@ -1,7 +1,6 @@
 #include "PageSwitcherDlg.hpp"
 
-#include "app/PageViewEvent.hpp"
-
+#include "app/DataViewUtils.hpp"
 #include <wx/dataview.h>
 #include <wx/sizer.h>
 #include <wx/utils.h>
@@ -27,13 +26,14 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
                                  const std::vector<PageSwitcherItem> &items,
                                  bool forward)
     : wxDialog(parent, wxID_ANY, wxEmptyString, wxDefaultPosition,
-               wxDefaultSize, wxBORDER_SIMPLE | wxSTAY_ON_TOP),
+               wxDefaultSize, wxCAPTION | wxSTAY_ON_TOP),
       m_sink(sink), m_timer(this) {
+  SetLabel(_("Switch To Page"));
   m_list =
       new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                              wxDV_NO_HEADER | wxDV_SINGLE | wxDV_ROW_LINES |
                                  wxDV_VERT_RULES | wxBORDER_NONE);
-  StylePageView(m_list);
+  dv::StylePageView(m_list);
 
   int labelWidth = 0;
   int dirWidth = 0;
@@ -69,6 +69,7 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
     m_list->AppendItem(row);
   }
   m_list->SetMinSize(wxSize(width, std::max(rows * rowHeight, kMinHeight)));
+  dv::AutoSizeColumns(m_list);
 
   auto *sizer = new wxBoxSizer(wxVERTICAL);
   sizer->Add(m_list, wxSizerFlags(1).Expand().Border(wxALL, 1));
