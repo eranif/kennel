@@ -154,8 +154,6 @@ private:
   void RunGotoItem(const GotoItem &item);
   void OnShowPane(wxCommandEvent &e);
   void OnShowPaneUI(wxUpdateUIEvent &e);
-  void OnGroupTabs(wxCommandEvent &e);
-  void OnGroupTabsUI(wxUpdateUIEvent &e);
 
   // Opens the global config.json for editing
   void OnSettings(wxCommandEvent &evt);

@@ -223,5 +223,10 @@ void MainNotebook::ShowBackgroundMenu(wxWindow *on) {
         XRCID(place.id));
   }
   menu.AppendSubMenu(placeMenu, _("Tab Position"));
+  menu.AppendCheckItem(XRCID("group-tabs"), _("Group Tabs by Session Group"))
+      ->Check(AppManager::Get().GetPrefs().groupTabs);
+  menu.Bind(
+      wxEVT_MENU, [this](wxCommandEvent &) { ToggleGroupTabs(); },
+      XRCID("group-tabs"));
   on->PopupMenu(&menu);
 }

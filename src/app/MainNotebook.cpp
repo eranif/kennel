@@ -490,6 +490,17 @@ wxWindow *MainNotebook::GetCurrentPage() const {
   return m_book->GetCurrentPage();
 }
 
+void MainNotebook::ToggleGroupTabs() {
+  auto &prefs = AppManager::Get().GetPrefs();
+  prefs.groupTabs = !prefs.groupTabs;
+  if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+    KLOG_WARN() << "Could not save the tab groups option: " << st.message();
+  }
+  // The pages follow the preferences.
+  EventNotifier::Get()->AddPendingEvent(
+      wxCommandEvent(wxEVT_APP_PREFS_CHANGED));
+}
+
 void MainNotebook::SelectTab(wxWindow *page) {
   if (const int index = m_book->FindPage(page); index != wxNOT_FOUND) {
     m_book->ChangeSelection(index); // sends no event

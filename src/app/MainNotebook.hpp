@@ -87,6 +87,8 @@ public:
   void StartTerminal();
   // Moves the tabs to `direction` and remembers it in the preferences.
   void SetTabPosition(wxDirection direction);
+  // Groups the tabs by session group, or ungroups them, and saves the choice.
+  void ToggleGroupTabs();
 
   // Launches a one-shot session running `job`'s command/prompt, under a
   // "Jobs" group. Never persisted to workspace.json. `selectAfterLaunch`

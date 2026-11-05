@@ -535,11 +535,6 @@ void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
   viewMenu->Append(XRCID("reset-layout"), _("Reset Kennel Layout"),
                    _("Restore the panes to their initial layout"));
   Bind(wxEVT_MENU, &MainFrame::OnResetLayout, this, XRCID("reset-layout"));
-  viewMenu->AppendCheckItem(XRCID("group-tabs"),
-                            _("Group Tabs by Session Group"),
-                            _("Show the tabs of a session group together"));
-  Bind(wxEVT_MENU, &MainFrame::OnGroupTabs, this, XRCID("group-tabs"));
-  Bind(wxEVT_UPDATE_UI, &MainFrame::OnGroupTabsUI, this, XRCID("group-tabs"));
   menuBar->Append(viewMenu, _("&View"));
 }
 
@@ -921,21 +916,6 @@ void MainFrame::OnShowPane(wxCommandEvent &e) {
 
 void MainFrame::OnShowPaneUI(wxUpdateUIEvent &e) {
   e.Check(m_mainView->IsPaneShown(PaneOfMenuId(e.GetId())));
-}
-
-void MainFrame::OnGroupTabs(wxCommandEvent &) {
-  auto &prefs = AppManager::Get().GetPrefs();
-  prefs.groupTabs = !prefs.groupTabs;
-  if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
-    KLOG_WARN() << "Could not save the tab groups option: " << st.message();
-  }
-  // The pages follow the preferences.
-  EventNotifier::Get()->AddPendingEvent(
-      wxCommandEvent(wxEVT_APP_PREFS_CHANGED));
-}
-
-void MainFrame::OnGroupTabsUI(wxUpdateUIEvent &event) {
-  event.Check(AppManager::Get().GetPrefs().groupTabs);
 }
 
 void MainFrame::BuildEditMenu(wxMenuBar *menuBar) {
