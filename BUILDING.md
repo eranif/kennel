@@ -86,7 +86,7 @@ kennel/
 │   ├── app/                  # UI layer (wxWidgets)
 │   └── core/                 # Core logic (GUI-free; wxBase types only)
 ├── assets/                   # SVG icons, terminal themes, app icon
-├── screenshots/              # Images used by README.md
+├── media/                    # Screenshots and the promo video (see media/AGENTS.md)
 ├── CMakeLists.txt
 └── LICENSE                   # BSD 3-Clause
 ```

@@ -67,8 +67,9 @@ Highlights:
   - Clicking a row shows the corresponding session.
 - **Tab groups.** The tabs of the sessions in a group are displayed together under a header
   that carries the name of the group. Files and Terminals have their own groups. **Move To
-  Group** and **Rename Group** update the tabs immediately, and **View → Group Tabs by Session
-  Group** disables the grouping. The tab order is saved and restored on the next start.
+  Group** and **Rename Group** update the tabs immediately, and **Group Tabs by Session Group**
+  in the context menu of the tab bar (right-click an empty area) disables the grouping. The tab
+  order is saved and restored on the next start.
 - **Tab options.** **Settings** now provides:
   - the **tab position** (top, bottom, left or right);
   - the **tab outline color**;
