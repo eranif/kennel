@@ -135,7 +135,7 @@ body { display: flex; flex-direction: column; align-items: center; justify-conte
   // 1. Auto-scan on the first start (6s)
   scenes.push({ d: 6, html:
     cam([['scan', '']], '0:0.5,0.5,1;1:0.5,0.5,1;2.4:0.06,0.2,3.2;4:0.06,0.2,3.2;5:0.1,0.97,3;6:0.1,0.97,3',
-      [{ x: 0.1, y: 11.6, w: 1.8, h: 11.8, at: 2.6, until: 4.6, c: 'amber' }, { x: 0.4, y: 97.2, w: 15, h: 2.4, at: 5.2 }]) +
+      [{ x: 0.0, y: 12.5, w: 1.6, h: 11.5, at: 2.6, until: 4.6, c: 'amber' }, { x: 0.3, y: 97.7, w: 15, h: 2.0, at: 5.2 }]) +
     caption('First start', 'Kennel finds your agents', 'On the first start it scans this computer, and optionally WSL and SSH hosts, and defines every agent it finds: Claude, Codex, Kiro and OpenCode.', true) });
 
   // 2. One window + the real Ctrl+Tab switcher (7s)
@@ -146,8 +146,8 @@ body { display: flex; flex-direction: column; align-items: center; justify-conte
 
   // 3. Status (7s)
   scenes.push({ d: 7, html:
-    cam([['infra', '']], '0:0.5,0.5,1;1:0.5,0.5,1;2:0.27,0.07,3;3.6:0.27,0.07,3;4.4:0.08,0.57,2.6;7:0.08,0.57,2.6',
-      [{ x: 17, y: 2.6, w: 26, h: 4, at: 2.4, until: 4.2 }, { x: 1.5, y: 54.5, w: 15.5, h: 6, at: 5, c: 'amber' }]) +
+    cam([['infra', '']], '0:0.5,0.5,1;1:0.5,0.5,1;2:0.29,0.07,3;3.6:0.29,0.07,3;4.4:0.08,0.57,2.6;7:0.08,0.57,2.6',
+      [{ x: 16.7, y: 2.5, w: 27, h: 3.9, at: 2.4, until: 4.2 }, { x: 1.6, y: 54.3, w: 15.2, h: 5.2, at: 5, c: 'amber' }]) +
     caption('Always know', 'Working, done or blocked', 'A spinner, a check or a pulse on every tab. The Activity pane lists them all.', true) });
 
   // 4. Resume (5s)
@@ -164,19 +164,19 @@ body { display: flex; flex-direction: column; align-items: center; justify-conte
   // 5. File Explorer and git always follow the active session (8s)
   scenes.push({ d: 8, html:
     cam([['api', '0-2.4'], ['xa', '2.4-5.2'], ['xd', '5.2-99']], '0:0.5,0.5,1;1:0.5,0.5,1;2:0.1,0.2,2.8;8:0.1,0.2,2.8',
-      [{ x: 1.6, y: 14.4, w: 15, h: 4.6, at: 1.4, until: 2.4 }, { x: 1.6, y: 7.2, w: 15, h: 14, at: 3, until: 5 }, { x: 1.6, y: 7.2, w: 15, h: 14, at: 5.6 }]) +
+      [{ x: 1.7, y: 14.0, w: 15, h: 4.0, at: 1.4, until: 2.4 }, { x: 1.7, y: 7.0, w: 15, h: 8.3, at: 3, until: 5 }, { x: 1.7, y: 7.1, w: 15, h: 6.7, at: 5.6 }]) +
     caption('Next to the session', 'Files and git follow the active tab', 'The Side Bar always shows the active session: its git status and its File Explorer, local, in WSL or on a remote host over SSH.', true) +
     '<div class="r" data-at="1.0" style="position:absolute;left:44px;bottom:44px;display:flex;gap:8px;z-index:7"><span class="chip" data-hl="0-5.2">api-refactor</span><span class="chip on2" data-hl="5.2-99">docs-site</span></div>' });
 
   // 6. Review Buddy (7s)
   scenes.push({ d: 7, html:
     cam([['rv', '']], '0:0.5,0.5,1;1.4:0.5,0.5,1;2.4:0.7,0.18,2.1;4.6:0.7,0.18,2.1;5.4:0.2,0.95,2.6;7:0.2,0.95,2.6',
-      [{ x: 57.5, y: 5.6, w: 40.5, h: 22, at: 2.8, until: 5, c: 'amber' }, { x: 16.8, y: 94.2, w: 21, h: 4.6, at: 5.8 }]) +
+      [{ x: 57.2, y: 5.9, w: 36.0, h: 27.2, at: 2.8, until: 5, c: 'amber' }, { x: 16.2, y: 94.4, w: 19, h: 4, at: 5.8 }]) +
     caption('Review Buddy', 'A second agent reviews the first', 'It reads the changes of a session and sends its findings back to the first agent, with nobody in between.', true, 5.4) });
 
   // 7. Goto Anything (5s)
   scenes.push({ d: 5, html:
-    cam([['go', '']], '0:0.5,0.5,1;1.5:0.5,0.5,1;2.6:0.5,0.4,1.5;5:0.5,0.4,1.5') +
+    cam([['go', '']], '0:0.5,0.5,1;1.5:0.5,0.5,1;2.6:0.5,0.45,1.25;5:0.5,0.45,1.25') +
     caption('Find anything fast', 'Goto Anything', 'Menus, open pages and page actions in one search.') +
     keys(['Cmd', 'Shift', 'P'], 0.3, null) });
 
@@ -245,8 +245,26 @@ body { display: flex; flex-direction: column; align-items: center; justify-conte
   }
 
   var t = 0, playing = true, last = null;
-  var m = /^#t(\d+)$/.exec(location.hash);
-  if (m) { t = Math.min(TOTAL - 0.5, parseFloat(m[1])); playing = false; var ns = document.createElement('style'); ns.textContent = '*{transition:none!important}'; document.head.appendChild(ns); }
+  // #rec or #rec@<epoch ms>: for a screen recording (see media/AGENTS.md): no controls, the
+  // picture fills the window, and the clock starts at the given time (default: in 1.5 seconds).
+  // Before that the page shows the first frame, so a recording can start early.
+  var mrec = /^#rec(?:@(\d+))?$/.exec(location.hash);
+  if (mrec) {
+    var rs = document.createElement('style');
+    rs.textContent = 'body{padding:0;gap:0;background:#000}#ctl{display:none}#frame{max-width:none;width:min(100vw,177.78vh);border:0;border-radius:0}';
+    document.head.appendChild(rs);
+    playing = false;
+    var startAt = mrec[1] ? parseFloat(mrec[1]) : Date.now() + 1500;
+    setTimeout(function () { last = null; playing = true; }, Math.max(0, startAt - Date.now()));
+  }
+  // #t<seconds>: a frozen frame at that time, without transitions (to check the highlights).
+  var mt = /^#t(\d+(?:\.\d+)?)$/.exec(location.hash);
+  if (mt) {
+    var ts = document.createElement('style');
+    ts.textContent = '*{transition:none !important;animation:none !important}';
+    document.head.appendChild(ts);
+    playing = false; t = parseFloat(mt[1]);
+  }
   var seek = document.getElementById('seek'), timeEl = document.getElementById('time'), playBtn = document.getElementById('play');
   function fmt(x) { var s = Math.floor(x); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
   function paint() { render(t); seek.value = t; timeEl.textContent = fmt(t) + ' / ' + fmt(TOTAL); }

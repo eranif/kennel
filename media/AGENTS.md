@@ -9,22 +9,40 @@ media/
   screenshots/*.jpg      real screenshots of the running app (used by README.md and the promo)
   promo/build.py         builds promo/kennel-promo.html (scenes, captions, timings, camera)
   promo/kennel-promo.html  the promo: one HTML file, the screenshots are inside (about 3 MB)
+  promo/kennel-promo.mp4   a recording of the promo, for README.md (about 6 MB)
+  promo/poster.jpg       the picture that links to the video in README.md
   demo/setup-demo.sh     makes the demo environment (fake agents, git repos, config)
   demo/capture.sh        one screenshot of the real app
   demo/capture-all.sh    all the screenshots, saved in screenshots/
+  demo/record-promo.sh   records the promo page and writes promo/kennel-promo.mp4
+  demo/trim-video.swift  cuts and encodes the recording (macOS has no ffmpeg)
+  demo/frames.swift      prints frames of a video as PNG files, to check it
   demo/winpos.js         finds the window to capture
+  demo/park-mouse.js     moves the mouse pointer out of the recording
   demo/demo-hook.patch   a temporary patch: opens dialogs for a screenshot (never commit it)
 ```
 
 ## What is real and what is not
 
 - Every picture of the app is a **real screenshot** of the built app, taken by `screencapture`.
-- The **content** in the sessions is fake: the agents are small scripts that print an agent-like
-  screen and report a status. They are named like the real tools (`claude`, `codex`,
-  `kiro-cli`, `opencode`), so Kennel treats them as the real ones. The demo does not call any
-  AI service, and it never touches your real `~/.kennel` (it runs with another `HOME`).
-- The only drawn thing in the promo is the "4 sessions restored" card of the resume scene
-  (search for `sessions restored` in `promo/build.py`). Say so if you add more.
+- The **content** of the sessions comes from one of two modes of `setup-demo.sh`:
+  - **Real agents (`DEMO_REAL=1`, what the 2.0 pictures use):** `claude` (two sessions) and
+    `opencode` run for real, with a cheap model and a first prompt that depends on the project
+    (see the wrappers in `setup-demo.sh`). The wrappers run with your real `HOME`, so the tools are
+    logged in; Kennel itself still runs with the throw-away `HOME`. Each launch resets the repo
+    (`git stash`) so the work is the same every time. Codex is not used.
+    Before the first run, trust the projects once: `cd /tmp/k && claude` (and the same in
+    `/tmp/k/docs`), choose "Yes, I trust this folder". The history of these runs lands in your real
+    `~/.claude` and `~/.local/share/opencode`.
+  - **Fake agents (default):** small scripts that print an agent-like screen and report a status.
+    They are named like the real tools, so Kennel treats them as the real ones.
+  - In both modes `kiro-cli` is a script: it is the **blocked** session (an orange pulse needs an
+    agent that waits at an exact moment) and the Review Buddy reviewer (the real one shows upgrade
+    banners and an approval prompt).
+  The demo never touches your real `~/.kennel`.
+  **Look at every real-agent picture before you commit it:** banners can show an account, an email,
+  a user name or a real path (the real runs showed the plan name only, no email). The capture takes
+  about 10 minutes: `DEMO_WAIT=40 ./media/demo/capture-all.sh` (seconds to wait after each start).
 
 ## Requirements
 
@@ -39,7 +57,7 @@ media/
 ## 1. Make the screenshots
 
 ```bash
-./media/demo/setup-demo.sh            # fake agents + 4 git repos in /tmp/k + HOME in /tmp/kennel-demo
+DEMO_REAL=1 ./media/demo/setup-demo.sh   # (without DEMO_REAL: fake agents) + 4 git repos in /tmp/k + HOME in /tmp/kennel-demo
 git apply media/demo/demo-hook.patch  # TEMPORARY: lets the demo open the dialogs
 ./build.sh
 ./media/demo/capture-all.sh           # writes media/screenshots/*.jpg (takes about 2 minutes)
@@ -54,6 +72,10 @@ Ctrl+Tab dialog (and keeps it open without Ctrl held), `goto` opens Goto Anythin
 of `KENNEL_DEMO_TEXT`, `explorer` selects the File Explorer tab of the side bar, `review` starts
 Review Buddy with the agent `kiro-cli`. The patch only touches `src/app/` and is marked
 `DEMO-TMP`. **Check `git status` before a commit: the hook must not be in it.**
+
+The hook has more modes: `start` (the Start Agent dialog) and `wizard` (the New Agent Wizard).
+`capture-all.sh` cuts these two dialogs out of the screen, so close other windows first (a window
+of another application behind the dialog shows at its edge).
 
 Look at every picture (open the files) before you go on. Things that went wrong before:
 
@@ -94,6 +116,31 @@ Rules that kept it good:
 - Zoom only as far as needed. The camera is clamped to the screenshot, so a point near an edge
   cannot be centred.
 - Say what is real. Keep the captions short and true (no feature that is not in the release).
+
+### Record the video
+
+README.md links to `promo/kennel-promo.mp4`, a recording of the page. Make it after the page is final:
+
+```bash
+./media/demo/record-promo.sh      # takes about 80 seconds; writes media/promo/kennel-promo.mp4
+```
+
+It opens the page in Chrome in its own window (`#rec@<time>`: no controls, and the clock starts at
+a given time while the page shows its first frame, so the recording can start before it), records
+that rectangle of the screen with `screencapture -v`, and cuts and encodes it with
+`demo/trim-video.swift` (H.264, 1280x720, 800 kbit/s: about 6 MB). While it runs: do not touch the
+mouse or the keyboard, and close windows with private content that could show if the window moves
+(the first version of the video had an IDE in its first frame, because the recording started before
+the window was up: the script now waits for the window).
+
+Look at the video before you commit it. This prints frames at the given seconds as PNG files:
+
+```bash
+swift media/demo/frames.swift media/promo/kennel-promo.mp4 /tmp/frame 0 10 30 58   
+```
+
+`demo/frames.swift` uses `AVAssetImageGenerator` (one PNG per time). The poster is `screenshots/api-refactor.jpg` resized to
+1600 pixels (`sips --resampleWidth 1600`).
 
 ### Check the promo without a screen
 

@@ -20,16 +20,28 @@ repo() { # repo <dir>: a git repository with one commit
     git config user.name Demo)
 }
 
-# --- api: a staged, a modified and an untracked file
+# --- api: handlers in one file (the agent splits them), committed
 repo "$DEMO_PROJECTS/api"
 (cd "$DEMO_PROJECTS/api" &&
-  printf 'export const users = [];\n' > src/routes/users.ts &&
+  cat > src/routes/users.ts <<'T'
+const users = [{ id: 1, name: 'Ada' }, { id: 2, name: 'Linus' }];
+
+export function listUsers(req, res) { res.json(users); }
+
+export function getUser(req, res) {
+  const user = users.find((u) => u.id === Number(req.params.id));
+  if (user) { res.json(user); } else { res.status(404).end(); }
+}
+
+export function createUser(req, res) {
+  const user = { id: users.length + 1, name: req.body.name };
+  users.push(user);
+  res.status(201).json(user);
+}
+T
   printf 'export const orders = [];\n' > src/routes/orders.ts &&
   printf '# API\n' > README.md && printf '{}\n' > package.json &&
-  git add -A && git commit -q -m init &&
-  printf 'export const users = [];\n// split into services\n' > src/routes/users.ts &&
-  printf 'export class UserService {}\n' > src/services/users.ts &&
-  printf 'todo\n' > notes.txt && git add src/services/users.ts)
+  git add -A && git commit -q -m init)
 # --- docs
 repo "$DEMO_PROJECTS/docs"
 (cd "$DEMO_PROJECTS/docs" && printf '# Docs\n' > README.md &&
@@ -51,7 +63,7 @@ repo "$DEMO_PROJECTS/infra"
 
 # --- fake agents, config and workspace
 python3 - "$HOME_DIR" "$DEMO_PROJECTS" <<'PY'
-import json, os, sys
+import json, os, shutil, sys
 home, proj = sys.argv[1:3]
 E = '\\033'
 B = f'{E}[1m'; R = f'{E}[0m'
@@ -113,15 +125,34 @@ exec sleep 100000
 """)
 os.chmod(f'{home}/bin/kiro-cli', 0o755)
 
+
+# --- DEMO_REAL=1: the real claude and opencode (kiro-cli stays a script: the blocked session and the reviewer). The wrappers give them your real HOME
+# (their login), a cheap model and a first prompt that depends on the project. Codex is not used.
+if os.environ.get('DEMO_REAL'):
+    real_home = os.path.expanduser('~')
+    def wrapper(name, body):
+        path = f'{home}/bin/{name}'
+        open(path, 'w').write(f'#!/bin/bash\nexport HOME={real_home}\n{body}\n')
+        os.chmod(path, 0o755)
+    wrapper('claude', f"""unset CLAUDECODE CLAUDE_CODE_CHILD_SESSION CLAUDE_CODE_ENTRYPOINT
+git -C "$PWD" stash -u -q 2>/dev/null; git -C "$PWD" stash drop -q 2>/dev/null
+case "$PWD" in
+  */docs) P='Do not ask questions. The product is Acme Sync, a command line tool that syncs a folder to the cloud. Write ten guides, docs/guide-1.md to docs/guide-10.md, one file at a time, each about 40 lines (install, login, first sync, ignore rules, conflicts, scheduling, proxies, logs, upgrades, uninstall). Do not run shell commands.' ;;
+  *) P='split the handlers of src/routes/users.ts into routes and services. Do not run anything else. Reply with one short sentence when done.' ;;
+esac
+exec {shutil.which('claude')} --model haiku --permission-mode acceptEdits "$P" """)
+    wrapper('opencode', f"""git -C "$PWD" stash -u -q 2>/dev/null; git -C "$PWD" stash drop -q 2>/dev/null
+exec {shutil.which('opencode')} --prompt 'add a dark mode toggle to the header by editing src/Header.tsx. Do not run shell commands. Reply with one short sentence when done.' """)
+
 agents = [{"name": n, "executable": f"{home}/bin/{n}", "baseArgs": [], "env": {}, "extraArgs": [],
            "iconPath": "", "loginShell": "/bin/bash --login -i", "remoteHost": "", "remoteUser": "",
-           "resumeArg": "", "nonInteractiveArg": ""} for n in ("claude", "codex", "kiro-cli", "opencode")]
+           "resumeArg": "", "nonInteractiveArg": ""} for n in ("claude", "kiro-cli", "opencode")]
 json.dump({"agents": agents, "global": None, "version": 1}, open(f'{home}/.kennel/config.json', 'w'), indent=1)
 
 def sess(name, agent, d, group="Default"):
     return {"name": name, "agentName": agent, "groupName": group, "workingDir": d,
             "loginShell": "/bin/bash --login -i", "plainTerminal": False}
-sessions = [sess("api-refactor", "claude", f"{proj}/api"), sess("docs-site", "codex", f"{proj}/docs"),
+sessions = [sess("api-refactor", "claude", f"{proj}/api"), sess("docs-site", "claude", f"{proj}/docs"),
             sess("infra", "kiro-cli", f"{proj}/infra", "Servers"), sess("web", "opencode", f"{proj}/web")]
 refs = [{"groupName": s["groupName"], "name": s["name"]} for s in sessions]
 json.dump({"version": 1, "workspace": {"sessions": sessions, "files": [], "archived": [],

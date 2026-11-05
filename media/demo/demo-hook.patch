@@ -13,10 +13,10 @@ index 009601c..497a17c 100644
  
  GotoAnythingDlg::~GotoAnythingDlg() = default;
 diff --git a/src/app/MainFrame.cpp b/src/app/MainFrame.cpp
-index 2ee2506..6e264f1 100644
+index 2ee2506..f43e5c7 100644
 --- a/src/app/MainFrame.cpp
 +++ b/src/app/MainFrame.cpp
-@@ -153,6 +153,26 @@ void MainFrame::FinaliseStartup() {
+@@ -153,6 +153,32 @@ void MainFrame::FinaliseStartup() {
  
    EventNotifier::Get()->Bind(wxEVT_AGENT_SCAN, &MainFrame::OnAgentScan, this);
    StartLocalAgentScan();
@@ -32,6 +32,12 @@ index 2ee2506..6e264f1 100644
 +        OnGotoAnything(e);
 +      } else if (demo == "explorer") {
 +        m_mainView->DemoSideSelect(1);
++      } else if (demo == "start") {
++        wxCommandEvent e;
++        OnStartAgent(e);
++      } else if (demo == "wizard") {
++        wxCommandEvent e;
++        OnNewAgent(e);
 +      } else if (demo == "review") {
 +        if (auto *page = m_mainView->GetSessionsBook()->GetActiveSessionPage()) {
 +          page->StartReviewBuddy("kiro-cli");
