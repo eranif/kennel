@@ -44,7 +44,6 @@
 #include <wx/bannerwindow.h>
 #include <wx/timectrl.h>
 #include <wx/dateevt.h>
-#include <wx/statline.h>
 #include <wx/srchctrl.h>
 #include <wx/aui/auibook.h>
 #include "GlyphBook.h"
@@ -541,7 +540,6 @@ protected:
     wxStyledTextCtrl* m_textCtrlCommand;
     wxCheckBox* m_checkBoxKeepTerminalOpen;
     wxCheckBox* m_checkBoxEnabled;
-    wxStaticLine* m_staticLine538;
     wxStdDialogButtonSizer* m_stdBtnSizer522;
     wxButton* m_button523;
     wxButton* m_button524;
@@ -567,7 +565,6 @@ public:
     wxStyledTextCtrl* GetTextCtrlCommand() { return m_textCtrlCommand; }
     wxCheckBox* GetCheckBoxKeepTerminalOpen() { return m_checkBoxKeepTerminalOpen; }
     wxCheckBox* GetCheckBoxEnabled() { return m_checkBoxEnabled; }
-    wxStaticLine* GetStaticLine538() { return m_staticLine538; }
     JobDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT(""), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);
     virtual ~JobDlgBase();
 };

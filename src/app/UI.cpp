@@ -1679,7 +1679,7 @@ JobDlgBase::JobDlgBase(wxWindow* parent, wxWindowID id, const wxString& title, c
     
     wxBoxSizer* boxSizer547 = new wxBoxSizer(wxHORIZONTAL);
     
-    flexGridSizer525->Add(boxSizer547, 1, wxALL|wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+    flexGridSizer525->Add(boxSizer547, 1, wxALL|wxEXPAND|wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
     
     wxArrayString m_choiceScheduleModeArr;
     m_choiceScheduleModeArr.Add(_("Every N Hours"));
@@ -1743,22 +1743,20 @@ JobDlgBase::JobDlgBase(wxWindow* parent, wxWindowID id, const wxString& title, c
     
     flexGridSizer525->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
     
+    wxBoxSizer* boxSizer664 = new wxBoxSizer(wxHORIZONTAL);
+    
+    flexGridSizer525->Add(boxSizer664, 0, wxALL, WXC_FROM_DIP(5));
+    
     m_checkBoxKeepTerminalOpen = new wxCheckBox(this, wxID_ANY, _("Keep terminal open when finished"), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), 0);
     m_checkBoxKeepTerminalOpen->SetValue(false);
     
-    flexGridSizer525->Add(m_checkBoxKeepTerminalOpen, 0, wxALL, WXC_FROM_DIP(5));
-    
-    flexGridSizer525->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
+    boxSizer664->Add(m_checkBoxKeepTerminalOpen, 0, wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
     
     m_checkBoxEnabled = new wxCheckBox(this, wxID_ANY, _("Enabled"), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), 0);
     m_checkBoxEnabled->SetValue(true);
     m_checkBoxEnabled->SetToolTip(_("Enable or disable this job."));
     
-    flexGridSizer525->Add(m_checkBoxEnabled, 0, wxALL, WXC_FROM_DIP(5));
-    
-    m_staticLine538 = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxLI_HORIZONTAL);
-    
-    boxSizer521->Add(m_staticLine538, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    boxSizer664->Add(m_checkBoxEnabled, 0, wxALL|wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
     
     m_stdBtnSizer522 = new wxStdDialogButtonSizer();
     
