@@ -352,6 +352,10 @@ if(APPLE)
   enable_language(OBJCXX)
   list(APPEND KENNEL_APP_SOURCES src/app/AuiTabArtMac.cpp
        src/app/PopupStyleMac.mm)
+  # wx/defs.h forward-declares NSOpenGLContext, which Apple deprecated.
+  set_source_files_properties(
+    src/app/PopupStyleMac.mm PROPERTIES COMPILE_OPTIONS
+                                        "-Wno-deprecated-declarations")
 else()
   list(APPEND KENNEL_APP_SOURCES src/app/AuiTabArtDefault.cpp)
 endif()
@@ -567,6 +571,10 @@ endif()
 
 target_link_libraries(kennel PRIVATE kennel_core wxterminal_lib
                                      ${wxWidgets_LIBRARIES})
+if(APPLE)
+  # PopupStyleMac.mm uses AppKit (NSColor, NSWindow).
+  target_link_libraries(kennel PRIVATE "-framework Cocoa")
+endif()
 target_include_directories(kennel PRIVATE src src/app
                                           ${wxterminalemulator_SOURCE_DIR})
 

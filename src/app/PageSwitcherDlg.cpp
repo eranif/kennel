@@ -27,10 +27,10 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
                                  bool forward)
     : wxPopupTransientWindow(parent, wxBORDER_DEFAULT), m_sink(sink),
       m_timer(this) {
-  m_list = new wxDataViewListCtrl(
-      this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-      wxDV_NO_HEADER | wxDV_SINGLE | wxDV_ROW_LINES | wxDV_VERT_RULES |
-          wxWANTS_CHARS | wxBORDER_NONE);
+  m_list =
+      new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                             wxDV_NO_HEADER | wxDV_SINGLE | wxDV_VERT_RULES |
+                                 wxWANTS_CHARS | wxBORDER_NONE);
   dv::StylePageView(m_list);
 
   int labelWidth = 0;
