@@ -766,6 +766,22 @@ void MainFrame::OnGotoAnything(wxCommandEvent &) {
   }
 }
 
+namespace {
+// The text of a menu accelerator as the user knows it. wx names the keys by
+// their role; on macOS "Ctrl" is the Command key and "RawCtrl" is the Control
+// key. On the other systems both are the Ctrl key.
+wxString ShortcutDisplayText(wxString shortcut) {
+#ifdef __WXOSX__
+  shortcut.Replace("RawCtrl", "\x01"); // Keep it apart from "Ctrl"
+  shortcut.Replace("Ctrl", "Cmd");
+  shortcut.Replace("\x01", "Ctrl");
+#else
+  shortcut.Replace("RawCtrl", "Ctrl");
+#endif
+  return shortcut;
+}
+} // namespace
+
 void MainFrame::CollectMenuItems(wxMenu *menu, const wxString &path,
                                  std::vector<GotoItem> &items) {
   // Brings the enabled state of the items up to date.
@@ -787,7 +803,7 @@ void MainFrame::CollectMenuItems(wxMenu *menu, const wxString &path,
     item.label = path + text;
     const wxString full = menuItem->GetItemLabel();
     if (const int tab = full.Find('\t'); tab != wxNOT_FOUND) {
-      item.shortcut = full.Mid(tab + 1);
+      item.shortcut = ShortcutDisplayText(full.Mid(tab + 1));
     }
     item.menuId = menuItem->GetId();
     item.checkable = menuItem->IsCheckable();
