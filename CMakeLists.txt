@@ -345,8 +345,13 @@ set(KENNEL_APP_SOURCES
     src/app/SideView.cpp
     src/app/SessionStatusEvent.cpp)
 
+list(APPEND KENNEL_APP_SOURCES src/app/PopupStyle.cpp)
+
 if(APPLE)
-  list(APPEND KENNEL_APP_SOURCES src/app/AuiTabArtMac.cpp)
+  # PopupStyleMac.mm is Objective-C++.
+  enable_language(OBJCXX)
+  list(APPEND KENNEL_APP_SOURCES src/app/AuiTabArtMac.cpp
+       src/app/PopupStyleMac.mm)
 else()
   list(APPEND KENNEL_APP_SOURCES src/app/AuiTabArtDefault.cpp)
 endif()
