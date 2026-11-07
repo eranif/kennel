@@ -1,6 +1,7 @@
 #include "PageSwitcherDlg.hpp"
 
 #include "app/DataViewUtils.hpp"
+#include "app/PopupStyle.hpp"
 #include <wx/dataview.h>
 #include <wx/sizer.h>
 #include <wx/utils.h>
@@ -25,14 +26,12 @@ constexpr int kHotKeyPrev = 2;
 PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
                                  const std::vector<PageSwitcherItem> &items,
                                  bool forward)
-    : wxDialog(parent, wxID_ANY, wxEmptyString, wxDefaultPosition,
-               wxDefaultSize, wxCAPTION | wxSTAY_ON_TOP),
-      m_sink(sink), m_timer(this) {
-  SetLabel(_("Switch To Page"));
-  m_list =
-      new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                             wxDV_NO_HEADER | wxDV_SINGLE | wxDV_ROW_LINES |
-                                 wxDV_VERT_RULES | wxBORDER_NONE);
+    : wxPopupTransientWindow(parent, wxBORDER_DEFAULT), m_sink(sink),
+      m_timer(this) {
+  m_list = new wxDataViewListCtrl(
+      this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+      wxDV_NO_HEADER | wxDV_SINGLE | wxDV_ROW_LINES | wxDV_VERT_RULES |
+          wxWANTS_CHARS | wxBORDER_NONE);
   dv::StylePageView(m_list);
 
   int labelWidth = 0;
@@ -75,9 +74,7 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
   sizer->Add(m_list, wxSizerFlags(1).Expand().Border(wxALL, 1));
   SetSizerAndFit(sizer);
 
-  Bind(wxEVT_CHAR_HOOK, &PageSwitcherDlg::OnCharHook, this);
   Bind(wxEVT_TIMER, &PageSwitcherDlg::OnTimer, this);
-  m_list->Bind(wxEVT_KEY_UP, &PageSwitcherDlg::OnKeyUp, this);
   m_list->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &PageSwitcherDlg::OnActivated,
                this);
 
@@ -88,23 +85,35 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
     m_list->EnsureVisible(m_list->RowToItem(initial));
   }
 #ifdef __WXOSX__
-  // macOS uses Ctrl+Tab to move the keyboard focus before the list gets the
-  // key, so wxEVT_CHAR_HOOK never sees it. A hot key is caught before that.
+  // macOS uses Ctrl+Tab to move the keyboard focus before the application gets
+  // the key, so the key filter never sees it. A hot key is caught before that.
   // It is unregistered in the destructor.
   RegisterHotKey(kHotKeyNext, wxMOD_RAW_CONTROL, WXK_TAB);
   RegisterHotKey(kHotKeyPrev, wxMOD_RAW_CONTROL | wxMOD_SHIFT, WXK_TAB);
   Bind(wxEVT_HOTKEY, [this](wxKeyEvent &) { Advance(true); }, kHotKeyNext);
   Bind(wxEVT_HOTKEY, [this](wxKeyEvent &) { Advance(false); }, kHotKeyPrev);
 #endif
-  CentreOnParent();
-  Show();
-  m_list->SetFocus();
-  // Releasing Ctrl normally arrives as a key-up on the list, but poll the
-  // modifier state too in case the release happened before we had focus.
+  wxEvtHandler::AddFilter(this);
+
+  // Centred on the parent.
+  const wxSize size = GetSize();
+  const wxPoint parentPos = parent->ClientToScreen(wxPoint(0, 0));
+  const wxSize parentSize = parent->GetClientSize();
+  Position(parentPos + wxPoint((parentSize.x - size.x) / 2,
+                               (parentSize.y - size.y) / 2),
+           wxSize(0, 0));
+  Popup(m_list);
+  // A shadow and rounded corners (macOS, Windows), after the window exists.
+  StylePopupWindow(this, 10.0);
+
+  // Releasing Ctrl normally arrives as a key-up that the filter sees, but poll
+  // the modifier state too in case the release happened before we were shown.
   m_timer.Start(kPollMs);
 }
 
 PageSwitcherDlg::~PageSwitcherDlg() {
+  m_timer.Stop();
+  wxEvtHandler::RemoveFilter(this);
 #ifdef __WXOSX__
   UnregisterHotKey(kHotKeyNext);
   UnregisterHotKey(kHotKeyPrev);
@@ -128,45 +137,46 @@ void PageSwitcherDlg::Advance(bool forward) {
   m_list->EnsureVisible(m_list->RowToItem(next));
 }
 
-void PageSwitcherDlg::OnCharHook(wxKeyEvent &event) {
-  switch (event.GetKeyCode()) {
+int PageSwitcherDlg::FilterEvent(wxEvent &event) {
+  if (m_done) {
+    return Event_Skip;
+  }
+  const auto type = event.GetEventType();
+  if (type != wxEVT_KEY_UP && type != wxEVT_CHAR_HOOK) {
+    return Event_Skip;
+  }
+  auto &key = static_cast<wxKeyEvent &>(event);
+  if (type == wxEVT_KEY_UP) {
+    // WXK_RAW_CONTROL is the physical Ctrl key on every platform (on macOS it
+    // is distinct from Cmd).
+    if (key.GetKeyCode() == WXK_RAW_CONTROL) {
+      Finish(true);
+    }
+    return Event_Skip;
+  }
+  switch (key.GetKeyCode()) {
   case WXK_TAB:
-    Advance(!event.ShiftDown());
-    return;
-  case WXK_ESCAPE:
-    Finish(false);
-    return;
+    Advance(!key.ShiftDown());
+    return Event_Processed;
   case WXK_RETURN:
   case WXK_NUMPAD_ENTER:
     Finish(true);
-    return;
+    return Event_Processed;
+  case WXK_ESCAPE:
+    Finish(false);
+    return Event_Processed;
   default:
-    event.Skip();
-    return;
+    return Event_Skip;
   }
 }
 
-void PageSwitcherDlg::OnKeyUp(wxKeyEvent &event) {
-  // WXK_RAW_CONTROL is the physical Ctrl key on every platform (on macOS it is
-  // distinct from Cmd).
-  if (event.GetKeyCode() == WXK_RAW_CONTROL) {
-    Finish(true);
-    return;
-  }
-  event.Skip();
-}
-
-void PageSwitcherDlg::OnTimer(wxTimerEvent &event) {
-  wxUnusedVar(event);
-  if (!wxGetMouseState().RawControlDown()) {
+void PageSwitcherDlg::OnTimer(wxTimerEvent &) {
+  if (!m_done && !wxGetMouseState().RawControlDown()) {
     Finish(true);
   }
 }
 
-void PageSwitcherDlg::OnActivated(wxDataViewEvent &event) {
-  wxUnusedVar(event);
-  Finish(true);
-}
+void PageSwitcherDlg::OnActivated(wxDataViewEvent &) { Finish(true); }
 
 void PageSwitcherDlg::Finish(bool accept) {
   if (m_done) {
@@ -174,8 +184,20 @@ void PageSwitcherDlg::Finish(bool accept) {
   }
   m_done = true;
   m_timer.Stop();
-  Hide();
+  m_result = accept ? GetSelectedIndex() : wxNOT_FOUND;
+  // Hides the popup and calls OnDismiss(), which reports the result.
+  DismissAndNotify();
+}
+
+void PageSwitcherDlg::OnDismiss() {
+  // Also called for a click outside of the popup: Finish() was not called then,
+  // and the result stays "cancelled".
+  m_done = true;
+  m_timer.Stop();
   wxCommandEvent evt(wxEVT_PAGE_SWITCHER_DONE);
-  evt.SetInt(accept ? GetSelectedIndex() : wxNOT_FOUND);
+  evt.SetInt(m_result);
   m_sink->QueueEvent(evt.Clone());
+  // Destroy later: we may be inside one of our own event handlers. The event
+  // above is queued first, so the receiver forgets us before we are gone.
+  CallAfter([this] { Destroy(); });
 }

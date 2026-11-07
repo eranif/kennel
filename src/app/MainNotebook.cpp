@@ -895,10 +895,8 @@ void MainNotebook::OnPageSwitcherDone(wxCommandEvent &event) {
   const int chosen = event.GetInt();
   auto pages = std::move(m_switcherPages);
   m_switcherPages.clear();
-  if (m_switcher) {
-    m_switcher->Destroy();
-    m_switcher = nullptr;
-  }
+  // The popup destroys itself.
+  m_switcher = nullptr;
   if (chosen < 0 || chosen >= static_cast<int>(pages.size())) {
     return;
   }

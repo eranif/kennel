@@ -2,8 +2,9 @@
 
 #include <vector>
 #include <wx/bmpbndl.h>
-#include <wx/dialog.h>
 #include <wx/event.h>
+#include <wx/eventfilter.h>
+#include <wx/popupwin.h>
 #include <wx/timer.h>
 
 class wxDataViewEvent;
@@ -18,14 +19,18 @@ struct PageSwitcherItem {
 };
 
 // Sent to the sink when the switcher is done. GetInt() is the chosen row, or
-// wxNOT_FOUND if cancelled. The switcher is modeless: the receiver must destroy
-// it (Destroy()), preferably with CallAfter.
+// wxNOT_FOUND if cancelled (Escape, or a click outside of the popup). The
+// switcher destroys itself right after the event was queued: the receiver must
+// forget it, and must not destroy it.
 wxDECLARE_EVENT(wxEVT_PAGE_SWITCHER_DONE, wxCommandEvent);
 
 // A small "task switcher" popup (think Ctrl+Tab in an IDE): it lists the open
 // pages, the caller keeps Ctrl held down and presses Tab / Shift+Tab to move
 // the selection, and releasing Ctrl accepts it. Escape cancels.
-class PageSwitcherDlg : public wxDialog {
+//
+// It is a wxPopupTransientWindow, so it does not take the activation from the
+// frame. Create it with `new`: it shows itself and destroys itself when done.
+class PageSwitcherDlg : public wxPopupTransientWindow, public wxEventFilter {
 public:
   // `items` are the rows, current page first. The initial selection is the
   // row after the first one (forward) or the last one (backward).
@@ -39,15 +44,22 @@ public:
   // Moves the selection one row.
   void Advance(bool forward);
 
+  // wxEventFilter: sees the keys of the whole application. The popup does not
+  // have the keyboard focus, so it gets no key events of its own.
+  int FilterEvent(wxEvent &event) override;
+
+protected:
+  // Called after the popup was hidden: by Finish(), or by a click outside.
+  void OnDismiss() override;
+
 private:
   void Finish(bool accept);
-  void OnCharHook(wxKeyEvent &event);
-  void OnKeyUp(wxKeyEvent &event);
   void OnTimer(wxTimerEvent &event);
   void OnActivated(wxDataViewEvent &event);
 
   wxDataViewListCtrl *m_list{nullptr};
   wxEvtHandler *m_sink{nullptr};
+  int m_result{wxNOT_FOUND};
   bool m_done{false};
   wxTimer m_timer;
 };
