@@ -45,8 +45,8 @@ static void wxCrafterFiTVkcInitBitmapResources()
         else wxFileSystem::AddHandler(new wxMemoryFSHandlerBase);
     }
 
-    XRC_ADD_FILE(wxT("XRC_resource/UI.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"), xml_res_file_0, xml_res_size_0, wxT("text/xml"));
-    wxXmlResource::Get()->Load(wxT("memory:XRC_resource/UI.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"));
+    XRC_ADD_FILE(wxT("XRC_resource/UI.cpp$C__msys64_home_eran_devl_kennel_src_app_UI_app_bitmaps.xrc"), xml_res_file_0, xml_res_size_0, wxT("text/xml"));
+    wxXmlResource::Get()->Load(wxT("memory:XRC_resource/UI.cpp$C__msys64_home_eran_devl_kennel_src_app_UI_app_bitmaps.xrc"));
 }
 
 
@@ -2123,7 +2123,7 @@ GotoAnythingDlgBase::GotoAnythingDlgBase(wxWindow* parent, wxWindowID id, const 
     
     boxSizer661->Add(m_searchCtrl, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
     
-    m_dvListCtrl = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(500,300)), wxDV_ROW_LINES|wxDV_SINGLE);
+    m_dvListCtrl = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(500,200)), wxDV_VERT_RULES|wxDV_SINGLE);
     
     boxSizer661->Add(m_dvListCtrl, 1, wxALL|wxEXPAND, WXC_FROM_DIP(5));
     

@@ -11,15 +11,17 @@ inline void AutoSizeColumns(wxDataViewCtrl *ctrl) {
 }
 
 inline void StylePageView(wxDataViewCtrl *ctrl) {
-  const wxColour bg = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
-  const bool isDark = wxSystemSettings::GetAppearance().IsDark();
-  const auto alternateColour = bg.ChangeLightness(isDark ? 105 : 95);
-  ctrl->SetAlternateRowColour(alternateColour);
-  // The system colours change with the theme of the application.
-  ctrl->Bind(wxEVT_SYS_COLOUR_CHANGED,
-             [ctrl, alternateColour](wxSysColourChangedEvent &event) {
-               event.Skip();
-               ctrl->SetAlternateRowColour(alternateColour);
-             });
+  if (ctrl->GetWindowStyleFlag() & wxDV_ROW_LINES) {
+    const wxColour bg = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
+    const bool isDark = wxSystemSettings::GetAppearance().IsDark();
+    const auto alternateColour = bg.ChangeLightness(isDark ? 105 : 95);
+    ctrl->SetAlternateRowColour(alternateColour);
+    // The system colours change with the theme of the application.
+    ctrl->Bind(wxEVT_SYS_COLOUR_CHANGED,
+               [ctrl, alternateColour](wxSysColourChangedEvent &event) {
+                 event.Skip();
+                 ctrl->SetAlternateRowColour(alternateColour);
+               });
+  }
 }
 } // namespace dv

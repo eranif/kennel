@@ -25,6 +25,7 @@ GotoAnythingDlg::GotoAnythingDlg(wxWindow *parent)
   // The keys of the search box: the dialog has no buttons to take them.
   Bind(wxEVT_CHAR_HOOK, &GotoAnythingDlg::OnCharHook, this);
   StylePopupWindow(this, 10.0);
+  CenterOnParent();
   m_searchCtrl->SetFocus();
 }
 
