@@ -13,8 +13,15 @@ namespace {
 constexpr int kPageSize = 10;
 } // namespace
 
+#ifdef __WXMAC__
+constexpr long style = 0;
+#else
+constexpr long style = wxCAPTION;
+#endif
+
 GotoAnythingDlg::GotoAnythingDlg(wxWindow *parent)
-    : GotoAnythingDlgBase(parent) {
+    : GotoAnythingDlgBase(parent, wxID_ANY, _("Goto Anything"),
+                          wxDefaultPosition, wxDefaultSize, style) {
   dv::StylePageView(m_dvListCtrl);
   m_dvListCtrl->Bind(wxEVT_SIZE, &GotoAnythingDlg::OnListSize, this);
 
