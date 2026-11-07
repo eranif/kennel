@@ -755,7 +755,9 @@ void MainFrame::OnGotoAnything(wxCommandEvent &) {
   {
     GotoAnythingDlg dlg(this);
     dlg.SetItems(CollectGotoItems());
-    dlg.CenterOnParent();
+    // At the top of the window, centred horizontally (like the page switcher)
+    const wxPoint origin = ClientToScreen(wxPoint(0, 0));
+    dlg.Move(origin + wxPoint((GetClientSize().x - dlg.GetSize().x) / 2, 0));
     if (dlg.ShowModal() == wxID_OK && dlg.GetChosen() != nullptr) {
       chosen = *dlg.GetChosen();
     }
