@@ -755,7 +755,6 @@ void MainFrame::OnGotoAnything(wxCommandEvent &) {
   {
     GotoAnythingDlg dlg(this);
     dlg.SetItems(CollectGotoItems());
-    dlg.Move(dlg.GetPosition().x, GetPosition().y);
     if (dlg.ShowModal() == wxID_OK && dlg.GetChosen() != nullptr) {
       chosen = *dlg.GetChosen();
     }

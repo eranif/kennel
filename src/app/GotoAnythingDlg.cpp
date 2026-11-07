@@ -5,6 +5,7 @@
 
 #include "app/DataViewUtils.hpp"
 #include <algorithm>
+#include <wx/settings.h>
 #include <wx/tokenzr.h>
 #include <wx/wupdlock.h>
 
@@ -161,4 +162,15 @@ void GotoAnythingDlg::OnCharHook(wxKeyEvent &event) {
     event.Skip();
     break;
   }
+}
+
+int GotoAnythingDlg::ShowModal() {
+#ifdef __WXMAC__
+  const int captionHeight = FromDIP(32);
+#else
+  const int captionHeight = wxSystemSettings::GetMetric(wxSYS_CAPTION_Y);
+#endif
+
+  Move(GetPosition().x, GetParent()->GetPosition().y + captionHeight);
+  return wxDialog::ShowModal();
 }

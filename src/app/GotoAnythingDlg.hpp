@@ -37,6 +37,8 @@ public:
   // The entry the user chose; null if the dialog was closed without one.
   const GotoItem *GetChosen() const;
 
+  int ShowModal() override;
+
 private:
   // Fills the list with the items that match what is typed.
   void Populate();
