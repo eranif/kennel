@@ -12,9 +12,8 @@ wxDEFINE_EVENT(wxEVT_PAGE_SWITCHER_DONE, wxCommandEvent);
 
 namespace {
 constexpr int kMaxVisibleRows = 12;
-constexpr int kMinWidth = 500;
+constexpr int kMinWidth = 400;
 constexpr int kMinHeight = 300;
-constexpr int kMaxWidth = 1000;
 constexpr int kPollMs = 30;
 constexpr int kIconSize = 16;
 #ifdef __WXOSX__
@@ -35,19 +34,16 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
   dv::StylePageView(m_list);
 
   int labelWidth = 0;
-  int dirWidth = 0;
   int groupWidth = 0;
   for (const auto &item : items) {
     labelWidth = std::max(labelWidth, GetTextExtent(item.label).GetWidth());
-    dirWidth = std::max(dirWidth, GetTextExtent(item.dir).GetWidth());
     groupWidth = std::max(groupWidth, GetTextExtent(item.group).GetWidth());
   }
-  // The icon and the paddings of the two columns.
+  // The icon and the padding of the columns.
   labelWidth += kIconSize + 40;
-  dirWidth += 30;
   groupWidth += 30;
-  const int width =
-      std::clamp(labelWidth + dirWidth + groupWidth + 24, kMinWidth, kMaxWidth);
+  // A third of the width of the application.
+  const int width = std::max(parent->GetClientSize().x / 3, kMinWidth);
   // The name and the group keep what they need (up to a share of the width),
   // the folder gets the rest.
   const int nameColumn = std::min(labelWidth, width * 4 / 10);
@@ -95,13 +91,11 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
 #endif
   wxEvtHandler::AddFilter(this);
 
-  // Centred on the parent.
+  // At the top of the application, centred horizontally.
   const wxSize size = GetSize();
   const wxPoint parentPos = parent->ClientToScreen(wxPoint(0, 0));
   const wxSize parentSize = parent->GetClientSize();
-  Position(parentPos + wxPoint((parentSize.x - size.x) / 2,
-                               (parentSize.y - size.y) / 2),
-           wxSize(0, 0));
+  Position(parentPos + wxPoint((parentSize.x - size.x) / 2, 0), wxSize(0, 0));
   Popup(m_list);
   // A shadow and rounded corners (macOS, Windows), after the window exists.
   StylePopupWindow(this, 10.0);
