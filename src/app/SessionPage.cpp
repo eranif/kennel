@@ -550,6 +550,8 @@ void SessionPage::CreateTerminal() {
     return true; /* consumed */
   });
   m_terminal->Bind(wxEVT_TERMINAL_TERMINATED, &SessionPage::OnTerminated, this);
+  m_terminal->Bind(wxEVT_TERMINAL_APP_SELECTION_CHANGED,
+                   &SessionPage::OnAppSelectionChanged, this);
   m_terminal->Bind(wxEVT_TERMINAL_TITLE_CHANGED, &SessionPage::OnTitleChanged,
                    this);
   m_terminal->Bind(wxEVT_TERMINAL_CWD_CHANGED, &SessionPage::OnCwdChanged,
@@ -564,6 +566,25 @@ void SessionPage::CreateTerminal() {
   m_terminal->EnsureStarted();
   SetStatus(SessionStatus::Running);
   CheckGitRepo();
+}
+
+void SessionPage::OnAppSelectionChanged(wxTerminalEvent &event) {
+  event.Skip();
+  // Tabs in the background must not overwrite the active tab's text, nor the
+  // clipboard: a program there could put a command on it without the user
+  // seeing it.
+  if (wxWindow::FindFocus() != m_terminal) {
+    return;
+  }
+
+  // The program copied text with OSC 52: put it on the system clipboard. An
+  // empty string means the text was cleared, which leaves the clipboard alone.
+  const wxString &text = event.GetString();
+  if (!text.empty() && wxTheClipboard->Open()) {
+    wxTheClipboard->SetData(new wxTextDataObject(text));
+    wxTheClipboard->Flush();
+    wxTheClipboard->Close();
+  }
 }
 
 wxPanel *SessionPage::NewTerminalPane() {

@@ -118,6 +118,8 @@ private:
   void AddToPane(wxPanel *pane, wxTerminalViewCtrl *terminal);
   void SetStatus(SessionStatus status);
   void OnProgramStatus(wxTerminalEvent &evt);
+  /// Handle OSC-52 events
+  void OnAppSelectionChanged(wxTerminalEvent &event);
   // Tells MainView (wxEVT_SESSION_PROGRAM) when the activity changed.
   void SetProgramActivity(ProgramActivity activity);
   // Works out the activity of the page from the one of each terminal.
