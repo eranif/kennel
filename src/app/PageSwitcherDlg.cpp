@@ -92,11 +92,15 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
 #endif
   wxEvtHandler::AddFilter(this);
 
-  // At the top of the application, centred horizontally.
-  const wxSize size = GetSize();
-  const wxPoint parentPos = parent->ClientToScreen(wxPoint(0, 0));
-  const wxSize parentSize = parent->GetClientSize();
-  Position(parentPos + wxPoint((parentSize.x - size.x) / 2, 0), wxSize(0, 0));
+  // At the top of the application's client area, centred horizontally,
+  // 1/2 of its width and 1/4 of its height (screen coordinates).
+  const wxRect parentRect(parent->ClientToScreen(wxPoint(0, 0)),
+                          parent->GetClientSize());
+  wxRect ourRect(0, 0, parentRect.GetWidth() / 2, parentRect.GetHeight() / 4);
+  ourRect = ourRect.CenterIn(parentRect, wxHORIZONTAL);
+  ourRect.SetY(parentRect.GetY());
+  SetSize(ourRect);
+
   Popup(m_list);
   // A shadow and rounded corners (macOS, Windows), after the window exists.
   StylePopupWindow(this);
