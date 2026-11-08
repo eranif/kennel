@@ -15,7 +15,9 @@
 
 #include <algorithm>
 #include <vector>
+#include <wx/aui/dockart.h>
 #include <wx/dir.h>
+#include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/wupdlock.h>
 
@@ -71,6 +73,9 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
 
   EventNotifier::Get()->Bind(wxEVT_APP_PREFS_CHANGED,
                              &MainView::OnAppPrefsSaved, this);
+  EventNotifier::Get()->Bind(wxEVT_THEME_APPLIED, &MainView::OnThemeApplied,
+                             this);
+  ApplyCaptionColours();
   // Finalise frame construction.
   FinaliseConstruction();
 }
@@ -78,6 +83,32 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
 MainView::~MainView() {
   EventNotifier::Get()->Unbind(wxEVT_APP_PREFS_CHANGED,
                                &MainView::OnAppPrefsSaved, this);
+  EventNotifier::Get()->Unbind(wxEVT_THEME_APPLIED, &MainView::OnThemeApplied,
+                               this);
+}
+
+void MainView::OnThemeApplied(wxCommandEvent &event) {
+  event.Skip();
+  ApplyCaptionColours();
+  m_auimgr->Update();
+  Refresh();
+}
+
+void MainView::ApplyCaptionColours() {
+  const auto theme = ThemeManager::Get().ActiveTheme().value_or(
+      wxSystemSettings::GetAppearance().IsDark()
+          ? wxTerminalTheme::MakeDarkTheme()
+          : wxTerminalTheme::MakeLightTheme());
+  wxAuiDockArt *art = m_auimgr->GetArtProvider();
+  // The background of the theme and its text. The caption has no gradient (see
+  // UI.cpp), but the gradient colours are set too so that it can never show
+  // another colour.
+  art->SetColour(wxAUI_DOCKART_ACTIVE_CAPTION_COLOUR, theme.bg);
+  art->SetColour(wxAUI_DOCKART_ACTIVE_CAPTION_GRADIENT_COLOUR, theme.bg);
+  art->SetColour(wxAUI_DOCKART_ACTIVE_CAPTION_TEXT_COLOUR, theme.fg);
+  art->SetColour(wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR, theme.bg);
+  art->SetColour(wxAUI_DOCKART_INACTIVE_CAPTION_GRADIENT_COLOUR, theme.bg);
+  art->SetColour(wxAUI_DOCKART_INACTIVE_CAPTION_TEXT_COLOUR, theme.fg);
 }
 
 void MainView::BindFocusChildEvent(wxWindow *win, ChildFocusEvent handlerFn) {

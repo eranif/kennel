@@ -56,6 +56,9 @@ private:
 
   // ---- The theme changed, and the file explorer's files ---------------------
   void OnToolBarStyle(wxCommandEvent &event);
+  // The captions of the panes take the colours of the terminal theme.
+  void OnThemeApplied(wxCommandEvent &event);
+  void ApplyCaptionColours();
   // A file or a folder of the file explorer was double clicked: passed on.
   void OnFileTreeActivated(FileEvent &event);
   void OnAppPrefsSaved(wxCommandEvent &event);
