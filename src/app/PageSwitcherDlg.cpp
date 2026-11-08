@@ -54,15 +54,16 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
 
   m_list->AppendIconTextColumn(wxEmptyString, wxDATAVIEW_CELL_INERT,
                                nameColumn);
-  m_list->AppendTextColumn(wxEmptyString, wxDATAVIEW_CELL_INERT, dirColumn);
   m_list->AppendTextColumn(wxEmptyString, wxDATAVIEW_CELL_INERT, groupColumn);
+  m_list->AppendTextColumn(wxEmptyString, wxDATAVIEW_CELL_INERT, dirColumn);
   for (const auto &item : items) {
     wxVector<wxVariant> row;
     row.push_back(wxVariant(wxDataViewIconText(item.label, item.icon)));
-    row.push_back(wxVariant(item.dir));
     row.push_back(wxVariant(item.group));
+    row.push_back(wxVariant(item.dir));
     m_list->AppendItem(row);
   }
+
   m_list->SetMinSize(wxSize(width, std::max(rows * rowHeight, kMinHeight)));
   dv::AutoSizeColumns(m_list);
 
@@ -98,7 +99,7 @@ PageSwitcherDlg::PageSwitcherDlg(wxWindow *parent, wxEvtHandler *sink,
   Position(parentPos + wxPoint((parentSize.x - size.x) / 2, 0), wxSize(0, 0));
   Popup(m_list);
   // A shadow and rounded corners (macOS, Windows), after the window exists.
-  StylePopupWindow(this, 10.0);
+  StylePopupWindow(this);
 
   // Releasing Ctrl normally arrives as a key-up that the filter sees, but poll
   // the modifier state too in case the release happened before we were shown.

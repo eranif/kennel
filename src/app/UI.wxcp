@@ -27193,8 +27193,10 @@
               "gbSpan": "1,1",
               "gbPosition": "0,0",
               "m_styles": [
+                "wxDV_NO_HEADER",
                 "wxDV_VERT_RULES",
-                "wxDV_SINGLE"
+                "wxDV_SINGLE",
+                "wxBORDER_NONE"
               ],
               "m_sizerFlags": [
                 "wxALL",
