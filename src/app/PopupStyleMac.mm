@@ -5,6 +5,17 @@
 
 #include <wx/window.h>
 
+// The blur behind a glass background. It takes no mouse clicks: they go to
+// the view that it is in, as if it was not there.
+@interface KennelGlassView : NSVisualEffectView
+@end
+
+@implementation KennelGlassView
+- (NSView *)hitTest:(NSPoint)point {
+  return nil;
+}
+@end
+
 namespace {
 // Makes the native controls inside the popup draw no background, so the blur
 // behind them shows through
@@ -55,8 +66,38 @@ void StylePopupWindow(wxWindow *popup, double radius) {
   blur.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
   ClearBackgrounds(content);
   [content addSubview:blur positioned:NSWindowBelow relativeTo:nil];
+  [blur release]; // The view keeps it
 
   // Recompute the shadow for the new (rounded) shape
   [win invalidateShadow];
+}
+
+bool SetGlassBackground(wxWindow *window) {
+  if (window == nullptr) {
+    return false;
+  }
+  // A top level window: behind all of its content.
+  NSView *view =
+      window->IsTopLevel()
+          ? [(NSWindow *)window->MacGetTopLevelWindowRef() contentView]
+          : (NSView *)window->GetHandle();
+  if (view == nil) {
+    return false;
+  }
+  for (NSView *child in [view subviews]) {
+    if ([child isKindOfClass:[KennelGlassView class]]) {
+      return true; // It has it already
+    }
+  }
+  KennelGlassView *glass =
+      [[KennelGlassView alloc] initWithFrame:[view bounds]];
+  glass.material = NSVisualEffectMaterialSidebar;
+  glass.blendingMode = NSVisualEffectBlendingModeBehindWindow;
+  glass.state = NSVisualEffectStateActive;
+  glass.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+  ClearBackgrounds(view);
+  [view addSubview:glass positioned:NSWindowBelow relativeTo:nil];
+  [glass release]; // The view keeps it
+  return true;
 }
 #endif

@@ -24,7 +24,7 @@ include(FetchContent)
 FetchContent_Declare(
   wxTerminalEmulator
   GIT_REPOSITORY https://github.com/eranif/wxTerminalEmulator.git
-  GIT_TAG 06ad6fbcf45da533eb25932c8aaa46d716e65981)
+  GIT_TAG 2dddf36077799a6a708b96e3cc198f6a2261a1b9)
 
 set(BUILD_WXTERMINAL_DEMO
     OFF

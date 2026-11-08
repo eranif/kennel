@@ -15,3 +15,17 @@ constexpr double kDefaultPopupRadius = 10.0;
 // `radius` selects the closest one. On older versions of Windows the window is
 // clipped to a rounded rectangle and it has no shadow.
 void StylePopupWindow(wxWindow *popup, double radius = kDefaultPopupRadius);
+
+// Gives `window` a glass background: the blurred desktop shows behind it, and
+// its content stays opaque (text and icons stay sharp). Call it after the
+// native window exists. Returns false when the platform cannot do it.
+//
+// The glass shows only where nothing paints over it: the views of `window`
+// (wx panels, custom drawing) must leave their background clear or paint it
+// with alpha. The native controls inside `window` when this is called stop
+// drawing their own background (macOS).
+//
+// macOS: any window (a top level window, or a child view). Windows 11 (22H2
+// and later): top level windows only, with the acrylic system backdrop. Other
+// platforms: not supported.
+bool SetGlassBackground(wxWindow *window);

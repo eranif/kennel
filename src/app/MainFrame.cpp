@@ -1,8 +1,4 @@
 #include "app/MainFrame.h"
-#include "app/ToolBarUtils.h"
-#include <wx/sysopt.h>
-
-#include "SettingsDlg.hpp"
 #include "app/AboutDialog.hpp"
 #include "app/AgentScan.hpp"
 #include "app/AppTheme.h"
@@ -18,7 +14,10 @@
 #include "app/NewAgentWizard.hpp"
 #include "app/PageNames.h"
 #include "app/PageViewEvent.hpp"
+#include "app/PopupStyle.hpp"
 #include "app/SessionPage.hpp"
+#include "app/SettingsDlg.hpp"
+#include "app/ToolBarUtils.h"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/ClientAdapter.h"
@@ -27,6 +26,7 @@
 #include "core/UpdateChecker.h"
 #include "core/Version.h"
 #include "core/WslPath.h"
+#include <wx/sysopt.h>
 
 #include "terminal_view.h"
 #include <algorithm>

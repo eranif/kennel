@@ -1,5 +1,6 @@
 #include "app/MainNotebook.hpp"
 
+#include "PopupStyle.hpp"
 #include "app/ArchiveDlg.hpp"
 
 #include "GlyphTabPainter.h"
@@ -97,11 +98,17 @@ void PushRecent(std::vector<wxString> &list, const wxString &value,
 MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
                            const wxPoint &pos, const wxSize &size, long style,
                            const wxString &name)
-    : wxPanel(parent, winid, pos, size, style, name),
-      m_registry(&AppManager::Get().Adapters()),
+    : m_registry(&AppManager::Get().Adapters()),
       m_workspaceStore(&AppManager::Get().Workspace()),
       m_paths(AppManager::Get().Paths()),
       m_archived(AppManager::Get().InitialWorkspace().archived) {
+  // A glass background shows through the tab bar (see below): the panel must
+  // be transparent, and wx can only make it so before the window exists.
+  const bool glass = IsTransparentBackgroundSupported();
+  if (glass) {
+    SetBackgroundStyle(wxBG_STYLE_TRANSPARENT);
+  }
+  Create(parent, winid, pos, size, style, name);
   SetSizer(new wxBoxSizer(wxVERTICAL));
   // Above the pages; hidden until it is asked for.
   m_gotoBar = new GotoAnythingBar(this);
@@ -112,7 +119,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
       this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
       wxAUI_NB_CLOSE_ON_ACTIVE_TAB | wxAUI_NB_TAB_MOVE |
           wxAUI_NB_MIDDLE_CLICK_CLOSE | wxAUI_NB_CLOSE_ON_ALL_TABS |
-          wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_RIGHT | wxBORDER_DEFAULT);
+          wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_RIGHT | wxBORDER_DEFAULT,
+      wxS("GlyphBook"), /*transparentTabBar=*/glass);
   m_book->GetTabBar()->SetCursor(wxCURSOR_HAND);
   GetSizer()->Add(m_book, wxSizerFlags(1).Expand());
   Layout();
@@ -175,6 +183,10 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
   wxTheApp->Bind(wxEVT_FILE_SAVE_STARTED, &MainNotebook::OnFileSaveStarted,
                  this);
   wxTheApp->Bind(wxEVT_FILE_SAVE_DONE, &MainNotebook::OnFileSaveDone, this);
+  // Behind the book: the blurred desktop shows where the tab bar has no tab.
+  if (glass) {
+    SetGlassBackground(this);
+  }
 }
 
 MainNotebook::~MainNotebook() {

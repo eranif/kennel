@@ -13,6 +13,10 @@ constexpr int kDwmCornerRound =
     2; // DWMWCP_ROUND (about 8 pixels at 100% scaling)
 constexpr int kDwmCornerRoundSmall =
     3; // DWMWCP_ROUNDSMALL (about 4 pixels at 100% scaling)
+constexpr DWORD kDwmSystemBackdropType =
+    38; // DWMWA_SYSTEMBACKDROP_TYPE (Windows 11 22H2)
+constexpr int kDwmBackdropTransientWindow =
+    3; // DWMSBT_TRANSIENTWINDOW (acrylic)
 
 struct DwmMargins {
   int left;
@@ -91,6 +95,31 @@ void StylePopupWindow(wxWindow *popup, double radius) {
     ::DeleteObject(region);
   }
 }
+
+bool SetGlassBackground(wxWindow *window) {
+  // The system backdrop is for top level windows only.
+  if (window == nullptr || !window->IsTopLevel()) {
+    return false;
+  }
+  HWND hwnd = reinterpret_cast<HWND>(window->GetHandle());
+  const DwmApi &dwm = GetDwmApi();
+  if (hwnd == nullptr || dwm.setWindowAttribute == nullptr) {
+    return false;
+  }
+  // Fails before Windows 11 22H2, which does not know the attribute.
+  const int backdrop = kDwmBackdropTransientWindow;
+  if (FAILED(dwm.setWindowAttribute(hwnd, kDwmSystemBackdropType, &backdrop,
+                                    sizeof(backdrop)))) {
+    return false;
+  }
+  // The backdrop shows where the frame is: the frame covers the whole client
+  // area ("sheet of glass").
+  if (dwm.extendFrameIntoClientArea != nullptr) {
+    const DwmMargins margins{-1, -1, -1, -1};
+    dwm.extendFrameIntoClientArea(hwnd, &margins);
+  }
+  return true;
+}
 #endif // __WXMSW__
 
 #if !defined(__WXMSW__) && !defined(__WXOSX__)
@@ -98,5 +127,11 @@ void StylePopupWindow(wxWindow *popup, double radius) {
 void StylePopupWindow(wxWindow *popup, double radius) {
   wxUnusedVar(popup);
   wxUnusedVar(radius);
+}
+
+// GTK and the other ports: no glass.
+bool SetGlassBackground(wxWindow *window) {
+  wxUnusedVar(window);
+  return false;
 }
 #endif
