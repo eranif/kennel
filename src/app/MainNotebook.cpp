@@ -104,10 +104,15 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
       m_archived(AppManager::Get().InitialWorkspace().archived) {
   // A glass background shows through the tab bar (see below): the panel must
   // be transparent, and wx can only make it so before the window exists.
+#ifdef __WXMAC__
   const bool glass = IsTransparentBackgroundSupported();
   if (glass) {
     SetBackgroundStyle(wxBG_STYLE_TRANSPARENT);
   }
+#else
+  const bool glass = false;
+#endif
+
   Create(parent, winid, pos, size, style, name);
   SetSizer(new wxBoxSizer(wxVERTICAL));
   // Above the pages; hidden until it is asked for.
@@ -119,7 +124,7 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
       this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
       wxAUI_NB_CLOSE_ON_ACTIVE_TAB | wxAUI_NB_TAB_MOVE |
           wxAUI_NB_MIDDLE_CLICK_CLOSE | wxAUI_NB_CLOSE_ON_ALL_TABS |
-          wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_RIGHT | wxBORDER_DEFAULT,
+          wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_RIGHT | wxBORDER_NONE,
       wxS("GlyphBook"), /*transparentTabBar=*/glass);
   m_book->GetTabBar()->SetCursor(wxCURSOR_HAND);
   GetSizer()->Add(m_book, wxSizerFlags(1).Expand());
@@ -183,6 +188,7 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
   wxTheApp->Bind(wxEVT_FILE_SAVE_STARTED, &MainNotebook::OnFileSaveStarted,
                  this);
   wxTheApp->Bind(wxEVT_FILE_SAVE_DONE, &MainNotebook::OnFileSaveDone, this);
+
   // Behind the book: the blurred desktop shows where the tab bar has no tab.
   if (glass) {
     SetGlassBackground(this);
