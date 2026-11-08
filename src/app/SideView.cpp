@@ -18,6 +18,7 @@
 #include <wx/settings.h>
 #include <wx/simplebook.h>
 #include <wx/sizer.h>
+#include <wx/wupdlock.h>
 
 SideView::SideView(wxWindow *parent) : SideViewBase(parent) {
   m_explorerBook = new wxSimplebook(GetPanelFileExplorer());
@@ -286,12 +287,17 @@ void SideView::Clear() {
 }
 
 void SideView::ShowContext(Context &context) {
-  if (const int page = m_explorerBook->FindPage(context.tree);
-      page != wxNOT_FOUND) {
-    m_explorerBook->SetSelection(page);
-  }
-  if (const int page = m_gitBook->FindPage(context.git); page != wxNOT_FOUND) {
-    m_gitBook->SetSelection(page);
+  {
+    // Frozen for the two switches only: not for the work below.
+    wxWindowUpdateLocker locker{this};
+    if (const int page = m_explorerBook->FindPage(context.tree);
+        page != wxNOT_FOUND && page != m_explorerBook->GetSelection()) {
+      m_explorerBook->SetSelection(page);
+    }
+    if (const int page = m_gitBook->FindPage(context.git);
+        page != wxNOT_FOUND && page != m_gitBook->GetSelection()) {
+      m_gitBook->SetSelection(page);
+    }
   }
   // Shows what the panel has now, and the answer comes later.
   context.git->Activate();
