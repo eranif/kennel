@@ -17,6 +17,7 @@
 #include "app/PopupStyle.hpp"
 #include "app/SessionPage.hpp"
 #include "app/SettingsDlg.hpp"
+#include "app/ToolBarArt.h"
 #include "app/ToolBarUtils.h"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
@@ -287,23 +288,20 @@ void MainFrame::OnClose(wxCloseEvent &evt) {
 }
 
 void MainFrame::BuildToolBar() {
-#ifdef __WXMAC__
-  // The native toolbar of a frame is always horizontal. Without it, wxWidgets
-  // draws a generic toolbar that can be vertical, on the left of the main view.
-  wxSystemOptions::SetOption("mac.toolbar.no-native", 1);
-  m_toolBar = new wxToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                            wxTB_VERTICAL | wxTB_NODIVIDER);
-  // In pixels, not DIPs: the bundles are scaled to this size.
-  m_toolBar->SetToolBitmapSize(FromDIP(Bitmaps::GetToolBarIconSize()));
-  GetSizer()->Insert(0, m_toolBar, wxSizerFlags(0).Expand());
-#else
-  // A wxAuiToolBar on the left of the main view. It takes the icons at the size
-  // of their bundles, and follows the theme of the application.
+  // A wxAuiToolBar on the left of the main view, on every platform (the native
+  // toolbar of a frame is always horizontal, and can not take an art). It takes
+  // the icons at the size of their bundles. KennelToolBarArt draws it and
+  // follows the theme of the application.
   m_toolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                                wxAUI_TB_VERTICAL);
+  // To try the looks: KENNEL_TOOLBAR_STYLE=soft|accent|outline|indicator|
+  // circle|glass.
+  wxString styleName;
+  ::wxGetEnv("KENNEL_TOOLBAR_STYLE", &styleName);
+  m_toolBar->SetArtProvider(
+      new KennelToolBarArt(KennelToolBarArt::StyleFromName(styleName)));
   GetSizer()->Insert(0, m_toolBar, wxSizerFlags(0).Expand());
   Bind(wxEVT_PAGES_TOOLBAR_STYLE, &MainFrame::OnToolBarStyle, this);
-#endif
 
   auto &bmps = AppManager::Get().GetBitmaps();
 
@@ -324,17 +322,13 @@ void MainFrame::BuildToolBar() {
   m_toolBar->AddSeparator();
   BuildLaunchTools();
   m_toolBar->Realize();
-#ifndef __WXMAC__
   toolbar::ApplyStyle(m_toolBar);
-#endif
 }
 
-#ifndef __WXMAC__
 void MainFrame::OnToolBarStyle(wxCommandEvent &event) {
   event.Skip();
   toolbar::ApplyStyle(m_toolBar);
 }
-#endif
 
 void MainFrame::BuildLaunchTools() {
   for (const auto &[toolId, clientName] : m_clientToolIdToName) {

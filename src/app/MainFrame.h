@@ -176,10 +176,8 @@ private:
   // The work that waits until the window is up and running.
   void FinaliseStartup();
   void OnStartupTimer(wxTimerEvent &event);
-#ifndef __WXMAC__
   // The theme changed: the toolbar takes its style.
   void OnToolBarStyle(wxCommandEvent &event);
-#endif
 
   // Persists the window geometry to .persist.json on close.
   void OnClose(wxCloseEvent &evt);
@@ -223,12 +221,8 @@ private:
   // for the menu item whose wx id is kFirstThemeMenuId + i.
   std::vector<wxString> m_themeMenuNames;
 
-#ifdef __WXMAC__
-  // The native toolbar of the frame.
-  wxToolBar *m_toolBar{nullptr};
-#else
+  // The toolbar on the left of the main view, drawn by KennelToolBarArt.
   wxAuiToolBar *m_toolBar{nullptr};
-#endif
 };
 
 // Helper methods
