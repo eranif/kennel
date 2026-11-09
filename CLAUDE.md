@@ -63,5 +63,16 @@ find src -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) ! -name 'js
   JSON/std boundary (`ToStdString(wxConvUTF8)` / `wxString::FromUTF8`). Paths:
   `wxFileName`. JSON: `nlohmann/json` vendored at `src/core/json.hpp` — include only in
   `.cpp` files, never in public headers.
+- **Prefer simple, single-purpose classes.** Name a class for what it does, e.g.
+  `RemoteInstaller` (downloads a file from a repository over a web request, then
+  uploads it to a target folder), rather than a large class that does several
+  jobs. Keep these generic where a future feature will reuse them (the installer
+  must work for any tool and any target folder, not just `rg` in `~/.kennel/bin`).
+- **Don't store state that the runtime can answer.** If the source of the truth
+  has a query (`process->IsAlive()`, `file.Exists()`, `window->IsShown()`), call
+  it at the point of use. Do not keep a mirrored flag (`m_isAlive`, `m_exists`,
+  `m_shown`) that has to be kept in sync. Keep a member only for state nothing
+  else holds (a user choice, a request in flight, a cache that is
+  deliberately a cache).
 - Don't push to `origin` or amend/force anything without explicit user approval for that
   specific action, per the global safety rules already in effect for this session.
