@@ -1533,6 +1533,26 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
   flexGridSizer602->Add(m_choiceTabOutlineColour, 0, wxALL | wxEXPAND,
                         WXC_FROM_DIP(5));
 
+  m_staticText665 = new wxStaticText(m_panel353, wxID_ANY, _("Tab Height:"),
+                                     wxDefaultPosition,
+                                     wxDLG_UNIT(m_panel353, wxSize(-1, -1)), 0);
+
+  flexGridSizer602->Add(m_staticText665, 0,
+                        wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
+                        WXC_FROM_DIP(5));
+
+  wxArrayString m_choiceTabHeightArr;
+  m_choiceTabHeightArr.Add(_("Short"));
+  m_choiceTabHeightArr.Add(_("Medium"));
+  m_choiceTabHeightArr.Add(_("Tall"));
+  m_choiceTabHeight = new wxChoice(m_panel353, wxID_ANY, wxDefaultPosition,
+                                   wxDLG_UNIT(m_panel353, wxSize(-1, -1)),
+                                   m_choiceTabHeightArr, 0);
+  m_choiceTabHeight->SetSelection(1);
+
+  flexGridSizer602->Add(m_choiceTabHeight, 0, wxALL | wxEXPAND,
+                        WXC_FROM_DIP(5));
+
   flexGridSizer602->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
 
   m_checkBoxCloseButtonOnTab = new wxCheckBox(

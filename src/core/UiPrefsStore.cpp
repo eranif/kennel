@@ -40,6 +40,7 @@ json ToJson(const UiPrefs &p) {
       {"lastTerminalShell", ToUtf8(p.lastTerminalShell)},
       {"tabOutlineColour", p.tabOutlineColour},
       {"tabPosition", static_cast<int>(p.tabPosition)},
+      {"tabHeight", static_cast<int>(p.tabHeight)},
       {"sideBarTabPosition", static_cast<int>(p.sideBarTabPosition)},
       {"lastSelectedSession", ToUtf8(p.lastSelectedSession)},
       {"terminalTheme", ToUtf8(p.terminalTheme)},
@@ -90,6 +91,13 @@ void ParsePrefs(const json &root, UiPrefs &p) {
   p.tabOutlineColour = GetStr(root, "tabOutlineColour", p.tabOutlineColour);
   p.tabPosition = static_cast<wxDirection>(
       GetInt(root, "tabPosition", static_cast<int>(p.tabPosition)));
+  {
+    const int height = GetInt(root, "tabHeight", static_cast<int>(p.tabHeight));
+    if (height >= static_cast<int>(TabHeight::Short) &&
+        height <= static_cast<int>(TabHeight::Tall)) {
+      p.tabHeight = static_cast<TabHeight>(height);
+    }
+  }
   p.sideBarTabPosition = static_cast<wxDirection>(GetInt(
       root, "sideBarTabPosition", static_cast<int>(p.sideBarTabPosition)));
   p.scrollbackLines = GetSizeT(root, "scrollbackLines", p.scrollbackLines);

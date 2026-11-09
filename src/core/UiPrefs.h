@@ -21,6 +21,14 @@ enum class CloseAction {
   Close,   // Close the session
 };
 
+// The height of the tabs of the notebook. The values are saved in the prefs
+// file: do not change them.
+enum class TabHeight {
+  Short,  // The height the text needs
+  Medium, // A little more padding
+  Tall,   // More padding
+};
+
 // UI preferences (.persist.json). Non-essential and safely deletable: a
 // missing file yields these defaults (never an error).
 struct UiPrefs {
@@ -72,6 +80,11 @@ struct UiPrefs {
   std::vector<wxString> recentHosts;       // most-recent first, capped at 10
   wxString tabOutlineColour{"default"};
   wxDirection tabPosition{wxDirection::wxTOP};
+#if defined(__WXMAC__) || defined(__WXMSW__)
+  TabHeight tabHeight{TabHeight::Medium};
+#else
+  TabHeight tabHeight{TabHeight::Short};
+#endif
   // Where the tabs of the side bar (file explorer, git) are.
   wxDirection sideBarTabPosition{wxDirection::wxTOP};
 };

@@ -100,6 +100,8 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
   m_fontPicker->SetSelectedFont(m_initialFont);
 
   m_choiceTabPosition->SetStringSelection(LabelOf(prefs.tabPosition));
+  // The order of the choices is the order of TabHeight.
+  m_choiceTabHeight->SetSelection(static_cast<int>(prefs.tabHeight));
   // The side bar has its tabs on the top or at the bottom only.
   m_choiceSideBarTabPosition->SetStringSelection(
       prefs.sideBarTabPosition == wxBOTTOM ? "Bottom" : "Top");

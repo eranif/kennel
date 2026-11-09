@@ -34,6 +34,7 @@
 
 #include "core/Helpers.h"
 #include <algorithm>
+#include <optional>
 #include <thread>
 #include <wx/dir.h>
 #include <wx/fontdlg.h>
@@ -56,6 +57,19 @@ wxString TitleOf(wxWindow *page) {
     return file->GetDisplayName();
   }
   return wxString{};
+}
+
+// The vertical padding of a tab in DIPs; no value is the default of the book.
+std::optional<int> TabPaddingOf(TabHeight height) {
+  switch (height) {
+  case TabHeight::Medium:
+    return 10;
+  case TabHeight::Tall:
+    return 14;
+  case TabHeight::Short:
+    break;
+  }
+  return std::nullopt;
 }
 
 wxBitmapBundle IconOf(wxWindow *page) {
@@ -126,6 +140,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
           wxAUI_NB_MIDDLE_CLICK_CLOSE | wxAUI_NB_CLOSE_ON_ALL_TABS |
           wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_RIGHT | wxBORDER_NONE,
       wxS("GlyphBook"), /*transparentTabBar=*/glass);
+  m_book->SetTabPaddingY(TabPaddingOf(AppManager::Get().GetPrefs().tabHeight));
+
   m_book->GetTabBar()->SetCursor(wxCURSOR_HAND);
   GetSizer()->Add(m_book, wxSizerFlags(1).Expand());
   Layout();
@@ -1759,6 +1775,7 @@ void MainNotebook::OnThemeApplied(wxCommandEvent &event) {
   }
   m_book->SetWindowStyleFlag(flags);
   m_book->SetTabPosition(prefs.tabPosition);
+  m_book->SetTabPaddingY(TabPaddingOf(prefs.tabHeight));
   m_book->Refresh();
 }
 
