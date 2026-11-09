@@ -30,7 +30,9 @@ public:
     Circle,    // A round tint, with a ring of the accent colour when checked
   };
 
-  explicit KennelToolBarArt(Style style = Style::Circle);
+  // `large`: bigger tools (more room around the icons), for a toolbar that is
+  // the main one of a window. The others are compact.
+  explicit KennelToolBarArt(Style style = Style::Circle, bool large = false);
 
   // The style called `name` (soft, accent, outline, indicator, circle;
   // the case does not matter), or Soft when there is no such style.
@@ -43,6 +45,10 @@ public:
                            const wxRect &rect) override;
   void DrawButton(wxDC &dc, wxWindow *wnd, const wxAuiToolBarItem &item,
                   const wxRect &rect) override;
+  // The arrow of the menu is at the end of a horizontal bar, and under the icon
+  // in a vertical one.
+  void DrawDropDownButton(wxDC &dc, wxWindow *wnd, const wxAuiToolBarItem &item,
+                          const wxRect &rect) override;
   void DrawSeparator(wxDC &dc, wxWindow *wnd, const wxRect &rect) override;
   void DrawGripper(wxDC &dc, wxWindow *wnd, const wxRect &rect) override;
   // A tool is a little bigger than its image: the highlight needs room around
@@ -59,5 +65,10 @@ private:
   void DrawHighlight(wxDC &dc, wxWindow *wnd, const wxRect &box, bool hover,
                      bool pressed, bool checked) const;
 
+  // The highlight of a tool in `rect`, when it needs one.
+  void DrawToolHighlight(wxDC &dc, wxWindow *wnd, const wxAuiToolBarItem &item,
+                         const wxRect &rect);
+
   Style m_style;
+  bool m_large;
 };

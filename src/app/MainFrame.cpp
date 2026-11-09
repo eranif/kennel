@@ -296,7 +296,7 @@ void MainFrame::BuildToolBar() {
                                wxAUI_TB_VERTICAL);
   // The other styles of the art are not used for now.
   m_toolBar->SetArtProvider(
-      new KennelToolBarArt(KennelToolBarArt::Style::Accent));
+      new KennelToolBarArt(KennelToolBarArt::Style::Accent, /*large=*/true));
   GetSizer()->Insert(0, m_toolBar, wxSizerFlags(0).Expand());
   Bind(wxEVT_PAGES_TOOLBAR_STYLE, &MainFrame::OnToolBarStyle, this);
 

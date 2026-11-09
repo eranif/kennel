@@ -1,4 +1,5 @@
 #include "app/ToolBarUtils.h"
+#include "app/ToolBarArt.h"
 #include <wx/settings.h>
 
 namespace toolbar {
@@ -64,6 +65,12 @@ void Redraw(wxAuiToolBar *toolbar) {
 }
 
 void ApplyStyle(wxAuiToolBar *toolbar) {
+  // KennelToolBarArt draws the background that the flag of the toolbar asks for
+  // (plain, or a gradient) in both themes: the flag stays as it was made.
+  if (dynamic_cast<KennelToolBarArt *>(toolbar->GetArtProvider()) != nullptr) {
+    Redraw(toolbar);
+    return;
+  }
   const long style = toolbar->GetWindowStyle();
   const bool dark = wxSystemSettings::GetAppearance().IsDark();
   const long newStyle = dark ? (style & ~wxAUI_TB_PLAIN_BACKGROUND)

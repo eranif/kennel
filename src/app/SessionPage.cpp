@@ -1,4 +1,5 @@
 #include "SessionPage.hpp"
+#include "ToolBarArt.h"
 #include "app/ToolBarUtils.h"
 
 #include "MainFrame.h"
@@ -262,14 +263,14 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
         wxEVT_REVIEW_BUDDY_ERROR, wxEVT_REVIEW_BUDDY_STOPPED}) {
     Bind(type, &SessionPage::OnReviewChanged, this);
   }
-  // The toolbar is vertical, on the right. Next to it is the body: the splitter
+  // The toolbar is horizontal, at the top. Below it is the body: the splitter
   // (CreateTerminal() puts it first) and the search bar below it.
   CreateToolBar();
-  auto *outer = new wxBoxSizer(wxHORIZONTAL);
+  auto *outer = new wxBoxSizer(wxVERTICAL);
   m_body = new wxBoxSizer(wxVERTICAL);
   SetSizer(outer); // Replaces (and deletes) the vertical sizer of the base
-  outer->Add(m_body, wxSizerFlags(1).Expand());
   outer->Add(m_toolbar, wxSizerFlags(0).Expand());
+  outer->Add(m_body, wxSizerFlags(1).Expand());
   // Below the terminals: CreateTerminal() puts the splitter before it.
   m_searchBar = new SearchBar(this, SearchBar::Kind::kFindOnly);
   m_searchBar->Hide();
@@ -945,7 +946,10 @@ void SessionPage::ApplyToolBarStyle() { toolbar::ApplyStyle(m_toolbar); }
 void SessionPage::CreateToolBar() {
   auto &bmps = AppManager::Get().GetBitmaps();
   m_toolbar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                               wxAUI_TB_VERTICAL);
+                               wxAUI_TB_PLAIN_BACKGROUND);
+  m_toolbar->SetArtProvider(
+      new KennelToolBarArt(KennelToolBarArt::Style::Accent, true));
+
   toolbar::ApplyStyle(m_toolbar);
   toolbar::AddTool(m_toolbar, ID_RESTART, _("Restart"),
                    bmps.Get("restart", false), _("Restart the session"));

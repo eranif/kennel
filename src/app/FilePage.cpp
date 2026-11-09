@@ -1,4 +1,5 @@
 #include "app/FilePage.hpp"
+#include "ToolBarArt.h"
 #include "app/ToolBarUtils.h"
 
 #include "app/EditFileDlg.hpp"
@@ -33,7 +34,9 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
                    const RemoteHostDetails &remoteHost)
     : wxPanel(parent), m_path{path}, m_remoteHost{remoteHost} {
   m_toolbar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                               wxAUI_TB_VERTICAL);
+                               wxAUI_TB_PLAIN_BACKGROUND);
+  m_toolbar->SetArtProvider(
+      new KennelToolBarArt(KennelToolBarArt::Style::Accent, true));
   AppManager::Get().GetBitmaps().Get("save", false);
   toolbar::AddTool(m_toolbar, ID_CLOSE, _("Close"),
                    AppManager::Get().GetBitmaps().Get("close", false),
@@ -60,8 +63,8 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
   m_editor = new Editor(this, EditFileDlg::LangFromPath(path), theme);
   m_searchBar = new SearchBar(this, SearchBar::Kind::kEditor);
   m_searchBar->Hide();
-  // The toolbar is vertical, on the left of the editor and the search bar.
-  auto *outer = new wxBoxSizer(wxHORIZONTAL);
+  // The toolbar is horizontal, above the editor and the search bar.
+  auto *outer = new wxBoxSizer(wxVERTICAL);
   auto *body = new wxBoxSizer(wxVERTICAL);
   SetSizer(outer);
   outer->Add(m_toolbar, wxSizerFlags(0).Expand());

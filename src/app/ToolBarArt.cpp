@@ -11,8 +11,11 @@ namespace {
 // In DIPs.
 // Added to the size of a tool: across the bar (the width of a vertical bar, the
 // height of a horizontal one) and along it.
-constexpr int kCrossPadding = 18;
-constexpr int kAlongPadding = 10;
+// A large toolbar has more room around the icons.
+constexpr int kCrossPadding = 8;
+constexpr int kAlongPadding = 6;
+constexpr int kLargeCrossPadding = 18;
+constexpr int kLargeAlongPadding = 10;
 constexpr int kPillInset = 4;     // Between the pill and the edge of the bar
 constexpr int kHighlightGap = 2;  // Between the highlight and the pill
 constexpr int kSeparatorSize = 8; // The gap between two pills
@@ -89,12 +92,23 @@ wxColour WithAlpha(const wxColour &colour, int alpha) {
 void KennelToolBarArt::DrawBackground(wxDC &dc, wxWindow *wnd,
                                       const wxRect &rect) {
   const wxColour bar = BarColour();
+  if (m_flags & wxAUI_TB_PLAIN_BACKGROUND) {
+    dc.SetBrush(bar);
+    dc.SetPen(bar);
+    dc.DrawRectangle(rect);
+    return;
+  }
+
+  wxColour startColour = bar;
+  wxColour endColour = startColour.ChangeLightness(IsDark() ? 109 : 95);
+
   // A gradient of the bar colour across the bar: from the left to the right in
   // a vertical bar, from the top to the bottom in a horizontal one. It starts
   // a little lighter and ends a little darker.
   const bool vertical = (m_flags & wxAUI_TB_VERTICAL) != 0;
-  dc.GradientFillLinear(rect, Shade(bar, 112, 103), Shade(bar, 90, 88),
+  dc.GradientFillLinear(rect, endColour, startColour,
                         vertical ? wxEAST : wxSOUTH);
+  dc.SetPen(*wxTRANSPARENT_PEN);
 }
 
 void KennelToolBarArt::DrawPlainBackground(wxDC &dc, wxWindow *wnd,
@@ -194,6 +208,32 @@ void KennelToolBarArt::DrawHighlight(wxDC &dc, wxWindow *wnd, const wxRect &box,
   }
 }
 
+void KennelToolBarArt::DrawToolHighlight(wxDC &dc, wxWindow *wnd,
+                                         const wxAuiToolBarItem &item,
+                                         const wxRect &rect) {
+  const int state = item.GetState();
+  if (state & wxAUI_BUTTON_STATE_DISABLED) {
+    return;
+  }
+  const bool pressed = (state & wxAUI_BUTTON_STATE_PRESSED) != 0;
+  const bool hover = (state & wxAUI_BUTTON_STATE_HOVER) != 0;
+  const bool checked =
+      (state & wxAUI_BUTTON_STATE_CHECKED) != 0 || item.IsSticky();
+  if (!pressed && !hover && !checked) {
+    return;
+  }
+  // Inside the pill: more room on the sides of the pill than along it.
+  const int cross = wnd->FromDIP(kPillInset + kHighlightGap);
+  const int along = wnd->FromDIP(kHighlightGap);
+  wxRect box = rect;
+  if (m_flags & wxAUI_TB_VERTICAL) {
+    box.Deflate(cross, along);
+  } else {
+    box.Deflate(along, cross);
+  }
+  DrawHighlight(dc, wnd, box, hover, pressed, checked);
+}
+
 void KennelToolBarArt::DrawButton(wxDC &dc, wxWindow *wnd,
                                   const wxAuiToolBarItem &item,
                                   const wxRect &rect) {
@@ -205,32 +245,56 @@ void KennelToolBarArt::DrawButton(wxDC &dc, wxWindow *wnd,
   }
 
   DrawGroupPill(dc, wnd, item);
-
-  const int state = item.GetState();
-  if ((state & wxAUI_BUTTON_STATE_DISABLED) == 0) {
-    const bool pressed = (state & wxAUI_BUTTON_STATE_PRESSED) != 0;
-    const bool hover = (state & wxAUI_BUTTON_STATE_HOVER) != 0;
-    const bool checked =
-        (state & wxAUI_BUTTON_STATE_CHECKED) != 0 || item.IsSticky();
-    if (pressed || hover || checked) {
-      // Inside the pill: more room on the sides of the pill than along it.
-      const int cross = wnd->FromDIP(kPillInset + kHighlightGap);
-      const int along = wnd->FromDIP(kHighlightGap);
-      wxRect box = rect;
-      if (m_flags & wxAUI_TB_VERTICAL) {
-        box.Deflate(cross, along);
-      } else {
-        box.Deflate(along, cross);
-      }
-      DrawHighlight(dc, wnd, box, hover, pressed, checked);
-    }
-  }
+  DrawToolHighlight(dc, wnd, item, rect);
 
   const wxBitmap bmp = item.GetCurrentBitmapFor(wnd);
   if (bmp.IsOk()) {
     const wxSize size = bmp.GetLogicalSize();
     dc.DrawBitmap(bmp, rect.x + (rect.width - size.x) / 2,
                   rect.y + (rect.height - size.y) / 2, true);
+  }
+}
+
+void KennelToolBarArt::DrawDropDownButton(wxDC &dc, wxWindow *wnd,
+                                          const wxAuiToolBarItem &item,
+                                          const wxRect &rect) {
+  if (m_flags & wxAUI_TB_TEXT) {
+    wxAuiGenericToolBarArt::DrawDropDownButton(dc, wnd, item, rect);
+    return;
+  }
+
+  // The room of the arrow: at the end of a horizontal bar, under the icon in a
+  // vertical one. The rest is the button, with the highlight and the icon.
+  const wxBitmap &arrow = (item.GetState() & wxAUI_BUTTON_STATE_DISABLED)
+                              ? m_disabledButtonDropDownBmp.GetBitmapFor(wnd)
+                              : m_buttonDropDownBmp.GetBitmapFor(wnd);
+  const wxSize arrowSize = arrow.IsOk() ? arrow.GetLogicalSize() : wxSize();
+  const bool vertical = (m_flags & wxAUI_TB_VERTICAL) != 0;
+  const int room = (vertical ? arrowSize.y : arrowSize.x) + wnd->FromDIP(4);
+  wxRect button = rect;
+  wxRect arrowRect = rect;
+  if (vertical) {
+    button.height -= room;
+    arrowRect.y = button.GetBottom() + 1;
+    arrowRect.height = room;
+  } else {
+    button.width -= room;
+    arrowRect.x = button.GetRight() + 1;
+    arrowRect.width = room;
+  }
+
+  DrawGroupPill(dc, wnd, item);
+  DrawToolHighlight(dc, wnd, item, button);
+
+  const wxBitmap bmp = item.GetCurrentBitmapFor(wnd);
+  if (bmp.IsOk()) {
+    const wxSize size = bmp.GetLogicalSize();
+    dc.DrawBitmap(bmp, button.x + (button.width - size.x) / 2,
+                  button.y + (button.height - size.y) / 2, true);
+  }
+  if (arrow.IsOk()) {
+    dc.DrawBitmap(arrow, arrowRect.x + (arrowRect.width - arrowSize.x) / 2,
+                  arrowRect.y + (arrowRect.height - arrowSize.y) / 2, true);
   }
 }
 
@@ -248,9 +312,21 @@ void KennelToolBarArt::DrawGripper(wxDC &WXUNUSED(dc), wxWindow *WXUNUSED(wnd),
 wxSize KennelToolBarArt::GetToolSize(wxReadOnlyDC &dc, wxWindow *wnd,
                                      const wxAuiToolBarItem &item) {
   wxSize size = wxAuiGenericToolBarArt::GetToolSize(dc, wnd, item);
-  const int cross = wnd->FromDIP(kCrossPadding);
-  const int along = wnd->FromDIP(kAlongPadding);
-  if (m_flags & wxAUI_TB_VERTICAL) {
+  const bool vertical = (m_flags & wxAUI_TB_VERTICAL) != 0;
+  if (vertical && item.HasDropDown()) {
+    // The generic art puts the arrow at the end of the width. Here it is under
+    // the icon (see DrawDropDownButton()): the room moves to the height.
+    const wxBitmap &arrow = m_buttonDropDownBmp.GetBitmapFor(wnd);
+    const int arrowHeight = arrow.IsOk() ? arrow.GetLogicalHeight() : 0;
+    const int removed =
+        GetElementSizeForWindow(wxAUI_TBART_DROPDOWN_SIZE, wnd) +
+        wnd->FromDIP(4);
+    size.x -= removed;
+    size.y += arrowHeight + wnd->FromDIP(4);
+  }
+  const int cross = wnd->FromDIP(m_large ? kLargeCrossPadding : kCrossPadding);
+  const int along = wnd->FromDIP(m_large ? kLargeAlongPadding : kAlongPadding);
+  if (vertical) {
     size.IncBy(cross, along);
   } else {
     size.IncBy(along, cross);
@@ -258,7 +334,8 @@ wxSize KennelToolBarArt::GetToolSize(wxReadOnlyDC &dc, wxWindow *wnd,
   return size;
 }
 
-KennelToolBarArt::KennelToolBarArt(Style style) : m_style(style) {
+KennelToolBarArt::KennelToolBarArt(Style style, bool large)
+    : m_style(style), m_large(large) {
   m_separatorSize = kSeparatorSize;
 }
 

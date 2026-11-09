@@ -221,7 +221,7 @@ private:
   // for the menu item whose wx id is kFirstThemeMenuId + i.
   std::vector<wxString> m_themeMenuNames;
 
-  // The toolbar on the left of the main view, drawn by KennelToolBarArt.
+  // The toolbar above the main view, drawn by KennelToolBarArt.
   wxAuiToolBar *m_toolBar{nullptr};
 };
 
