@@ -294,12 +294,9 @@ void MainFrame::BuildToolBar() {
   // follows the theme of the application.
   m_toolBar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                                wxAUI_TB_VERTICAL);
-  // To try the looks: KENNEL_TOOLBAR_STYLE=soft|accent|outline|indicator|
-  // circle|glass.
-  wxString styleName;
-  ::wxGetEnv("KENNEL_TOOLBAR_STYLE", &styleName);
+  // The other styles of the art are not used for now.
   m_toolBar->SetArtProvider(
-      new KennelToolBarArt(KennelToolBarArt::StyleFromName(styleName)));
+      new KennelToolBarArt(KennelToolBarArt::Style::Accent));
   GetSizer()->Insert(0, m_toolBar, wxSizerFlags(0).Expand());
   Bind(wxEVT_PAGES_TOOLBAR_STYLE, &MainFrame::OnToolBarStyle, this);
 

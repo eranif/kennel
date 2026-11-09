@@ -9,9 +9,13 @@
 
 namespace {
 // In DIPs.
-constexpr int kToolPadding = 6;  // Added to the size of a tool
-constexpr int kHighlightGap = 2; // Between the highlight and the tool border
-constexpr int kHighlightRadius = 6;
+// Added to the size of a tool: across the bar (the width of a vertical bar, the
+// height of a horizontal one) and along it.
+constexpr int kCrossPadding = 18;
+constexpr int kAlongPadding = 10;
+constexpr int kPillInset = 4;     // Between the pill and the edge of the bar
+constexpr int kHighlightGap = 2;  // Between the highlight and the pill
+constexpr int kSeparatorSize = 8; // The gap between two pills
 
 bool IsDark() { return wxSystemSettings::GetAppearance().IsDark(); }
 
@@ -19,6 +23,13 @@ bool IsDark() { return wxSystemSettings::GetAppearance().IsDark(); }
 wxColour BarColour() {
   return wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE);
 }
+
+// A pill looks sunk into the bar: its fill is darker than the bar, and its
+// outline is darker than its fill.
+wxColour PillColour() {
+  return BarColour().ChangeLightness(IsDark() ? 104 : 94);
+}
+wxColour PillOutlineColour() { return BarColour().ChangeLightness(110); }
 
 // `bar` made lighter on a dark theme and darker on a light one.
 wxColour Shade(const wxColour &bar, int darkLightness, int lightLightness) {
@@ -78,21 +89,12 @@ wxColour WithAlpha(const wxColour &colour, int alpha) {
 void KennelToolBarArt::DrawBackground(wxDC &dc, wxWindow *wnd,
                                       const wxRect &rect) {
   const wxColour bar = BarColour();
-  dc.SetPen(*wxTRANSPARENT_PEN);
-  dc.SetBrush(wxBrush(bar));
-  dc.DrawRectangle(rect);
-
-  // A thin line along the side next to the view: the right side of a vertical
-  // bar, the bottom of a horizontal one.
-  const int thickness = std::max(1, wnd->FromDIP(1));
-  dc.SetBrush(wxBrush(Shade(bar, 130, 88)));
-  if (m_flags & wxAUI_TB_VERTICAL) {
-    dc.DrawRectangle(rect.x + rect.width - thickness, rect.y, thickness,
-                     rect.height);
-  } else {
-    dc.DrawRectangle(rect.x, rect.y + rect.height - thickness, rect.width,
-                     thickness);
-  }
+  // A gradient of the bar colour across the bar: from the left to the right in
+  // a vertical bar, from the top to the bottom in a horizontal one. It starts
+  // a little lighter and ends a little darker.
+  const bool vertical = (m_flags & wxAUI_TB_VERTICAL) != 0;
+  dc.GradientFillLinear(rect, Shade(bar, 112, 103), Shade(bar, 90, 88),
+                        vertical ? wxEAST : wxSOUTH);
 }
 
 void KennelToolBarArt::DrawPlainBackground(wxDC &dc, wxWindow *wnd,
@@ -110,8 +112,6 @@ KennelToolBarArt::Style KennelToolBarArt::StyleFromName(const wxString &name) {
     return Style::Indicator;
   } else if (lower == "circle") {
     return Style::Circle;
-  } else if (lower == "glass") {
-    return Style::Glass;
   }
   return Style::Soft;
 }
@@ -119,9 +119,14 @@ KennelToolBarArt::Style KennelToolBarArt::StyleFromName(const wxString &name) {
 void KennelToolBarArt::DrawHighlight(wxDC &dc, wxWindow *wnd, const wxRect &box,
                                      bool hover, bool pressed,
                                      bool checked) const {
-  const wxColour bar = BarColour();
+  // The highlights are on a pill.
+  const wxColour bar = PillColour();
   const wxColour accent = Accent();
-  const double radius = wnd->FromDIP(kHighlightRadius);
+  // Every style draws its highlight as a circle in the middle of the tool.
+  const int side = std::min(box.width, box.height);
+  const wxRect circle(box.x + (box.width - side) / 2,
+                      box.y + (box.height - side) / 2, side, side);
+  const double radius = side / 2.0;
   const double ringWidth = std::max(1.0, wnd->FromDIP(1) * 1.5);
 
   switch (m_style) {
@@ -134,13 +139,13 @@ void KennelToolBarArt::DrawHighlight(wxDC &dc, wxWindow *wnd, const wxRect &box,
     } else {
       fill = Shade(bar, 125, 92);
     }
-    DrawRounded(dc, box, radius, fill);
+    DrawRounded(dc, circle, radius, fill);
     break;
   }
   case Style::Accent: {
     // The tool is the accent colour; pressed is the strongest.
     const int alpha = pressed ? 150 : checked ? 115 : 75;
-    DrawRounded(dc, box, radius, Blend(bar, accent, alpha));
+    DrawRounded(dc, circle, radius, Blend(bar, accent, alpha));
     break;
   }
   case Style::Outline: {
@@ -149,21 +154,20 @@ void KennelToolBarArt::DrawHighlight(wxDC &dc, wxWindow *wnd, const wxRect &box,
     const wxColour fill = checked
                               ? Blend(bar, accent, pressed ? 80 : 45)
                               : (pressed ? Shade(bar, 125, 92) : wxColour());
-    DrawRounded(dc, box, radius, fill, ring, ringWidth);
+    DrawRounded(dc, circle, radius, fill, ring, ringWidth);
     break;
   }
   case Style::Indicator: {
-    // A square tint over the whole tool; a checked tool has the accent bar on
-    // the outer edge (the left of a vertical bar, the top of a horizontal one).
+    // A tint; a checked tool has the accent bar on the outer edge of the tool
+    // (the left of a vertical bar, the top of a horizontal one).
     wxColour fill = pressed ? Shade(bar, 145, 82) : Shade(bar, 125, 92);
     if (checked && !pressed) {
       fill = Blend(bar, accent, hover ? 55 : 35);
     }
-    dc.SetPen(*wxTRANSPARENT_PEN);
-    dc.SetBrush(wxBrush(fill));
-    dc.DrawRectangle(box);
+    DrawRounded(dc, circle, radius, fill);
     if (checked) {
       const int thickness = std::max(2, wnd->FromDIP(3));
+      dc.SetPen(*wxTRANSPARENT_PEN);
       dc.SetBrush(wxBrush(accent));
       if (m_flags & wxAUI_TB_VERTICAL) {
         dc.DrawRectangle(box.x, box.y, thickness, box.height);
@@ -174,29 +178,17 @@ void KennelToolBarArt::DrawHighlight(wxDC &dc, wxWindow *wnd, const wxRect &box,
     break;
   }
   case Style::Circle: {
-    const int side = std::min(box.width, box.height);
-    const wxRect circle(box.x + (box.width - side) / 2,
-                        box.y + (box.height - side) / 2, side, side);
-    wxColour fill = pressed ? Shade(bar, 145, 82) : Shade(bar, 125, 92);
+    // A circle on a sunk pill is raised: lighter than the pill.
+    const wxColour face = BarColour();
+    // Dark theme: the hover is the colour that the pressed state had, and the
+    // pressed state is 10 darker than the hover.
+    wxColour fill = pressed ? Shade(face, 102, 99) : Shade(face, 112, 106);
     wxColour ring;
     if (checked) {
       fill = Blend(bar, accent, pressed ? 90 : 50);
       ring = accent;
     }
-    DrawRounded(dc, circle, side / 2.0, fill, ring, ringWidth);
-    break;
-  }
-  case Style::Glass: {
-    // A veil: white on a dark theme, black on a light one. The tint of the
-    // bar shows through, so it fits any bar colour.
-    const wxColour veil = IsDark() ? *wxWHITE : *wxBLACK;
-    const int alpha = pressed ? 55 : hover ? 32 : 0;
-    if (checked) {
-      DrawRounded(dc, box, radius, WithAlpha(accent, pressed ? 120 : 85),
-                  WithAlpha(accent, 200), ringWidth);
-    } else {
-      DrawRounded(dc, box, radius, WithAlpha(veil, alpha));
-    }
+    DrawRounded(dc, circle, radius, fill, ring, ringWidth);
     break;
   }
   }
@@ -212,6 +204,8 @@ void KennelToolBarArt::DrawButton(wxDC &dc, wxWindow *wnd,
     return;
   }
 
+  DrawGroupPill(dc, wnd, item);
+
   const int state = item.GetState();
   if ((state & wxAUI_BUTTON_STATE_DISABLED) == 0) {
     const bool pressed = (state & wxAUI_BUTTON_STATE_PRESSED) != 0;
@@ -219,8 +213,15 @@ void KennelToolBarArt::DrawButton(wxDC &dc, wxWindow *wnd,
     const bool checked =
         (state & wxAUI_BUTTON_STATE_CHECKED) != 0 || item.IsSticky();
     if (pressed || hover || checked) {
+      // Inside the pill: more room on the sides of the pill than along it.
+      const int cross = wnd->FromDIP(kPillInset + kHighlightGap);
+      const int along = wnd->FromDIP(kHighlightGap);
       wxRect box = rect;
-      box.Deflate(wnd->FromDIP(kHighlightGap));
+      if (m_flags & wxAUI_TB_VERTICAL) {
+        box.Deflate(cross, along);
+      } else {
+        box.Deflate(along, cross);
+      }
       DrawHighlight(dc, wnd, box, hover, pressed, checked);
     }
   }
@@ -233,25 +234,10 @@ void KennelToolBarArt::DrawButton(wxDC &dc, wxWindow *wnd,
   }
 }
 
-void KennelToolBarArt::DrawSeparator(wxDC &dc, wxWindow *wnd,
-                                     const wxRect &rect) {
-  // A short line in the middle of the space, across the direction of the bar.
-  const int thickness = std::max(1, wnd->FromDIP(1));
-  wxRect line = rect;
-  if (m_flags & wxAUI_TB_VERTICAL) {
-    line.y += (rect.height - thickness) / 2;
-    line.height = thickness;
-    line.x += rect.width / 4;
-    line.width = rect.width / 2;
-  } else {
-    line.x += (rect.width - thickness) / 2;
-    line.width = thickness;
-    line.y += rect.height / 4;
-    line.height = rect.height / 2;
-  }
-  dc.SetPen(*wxTRANSPARENT_PEN);
-  dc.SetBrush(wxBrush(Shade(BarColour(), 130, 88)));
-  dc.DrawRectangle(line);
+void KennelToolBarArt::DrawSeparator(wxDC &WXUNUSED(dc),
+                                     wxWindow *WXUNUSED(wnd),
+                                     const wxRect &WXUNUSED(rect)) {
+  // The gap between two pills is the separator.
 }
 
 void KennelToolBarArt::DrawGripper(wxDC &WXUNUSED(dc), wxWindow *WXUNUSED(wnd),
@@ -262,7 +248,78 @@ void KennelToolBarArt::DrawGripper(wxDC &WXUNUSED(dc), wxWindow *WXUNUSED(wnd),
 wxSize KennelToolBarArt::GetToolSize(wxReadOnlyDC &dc, wxWindow *wnd,
                                      const wxAuiToolBarItem &item) {
   wxSize size = wxAuiGenericToolBarArt::GetToolSize(dc, wnd, item);
-  const int padding = wnd->FromDIP(kToolPadding);
-  size.IncBy(padding, padding);
+  const int cross = wnd->FromDIP(kCrossPadding);
+  const int along = wnd->FromDIP(kAlongPadding);
+  if (m_flags & wxAUI_TB_VERTICAL) {
+    size.IncBy(cross, along);
+  } else {
+    size.IncBy(along, cross);
+  }
   return size;
+}
+
+KennelToolBarArt::KennelToolBarArt(Style style) : m_style(style) {
+  m_separatorSize = kSeparatorSize;
+}
+
+namespace {
+bool IsButton(const wxAuiToolBarItem *tool) {
+  if (tool == nullptr || tool->GetSizerItem() == nullptr ||
+      !tool->GetSizerItem()->IsShown()) {
+    return false;
+  }
+  const int kind = tool->GetKind();
+  return kind == wxITEM_NORMAL || kind == wxITEM_CHECK || kind == wxITEM_RADIO;
+}
+} // namespace
+
+void KennelToolBarArt::DrawGroupPill(wxDC &dc, wxWindow *wnd,
+                                     const wxAuiToolBarItem &item) {
+  auto *bar = dynamic_cast<wxAuiToolBar *>(wnd);
+  if (bar == nullptr) {
+    return;
+  }
+  const int count = static_cast<int>(bar->GetToolCount());
+  int first = wxNOT_FOUND;
+  for (int i = 0; i < count; ++i) {
+    if (bar->FindToolByIndex(i) == &item) {
+      first = i;
+      break;
+    }
+  }
+  // Only the first button of a group draws the pill.
+  if (first == wxNOT_FOUND ||
+      (first > 0 && IsButton(bar->FindToolByIndex(first - 1)))) {
+    return;
+  }
+
+  // The pill covers the buttons up to the next separator, or up to the end of
+  // the place that the bar has (the others are in the overflow menu).
+  const wxSize client = bar->GetClientSize();
+  wxRect group;
+  for (int i = first; i < count; ++i) {
+    const wxAuiToolBarItem *tool = bar->FindToolByIndex(i);
+    if (!IsButton(tool)) {
+      break;
+    }
+    const wxRect rect = tool->GetSizerItem()->GetRect();
+    if (rect.GetRight() >= client.x || rect.GetBottom() >= client.y) {
+      break;
+    }
+    group = group.IsEmpty() ? rect : group.Union(rect);
+  }
+  if (group.IsEmpty()) {
+    return;
+  }
+
+  // Room at the sides of the bar. The pill is round at its ends.
+  const int inset = wnd->FromDIP(kPillInset);
+  if (m_flags & wxAUI_TB_VERTICAL) {
+    group.Deflate(inset, 0);
+  } else {
+    group.Deflate(0, inset);
+  }
+  const double ringWidth = std::max(1, wnd->FromDIP(1));
+  DrawRounded(dc, group, std::min(group.width, group.height) / 2.0,
+              PillColour(), PillOutlineColour(), ringWidth);
 }
