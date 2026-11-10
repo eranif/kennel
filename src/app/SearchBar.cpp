@@ -128,6 +128,42 @@ void SearchBar::UpdateButtonWidths() {
   Layout();
 }
 
+wxString SearchBar::TextFromSelection(const wxString &selection) {
+  // The first line that has text: a selection can start with a line break.
+  wxString line;
+  size_t start = 0;
+  while (start <= selection.length()) {
+    size_t end = selection.find_first_of("\r\n", start);
+    if (end == wxString::npos) {
+      end = selection.length();
+    }
+    line = selection.Mid(start, end - start);
+    if (!line.empty()) {
+      break;
+    }
+    if (end >= selection.length()) {
+      return wxString();
+    }
+    start = end + 1;
+  }
+  if (line.empty()) {
+    return wxString();
+  }
+
+  const wxScopedCharBuffer utf8 = line.utf8_str();
+  size_t length = utf8.length();
+  if (length <= kMaxSelectionBytes) {
+    return line;
+  }
+  // Back to the start of a character: the bytes 10xxxxxx continue a character.
+  length = kMaxSelectionBytes;
+  while (length > 0 &&
+         (static_cast<unsigned char>(utf8.data()[length]) & 0xC0) == 0x80) {
+    --length;
+  }
+  return wxString::FromUTF8(utf8.data(), length);
+}
+
 void SearchBar::Activate(const wxString &text) {
   if (!text.empty()) {
     m_find->ChangeValue(text);

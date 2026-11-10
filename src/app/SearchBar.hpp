@@ -40,6 +40,14 @@ public:
 
   SearchBar(wxWindow *parent, Kind kind);
 
+  // The most bytes (UTF-8) of the text that a selection gives to the find text.
+  static constexpr size_t kMaxSelectionBytes = 1024;
+  // The text to start a search with, from the text that the user selected in a
+  // page: the first line that has text (a selection of many lines gives only
+  // that one), cut to kMaxSelectionBytes bytes without cutting a character.
+  // Empty when the selection has no text.
+  static wxString TextFromSelection(const wxString &selection);
+
   // Gives the focus to the find text and selects it. A non-empty `text`
   // replaces the text first (no event is sent for it).
   void Activate(const wxString &text);

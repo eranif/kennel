@@ -449,12 +449,7 @@ void FilePage::OnClose(wxCommandEvent &event) {
 // ---------------------------------------------------------------------------
 
 wxString FilePage::SelectedSearchText() const {
-  const wxString selected = m_editor->GetCtrl()->GetSelectedText();
-  if (selected.Find('\n') != wxNOT_FOUND ||
-      selected.Find('\r') != wxNOT_FOUND) {
-    return wxEmptyString;
-  }
-  return selected;
+  return SearchBar::TextFromSelection(m_editor->GetCtrl()->GetSelectedText());
 }
 
 void FilePage::ShowFind() {
@@ -464,7 +459,7 @@ void FilePage::ShowFind() {
     Layout();
   }
   m_searchBar->EnableReplace(CanReplace());
-  // The selected text, when it is on one line, is what the user looks for.
+  // The selected text (its first line) is what the user looks for.
   const wxString selected = SelectedSearchText();
   m_searchBar->Activate(selected.empty() ? m_findText : selected);
 }
