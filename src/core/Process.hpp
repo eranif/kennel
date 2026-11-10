@@ -131,6 +131,16 @@ public:
    */
   static bool IsAlive(int process_id);
 
+  /**
+   * @brief `arg` as one argument of the command line that a program gets.
+   *
+   * On Windows the program is started with one command line, built by joining
+   * the arguments with spaces, so an argument with a space or a quote must be
+   * quoted by the caller (the rules of the C runtime). Elsewhere the arguments
+   * are passed one by one and `arg` is returned as it is.
+   */
+  static std::string QuoteArgument(const std::string &arg);
+
   static void EnableExecLog(bool b);
   static bool IsExecLogEnabled();
 

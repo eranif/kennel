@@ -79,6 +79,30 @@ std::string ReadAllFromPipe(HANDLE hPipe) {
   return result;
 }
 
+// `text` (UTF-8, what the callers pass) as UTF-16, so that a folder or a name
+// with letters outside the code page of the system reaches the program. Text
+// that is not UTF-8 is read in the code page of the system.
+std::vector<wchar_t> ToWide(const std::string &text) {
+  if (text.empty()) {
+    return {};
+  }
+  const int length = static_cast<int>(text.size());
+  UINT codePage = CP_UTF8;
+  int count = MultiByteToWideChar(codePage, MB_ERR_INVALID_CHARS, text.data(),
+                                  length, nullptr, 0);
+  if (count <= 0) {
+    codePage = CP_ACP;
+    count = MultiByteToWideChar(codePage, 0, text.data(), length, nullptr, 0);
+  }
+  if (count <= 0) {
+    return {};
+  }
+  std::vector<wchar_t> wide(static_cast<size_t>(count));
+  MultiByteToWideChar(codePage, codePage == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0,
+                      text.data(), length, wide.data(), count);
+  return wide;
+}
+
 // Convert vector of strings to a single command line string for Windows
 std::string BuildCommandLine(const std::vector<std::string> &argv) {
   if (argv.empty()) {
@@ -144,7 +168,7 @@ std::optional<SpawnedProcess> SpawnProcess(const std::vector<std::string> &argv,
   SetNamedPipeHandleState(hStdoutWrite, &mode, NULL, NULL);
   SetNamedPipeHandleState(hStderrRead, &mode, NULL, NULL);
 
-  STARTUPINFOA si;
+  STARTUPINFOW si;
   ZeroMemory(&si, sizeof(si));
   si.cb = sizeof(si);
   si.hStdError = hStderrWrite;
@@ -157,14 +181,15 @@ std::optional<SpawnedProcess> SpawnProcess(const std::vector<std::string> &argv,
   ZeroMemory(&pi, sizeof(pi));
 
   std::string cmdline = BuildCommandLine(argv);
-  std::vector<char> cmdlineBuf(cmdline.begin(), cmdline.end());
-  cmdlineBuf.push_back('\0');
+  // CreateProcessW can write into the buffer: it must be a copy.
+  std::vector<wchar_t> cmdlineBuf = ToWide(cmdline);
+  cmdlineBuf.push_back(L'\0');
 
   if (Process::IsExecLogEnabled()) {
-    std::cout << "\n" << cmdlineBuf.data() << std::endl;
+    std::cout << "\n" << cmdline << std::endl;
   }
 
-  BOOL success = CreateProcessA(nullptr, cmdlineBuf.data(), nullptr, nullptr,
+  BOOL success = CreateProcessW(nullptr, cmdlineBuf.data(), nullptr, nullptr,
                                 TRUE, 0, nullptr, nullptr, &si, &pi);
 
   // Close child-side pipe ends
@@ -273,6 +298,29 @@ bool Process::RunProcessAsync(const std::vector<std::string> &argv,
   }).detach();
 
   return true;
+}
+
+std::string Process::QuoteArgument(const std::string &arg) {
+  if (!arg.empty() && arg.find_first_of(" \t\n\v\"") == std::string::npos) {
+    return arg;
+  }
+  std::string quoted = "\"";
+  size_t backslashes = 0;
+  for (const char c : arg) {
+    if (c == '\\') {
+      ++backslashes;
+      continue;
+    }
+    if (c == '"') {
+      quoted.append(backslashes * 2 + 1, '\\'); // Escape them and the quote
+    } else {
+      quoted.append(backslashes, '\\');
+    }
+    backslashes = 0;
+    quoted += c;
+  }
+  quoted.append(backslashes * 2, '\\'); // Before the closing quote
+  return quoted + "\"";
 }
 
 void Process::TerminateProcess(int process_id) {
@@ -447,6 +495,10 @@ std::string ReadFromFdUntilEOF(int fd) {
 }
 
 } // namespace
+
+std::string Process::QuoteArgument(const std::string &arg) {
+  return arg; // The arguments go to exec one by one
+}
 
 int Process::RunProcessAndWait(const std::vector<std::string> &argv,
                                on_output_callback output_cb, bool use_shell) {

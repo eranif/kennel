@@ -55,31 +55,6 @@ wxString RootFrom(const wxString &folder, const wxString &cdup,
   return path.empty() ? wxString(root.GetPathSeparator(format)) : path;
 }
 
-#ifdef _WIN32
-// `arg` as one argument of a Windows command line (the rules of the C runtime).
-std::string QuoteArg(const std::string &arg) {
-  if (!arg.empty() && arg.find_first_of(" \t\n\v\"") == std::string::npos) {
-    return arg;
-  }
-  std::string quoted = "\"";
-  size_t backslashes = 0;
-  for (const char c : arg) {
-    if (c == '\\') {
-      ++backslashes;
-      continue;
-    }
-    if (c == '"') {
-      quoted.append(backslashes * 2 + 1, '\\'); // Escape them and the quote
-    } else {
-      quoted.append(backslashes, '\\');
-    }
-    backslashes = 0;
-    quoted += c;
-  }
-  quoted.append(backslashes * 2, '\\'); // Before the closing quote
-  return quoted + "\"";
-}
-#endif
 } // namespace
 
 GitDriver::GitDriver(const wxString &folder)
@@ -132,15 +107,11 @@ void GitDriver::WorkerLoop() {
 }
 
 ProcessOutput GitDriver::RunProcess(const std::vector<std::string> &argv) {
-#ifdef _WIN32
   std::vector<std::string> quoted;
   for (const auto &arg : argv) {
-    quoted.push_back(QuoteArg(arg));
+    quoted.push_back(Process::QuoteArgument(arg));
   }
   return Process::RunProcessAndWait(quoted);
-#else
-  return Process::RunProcessAndWait(argv);
-#endif
 }
 
 void GitDriver::Status() {

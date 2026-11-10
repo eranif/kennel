@@ -277,7 +277,11 @@ add_library(
   src/core/GitDriver.cpp
   src/core/GitDriverLocal.cpp
   src/core/GitDriverWSL.cpp
-  src/core/GitDriverSSH.cpp)
+  src/core/GitDriverSSH.cpp
+  src/core/Sha256.cpp
+  src/core/TarGz.cpp
+  src/core/Ripgrep.cpp
+  src/core/FindInFiles.cpp)
 
 target_include_directories(kennel_core PUBLIC src ${wxWidgets_INCLUDE_DIRS})
 # libssh is an implementation detail of SftpClient.cpp, SshClient.cpp and their
