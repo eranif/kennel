@@ -173,7 +173,7 @@ wxString MimeNameFor(const wxString &path) {
       {"xslt", "xml"},   {"xrc", "xml"},     {"xsd", "xml"},
       {"plist", "xml"},  {"cmake", "cmake"}, {"json", "json"},
       {"wxcp", "json"},  {"jsonl", "json"},  {"workspace", "json"},
-      {"jsonc", "json"},
+      {"jsonc", "json"}, {"diff", "diff"},   {"patch", "diff"},
   };
 
   const int dot = file.Find('.', /*fromEnd=*/true);

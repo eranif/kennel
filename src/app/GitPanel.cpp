@@ -369,8 +369,9 @@ void GitPanel::OnContextMenu(wxDataViewEvent &event) {
 
   wxMenu menu;
   if (single) {
-    menu.Append(kIdShowDiff, _("Show Diff"));
     menu.Append(kIdOpenFile, _("Open File"))->Enable(!rows[0]->deleted);
+    menu.AppendSeparator();
+    menu.Append(kIdShowDiff, _("Show Diff"));
     // A file on a remote host cannot be opened by this computer.
     if (!m_account.IsRemote()) {
       menu.Append(kIdOpenDefault, _("Open with Default App"))
