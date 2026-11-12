@@ -953,12 +953,13 @@ void SessionPage::CreateToolBar() {
   toolbar::ApplyStyle(m_toolbar);
   toolbar::AddTool(m_toolbar, ID_RESTART, _("Restart"),
                    bmps.Get("restart", false), _("Restart the session"));
-  // A drop-down button: the button and its arrow both open the menu.
-  toolbar::AddTool(m_toolbar, ID_REVIEW_BUDDY, _("Review Buddy"),
-                   bmps.Get("code-reviewer", false), _("Run Review Buddy"),
-                   wxITEM_DROPDOWN);
-  // A terminal is that terminal already: only an agent gets this tool.
+  // Only an agent gets these tools: a terminal has no review buddy, and it is
+  // that terminal already.
   if (!IsPlainTerminal()) {
+    // The button asks which agent reviews, or opens the menu of a review that
+    // is open.
+    toolbar::AddTool(m_toolbar, ID_REVIEW_BUDDY, _("Review Buddy"),
+                     bmps.Get("code-reviewer", false), _("Run Review Buddy"));
     toolbar::AddTool(m_toolbar, ID_TERMINAL, _("Terminal"),
                      bmps.Get("terminal", false),
                      _("Open a terminal in the folder and on the host of this "
@@ -975,8 +976,6 @@ void SessionPage::CreateToolBar() {
   m_toolbar->Realize();
 
   m_toolbar->Bind(wxEVT_TOOL, &SessionPage::OnToolRestart, this, ID_RESTART);
-  m_toolbar->Bind(wxEVT_AUITOOLBAR_TOOL_DROPDOWN,
-                  &SessionPage::OnToolReviewBuddy, this, ID_REVIEW_BUDDY);
   m_toolbar->Bind(wxEVT_TOOL, &SessionPage::OnToolReviewBuddy, this,
                   ID_REVIEW_BUDDY);
   m_toolbar->Bind(wxEVT_TOOL, &SessionPage::OnToolTerminal, this, ID_TERMINAL);
@@ -1078,46 +1077,20 @@ void SessionPage::OnToolHasTerminalUI(wxUpdateUIEvent &event) {
 
 void SessionPage::OnToolReviewBuddyUI(wxUpdateUIEvent &event) {
   // Only an agent can have a buddy (not a plain terminal or a scheduled job).
-  event.Enable(m_terminal != nullptr && m_agent && !m_session.IsJobRun());
+  event.Enable(SupportsReviewBuddy());
 }
 
 void SessionPage::OnToolReviewBuddy(wxCommandEvent &) {
-  // Not skipped: the button and its arrow both open the menu.
-  wxMenu menu;
-  if (m_review) {
-    // There is a review: the menu to manage it.
-    AppendReviewControls(menu);
-  } else if (m_agent && !m_session.IsJobRun()) {
-    RefreshGitState();
-    wxString whyNot;
-    const auto candidates = GetReviewerCandidates();
-    if (!CanHaveReviewBuddy(whyNot)) {
-      menu.Append(wxID_ANY,
-                  _("Review Buddy is not available") + " (" + whyNot + ")")
-          ->Enable(false);
-    } else if (candidates.empty()) {
-      menu.Append(wxID_ANY, _("No agent on this host to review with"))
-          ->Enable(false);
-    } else {
-      // Pick the agent of the review.
-      std::map<int, AgentDef> byId;
-      int id = wxID_HIGHEST + 1;
-      for (const AgentDef &candidate : candidates) {
-        menu.Append(id, wxString::Format(_("Review with %s"), candidate.name));
-        byId.emplace(id++, candidate);
-      }
-      menu.Bind(wxEVT_MENU, [this, byId](wxCommandEvent &event) {
-        auto it = byId.find(event.GetId());
-        if (it != byId.end()) {
-          // Deferred: leave the menu's callback first.
-          CallAfter(&SessionPage::LaunchReviewBuddy, it->second);
-        }
-      });
-    }
-  }
-  if (menu.GetMenuItemCount() == 0) {
+  // The button asks which agent reviews, or opens the menu of the review that
+  // is open.
+  if (!m_review) {
+    // Deferred: leave the toolbar's callback first.
+    CallAfter(&SessionPage::ChooseReviewBuddy);
     return;
   }
+  // There is a review: the menu to manage it.
+  wxMenu menu;
+  AppendReviewControls(menu);
   // Below the button: the top-left corner of the menu at the bottom-left
   // corner of the button.
   m_toolbar->SetToolSticky(ID_REVIEW_BUDDY, true);
@@ -1177,6 +1150,96 @@ void SessionPage::StopReviewBuddy() {
   if (m_review) {
     CallAfter(&SessionPage::CloseReviewBuddy);
   }
+}
+
+bool SessionPage::SupportsReviewBuddy() const {
+  return m_terminal != nullptr && m_agent && !m_session.IsJobRun();
+}
+
+void SessionPage::ChooseReviewBuddy() {
+  if (m_review) {
+    return;
+  }
+  std::vector<AgentDef> reviewers;
+  const wxString why = GetReviewBuddyUnavailableReason(&reviewers);
+  if (!why.empty()) {
+    wxMessageBox(_("Review Buddy is not available") + " (" + why + ")",
+                 _("Review Buddy"), wxOK | wxICON_INFORMATION, this);
+    return;
+  }
+  if (reviewers.size() == 1) {
+    // Nothing to choose: start it with the one.
+    LaunchReviewBuddy(reviewers.front());
+    return;
+  }
+  wxArrayString names;
+  for (const AgentDef &reviewer : reviewers) {
+    names.Add(reviewer.name);
+  }
+  wxSingleChoiceDialog dialog(this, _("Review this session with:"),
+                              _("Review Buddy"), names);
+  dialog.SetSelection(0);
+  if (dialog.ShowModal() != wxID_OK) {
+    return;
+  }
+  // The dialog ran an event loop: the session may have ended or restarted, or
+  // another way (the Goto Anything command) may have started a review buddy.
+  if (m_review || !SupportsReviewBuddy()) {
+    return;
+  }
+  const int selection = dialog.GetSelection();
+  if (selection >= 0 && selection < static_cast<int>(reviewers.size())) {
+    // Deferred: leave the dialog first.
+    CallAfter(&SessionPage::LaunchReviewBuddy, reviewers[selection]);
+  }
+}
+
+wxString
+SessionPage::GetReviewBuddyUnavailableReason(std::vector<AgentDef> *reviewers) {
+  if (!SupportsReviewBuddy()) {
+    return _("only an agent session can have one");
+  }
+  RefreshGitState();
+  wxString whyNot;
+  if (!CanHaveReviewBuddy(whyNot)) {
+    return whyNot;
+  }
+  std::vector<AgentDef> candidates = GetReviewerCandidates();
+  if (candidates.empty()) {
+    return _("no agent on this host to review with");
+  }
+  if (reviewers != nullptr) {
+    *reviewers = std::move(candidates);
+  }
+  return wxString();
+}
+
+wxString SessionPage::DescribeReviewBuddy() const {
+  return m_review ? m_review->Describe() : wxString();
+}
+
+bool SessionPage::IsReviewBuddyLive() const {
+  return m_review && (m_review->IsRunning() || m_review->HasStalled());
+}
+
+bool SessionPage::CanResendReview() const {
+  return m_review && !m_review->IsBusy();
+}
+
+void SessionPage::ResendReview() {
+  if (m_review) {
+    m_review->Resend();
+  }
+}
+
+void SessionPage::StopReview() {
+  if (m_review) {
+    m_review->Stop();
+  }
+}
+
+bool SessionPage::HasLatestReview() const {
+  return m_review && !m_review->CommentsPath().empty();
 }
 
 std::vector<AgentDef> SessionPage::GetReviewerCandidates() const {

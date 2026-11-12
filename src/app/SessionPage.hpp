@@ -100,6 +100,34 @@ public:
   bool HasReviewBuddy() const { return m_review != nullptr; }
   // Closes the review buddy that is open.
   void StopReviewBuddy();
+  // Whether this is a session that can have a review buddy at all: an agent
+  // that runs (not a plain terminal or a scheduled job).
+  bool SupportsReviewBuddy() const;
+  // Asks which agent reviews this session (a list in a dialog), then starts the
+  // review buddy with it. Tells the user why when it can not be started now.
+  // Shows a dialog: call it after the handler of a menu or a button has ended
+  // (CallAfter()).
+  void ChooseReviewBuddy();
+  // Why a review buddy can not be started now (an agent can have one if it is
+  // in a git repository and another agent runs on the same host); empty when it
+  // can. In that case `reviewers`, when given, gets the agents it can be
+  // started with (the same as GetReviewBuddyChoices(), without looking twice).
+  wxString
+  GetReviewBuddyUnavailableReason(std::vector<AgentDef> *reviewers = nullptr);
+  // What the open review buddy is doing; empty when none is open.
+  wxString DescribeReviewBuddy() const;
+  // The open review buddy is running or has stalled: it can be sent the request
+  // again or be stopped.
+  bool IsReviewBuddyLive() const;
+  // The request can be sent again now (nothing is being written or checked).
+  bool CanResendReview() const;
+  void ResendReview();
+  // Stops the review, and leaves the review buddy open.
+  void StopReview();
+  // Whether the open review buddy has written a review to open.
+  bool HasLatestReview() const;
+  // Opens the file of the latest review.
+  void OpenLatestReview();
 
 private:
   void CreateTerminal();
@@ -224,7 +252,6 @@ private:
   // Destroys the reviewer's pane and terminal; no UI work around it.
   void DestroyReviewPane();
   void CloseReviewBuddy();
-  void OpenLatestReview();
   wxBookCtrlBase *GetBook() const {
     return dynamic_cast<wxBookCtrlBase *>(GetParent());
   }

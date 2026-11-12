@@ -323,6 +323,9 @@ void MainView::LoadBitmaps() {
   bmps.Load("job.svg");
   bmps.AddAlias("job.svg", "job");
 
+  bmps.Load("archive.svg");
+  bmps.AddAlias("archive.svg", "archive");
+
   bmps.Load("pin.svg");
   bmps.AddAlias("pin.svg", "pin");
 

@@ -1,5 +1,6 @@
 #include "app/AcceleratorInterceptor.h"
 #include "app/MainFrame.h"
+#include "app/ReviewBuddyMenu.hpp"
 #include "wx/app.h"
 #include "wx/xrc/xmlres.h"
 
@@ -79,6 +80,22 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     // Open File. Plain Ctrl+O is left to the terminal (Claude Code uses it).
     wxCommandEvent evtOpenFile{wxEVT_MENU, XRCID("open-file")};
     wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(evtOpenFile);
+    return;
+  } else if (keyEvent.GetUnicodeKey() == 'A' &&
+             keyEvent.GetModifiers() == (wxMOD_CONTROL | wxMOD_SHIFT)) {
+    // Archived Sessions. Ctrl+A alone stays select all.
+    wxCommandEvent evtArchive{wxEVT_MENU, XRCID("archived-sessions")};
+    wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(evtArchive);
+    return;
+  } else if (keyEvent.GetUnicodeKey() == 'R' &&
+             keyEvent.GetModifiers() == (wxMOD_CONTROL | wxMOD_SHIFT) &&
+             ReviewBuddyMenu::CanStart(
+                 GetMainFrame()->GetMainView()->GetSessionsBook())) {
+    // Start Review Buddy, in an agent's terminal too. Where it can not be used
+    // (a terminal, a job, a review buddy that is open) the key goes on to the
+    // terminal.
+    wxCommandEvent evtReview{wxEVT_MENU, XRCID(ReviewBuddyMenu::kStartId)};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtReview);
     return;
   } else if (keyEvent.GetUnicodeKey() == 'E' &&
              keyEvent.GetModifiers() == wxMOD_CONTROL) {

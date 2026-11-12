@@ -326,6 +326,7 @@ set(KENNEL_APP_SOURCES
     src/app/JobLogViewer.cpp
     src/app/Editor.cpp
     src/app/EditMenu.cpp
+    src/app/ReviewBuddyMenu.cpp
     src/app/SettingsDlg.cpp
     src/app/EditHosts.cpp
     src/app/ThemeLoader.cpp

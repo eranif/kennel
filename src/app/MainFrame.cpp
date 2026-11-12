@@ -15,6 +15,7 @@
 #include "app/PageNames.h"
 #include "app/PageViewEvent.hpp"
 #include "app/PopupStyle.hpp"
+#include "app/ReviewBuddyMenu.hpp"
 #include "app/SessionPage.hpp"
 #include "app/SettingsDlg.hpp"
 #include "app/ToolBarArt.h"
@@ -307,6 +308,8 @@ void MainFrame::BuildToolBar() {
   Bind(wxEVT_TOOL, &MainFrame::OnStartAgent, this, XRCID("start-agent"));
   Bind(wxEVT_TOOL, &MainFrame::OnNewTerminal, this, XRCID("start-terminal"));
   Bind(wxEVT_TOOL, &MainFrame::OnManageJobs, this, XRCID("manage-jobs"));
+  Bind(wxEVT_TOOL, &MainFrame::OnArchivedSessions, this,
+       XRCID("archived-sessions"));
 
   // Static content first...
   toolbar::AddTool(m_toolBar, XRCID("start-agent"), _("Start a New Agent"),
@@ -314,8 +317,13 @@ void MainFrame::BuildToolBar() {
   toolbar::AddTool(m_toolBar, XRCID("start-terminal"),
                    _("Start a New Terminal"), bmps.Get("terminal", true),
                    _("Start a New Terminal"));
+  // The jobs and the archive are one group.
+  m_toolBar->AddSeparator();
   toolbar::AddTool(m_toolBar, XRCID("manage-jobs"), _("Manage Jobs"),
                    bmps.Get("job", true), _("Manage Jobs"));
+  toolbar::AddTool(m_toolBar, XRCID("archived-sessions"), _("Archive"),
+                   bmps.Get("archive", true),
+                   _("Restore or delete the archived sessions"));
   m_toolBar->AddSeparator();
   BuildLaunchTools();
   m_toolBar->Realize();
@@ -400,7 +408,10 @@ void MainFrame::BuildMenuBar() {
                    _("Close every session in every group"));
   Bind(wxEVT_MENU, &MainFrame::OnCloseAllSessions, this, wxID_CLOSE_ALL);
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnCloseAllSessionsUI, this, wxID_CLOSE_ALL);
-  fileMenu->Append(XRCID("archived-sessions"), _("Archived Sessions..."),
+  // AcceleratorInterceptor handles the key (a terminal would get it
+  // otherwise); the text after the tab shows it.
+  fileMenu->Append(XRCID("archived-sessions"),
+                   _("Archived Sessions...\tCtrl+Shift+A"),
                    _("Restore or delete the archived sessions"));
   Bind(wxEVT_MENU, &MainFrame::OnArchivedSessions, this,
        XRCID("archived-sessions"));
@@ -415,10 +426,36 @@ void MainFrame::BuildMenuBar() {
   BuildSearchMenu(menuBar);
   BuildViewMenu(menuBar);
   BuildJobsMenu(menuBar);
+  BuildReviewBuddyMenu(menuBar);
   BuildSettingsMenu(menuBar);
   SetMenuBar(menuBar);
+  ShowShortcutsInToolTips();
 
   Bind(wxEVT_MENU, [this](wxCommandEvent &) { Close(); }, wxID_EXIT);
+}
+
+void MainFrame::ShowShortcutsInToolTips() {
+  // A tool of the toolbar and an item of the menus with the same id are the
+  // same command: the tool shows the shortcut of the item, so there is one
+  // place that says what the key is.
+  wxMenuBar *menuBar = GetMenuBar();
+  for (size_t i = 0; i < m_toolBar->GetToolCount(); ++i) {
+    wxAuiToolBarItem *tool = m_toolBar->FindToolByIndex(i);
+    if (tool == nullptr || tool->GetKind() == wxITEM_SEPARATOR) {
+      continue;
+    }
+    wxMenuItem *item = menuBar->FindItem(tool->GetId());
+    if (item == nullptr) {
+      continue;
+    }
+    std::unique_ptr<wxAcceleratorEntry> accel(item->GetAccel());
+    if (accel == nullptr) {
+      continue;
+    }
+    m_toolBar->SetToolShortHelp(
+        tool->GetId(),
+        wxString::Format("%s\n%s", tool->GetShortHelp(), accel->ToString()));
+  }
 }
 
 void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
@@ -862,6 +899,12 @@ std::vector<GotoItem> MainFrame::CollectGotoItems() {
   // showing, so its items are only here then.
   if (wxMenuBar *menuBar = GetMenuBar()) {
     for (size_t i = 0; i < menuBar->GetMenuCount(); ++i) {
+      // The review buddy has its own entries above (its menu is made when it
+      // opens).
+      if (m_reviewBuddyMenu &&
+          menuBar->GetMenu(i) == m_reviewBuddyMenu->GetMenu()) {
+        continue;
+      }
       CollectMenuItems(menuBar->GetMenu(i),
                        menuBar->GetMenuLabelText(i) + " > ", items);
     }
@@ -928,6 +971,15 @@ void MainFrame::BuildEditMenu(wxMenuBar *menuBar) {
   // The menu is in the bar only while a file is showing.
   m_editMenu = std::make_unique<EditMenu>(this, m_mainView->GetSessionsBook());
   m_editMenu->AddTo(menuBar);
+}
+
+void MainFrame::BuildReviewBuddyMenu(wxMenuBar *menuBar) {
+  // The menu is in the bar only while a session is showing, after the Jobs menu
+  // (the last one of the bar now).
+  m_reviewBuddyMenu =
+      std::make_unique<ReviewBuddyMenu>(this, m_mainView->GetSessionsBook());
+  m_reviewBuddyMenu->AddTo(menuBar,
+                           menuBar->GetMenu(menuBar->GetMenuCount() - 1));
 }
 
 void MainFrame::BuildJobsMenu(wxMenuBar *menuBar) {

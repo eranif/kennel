@@ -23,6 +23,7 @@
 // with that client preselected. Shared state is reached via AppManager::Get().
 class AgentScanEvent;
 class EditMenu;
+class ReviewBuddyMenu;
 class SessionPage;
 struct GotoItem;
 class MainFrame : public wxFrame {
@@ -72,6 +73,9 @@ private:
   // same wx ids as the toolbar tools (see kFirstClientToolId /
   // m_clientToolIds), so both share OnLaunchClient.
   void BuildMenuBar();
+  // Adds the shortcut of the menu item with the same id to the tooltip of each
+  // tool of the toolbar. Call it once the menu bar is set.
+  void ShowShortcutsInToolTips();
 
   void OnActivate(wxActivateEvent &event);
 
@@ -103,6 +107,8 @@ private:
 
   // Appends edit menu.
   void BuildEditMenu(wxMenuBar *menuBar);
+  // Call it right after the Jobs menu was added: it goes after that one.
+  void BuildReviewBuddyMenu(wxMenuBar *menuBar);
 
   // Appends the Jobs menu.
   void BuildJobsMenu(wxMenuBar *menuBar);
@@ -208,6 +214,7 @@ private:
   std::unique_ptr<UpdateChecker> m_updateChecker;
   std::unique_ptr<JobScheduler> m_jobScheduler;
   std::unique_ptr<EditMenu> m_editMenu;
+  std::unique_ptr<ReviewBuddyMenu> m_reviewBuddyMenu;
 
   // Fires once, 500ms after the frame is constructed (see FinaliseStartup()).
   static constexpr int kStartupTimerId = wxID_HIGHEST + 100;
