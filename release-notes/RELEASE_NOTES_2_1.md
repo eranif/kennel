@@ -3,10 +3,10 @@
 *Covers changes since tag `2.0.0`.*
 
 Kennel 2.1.0 polishes the window that 2.0 introduced. The main toolbar has a new look and gains
-an **Archive** button, every toolbar button shows its keyboard shortcut, and the height of the
-tabs is now a setting you can change from the right-click menu of the tab bar and see at once.
-**Review Buddy** has a menu of its own and a shortcut. **Goto Anything** and the page switcher
-open as popups at the top of the window.
+an **Archive** button, the buttons of the main toolbar show their keyboard shortcut, and the
+height of the tabs is now a setting you can change from the right-click menu of the tab bar and
+see at once. **Review Buddy** has a menu of its own and a shortcut. **Goto Anything** and the
+page switcher open at the top of the window, with rounded corners and a shadow.
 
 Highlights:
 
@@ -15,7 +15,7 @@ Highlights:
 - A new **Tab Height** setting with four sizes (Short, Small, Medium, Tall), applied live to the
   notebook and to the Side Bar, and available from the right-click menu of the tab bar.
 - A **Review Buddy menu** and the shortcut **Ctrl+Shift+R** (Cmd+Shift+R on macOS).
-- **Goto Anything** and the page switcher as popups.
+- **Goto Anything** and the page switcher open at the top of the window.
 - Find starts with the selected text, also in a terminal.
 
 ## Major Improvements
@@ -26,14 +26,17 @@ Highlights:
   bar in the color of the theme, with the buttons of a group sitting together on a rounded pill
   that looks sunk into the bar, and a gap between groups. Tools are larger, hovered and pressed
   buttons are highlighted with a circle, and a button with a drop-down has its arrow under the
-  icon. It is the same toolbar on every platform (on macOS it is no longer the native toolbar).
+  icon. It is the same toolbar on every platform: on macOS it is no longer drawn by the generic
+  `wxToolBar`.
 - **An Archive button.** It opens **Archived Sessions**, where you restore or delete the sessions
   you have archived. It sits in a group with **Manage Jobs**, between the buttons that start a
   session and the buttons of your agents. The shortcut is **Ctrl+Shift+A** (Cmd+Shift+A on
   macOS), also while a terminal has the focus.
-- **Tooltips show the shortcut.** A button that has a keyboard shortcut shows it on its own line
-  below its name, for example **Start a New Agent** and **Ctrl+T**. The shortcut is the one of the
-  menu item that does the same, so there is one place that says what the key is.
+- **Tooltips show the shortcut.** A button of the main toolbar that has a keyboard shortcut shows
+  it on its own line below its name, for example **Start a New Agent** and **Ctrl+T**. That is
+  **Start a New Agent** (Ctrl+T), **Start a New Terminal** (Ctrl+E) and **Archive**
+  (Ctrl+Shift+A); **Manage Jobs** and the buttons of the agents have no shortcut. The shortcut is
+  the one of the menu item that does the same, so there is one place that says what the key is.
 - The toolbars at the top of a session and of a file keep a plain background.
 
 ### Tab height
@@ -54,22 +57,25 @@ Highlights:
   Buddy...**, what the review buddy is doing, **Send the Request Again**, **Stop the Review**,
   **Open the Latest Review** and **Close Review Buddy**.
 - **Ctrl+Shift+R** (Cmd+Shift+R on macOS) starts a review buddy, also while the agent's terminal
-  has the focus. Where it can not be used (a terminal, a scheduled job, a review buddy that is
-  open) the key goes on to the terminal.
+  has the focus. On Windows and Linux, where the key can not be used (a terminal, a scheduled
+  job, a review buddy that is open) it goes on to the terminal.
 - **Start Review Buddy...** shows a list of the agents that can review the session, instead of
   one menu entry for each agent. When there is only one, the review starts at once. If a review
-  can not be started (the folder is not a git repository, no other agent runs on the same
-  host), a message says why.
+  can not be started (the folder is not a git repository, no agent runs on the same host as the
+  session), a message says why.
 - The Review Buddy button is no longer in the toolbar of a plain terminal. The menu of the button
   opens below it, and no longer covers it.
 
 ### Goto Anything and the page switcher
 
-- **Both are popups** that do not take the activation from the window. They open at the top of
-  the window, centered, with rounded corners and a shadow (Windows 11, macOS). The page switcher
-  closes when you release Ctrl, press Escape, or click outside of it.
-- On macOS the popups are translucent, with a blurred background, and the lists have no row
-  lines.
+- **Both open at the top of the window**, centered, with rounded corners and a shadow (on
+  Windows and macOS).
+- **The page switcher is a popup.** It takes half the width and a quarter of the height of the
+  window, and does not take the activation from it. It closes when you release Ctrl, press
+  Escape, or click outside of it.
+- **Goto Anything** is a dialog styled like that popup, placed just below the title bar of the
+  window.
+- On macOS the popups are translucent, with a blurred background.
 - The shortcuts in Goto Anything are shown with the names of the keys of the platform (for
   example Cmd on macOS).
 
@@ -85,12 +91,14 @@ Highlights:
 ### Other improvements
 
 - **OSC 52 copy requests are handled.** A program in the terminal can copy text to the clipboard.
-  The copy is done only when that terminal is the one you are looking at.
+  The copy is done only while that terminal has the keyboard focus, so a program in a tab in the
+  background can not change your clipboard.
 - **Diffs have an icon.** The tabs of the diffs of the Git view (`.diff`, `.staged.diff`) and
   the files with the extensions `diff` and `patch` show an icon of their own: a green plus and a
   red minus.
 - **The context menu of the Git view starts with Open File**, then a separator, then the other
-  entries. It also has **Open with Default App**.
+  entries. For a single file it also has **Open with Default App** (not for a file on a remote
+  host, which this computer can not open).
 - **The captions of the side panes** use the colors of the terminal theme and follow it when it
   changes.
 - **On macOS** the tab bar of the notebook shows a blurred view of the desktop where it has no
@@ -107,8 +115,8 @@ Highlights:
   command line in UTF-16, so a folder such as `C:\Users\José\project` or `D:\проект` is passed
   correctly to `git` and to the other programs that Kennel runs. Before, the system code page
   could garble it.
-- **macOS:** Kennel links the Cocoa framework that the new popups need, and the build no longer
-  prints the `NSOpenGLContext` deprecation warning of the wxWidgets headers.
+- **macOS build:** Kennel links the Cocoa framework that the new popups need, and the build no
+  longer prints the `NSOpenGLContext` deprecation warning of the wxWidgets headers.
 
 ## Internal Changes
 
