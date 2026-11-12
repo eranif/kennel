@@ -16,6 +16,10 @@
 #include <optional>
 
 wxDECLARE_EVENT(wxEVT_APP_PREFS_CHANGED, wxCommandEvent);
+// Sent by the settings dialog while the user picks a tab height, before it is
+// saved: GetInt() is the TabHeight. The tab bars show it as a preview (and the
+// dialog sends the saved height again when it is cancelled).
+wxDECLARE_EVENT(wxEVT_APP_TAB_HEIGHT_PREVIEW, wxCommandEvent);
 
 // Process-wide owner of the application's configuration and persistence
 // objects (paths, config + its store, adapter registry, workspace store, UI

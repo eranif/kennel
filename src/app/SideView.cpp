@@ -7,6 +7,7 @@
 #include "app/PageNames.h"
 #include "app/SettingsDlg.hpp"
 #include "app/TabIcon.h"
+#include "app/TabPadding.h"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
 #include "core/GitDriver.h"
@@ -50,6 +51,8 @@ SideView::SideView(wxWindow *parent) : SideViewBase(parent) {
   notifier->Bind(wxEVT_FILE_REVEAL, &SideView::OnFileReveal, this);
   // The remote trees answer on the notifier (see ShowContext()).
   notifier->Bind(wxEVT_FILETREE_CONNECTED, &SideView::OnTreeConnected, this);
+  notifier->Bind(wxEVT_APP_TAB_HEIGHT_PREVIEW, &SideView::OnTabHeightPreview,
+                 this);
 }
 
 SideView::~SideView() {
@@ -74,6 +77,8 @@ SideView::~SideView() {
   notifier->Unbind(wxEVT_FILE_SAVED, &SideView::OnFileSaved, this);
   notifier->Unbind(wxEVT_FILE_REVEAL, &SideView::OnFileReveal, this);
   notifier->Unbind(wxEVT_FILETREE_CONNECTED, &SideView::OnTreeConnected, this);
+  notifier->Unbind(wxEVT_APP_TAB_HEIGHT_PREVIEW, &SideView::OnTabHeightPreview,
+                   this);
   // The drivers of the contexts that are left end here, with the others.
   for (auto &[key, context] : m_contexts) {
     ReapDriver(context.git->ReleaseDriver());
@@ -137,6 +142,14 @@ void SideView::ApplyPrefs() {
   // Top or bottom: a vertical tab bar would take the width of the side bar.
   m_auiSideBook->SetTabPosition(prefs.sideBarTabPosition == wxBOTTOM ? wxBOTTOM
                                                                      : wxTOP);
+  m_auiSideBook->SetTabPaddingY(TabPaddingOf(prefs.tabHeight));
+  m_auiSideBook->Refresh();
+}
+
+void SideView::OnTabHeightPreview(wxCommandEvent &event) {
+  event.Skip(); // The notebook shows it too
+  m_auiSideBook->SetTabPaddingY(
+      TabPaddingOf(static_cast<TabHeight>(event.GetInt())));
   m_auiSideBook->Refresh();
 }
 

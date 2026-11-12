@@ -20,6 +20,7 @@
 #include "app/SessionPage.hpp"
 #include "app/SettingsDlg.hpp"
 #include "app/TabIcon.h"
+#include "app/TabPadding.h"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/ClientAdapter.h"
@@ -57,19 +58,6 @@ wxString TitleOf(wxWindow *page) {
     return file->GetDisplayName();
   }
   return wxString{};
-}
-
-// The vertical padding of a tab in DIPs; no value is the default of the book.
-std::optional<int> TabPaddingOf(TabHeight height) {
-  switch (height) {
-  case TabHeight::Medium:
-    return 10;
-  case TabHeight::Tall:
-    return 14;
-  case TabHeight::Short:
-    break;
-  }
-  return std::nullopt;
 }
 
 wxBitmapBundle IconOf(wxWindow *page) {
@@ -185,6 +173,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
                              &MainNotebook::OnGitTerminal, this);
   EventNotifier::Get()->Bind(wxEVT_APP_PREFS_CHANGED,
                              &MainNotebook::OnAppPrefsSaved, this);
+  EventNotifier::Get()->Bind(wxEVT_APP_TAB_HEIGHT_PREVIEW,
+                             &MainNotebook::OnTabHeightPreview, this);
   EventNotifier::Get()->Bind(wxEVT_FILE_MODIFIED_CHANGED,
                              &MainNotebook::OnFileModifiedChanged, this);
   EventNotifier::Get()->Bind(wxEVT_FILE_PATH_CHANGED,
@@ -232,6 +222,8 @@ MainNotebook::~MainNotebook() {
                                &MainNotebook::OnGitTerminal, this);
   EventNotifier::Get()->Unbind(wxEVT_APP_PREFS_CHANGED,
                                &MainNotebook::OnAppPrefsSaved, this);
+  EventNotifier::Get()->Unbind(wxEVT_APP_TAB_HEIGHT_PREVIEW,
+                               &MainNotebook::OnTabHeightPreview, this);
   EventNotifier::Get()->Unbind(wxEVT_FILE_MODIFIED_CHANGED,
                                &MainNotebook::OnFileModifiedChanged, this);
   EventNotifier::Get()->Unbind(wxEVT_FILE_PATH_CHANGED,
@@ -1776,6 +1768,12 @@ void MainNotebook::OnThemeApplied(wxCommandEvent &event) {
   m_book->SetWindowStyleFlag(flags);
   m_book->SetTabPosition(prefs.tabPosition);
   m_book->SetTabPaddingY(TabPaddingOf(prefs.tabHeight));
+  m_book->Refresh();
+}
+
+void MainNotebook::OnTabHeightPreview(wxCommandEvent &event) {
+  event.Skip(); // The side bar shows it too
+  m_book->SetTabPaddingY(TabPaddingOf(static_cast<TabHeight>(event.GetInt())));
   m_book->Refresh();
 }
 

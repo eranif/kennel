@@ -50,11 +50,11 @@ static void wxCrafterFiTVkcInitBitmapResources() {
 
   XRC_ADD_FILE(
       wxT("XRC_resource/"
-          "UI.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"),
+          "UI.cpp$C__msys64_home_eran_devl_kennel_src_app_UI_app_bitmaps.xrc"),
       xml_res_file_0, xml_res_size_0, wxT("text/xml"));
   wxXmlResource::Get()->Load(
       wxT("memory:XRC_resource/"
-          "UI.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"));
+          "UI.cpp$C__msys64_home_eran_devl_kennel_src_app_UI_app_bitmaps.xrc"));
 }
 
 #ifdef WXC_MAYBE_UNUSED
@@ -1543,12 +1543,13 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
 
   wxArrayString m_choiceTabHeightArr;
   m_choiceTabHeightArr.Add(_("Short"));
+  m_choiceTabHeightArr.Add(_("Small"));
   m_choiceTabHeightArr.Add(_("Medium"));
   m_choiceTabHeightArr.Add(_("Tall"));
   m_choiceTabHeight = new wxChoice(m_panel353, wxID_ANY, wxDefaultPosition,
                                    wxDLG_UNIT(m_panel353, wxSize(-1, -1)),
                                    m_choiceTabHeightArr, 0);
-  m_choiceTabHeight->SetSelection(1);
+  m_choiceTabHeight->SetSelection(2);
 
   flexGridSizer602->Add(m_choiceTabHeight, 0, wxALL | wxEXPAND,
                         WXC_FROM_DIP(5));

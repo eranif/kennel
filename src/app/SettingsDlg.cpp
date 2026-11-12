@@ -3,6 +3,7 @@
 #include "app/MainFrame.h"
 #include "app/ThemeManager.h"
 #include "core/AppManager.h"
+#include "core/EventNotifier.hpp"
 #include "core/Helpers.h"
 #include "terminal_view.h"
 #include <wx/tokenzr.h>
@@ -91,7 +92,33 @@ wxDirection DirectionOf(const wxString &label) {
   }
   return wxLEFT;
 }
+
+// The tab heights in the order of the choices of the dialog (the saved value of
+// a TabHeight does not follow this order, see UiPrefs.h).
+constexpr TabHeight kTabHeights[] = {TabHeight::Short, TabHeight::Small,
+                                     TabHeight::Medium, TabHeight::Tall};
 } // namespace
+
+TabHeight SettingsDlg::GetTabHeight() const {
+  const int selection = m_choiceTabHeight->GetSelection();
+  if (selection < 0 || selection >= static_cast<int>(std::size(kTabHeights))) {
+    return TabHeight::Medium;
+  }
+  return kTabHeights[selection];
+}
+
+void SettingsDlg::SendTabHeight(TabHeight height) {
+  wxCommandEvent preview(wxEVT_APP_TAB_HEIGHT_PREVIEW);
+  preview.SetInt(static_cast<int>(height));
+  EventNotifier::Get()->ProcessEvent(preview);
+}
+
+void SettingsDlg::PreviewTabHeight() { SendTabHeight(GetTabHeight()); }
+
+void SettingsDlg::RestoreTabHeight() {
+  // The prefs have the height from before the dialog until it is accepted.
+  SendTabHeight(AppManager::Get().GetPrefs().tabHeight);
+}
 
 SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
   const auto &prefs = AppManager::Get().GetPrefs();
@@ -100,8 +127,14 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
   m_fontPicker->SetSelectedFont(m_initialFont);
 
   m_choiceTabPosition->SetStringSelection(LabelOf(prefs.tabPosition));
-  // The order of the choices is the order of TabHeight.
-  m_choiceTabHeight->SetSelection(static_cast<int>(prefs.tabHeight));
+  for (size_t i = 0; i < std::size(kTabHeights); ++i) {
+    if (kTabHeights[i] == prefs.tabHeight) {
+      m_choiceTabHeight->SetSelection(static_cast<int>(i));
+    }
+  }
+  // Not in the generated dialog: the tabs show the height as it is picked.
+  m_choiceTabHeight->Bind(wxEVT_CHOICE,
+                          [this](wxCommandEvent &) { PreviewTabHeight(); });
   // The side bar has its tabs on the top or at the bottom only.
   m_choiceSideBarTabPosition->SetStringSelection(
       prefs.sideBarTabPosition == wxBOTTOM ? "Bottom" : "Top");

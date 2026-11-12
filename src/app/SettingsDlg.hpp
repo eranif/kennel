@@ -19,9 +19,7 @@ public:
   bool GetUseBlockCursor() const { return m_checkBoxBlockCaret->IsChecked(); }
   bool GetGroupTabs() const { return m_checkBoxGroupTabs->IsChecked(); }
   wxDirection GetTabPosition() const;
-  TabHeight GetTabHeight() const {
-    return static_cast<TabHeight>(m_choiceTabHeight->GetSelection());
-  }
+  TabHeight GetTabHeight() const;
   wxDirection GetSideBarTabPosition() const;
   wxString GetTabOutlineColour() const {
     return m_choiceTabOutlineColour->GetStringSelection();
@@ -59,6 +57,8 @@ public:
     return AppThemeName(GetAppTheme());
   }
   void RestoreThemeAndFont();
+  // Puts the tab height that was saved back (when the dialog is cancelled).
+  void RestoreTabHeight();
   wxApp::Appearance GetAppTheme() const {
     switch (m_choiceAppTheme->GetSelection()) {
     case 1:
@@ -77,6 +77,10 @@ protected:
   void OnBrowseForShellWorkingDir(wxCommandEvent &event) override;
   void OnChoiceTheme(wxCommandEvent &event) override;
   void OnFontSelected(wxFontPickerEvent &event) override;
+
+  // Tells the tab bars (the notebook and the side bar) to show a tab height.
+  static void SendTabHeight(TabHeight height);
+  void PreviewTabHeight();
 
   wxFont m_initialFont{wxNullFont};
   wxString m_initialTheme;

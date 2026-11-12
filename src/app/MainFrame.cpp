@@ -1034,6 +1034,7 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
 
   } else {
     settingsDlg.RestoreThemeAndFont();
+    settingsDlg.RestoreTabHeight();
   }
 }
 

@@ -15225,12 +15225,12 @@
                                             {
                                               "type": "multi-string",
                                               "m_label": "Choices:",
-                                              "m_value": "Short;Medium;Tall"
+                                              "m_value": "Short;Small;Medium;Tall"
                                             },
                                             {
                                               "type": "string",
                                               "m_label": "Selection:",
-                                              "m_value": "1"
+                                              "m_value": "2"
                                             }
                                           ],
                                           "m_events": [],

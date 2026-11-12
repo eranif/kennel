@@ -94,7 +94,7 @@ void ParsePrefs(const json &root, UiPrefs &p) {
   {
     const int height = GetInt(root, "tabHeight", static_cast<int>(p.tabHeight));
     if (height >= static_cast<int>(TabHeight::Short) &&
-        height <= static_cast<int>(TabHeight::Tall)) {
+        height <= static_cast<int>(TabHeight::Small)) {
       p.tabHeight = static_cast<TabHeight>(height);
     }
   }

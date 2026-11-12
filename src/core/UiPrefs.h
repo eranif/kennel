@@ -22,11 +22,13 @@ enum class CloseAction {
 };
 
 // The height of the tabs of the notebook. The values are saved in the prefs
-// file: do not change them.
+// file: do not change them (Small came later, so it is the last value although
+// it is shown between Short and Medium; see SettingsDlg).
 enum class TabHeight {
-  Short,  // The height the text needs
-  Medium, // A little more padding
-  Tall,   // More padding
+  Short = 0,  // The height the text needs
+  Medium = 1, // A little more padding
+  Tall = 2,   // More padding
+  Small = 3,  // A little more than Short
 };
 
 // UI preferences (.persist.json). Non-essential and safely deletable: a

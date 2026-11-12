@@ -281,6 +281,8 @@ private:
   // A theme was applied: the book gets its background and the tabs of the
   // theme.
   void OnThemeApplied(wxCommandEvent &event);
+  // The settings dialog shows a tab height before it is saved.
+  void OnTabHeightPreview(wxCommandEvent &event);
   // The application is closing: each file with changes is closed like the user
   // does (CloseFile() asks Save / Discard / Cancel). Cancel stops the closing.
   // The files are closed one by one, so the ones that were answered before a
