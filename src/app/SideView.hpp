@@ -112,8 +112,8 @@ private:
   void OnFileSaved(FileEvent &event);
   void OnFileReveal(FileEvent &event);
   void OnTreeConnected(FileTreeConnectedEvent &event);
-  // The settings dialog shows a tab height before it is saved.
-  void OnTabHeightPreview(wxCommandEvent &event);
+  // wxEVT_APP_TAB_HEIGHT: shows the tab height.
+  void OnTabHeight(wxCommandEvent &event);
 
   wxSimplebook *m_explorerBook{nullptr}; // The trees
   wxSimplebook *m_gitBook{nullptr};      // The git panels

@@ -108,7 +108,7 @@ TabHeight SettingsDlg::GetTabHeight() const {
 }
 
 void SettingsDlg::SendTabHeight(TabHeight height) {
-  wxCommandEvent preview(wxEVT_APP_TAB_HEIGHT_PREVIEW);
+  wxCommandEvent preview(wxEVT_APP_TAB_HEIGHT);
   preview.SetInt(static_cast<int>(height));
   EventNotifier::Get()->ProcessEvent(preview);
 }

@@ -51,8 +51,7 @@ SideView::SideView(wxWindow *parent) : SideViewBase(parent) {
   notifier->Bind(wxEVT_FILE_REVEAL, &SideView::OnFileReveal, this);
   // The remote trees answer on the notifier (see ShowContext()).
   notifier->Bind(wxEVT_FILETREE_CONNECTED, &SideView::OnTreeConnected, this);
-  notifier->Bind(wxEVT_APP_TAB_HEIGHT_PREVIEW, &SideView::OnTabHeightPreview,
-                 this);
+  notifier->Bind(wxEVT_APP_TAB_HEIGHT, &SideView::OnTabHeight, this);
 }
 
 SideView::~SideView() {
@@ -77,8 +76,7 @@ SideView::~SideView() {
   notifier->Unbind(wxEVT_FILE_SAVED, &SideView::OnFileSaved, this);
   notifier->Unbind(wxEVT_FILE_REVEAL, &SideView::OnFileReveal, this);
   notifier->Unbind(wxEVT_FILETREE_CONNECTED, &SideView::OnTreeConnected, this);
-  notifier->Unbind(wxEVT_APP_TAB_HEIGHT_PREVIEW, &SideView::OnTabHeightPreview,
-                   this);
+  notifier->Unbind(wxEVT_APP_TAB_HEIGHT, &SideView::OnTabHeight, this);
   // The drivers of the contexts that are left end here, with the others.
   for (auto &[key, context] : m_contexts) {
     ReapDriver(context.git->ReleaseDriver());
@@ -146,7 +144,7 @@ void SideView::ApplyPrefs() {
   m_auiSideBook->Refresh();
 }
 
-void SideView::OnTabHeightPreview(wxCommandEvent &event) {
+void SideView::OnTabHeight(wxCommandEvent &event) {
   event.Skip(); // The notebook shows it too
   m_auiSideBook->SetTabPaddingY(
       TabPaddingOf(static_cast<TabHeight>(event.GetInt())));

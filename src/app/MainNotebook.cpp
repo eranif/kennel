@@ -173,8 +173,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
                              &MainNotebook::OnGitTerminal, this);
   EventNotifier::Get()->Bind(wxEVT_APP_PREFS_CHANGED,
                              &MainNotebook::OnAppPrefsSaved, this);
-  EventNotifier::Get()->Bind(wxEVT_APP_TAB_HEIGHT_PREVIEW,
-                             &MainNotebook::OnTabHeightPreview, this);
+  EventNotifier::Get()->Bind(wxEVT_APP_TAB_HEIGHT, &MainNotebook::OnTabHeight,
+                             this);
   EventNotifier::Get()->Bind(wxEVT_FILE_MODIFIED_CHANGED,
                              &MainNotebook::OnFileModifiedChanged, this);
   EventNotifier::Get()->Bind(wxEVT_FILE_PATH_CHANGED,
@@ -222,8 +222,8 @@ MainNotebook::~MainNotebook() {
                                &MainNotebook::OnGitTerminal, this);
   EventNotifier::Get()->Unbind(wxEVT_APP_PREFS_CHANGED,
                                &MainNotebook::OnAppPrefsSaved, this);
-  EventNotifier::Get()->Unbind(wxEVT_APP_TAB_HEIGHT_PREVIEW,
-                               &MainNotebook::OnTabHeightPreview, this);
+  EventNotifier::Get()->Unbind(wxEVT_APP_TAB_HEIGHT, &MainNotebook::OnTabHeight,
+                               this);
   EventNotifier::Get()->Unbind(wxEVT_FILE_MODIFIED_CHANGED,
                                &MainNotebook::OnFileModifiedChanged, this);
   EventNotifier::Get()->Unbind(wxEVT_FILE_PATH_CHANGED,
@@ -1473,6 +1473,21 @@ void MainNotebook::SetTabPosition(wxDirection direction) {
   }
 }
 
+void MainNotebook::SetTabHeight(TabHeight height) {
+  auto &prefs = AppManager::Get().GetPrefs();
+  if (prefs.tabHeight == height) {
+    return;
+  }
+  prefs.tabHeight = height;
+  if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+    KLOG_WARN() << "Could not save the tab height: " << st.message();
+  }
+  // The tab bars show it (this one too: it listens like the side bar).
+  wxCommandEvent event(wxEVT_APP_TAB_HEIGHT);
+  event.SetInt(static_cast<int>(height));
+  EventNotifier::Get()->ProcessEvent(event);
+}
+
 void MainNotebook::StartTerminal() {
   // Restored terminals keep their names: skip the ones that are taken.
   static int terminalId{0};
@@ -1771,7 +1786,7 @@ void MainNotebook::OnThemeApplied(wxCommandEvent &event) {
   m_book->Refresh();
 }
 
-void MainNotebook::OnTabHeightPreview(wxCommandEvent &event) {
+void MainNotebook::OnTabHeight(wxCommandEvent &event) {
   event.Skip(); // The side bar shows it too
   m_book->SetTabPaddingY(TabPaddingOf(static_cast<TabHeight>(event.GetInt())));
   m_book->Refresh();

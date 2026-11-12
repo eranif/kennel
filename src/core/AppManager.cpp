@@ -6,7 +6,7 @@
 #include <cstdlib>
 
 wxDEFINE_EVENT(wxEVT_APP_PREFS_CHANGED, wxCommandEvent);
-wxDEFINE_EVENT(wxEVT_APP_TAB_HEIGHT_PREVIEW, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_APP_TAB_HEIGHT, wxCommandEvent);
 
 AppManager &AppManager::Get() {
   static AppManager instance;

@@ -8,6 +8,7 @@
 #include "core/FileLocation.h"
 #include "core/Job.h"
 #include "core/Spinner.h"
+#include "core/UiPrefs.h"
 #include "core/Workspace.h"
 
 #include <array>
@@ -87,6 +88,9 @@ public:
   void StartTerminal();
   // Moves the tabs to `direction` and remembers it in the preferences.
   void SetTabPosition(wxDirection direction);
+  // Shows `height` on the tab bars (this one and the side bar's) and remembers
+  // it in the preferences.
+  void SetTabHeight(TabHeight height);
   // Groups the tabs by session group, or ungroups them, and saves the choice.
   void ToggleGroupTabs();
 
@@ -281,8 +285,8 @@ private:
   // A theme was applied: the book gets its background and the tabs of the
   // theme.
   void OnThemeApplied(wxCommandEvent &event);
-  // The settings dialog shows a tab height before it is saved.
-  void OnTabHeightPreview(wxCommandEvent &event);
+  // wxEVT_APP_TAB_HEIGHT: shows the tab height.
+  void OnTabHeight(wxCommandEvent &event);
   // The application is closing: each file with changes is closed like the user
   // does (CloseFile() asks Save / Discard / Cancel). Cancel stops the closing.
   // The files are closed one by one, so the ones that were answered before a

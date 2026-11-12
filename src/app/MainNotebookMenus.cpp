@@ -223,6 +223,32 @@ void MainNotebook::ShowBackgroundMenu(wxWindow *on) {
         XRCID(place.id));
   }
   menu.AppendSubMenu(placeMenu, _("Tab Position"));
+
+  // How tall the tabs are (the same as Settings).
+  struct Height {
+    const char *id;
+    const char *label;
+    TabHeight height;
+  };
+  static const Height kHeights[] = {
+      {"tab-height-short", "Short", TabHeight::Short},
+      {"tab-height-small", "Small", TabHeight::Small},
+      {"tab-height-medium", "Medium", TabHeight::Medium},
+      {"tab-height-tall", "Tall", TabHeight::Tall},
+  };
+  auto *heightMenu = new wxMenu;
+  const TabHeight currentHeight = AppManager::Get().GetPrefs().tabHeight;
+  for (const Height &entry : kHeights) {
+    heightMenu->AppendRadioItem(XRCID(entry.id), wxGetTranslation(entry.label))
+        ->Check(entry.height == currentHeight);
+    heightMenu->Bind(
+        wxEVT_MENU,
+        [this, height = entry.height](wxCommandEvent &) {
+          SetTabHeight(height);
+        },
+        XRCID(entry.id));
+  }
+  menu.AppendSubMenu(heightMenu, _("Tab Height"));
   menu.AppendCheckItem(XRCID("group-tabs"), _("Group Tabs by Session Group"))
       ->Check(AppManager::Get().GetPrefs().groupTabs);
   menu.Bind(

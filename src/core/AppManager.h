@@ -16,10 +16,11 @@
 #include <optional>
 
 wxDECLARE_EVENT(wxEVT_APP_PREFS_CHANGED, wxCommandEvent);
-// Sent by the settings dialog while the user picks a tab height, before it is
-// saved: GetInt() is the TabHeight. The tab bars show it as a preview (and the
-// dialog sends the saved height again when it is cancelled).
-wxDECLARE_EVENT(wxEVT_APP_TAB_HEIGHT_PREVIEW, wxCommandEvent);
+// Asks the tab bars (the notebook and the side bar) to show a tab height:
+// GetInt() is the TabHeight. Sent by the settings dialog while the user picks
+// one, before it is saved (and with the saved one when the dialog is
+// cancelled), and by the menu of the tab bar, which saves it.
+wxDECLARE_EVENT(wxEVT_APP_TAB_HEIGHT, wxCommandEvent);
 
 // Process-wide owner of the application's configuration and persistence
 // objects (paths, config + its store, adapter registry, workspace store, UI
