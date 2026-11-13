@@ -1,0 +1,343 @@
+# Plan: tmux based sessions
+
+Progress: `[x]` done, `[ ]` open. Tick a box when its commit is pushed.
+Status as of 2026-11-13: nothing is implemented. This is a draft: the decisions in "Open
+questions" are the user's to make.
+
+## Goal
+A session can run its agent (or shell) inside a tmux session on the machine where it runs, so
+that the agent **keeps running** when Kennel is closed or crashes, when the ssh connection
+drops, or when the tab is closed on purpose. Opening Kennel again **re-attaches** to the live
+agent instead of starting a new one with `--continue`.
+
+## How a session starts today (what we build on)
+- `SessionPage::CreateTerminal()` (`src/app/SessionPage.cpp`) starts a `wxTerminalViewCtrl` with a
+  login shell (the default shell, `AgentDef::loginShell` such as `wsl.exe -d <distro>`, or a plain
+  local shell), then **types the commands into it** with `SendCommand()`.
+- `BuildCommandLine()` (`src/core/ClientAdapter.cpp`) makes those commands. `WrapCommand()` adds
+  the `ssh -o ServerAliveInterval=10 [user@]host` line for a remote agent, then `mkdir -p && cd`,
+  the `export`s, and last the agent command. Resume is `"<agent> --continue || <agent>"`.
+- When the process in the terminal ends: `wxEVT_TERMINAL_TERMINATED` -> `OnTerminated()` ->
+  `SessionStatus::Exited`. `Restart()` destroys the terminal and creates a new one with
+  `m_resume = true`.
+- A session is persisted as `Session` in `workspace.json` (`src/core/Workspace.h`). Restored
+  sessions are created with `resume = true` (`MainNotebook.cpp:1653`).
+- Closing a tab: `MainNotebook::CloseOrArchiveSession()` asks Archive / Close / Cancel.
+- `AgentDef::IsRemote()` / `IsWSL()` say where an agent runs; `SessionPage::GetAccount()` gives
+  the `Account` (local, WSL, remote).
+
+## Design
+
+### What runs
+Per session, on the machine of the agent, **one tmux session** with one window, in a tmux server
+that **only Kennel uses**: `tmux -L kennel ...` (own socket). Why: the user's own `~/.tmux.conf`,
+key bindings and status bar do not leak into Kennel, and our options do not leak out of it.
+
+The terminal control keeps starting the same login shell as today. We change only the **commands
+that are typed** (a new function in `ClientAdapter`, next to `BuildCommandLine()`):
+
+```
+# remote: ssh ... / mkdir -p && cd / export ... as today, then:
+env -u TMUX tmux -L kennel -f /dev/null new-session -A -s <name> -c <dir> '<agent command chain>' \; \
+    set-option -g status off \; set-option -g mouse on \; set-option -g allow-passthrough all \; \
+    set-option -g set-clipboard on \; set-option -g set-titles on \; set-option -g window-size latest
+```
+
+- `<agent command chain>` is `$HOME/.kennel/bin/tmux-shim -- <agent ...>` when the shim is
+  installed (see "The shim"), otherwise the bare agent command.
+- `new-session -A` = attach if it exists, else create and run the command. The command chain is
+  the same `resume || fresh` chain as today, so: tmux session alive -> re-attach, agent untouched;
+  tmux session gone (reboot, killed) -> start the agent with `--continue`, as today.
+- Every option has `-g`: `allow-passthrough` is a pane option, and the server is ours, so
+  global is right. `allow-passthrough all` (tmux 3.4+) also forwards from a tab in the
+  background; on 3.3 use `on` (the probe picks by version).
+- `-f /dev/null` + options chained with `\;` means no config file has to be uploaded to the host.
+- `env -u TMUX` lets Kennel run when the remote shell is itself inside the user's tmux.
+- The session name is stable and unique: `kennel-<id>`, the id generated once when the session
+  is created and **persisted** in `Session` (it is state nothing else holds; the name of the
+  session is not unique across groups, so it cannot be derived).
+- Quoting: the agent chain is one `sh -c`-safe single-quoted argument; reuse/extend the quoting
+  helpers in `ClientAdapter.cpp` (the prompt quoting there is for double quotes).
+
+### Where it can run
+| Where | tmux |
+|---|---|
+| Remote host (ssh) | yes: the main target |
+| WSL distribution | yes |
+| Linux / macOS, this machine | yes |
+| Windows, this machine (cmd, PowerShell, Git Bash) | **not in v1**: there is no tmux for the Windows shells. The option is off and says why. See "Local sessions". |
+
+### Local sessions
+- **Linux and macOS (this machine): fully supported, and the easiest case.** The login shell is
+  local, so the typed command is the same `env -u TMUX tmux -L kennel ... new-session -A ...`
+  without the `ssh` line. `TmuxClient` runs tmux with `Process` directly. tmux comes from the
+  package manager (`apt`, `brew`); the probe tells the user when it is missing. Do this first:
+  it exercises everything except ssh.
+- **Windows, agent in WSL:** already covered (a WSL agent is a WSL account). The tmux server
+  lives inside the distribution and survives Kennel closing. (A distribution that is idle may be
+  shut down by WSL itself (`vmIdleTimeout`); an attached tmux client does not count, so check
+  that a detached agent is not killed when the last `wsl.exe` ends: Phase 0.)
+- **Windows, agent running natively (a local `claude.exe` in cmd / PowerShell / Git Bash):**
+  tmux cannot host it. Three ways out, none for v1:
+  1. *MSYS2 tmux* (`pacman -S tmux`, which this project's own build environment already has):
+     works when the session's shell is an MSYS2 bash. Risks: a native Windows agent in an MSYS
+     pty (not ConPTY) can lose raw mode / `isatty`, and the tmux server must be shown to
+     outlive Kennel. Try it in Phase 0 and only then decide whether to support it, as
+     "experimental".
+  2. *A Kennel-owned persistence helper*: a small detached process that owns the ConPTY and a
+     named pipe, which Kennel attaches to (tmux without tmux). It would also work for local
+     sessions on every OS and remove the tmux dependency, but it needs `wxTerminalViewCtrl` to
+     attach to a pipe instead of spawning a process. A separate, larger project: write its own
+     plan if the Windows case matters.
+  3. *Move the agent to WSL*: the user creates a WSL agent; nothing to build.
+- Until then, on Windows a native local session shows the option disabled with the text "tmux
+  needs WSL or a remote host on Windows".
+
+### Lifecycle
+- **Agent exits** -> tmux window ends -> tmux session ends -> the terminal ends -> `Exited`, as
+  today.
+- **Detached** (new state, no mirrored flag): the terminal ended but the tmux session is still
+  there (the user pressed the detach key, ssh dropped, Kennel crashed). `OnTerminated()` asks
+  `TmuxClient::HasSession()` at that moment; if alive the page shows "Detached - Restart to
+  re-attach" and `Restart()` re-attaches (`new-session -A` does it).
+- **Close tab** (`CloseOrArchiveSession`): for a tmux session the dialog gets a third choice:
+  **Close and keep running** (detach, the tmux session stays and can be re-attached),
+  **Close and stop** (`kill-session`), Archive, Cancel. Closing Kennel itself detaches, never
+  kills.
+- **Archive**: ask the same question (keep running / stop). A kept session is re-attached when
+  the archived session is restored.
+- **Restart** of a live tmux session: re-attach. A separate "Restart agent" (kill + create with
+  resume) is only needed if re-attach is not what the user wants; see open questions.
+- **Review buddy** and **scheduled jobs** do not use tmux in v1: they are short and Kennel owns
+  their whole life.
+
+### What can break inside tmux (verify in Phase 0)
+- **Program activity (OSC 7501: working / done / blocked), cwd (OSC 7), title, OSC 52 copy:** tmux
+  swallows OSC it does not know. Needs `allow-passthrough on` (tmux 3.3+) **and** the sender
+  wrapping the sequence in a `\ePtmux;...\e\\` DCS. Find out who sends OSC 7501 (an agent hook?)
+  and whether it can wrap itself when `$TMUX` is set. Without this the spinner / check mark /
+  hand on the tab stops working in tmux sessions. This is the biggest risk.
+  tmux drops every sequence it does not know (confirmed by the user for OSC 9;4), and there is
+  no way back for the `OSC 7501;?` query, which is the only way a program learns that the
+  terminal supports the protocol. Ways out, in the order to try:
+  1. **Degrade (v1, no cost):** tmux sessions use `ActivityMonitor` (running / idle) and the
+     title (`set-titles on`); `TmuxClient` reads the cwd with `#{pane_current_path}`. No
+     spinner / check / hand, no progress bar.
+  2. **Shim in the pane (chosen, built, released as v1.0.0):** the agent runs as
+     `tmux-shim -- <agent>`. The shim owns the agent's pty, wraps OSC 7501, 9;4, 9;9 and 7 in
+     `ESC P tmux; ... ESC \` (the ESC doubled), and answers `7501;?` itself. tmux stays as is.
+     OSC 52 and the title need no wrapping (`set-clipboard on`, `set-titles on`). A small static
+     binary installed with `RemoteInstaller`, pinned with SHA-256. See "The shim (`tmux-shim`)".
+     The same helper could later be the Windows pty host.
+  3. **`pipe-pane` + a writer** that sends the OSCs to `#{client_tty}`: also needs a helper on
+     the host; ordering and several clients are awkward.
+  4. **tmux control mode (`-CC`):** every OSC reaches Kennel, but `wxTerminalViewCtrl` would have
+     to speak the control protocol. A large change; also gives scrollback and panes. Own plan.
+- **Scrolling:** the wheel scrolls the scrollback of the tmux window (copy mode), not the Kennel
+  terminal's own scrollback. See `README.md` ("Mouse events for TUI applications"); decide
+  between `mouse on` (tmux scrollback) and `mouse off` (wheel goes to the program).
+- **Resize:** `window-size latest` so the size follows the Kennel terminal.
+- **Status line:** `status off`; Kennel's own header and status bar already show the state.
+- **Idle detection:** `ActivityMonitor` looks at output; a re-attach repaints the whole screen,
+  which counts as output once. Check that it does not flash "Running".
+- **Minimum version:** `tmux -V` >= 3.3 for passthrough; older = the option is refused with the
+  version in the message.
+
+## The shim (`tmux-shim`)
+Needed for the activity icon, the progress bar and the cwd in tmux (see Findings). **Built and
+released** in its own repository: <https://github.com/eranif/tmux-shim> (Rust, MIT; its
+`AGENTS.md` describes the design and the rules). It runs in the pane as
+`tmux-shim -- <agent> <args>`; tmux, not Kennel, starts it.
+
+```
+tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
+```
+
+- **What it does:** runs the agent on a pty of its own (one thread, `poll()`, bounded buffers,
+  no reader thread). Keys are copied unlooked-at. On the output: `OSC 7501;?` is removed and
+  **answered by the shim**; `OSC 7501;...`, `9;4`, `9;9` and `7` are wrapped as
+  `ESC P tmux ; ... ESC \`; everything else is copied unchanged, and a sequence the agent
+  wrapped itself is never wrapped twice. The parser keeps its state between reads (a sequence
+  can be cut anywhere). The exit code of the agent is the exit code of the shim. The pane's size
+  follows to the agent; `SIGHUP` / `SIGTERM` go to the agent.
+- **`--wrap auto`** (default): wraps for tmux when `$TMUX` is set, for screen when `$STY` is set,
+  and **otherwise just `exec`s the agent**. So Kennel can use the same command everywhere and a
+  session that is not in tmux pays nothing.
+- **It cannot turn `allow-passthrough` on.** Kennel's tmux command already sets it
+  (`allow-passthrough all` on tmux 3.4+, `on` on 3.3). Without it the shim is harmless but the
+  icon stays dark.
+- **Release v1.0.0** (<https://github.com/eranif/tmux-shim/releases/tag/v1.0.0>), static musl:
+
+  | Asset | Size | SHA-256 |
+  |---|---|---|
+  | `tmux-shim-x86_64-linux` | 479 920 | `12f4f5d5851ce69a8bc32c588cd4b97182b6761543caa3fccfc483118717ab89` (checked against the downloaded binary) |
+  | `tmux-shim-aarch64-linux` | | **not published yet** (the job failed or did not run; to be fixed before pinning, or release v1.0.1) |
+
+  The names match `uname -m` and **must not change** (Kennel builds the URL from them). Each
+  asset has a `<name>.sha256` file.
+- **How Kennel uses it:**
+  - A `ToolDescription` for `tmux-shim` (like ripgrep's): the release URL, the asset per
+    architecture, the pinned SHA-256 and the size; `RemoteInstaller` puts it in
+    `$HOME/.kennel/bin/tmux-shim` (the same directory as `rg`). The binary is the asset itself,
+    not an archive, so no `ReadTarGzMember` step.
+  - Ensure it is installed (and has the pinned hash) before the first tmux launch on a host,
+    on a worker thread, like the planned ensure-`rg` step.
+  - The typed command uses the full path (`~/.kennel/bin` is not on `PATH`). The `resume ||
+    fresh` chain puts the shim in front of **each** alternative:
+    `$HOME/.kennel/bin/tmux-shim -- claude --continue || $HOME/.kennel/bin/tmux-shim -- claude`
+    (the exit code passes through, so the chain behaves as today).
+  - **If the shim is not available** (aarch64 for now, offline host, install failed): run the
+    agent plainly, in tmux, and show that the activity icon is not available (the degrade
+    option 1). A missing shim must never stop a session from starting.
+  - A host that is not Linux x86_64 / aarch64 (macOS local): no pinned asset; the release has no
+    macOS binary yet. Same fallback; add a macOS asset to the release if local macOS matters.
+- **Verified** by its own tests (17 unit tests for the filter, including "the result does not
+  depend on how the input is cut into reads"; 8 tests on a real pty with `sh`). The user builds
+  and runs them in WSL. **Not yet verified end to end:** the shim inside real tmux with Claude
+  Code in a Kennel tab (Phase 0, below). Still to do there: a speed check (`yes | head -c 1G`
+  through the shim vs without).
+- **Housekeeping in the shim repo:** a stray `src/.proxy.rs.swp` is committed in `b581a65` and
+  still tracked; remove it and add `*.swp` to `.gitignore` (needs the user's approval for the
+  commit and push).
+
+## Phases
+
+### Phase 0 - Spike (no commit, notes go into this file)
+- [ ] By hand on a remote host and in WSL: the command above; check OSC 7, OSC 52, title, mouse,
+      resize, detach / re-attach, and `claude` working inside it.
+- [x] Find where OSC 7501 comes from (Claude Code sends it plain; see Findings) and try it
+      wrapped in the passthrough DCS (works with `allow-passthrough on`).
+- [ ] **End to end with the shim:** download `tmux-shim-x86_64-linux` v1.0.0 on a host (WSL is
+      enough), run `claude` as `tmux-shim -- claude` in the command above, check the spinner /
+      check / hand on the tab. Also Codex and Kiro (Kiro is where Kennel's 7501 support came
+      from). Check the first-screen latency, a very long output, a resize, and that the
+      tmux scrollback still works.
+- [ ] Speed: `yes | head -c 1G` through the shim vs without.
+- [ ] Decide the scrolling model. Write the findings under "Findings".
+- [ ] Local Linux or macOS: the same command with no ssh.
+- [ ] WSL: does a detached tmux session survive the distribution going idle after the last
+      `wsl.exe` ends?
+- [ ] Windows: MSYS2 tmux with a native `claude.exe` inside (raw mode, colours, mouse, does the
+      server outlive Kennel?). Decides whether option 1 of "Local sessions" is worth a phase.
+
+### Phase 1 - Core (`src/core/`, no UI)
+- [ ] `TmuxCommands`: pure functions that build the command lines: attach-or-create, kill, list,
+      has-session, version probe. Takes the session name, the folder, the command chain. Unit
+      checked by hand (no test suite) with a few quoting cases: spaces, quotes, `$`, non-ASCII.
+- [ ] `TmuxClient`: runs tmux on an `Account` and returns `Status` / `StatusOr` (blocking, for a
+      worker thread, like `SftpClient`): `Probe()` (installed? version?), `HasSession()`,
+      `ListSessions()` (name, created, attached), `KillSession()`. Remote: `SshClient::Execute`;
+      WSL: `wsl.exe -d <distro> --`; local Linux/macOS: `Process`.
+- [ ] `Session`: add `tmuxName` (empty = not a tmux session); persist in `WorkspaceStore`; an old
+      `workspace.json` without it loads as before.
+- [ ] Add the files to `CMakeLists.txt`.
+- [ ] `tmux-shim` as a tool: a `ToolDescription` with the v1.0.0 assets and their SHA-256 (after
+      aarch64 is published), next to the ripgrep one. Depends on `RemoteInstaller` (see the
+      Find in Files plan, Phase 2), which both features share.
+- [ ] `TmuxShim::Ensure(Account)`: installs / verifies the shim on the host; returns the path or
+      "not available" (the caller falls back to running the agent plainly).
+
+### Phase 2 - Launch (`ClientAdapter`, `SessionPage`)
+- [ ] `BuildCommandLine()` gets the tmux form when the session has a `tmuxName` (a new parameter
+      or a sibling function; keep `WrapCommand()` for the ssh / cd / export part).
+- [ ] `CreateTerminal()` passes it through; the resume chain stays inside the quoted command,
+      with `tmux-shim --` in front of each agent command when the shim is available.
+- [ ] Probe before the first launch (on a worker thread): no tmux or too old -> the page shows
+      the reason and offers to start without tmux (the session then loses `tmuxName`).
+- [ ] Plain terminals (`plainTerminal`): same, a shell inside tmux.
+
+### Phase 3 - Lifecycle
+- [ ] Detached state in `OnTerminated()` (ask `TmuxClient`, do not store a flag); the message and
+      `Restart()` re-attach.
+- [ ] The close / archive dialog with keep running / stop; `kill-session` on stop; closing Kennel
+      only detaches.
+- [ ] A session that is closed (not archived, not kept) must not leave its tmux session behind.
+
+### Phase 4 - UI
+- [ ] A "Run in tmux" choice when a session is created (`StartAgentDialog`; if the dialog is in
+      `UI.wxcp`, change it through `wxcgen` per `CLAUDE.md`, check `git status` first), disabled
+      with the reason on Windows local. Default from a new preference (`UiPrefs` / settings).
+- [ ] Mark tmux sessions: a small badge on the tab and "tmux: kennel-xxxx" in the status bar
+      (`PublishStatus()`); the context menu of the tab: Detach, Kill tmux session.
+- [ ] Settings: default on / off, and the tmux options (mouse, passthrough) if Phase 0 shows
+      they need to be a choice.
+
+### Phase 5 - Find sessions that are still running
+- [ ] On start, for each host that has a persisted tmux session, `ListSessions()`: restored
+      sessions re-attach if alive and resume if not.
+- [ ] "Attach to a running tmux session..." dialog: lists `kennel-*` sessions of a host that no
+      persisted session owns (for example after `workspace.json` was lost) and adopts one.
+- [ ] Ssh failures at startup must not block the window: do the probing on worker threads and
+      show the tab as "Connecting".
+
+### Phase 6 - Docs and release
+- [ ] `README.md` (a section: what it does, where it works, the detach key, scrolling) and the
+      release notes.
+- [ ] Manual checks (no test suite): remote, WSL, Linux; close Kennel and reopen; kill the ssh
+      connection; reboot the remote host (resume path); two Kennel windows on one host; a
+      folder or prompt with quotes and non-ASCII; a very long running agent; copy / paste and
+      OSC 52; the activity icon on the tab; a host without tmux; an old tmux.
+- [ ] Build (`./build.sh`) + `clang-format` before each commit; commits signed off.
+
+## Open questions (for the user)
+1. **Scope:** only the agent sessions, or plain terminals too? (The plan assumes both.)
+2. **Default:** tmux off unless chosen, or on by default where it is available?
+3. **Windows local:** is "not supported, use WSL or a remote host" fine for v1? Or is a native
+   Windows local session the main case for you, which makes the Kennel-owned helper (option 2
+   in "Local sessions") the real feature and tmux only the Linux / macOS / WSL / remote part?
+4. **Closing a tab:** keep running or stop as the default answer? Today closing kills the agent,
+   so "stop" keeps the old behaviour.
+5. **Isolated server (`-L kennel`)** vs the user's normal tmux server: the plan uses its own so
+   the user's `~/.tmux.conf` cannot break Kennel. The cost: the user cannot see these sessions
+   from their own `tmux ls`. Fine?
+6. **Scrolling:** tmux scrollback (mouse on) or the program's own (mouse off)?
+7. Is a separate "Restart agent" (kill the tmux session and start fresh with resume) wanted, or
+   is re-attach enough?
+
+## Findings
+
+### 2026-11-13: what tmux forwards (tmux 3.4, Ubuntu 24.04 in WSL, no Kennel)
+Method: a tmux client on a pty that plays the outer terminal, a script in the pane, and a look
+at the bytes the client writes out. Own server (`-L`), `-f /dev/null`. Script:
+`tmux_osc_test.py` (in the session scratchpad, not kept).
+
+| What the program sends | passthrough off | passthrough on |
+|---|---|---|
+| OSC 7501, 9;4, 7 sent plain | dropped | dropped |
+| OSC 7501, 9;4, 7, 52, 0 sent in the DCS wrapper | dropped | **forwarded** |
+| OSC 52 / title sent plain, with `set-clipboard on` / `set-titles on` | forwarded (tmux makes its own) | same |
+
+- Confirmed: unknown OSC are dropped. `allow-passthrough on` alone does not help: the **sender
+  must wrap** (`ESC P tmux ; <ESC doubled> ESC \`). Wrapping with passthrough off is dropped too.
+- With passthrough on, the wrapped OSC 7501, 9;4 and 7 arrive at the outer terminal as plain
+  sequences, so Kennel's emulator needs no change.
+- **The support query works if wrapped.** The wrapped `OSC 7501;?` reached the outer terminal,
+  and the reply the outer terminal wrote came back **into the pane** as input (tmux hands what
+  it can not parse to the pane). So a program that wraps its query and its reports when `$TMUX`
+  is set would work with Kennel as it is. Not tested: that tmux delays it by `escape-time`
+  (set it to 0 in the options), or how it is when the reply arrives in several pieces.
+- OSC 52 (copy) and the title need no wrapping: `set-clipboard on` and `set-titles on`
+  are enough.
+
+### 2026-11-13: Claude Code in tmux (the user's test, and the binary)
+- The user ran `claude` inside tmux in a Kennel session: **the tab shows nothing**.
+- Reason, read from the strings of `claude.exe` 2.1.323 (minified JS, so this is a reading, not
+  a trace): Claude Code probes with `OSC 7501 ; ?` at start ("probe: no reply to OSC 7501 ; ?")
+  and only sends reports when the terminal answers. The query (`Xhi()`) and the reports are
+  made by `yE(...)`, which writes the **plain** sequence. It has a wrapper (`$j()`: with
+  `$TMUX` set it makes `ESC P tmux ; <ESC doubled> ESC \`) but the 7501 query and reports do
+  not go through it. tmux drops the plain query (table above), so no reply ever comes, and
+  Claude Code never reports. A setting on tmux can not change that.
+- Searched the web: no sign that tmux itself understands OSC 7501 (or 9;4). The "support" is the
+  DCS passthrough, which needs the sender to wrap. Claude Code issues describe the same for
+  OSC 9;4 inside tmux (claude code changelog 2.1.78 and a later bug report disagree on whether
+  that is fixed; not checked).
+- So the activity icon in tmux needs the **shim** (option 2 of the OSC section), now written and
+  released as `tmux-shim` v1.0.0 (see "The shim"). What it must do,
+  now known exactly: (1) read the agent's output; (2) answer `ESC ] 7501 ; ?` **itself**, by
+  writing `ESC ] 7501 ; ? : states=idle,working,done,blocked,error : kinds=permission,question,auth ESC \`
+  to the agent (so the probe succeeds, without a round trip through tmux and Kennel);
+  (3) re-emit each `ESC ] 7501 ; ...` report, and OSC 9;4 and OSC 7, wrapped for tmux (and run
+  with `allow-passthrough all`). Everything else is copied unchanged.
+- Kiro CLI and Codex: not checked yet (Kiro is where Kennel's support came from).
+- Scrolling model (mouse on or off) and the WSL idle shutdown: not tested yet.
