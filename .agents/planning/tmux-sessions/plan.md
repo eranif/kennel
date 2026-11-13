@@ -39,9 +39,28 @@ that are typed** (a new function in `ClientAdapter`, next to `BuildCommandLine()
 ```
 # remote: ssh ... / mkdir -p && cd / export ... as today, then:
 env -u TMUX tmux -L kennel -f /dev/null new-session -A -s <name> -c <dir> '<agent command chain>' \; \
-    set-option -g status off \; set-option -g mouse on \; set-option -g allow-passthrough all \; \
-    set-option -g set-clipboard on \; set-option -g set-titles on \; set-option -g window-size latest
+    set-option -g status off \; set-option -g set-titles on \; set-option -g window-size latest
 ```
+
+The agent command chain, with the shim (settings decided by the user, 2026-11-13: Kennel's tmux
+sessions use these four):
+
+```
+~/.kennel/bin/tmux-shim --config-string='set -g mouse on; setw -g mode-keys vi; set -g set-clipboard on; set -g allow-passthrough all' -- claude --continue \
+  || ~/.kennel/bin/tmux-shim --config-string='...same...' -- claude
+```
+
+The four settings are **one list in Kennel** (`TmuxCommands`), rendered in two ways: as
+`--config-string='...'` when the shim is used, and as `\; set-option -g ...` chained to
+`new-session` when it is not (so a missing shim never loses `mouse on` or the clipboard). The
+settings that need no shim (`status off`, `set-titles on`, `window-size latest`) stay on the
+`new-session` line, because they should hold before the first byte is drawn.
+Points to check in Phase 0: the shim applies each command at **every** start, so a restart of
+the agent re-applies them (harmless); the settings change the whole `-L kennel` server, which is
+ours; and that `set -g allow-passthrough all` from `--config-string` and the shim's own
+`allow-passthrough on` for its pane do not fight (a pane value set by the shim is a pane
+option and would override the global one: the README says the shim leaves `on` / `all` alone,
+verify the order with tmux 3.4).
 
 - `<agent command chain>` is `$HOME/.kennel/bin/tmux-shim -- <agent ...>` when the shim is
   installed (see "The shim"), otherwise the bare agent command.
@@ -51,7 +70,11 @@ env -u TMUX tmux -L kennel -f /dev/null new-session -A -s <name> -c <dir> '<agen
 - Every option has `-g`: `allow-passthrough` is a pane option, and the server is ours, so
   global is right. `allow-passthrough all` (tmux 3.4+) also forwards from a tab in the
   background; on 3.3 use `on` (the probe picks by version).
-- `-f /dev/null` + options chained with `\;` means no config file has to be uploaded to the host.
+  So the version probe decides the word in the `--config-string` (`all` or `on`); `all` on
+  tmux 3.3 is refused by tmux (the shim reports it and the agent still starts, but the setting
+  is lost).
+- `-f /dev/null` + the options on the command line (`\;` on `new-session`, `--config-string` in
+  the shim) means no config file has to be uploaded to the host.
 - `env -u TMUX` lets Kennel run when the remote shell is itself inside the user's tmux.
 - The session name is stable and unique: `kennel-<id>`, the id generated once when the session
   is created and **persisted** in `Session` (it is state nothing else holds; the name of the
@@ -94,6 +117,26 @@ env -u TMUX tmux -L kennel -f /dev/null new-session -A -s <name> -c <dir> '<agen
   needs WSL or a remote host on Windows".
 
 ### Lifecycle
+- **Kennel starts (decided 2026-11-13):** each restored session that has a `tmuxName` first
+  **tries to attach** to its tmux session; if there is none, it **starts a new one with the
+  resume chain** (`--continue`, else fresh), exactly as a restored session does today. This is
+  the one command `new-session -A -s <name> ... '<resume || fresh chain>'`: tmux attaches when
+  the session exists and runs the chain only when it does not, so there is no separate "does it
+  exist?" round trip and no race between the check and the start.
+  - Attached: the agent is untouched (still working, still holding its conversation); Kennel
+    only repaints. The tab shows the real state (the shim's next report, or "Running" from
+    `ActivityMonitor` meanwhile).
+  - Not there (reboot, `kill-server`, the user closed it): a new tmux session, the agent
+    resumes with `--continue`.
+  - Host unreachable (ssh fails, WSL not started): nothing is started and nothing is killed;
+    the tab shows the error and "Restart" tries the same command again. Never create a fresh
+    session because a check failed: `new-session -A` only runs on a host we reached.
+  - tmux missing or too old on the host: start without tmux and say so (Phase 2 probe).
+  - Several tabs, one host: the attach commands run one after the other on a worker thread per
+    host (not all in the UI thread), and the tabs show "Connecting" until the terminal is up.
+  - Another client is attached to the same tmux session (a second Kennel window, or the user's
+    own `tmux -L kennel attach`): `-A` attaches as one more client, both see the same screen.
+    Do not use `-d` (it would kick the other one off): see open questions.
 - **Agent exits** -> tmux window ends -> tmux session ends -> the terminal ends -> `Exited`, as
   today.
 - **Detached** (new state, no mirrored flag): the terminal ended but the tmux session is still
@@ -123,7 +166,7 @@ env -u TMUX tmux -L kennel -f /dev/null new-session -A -s <name> -c <dir> '<agen
   1. **Degrade (v1, no cost):** tmux sessions use `ActivityMonitor` (running / idle) and the
      title (`set-titles on`); `TmuxClient` reads the cwd with `#{pane_current_path}`. No
      spinner / check / hand, no progress bar.
-  2. **Shim in the pane (chosen, built, released as v1.0.0):** the agent runs as
+  2. **Shim in the pane (chosen, built, released; pin v1.1.1):** the agent runs as
      `tmux-shim -- <agent>`. The shim owns the agent's pty, wraps OSC 7501, 9;4, 9;9 and 7 in
      `ESC P tmux; ... ESC \` (the ESC doubled), and answers `7501;?` itself. tmux stays as is.
      OSC 52 and the title need no wrapping (`set-clipboard on`, `set-titles on`). A small static
@@ -163,18 +206,34 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
 - **`--wrap auto`** (default): wraps for tmux when `$TMUX` is set, for screen when `$STY` is set,
   and **otherwise just `exec`s the agent**. So Kennel can use the same command everywhere and a
   session that is not in tmux pays nothing.
-- **It cannot turn `allow-passthrough` on.** Kennel's tmux command already sets it
-  (`allow-passthrough all` on tmux 3.4+, `on` on 3.3). Without it the shim is harmless but the
-  icon stays dark.
-- **Release v1.0.0** (<https://github.com/eranif/tmux-shim/releases/tag/v1.0.0>), static musl:
+- **`allow-passthrough`:** since v1.1.0 the shim turns it on for its own pane (tmux 3.3+) when
+  it is off. (v1.0.0 could not.) Kennel's tmux command still sets it globally
+  (`all` on tmux 3.4+, `on` on 3.3), so hidden tabs also report. On tmux older than 3.3 nothing
+  can turn it on per pane: the icon stays dark, and the probe says so.
+- **Pin release v1.1.1** (<https://github.com/eranif/tmux-shim/releases/tag/v1.1.1>), static
+  musl. Both hashes were checked against the downloaded binaries (2026-11-13):
 
   | Asset | Size | SHA-256 |
   |---|---|---|
-  | `tmux-shim-x86_64-linux` | 479 920 | `12f4f5d5851ce69a8bc32c588cd4b97182b6761543caa3fccfc483118717ab89` (checked against the downloaded binary) |
-  | `tmux-shim-aarch64-linux` | | **not published yet** (the job failed or did not run; to be fixed before pinning, or release v1.0.1) |
+  | `tmux-shim-x86_64-linux` | 479 920 | `4c9287b318e547a29203501db50ae45b2990e0b91509edb27ed07a56318bc39e` |
+  | `tmux-shim-aarch64-linux` | 463 016 | `8f9ef771b2de3e943659f0d8b3cbc82e0b2a6b85ce15907cd4176984a5c4d4e0` |
 
   The names match `uname -m` and **must not change** (Kennel builds the URL from them). Each
-  asset has a `<name>.sha256` file.
+  asset has a `<name>.sha256` file. Do **not** pin v1.0.0 or v1.1.0: v1.0.0 has no aarch64
+  binary and an older behavior (it does not turn `allow-passthrough` on), and v1.1.0 has no
+  aarch64 either. The version in the URL is part of the pin: a new release is a new
+  `ToolDescription` (new hashes), never `latest`.
+- **Options added after v1.0.0 (in v1.1.x):**
+  - The shim turns `allow-passthrough` on **for its own pane** when it is `off` (tmux 3.3+),
+    before the agent starts. So the `allow-passthrough` option in Kennel's tmux command is
+    still wanted (`all` for hidden tabs, tmux 3.4+), but a missing one no longer silences the
+    icon. `--no-tmux-setup` turns this off.
+  - `-c FILE` / `--config-string 'cmd; cmd'` apply tmux commands through the shim at every
+    start, in the order given; a command that tmux refuses is reported on stderr and does not
+    stop the others or the agent. **Kennel uses `--config-string`** for its four settings (see
+    "What runs"): `set -g mouse on; setw -g mode-keys vi; set -g set-clipboard on; set -g
+    allow-passthrough all`. No file has to be uploaded. Without the shim, the same settings go
+    on the `new-session` line.
 - **How Kennel uses it:**
   - A `ToolDescription` for `tmux-shim` (like ripgrep's): the release URL, the asset per
     architecture, the pinned SHA-256 and the size; `RemoteInstaller` puts it in
@@ -186,19 +245,21 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
     fresh` chain puts the shim in front of **each** alternative:
     `$HOME/.kennel/bin/tmux-shim -- claude --continue || $HOME/.kennel/bin/tmux-shim -- claude`
     (the exit code passes through, so the chain behaves as today).
-  - **If the shim is not available** (aarch64 for now, offline host, install failed): run the
-    agent plainly, in tmux, and show that the activity icon is not available (the degrade
-    option 1). A missing shim must never stop a session from starting.
+  - **If the shim is not available** (offline host, install failed, hash mismatch, an
+    architecture without an asset): run the agent plainly, in tmux, and show that the activity
+    icon is not available (the degrade option 1). A missing shim must never stop a session from
+    starting.
   - A host that is not Linux x86_64 / aarch64 (macOS local): no pinned asset; the release has no
-    macOS binary yet. Same fallback; add a macOS asset to the release if local macOS matters.
-- **Verified** by its own tests (17 unit tests for the filter, including "the result does not
-  depend on how the input is cut into reads"; 8 tests on a real pty with `sh`). The user builds
-  and runs them in WSL. **Not yet verified end to end:** the shim inside real tmux with Claude
-  Code in a Kennel tab (Phase 0, below). Still to do there: a speed check (`yes | head -c 1G`
-  through the shim vs without).
-- **Housekeeping in the shim repo:** a stray `src/.proxy.rs.swp` is committed in `b581a65` and
-  still tracked; remove it and add `*.swp` to `.gitignore` (needs the user's approval for the
-  commit and push).
+    macOS binary. Same fallback; add a macOS asset to the release if local macOS matters.
+    Pick the asset from `uname -m` on the host (`x86_64`, `aarch64`; `arm64` on macOS is
+    not served).
+- **Verified** by its own tests and CI in the shim repo: the filter's unit tests (including
+  "the result does not depend on how the input is cut into reads"), the tests on a real pty,
+  tests with a real tmux (`TMUX_SHIM_REQUIRE_TMUX`), the oldest supported Rust, and the static
+  build on x86_64 and aarch64 (the arm job runs the tests on `ubuntu-24.04-arm`).
+  **Not yet verified end to end:** the shim inside real tmux with Claude Code in a Kennel tab
+  (Phase 0, below). Still to do there: a speed check (`yes | head -c 1G` through the shim vs
+  without).
 
 ## Phases
 
@@ -207,7 +268,7 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
       resize, detach / re-attach, and `claude` working inside it.
 - [x] Find where OSC 7501 comes from (Claude Code sends it plain; see Findings) and try it
       wrapped in the passthrough DCS (works with `allow-passthrough on`).
-- [ ] **End to end with the shim:** download `tmux-shim-x86_64-linux` v1.0.0 on a host (WSL is
+- [ ] **End to end with the shim:** download `tmux-shim-x86_64-linux` v1.1.1 on a host (WSL is
       enough), run `claude` as `tmux-shim -- claude` in the command above, check the spinner /
       check / hand on the tab. Also Codex and Kiro (Kiro is where Kennel's 7501 support came
       from). Check the first-screen latency, a very long output, a resize, and that the
@@ -222,7 +283,9 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
 
 ### Phase 1 - Core (`src/core/`, no UI)
 - [ ] `TmuxCommands`: pure functions that build the command lines: attach-or-create, kill, list,
-      has-session, version probe. Takes the session name, the folder, the command chain. Unit
+      has-session, version probe, and the list of the four launch settings (mouse, vi keys,
+      clipboard, passthrough `all` / `on` by version) rendered as `--config-string='...'` for
+      the shim or as `\; set-option -g ...` without it. Takes the session name, the folder, the command chain. Unit
       checked by hand (no test suite) with a few quoting cases: spaces, quotes, `$`, non-ASCII.
 - [ ] `TmuxClient`: runs tmux on an `Account` and returns `Status` / `StatusOr` (blocking, for a
       worker thread, like `SftpClient`): `Probe()` (installed? version?), `HasSession()`,
@@ -231,9 +294,9 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
 - [ ] `Session`: add `tmuxName` (empty = not a tmux session); persist in `WorkspaceStore`; an old
       `workspace.json` without it loads as before.
 - [ ] Add the files to `CMakeLists.txt`.
-- [ ] `tmux-shim` as a tool: a `ToolDescription` with the v1.0.0 assets and their SHA-256 (after
-      aarch64 is published), next to the ripgrep one. Depends on `RemoteInstaller` (see the
-      Find in Files plan, Phase 2), which both features share.
+- [ ] `tmux-shim` as a tool: a `ToolDescription` with the v1.1.1 assets (x86_64 and aarch64) and
+      their SHA-256 from "The shim", next to the ripgrep one. Depends on `RemoteInstaller` (see
+      the Find in Files plan, Phase 2), which both features share.
 - [ ] `TmuxShim::Ensure(Account)`: installs / verifies the shim on the host; returns the path or
       "not available" (the caller falls back to running the agent plainly).
 
@@ -263,8 +326,10 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
       they need to be a choice.
 
 ### Phase 5 - Find sessions that are still running
-- [ ] On start, for each host that has a persisted tmux session, `ListSessions()`: restored
-      sessions re-attach if alive and resume if not.
+- [ ] On start, each restored tmux session runs the attach-or-create command (see "Lifecycle,
+      Kennel starts"): attach if alive, else new with `--continue`. One `new-session -A`, no
+      pre-check. `ListSessions()` is for the "Attach to a running session" dialog and for the
+      `HasSession()` question after a terminal ends, not for deciding at startup.
 - [ ] "Attach to a running tmux session..." dialog: lists `kennel-*` sessions of a host that no
       persisted session owns (for example after `workspace.json` was lost) and adopts one.
 - [ ] Ssh failures at startup must not block the window: do the probing on worker threads and
@@ -290,9 +355,13 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
 5. **Isolated server (`-L kennel`)** vs the user's normal tmux server: the plan uses its own so
    the user's `~/.tmux.conf` cannot break Kennel. The cost: the user cannot see these sessions
    from their own `tmux ls`. Fine?
-6. **Scrolling:** tmux scrollback (mouse on) or the program's own (mouse off)?
+6. **Scrolling:** tmux scrollback (mouse on) or the program's own (mouse off)? (The launch
+   settings the user gave on 2026-11-13 have `mouse on` and `mode-keys vi`, so the plan assumes
+   tmux scrollback; confirm after Phase 0.)
 7. Is a separate "Restart agent" (kill the tmux session and start fresh with resume) wanted, or
    is re-attach enough?
+8. **Second client on a live session** (two Kennel windows, or Kennel plus a manual attach): share
+   it (the plan's default, `new-session -A`) or take it over (`-d`, detaches the other)?
 
 ## Findings
 
@@ -333,7 +402,7 @@ at the bytes the client writes out. Own server (`-L`), `-f /dev/null`. Script:
   OSC 9;4 inside tmux (claude code changelog 2.1.78 and a later bug report disagree on whether
   that is fixed; not checked).
 - So the activity icon in tmux needs the **shim** (option 2 of the OSC section), now written and
-  released as `tmux-shim` v1.0.0 (see "The shim"). What it must do,
+  released as `tmux-shim` (pin v1.1.1, see "The shim"). What it must do,
   now known exactly: (1) read the agent's output; (2) answer `ESC ] 7501 ; ?` **itself**, by
   writing `ESC ] 7501 ; ? : states=idle,working,done,blocked,error : kinds=permission,question,auth ESC \`
   to the agent (so the probe succeeds, without a round trip through tmux and Kennel);
