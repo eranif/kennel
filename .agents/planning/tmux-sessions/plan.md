@@ -30,7 +30,8 @@ agent instead of starting a new one with `--continue`.
 
 ### What runs
 Per session, on the machine of the agent, **one tmux session** with one window, in a tmux server
-that **only Kennel uses**: `tmux -L kennel ...` (own socket). Why: the user's own `~/.tmux.conf`,
+that **only Kennel uses**: `tmux -L kennel ...` (own socket; plain terminals use a second
+server, `-L kennel-term`, because their settings differ: see "Decisions", 1). Why: the user's own `~/.tmux.conf`,
 key bindings and status bar do not leak into Kennel, and our options do not leak out of it.
 
 The terminal control keeps starting the same login shell as today. We change only the **commands
@@ -136,21 +137,20 @@ verify the order with tmux 3.4).
     host (not all in the UI thread), and the tabs show "Connecting" until the terminal is up.
   - Another client is attached to the same tmux session (a second Kennel window, or the user's
     own `tmux -L kennel attach`): `-A` attaches as one more client, both see the same screen.
-    Do not use `-d` (it would kick the other one off): see open questions.
+    Do not use `-d` (it would kick the other one off): shared, decided 2026-11-13.
 - **Agent exits** -> tmux window ends -> tmux session ends -> the terminal ends -> `Exited`, as
   today.
 - **Detached** (new state, no mirrored flag): the terminal ended but the tmux session is still
   there (the user pressed the detach key, ssh dropped, Kennel crashed). `OnTerminated()` asks
   `TmuxClient::HasSession()` at that moment; if alive the page shows "Detached - Restart to
   re-attach" and `Restart()` re-attaches (`new-session -A` does it).
-- **Close tab** (`CloseOrArchiveSession`): for a tmux session the dialog gets a third choice:
-  **Close and keep running** (detach, the tmux session stays and can be re-attached),
-  **Close and stop** (`kill-session`), Archive, Cancel. Closing Kennel itself detaches, never
-  kills.
-- **Archive**: ask the same question (keep running / stop). A kept session is re-attached when
-  the archived session is restored.
-- **Restart** of a live tmux session: re-attach. A separate "Restart agent" (kill + create with
-  resume) is only needed if re-attach is not what the user wants; see open questions.
+- **Close tab** (`CloseOrArchiveSession`, decided 2026-11-13): **Close = stop**, as today: the
+  tmux session is killed (`kill-session`) with the agent. No new choice in the dialog.
+- **Archive = keep running:** the tmux session is detached and stays on the host; restoring the
+  archived session re-attaches it (`new-session -A`; if it is gone, it resumes). Closing Kennel
+  itself only detaches, never kills.
+- **Restart** of a live tmux session: re-attach. No separate "Restart agent" in v1 (decided
+  2026-11-13).
 - **Review buddy** and **scheduled jobs** do not use tmux in v1: they are short and Kennel owns
   their whole life.
 
@@ -312,9 +312,11 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
 ### Phase 3 - Lifecycle
 - [ ] Detached state in `OnTerminated()` (ask `TmuxClient`, do not store a flag); the message and
       `Restart()` re-attach.
-- [ ] The close / archive dialog with keep running / stop; `kill-session` on stop; closing Kennel
-      only detaches.
-- [ ] A session that is closed (not archived, not kept) must not leave its tmux session behind.
+- [ ] Close = `kill-session`; archive = detach and keep (no dialog change); closing Kennel only
+      detaches.
+- [ ] A session that is closed (not archived) must not leave its tmux session behind.
+- [ ] Archived sessions that keep a tmux session running: show that in the archive list, and
+      delete = kill the tmux session.
 
 ### Phase 4 - UI
 - [ ] A "Run in tmux" choice when a session is created (`StartAgentDialog`; if the dialog is in
@@ -322,8 +324,11 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
       with the reason on Windows local. Default from a new preference (`UiPrefs` / settings).
 - [ ] Mark tmux sessions: a small badge on the tab and "tmux: kennel-xxxx" in the status bar
       (`PublishStatus()`); the context menu of the tab: Detach, Kill tmux session.
-- [ ] Settings: default on / off, and the tmux options (mouse, passthrough) if Phase 0 shows
-      they need to be a choice.
+- [ ] Settings: tmux **on by default** (a checkbox), and **two editable lists of tmux commands**:
+      one for agent sessions (default: the four settings) and one for terminals (default in
+      "Decisions", 1), with "Reset to default". The probe picks `all` / `on` for passthrough
+      from the host's tmux version, so the stored text must not hard-code it (or the command is
+      checked on the host and refused ones are reported).
 
 ### Phase 5 - Find sessions that are still running
 - [ ] On start, each restored tmux session runs the attach-or-create command (see "Lifecycle,
@@ -344,24 +349,37 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
       OSC 52; the activity icon on the tab; a host without tmux; an old tmux.
 - [ ] Build (`./build.sh`) + `clang-format` before each commit; commits signed off.
 
+## Decisions (answered by the user, 2026-11-13)
+1. **Scope: both** agent sessions and plain terminals. The four settings (`mouse on`,
+   `mode-keys vi`, `set-clipboard on`, `allow-passthrough all`) are for the **agent sessions**.
+   **Terminals use other settings, and they are configurable** (a preference for each kind: the
+   list of tmux commands, with the defaults below). Plain terminals do not need the shim by
+   default (no agent reports a status); the settings go on the `new-session` line.
+   - Agent defaults: the four above. Terminal defaults (proposed, to confirm): `set -g mouse on;
+     setw -g mode-keys vi; set -g set-clipboard on`, no `allow-passthrough`.
+   - **One server cannot hold two sets of `-g` settings** (the last session started would win,
+     and `set-clipboard` is a server option). So each kind gets its own tmux server: agents
+     `tmux -L kennel`, terminals `tmux -L kennel-term`. (Alternative if one server is wanted:
+     scope the options to the session / window with `-t`, which cannot do `set-clipboard`.)
+2. **Default: tmux on**, wherever the probe says it is available (tmux >= 3.3 on the host).
+   Not available (Windows local, no tmux, too old): off, with the reason. Still a choice per
+   session when it is created.
+3. **Windows local: fine for v1** ("tmux needs WSL or a remote host on Windows").
+4. **Closing a tab and archive** (the user: "should we close it? we do have archive"): the
+   dialog does **not** get a third choice. **Close = stop**, as today (the tmux session is
+   killed with the agent). **Archive = keep running**: the tmux session is detached and stays,
+   and restoring the archived session re-attaches it. Closing Kennel itself only detaches.
+   *Interpretation, to confirm.*
+5. **Isolated servers** (`-L kennel`, `-L kennel-term`): yes. To look at them yourself:
+   `tmux -L kennel ls`.
+6. **Scrolling: `mouse on`** (tmux scrollback).
+7. **Restart: re-attach is enough.** No separate "Restart agent" (kill the tmux session and
+   start fresh with resume) in v1.
+8. **A second client on a live session: share it** (`new-session -A`, no `-d`).
+
 ## Open questions (for the user)
-1. **Scope:** only the agent sessions, or plain terminals too? (The plan assumes both.)
-2. **Default:** tmux off unless chosen, or on by default where it is available?
-3. **Windows local:** is "not supported, use WSL or a remote host" fine for v1? Or is a native
-   Windows local session the main case for you, which makes the Kennel-owned helper (option 2
-   in "Local sessions") the real feature and tmux only the Linux / macOS / WSL / remote part?
-4. **Closing a tab:** keep running or stop as the default answer? Today closing kills the agent,
-   so "stop" keeps the old behaviour.
-5. **Isolated server (`-L kennel`)** vs the user's normal tmux server: the plan uses its own so
-   the user's `~/.tmux.conf` cannot break Kennel. The cost: the user cannot see these sessions
-   from their own `tmux ls`. Fine?
-6. **Scrolling:** tmux scrollback (mouse on) or the program's own (mouse off)? (The launch
-   settings the user gave on 2026-11-13 have `mouse on` and `mode-keys vi`, so the plan assumes
-   tmux scrollback; confirm after Phase 0.)
-7. Is a separate "Restart agent" (kill the tmux session and start fresh with resume) wanted, or
-   is re-attach enough?
-8. **Second client on a live session** (two Kennel windows, or Kennel plus a manual attach): share
-   it (the plan's default, `new-session -A`) or take it over (`-d`, detaches the other)?
+- Terminal defaults in decision 1 (the three settings, no passthrough, no shim): right?
+- Decision 4 (close = stop, archive = keep running): right?
 
 ## Findings
 
