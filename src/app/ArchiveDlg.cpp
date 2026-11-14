@@ -7,7 +7,7 @@ wxDEFINE_EVENT(wxEVT_ARCHIVE_RESTORE, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_ARCHIVE_DELETE, wxCommandEvent);
 
 namespace {
-enum Column { kName, kAgent, kFolder, kArchivedAt };
+enum Column { kName, kAgent, kFolder, kArchivedAt, kTmux };
 } // namespace
 
 ArchiveDlg::ArchiveDlg(wxWindow *parent) : ArchiveDlgBase(parent) {
@@ -22,6 +22,8 @@ ArchiveDlg::ArchiveDlg(wxWindow *parent) : ArchiveDlgBase(parent) {
   m_dvListCtrl->AppendTextColumn(_("Folder"), wxDATAVIEW_CELL_INERT, -1,
                                  wxALIGN_LEFT, kFlags);
   m_dvListCtrl->AppendTextColumn(_("Archived at"), wxDATAVIEW_CELL_INERT, -1,
+                                 wxALIGN_LEFT, kFlags);
+  m_dvListCtrl->AppendTextColumn(_("tmux"), wxDATAVIEW_CELL_INERT, -1,
                                  wxALIGN_LEFT, kFlags);
 
   m_searchCtrl->SetDescriptiveText(_("Filter"));
@@ -38,16 +40,53 @@ ArchiveDlg::ArchiveDlg(wxWindow *parent) : ArchiveDlgBase(parent) {
   m_searchCtrl->SetFocus();
 }
 
-ArchiveDlg::~ArchiveDlg() = default;
+ArchiveDlg::~ArchiveDlg() { m_alive->store(false); }
 
 void ArchiveDlg::SetItems(const std::vector<ArchivedSession> &items) {
   m_items = items;
   Populate();
 }
 
+void ArchiveDlg::SetTmuxState(const wxString &name, TmuxState state) {
+  m_tmuxStates[name] = state;
+  // Only the cell changes: the answers come one by one while the user reads or
+  // scrolls, so the list is not built again (the scroll position, the selection
+  // and the column widths stay; "Checking..." is the longest text of the
+  // column, so an answer always fits).
+  for (int row = 0; row < m_dvListCtrl->GetItemCount(); ++row) {
+    const auto index = static_cast<size_t>(
+        m_dvListCtrl->GetItemData(m_dvListCtrl->RowToItem(row)));
+    if (index < m_items.size() && m_items[index].session.tmuxName == name) {
+      m_dvListCtrl->SetTextValue(TmuxText(m_items[index].session), row, kTmux);
+    }
+  }
+}
+
+wxString ArchiveDlg::TmuxText(const Session &session) const {
+  if (session.tmuxName.empty()) {
+    return {};
+  }
+  const auto state = m_tmuxStates.find(session.tmuxName);
+  if (state == m_tmuxStates.end()) {
+    return _("Checking...");
+  }
+  switch (state->second) {
+  case TmuxState::kRunning:
+    return _("Running");
+  case TmuxState::kGone:
+    return _("Ended");
+  case TmuxState::kUnknown:
+    break;
+  }
+  return _("Unknown");
+}
+
 void ArchiveDlg::Populate() {
   wxWindowUpdateLocker locker{m_dvListCtrl};
+  // An answer from a machine arrives while the user is choosing: keep the row.
+  const int selected = SelectedIndex();
   m_dvListCtrl->DeleteAllItems();
+  int selectedRow = 0;
 
   const wxString filter = m_searchCtrl->GetValue().Lower();
   // The newest first.
@@ -67,6 +106,10 @@ void ArchiveDlg::Populate() {
     row.push_back(s.agentName);
     row.push_back(s.workingDir);
     row.push_back(item.archivedAt);
+    row.push_back(TmuxText(s));
+    if (static_cast<int>(i) == selected) {
+      selectedRow = m_dvListCtrl->GetItemCount();
+    }
     m_dvListCtrl->AppendItem(row, static_cast<wxUIntPtr>(i));
   }
 
@@ -76,7 +119,7 @@ void ArchiveDlg::Populate() {
   }
 
   if (m_dvListCtrl->GetItemCount())
-    m_dvListCtrl->SelectRow(0);
+    m_dvListCtrl->SelectRow(selectedRow);
 }
 
 int ArchiveDlg::SelectedIndex() const {

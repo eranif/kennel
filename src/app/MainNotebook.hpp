@@ -6,10 +6,12 @@
 #include "app/PageSwitcherDlg.hpp"
 #include "app/PageViewEvent.hpp"
 #include "app/SearchablePage.hpp"
+#include "core/Account.h"
 #include "core/AppPaths.h"
 #include "core/FileLocation.h"
 #include "core/Job.h"
 #include "core/Spinner.h"
+#include "core/TmuxCommands.h"
 #include "core/UiPrefs.h"
 #include "core/Workspace.h"
 
@@ -28,6 +30,7 @@
 #include <wx/timer.h>
 
 class AdapterRegistry;
+class ArchiveDlg;
 class FilePage;
 class GotoAnythingBar;
 class SessionPage;
@@ -277,6 +280,18 @@ private:
   // stops with it), without blocking the UI. Not for an exit (it ended by
   // itself or the user detached) and not for an archive (it is kept).
   void StopTmux(const Session &session);
+  // The machine and the tmux server that hold the tmux session of `session`.
+  struct TmuxTarget {
+    Account account;
+    tmux::Server server;
+  };
+  // Nothing when the session has no tmux session, runs on a machine without
+  // tmux (Windows), or is an agent that is not known any more.
+  static std::optional<TmuxTarget> TmuxTargetOf(const Session &session);
+  // Asks the machines which tmux sessions of the archived sessions are still
+  // running, on one worker thread, and tells `dlg`
+  // (ArchiveDlg::SetTmuxState()).
+  void AskTmuxOfArchived(ArchiveDlg &dlg) const;
   // ---- The tabs ------------------------------------------------------------
   // The window to create a page with: pages are children of the book.
   wxBookCtrlBase *GetPageParent() const { return m_book; }

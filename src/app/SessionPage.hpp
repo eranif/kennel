@@ -35,7 +35,10 @@ class wxAuiToolBar;
 class wxMenu;
 class wxUpdateUIEvent;
 
-enum class SessionStatus { Starting, Running, Idle, Exited, Error };
+// Detached: the terminal ended, but the tmux session of the session is still
+// running on its machine (the user detached, or the connection dropped). The
+// tab stays; Restart() attaches again.
+enum class SessionStatus { Starting, Running, Idle, Exited, Error, Detached };
 
 class SessionPage : public SessionBasePage, public SearchablePage {
 public:
@@ -237,6 +240,13 @@ private:
     UpdateStatus();
   }
   void OnTerminated(wxTerminalEvent &evt);
+  // The terminal of a session that runs in tmux ended: asks its machine (on a
+  // worker thread) whether the tmux session is still there. Exited when it is
+  // not, Detached when it is, or when the machine could not be asked (the
+  // session must not be lost because the host is out of reach).
+  void CheckTmuxSessionAfterTerminated();
+  void OnTmuxSessionChecked(int generation, bool answered, bool running,
+                            const wxString &why);
   void OnTitleChanged(wxTerminalEvent &evt);
   void OnTerminalLink(wxTerminalEvent &evt);
 
@@ -356,6 +366,9 @@ private:
   // What the strip at the bottom of the terminal says instead of the header,
   // see SetNote(). Ends at the next Restart().
   wxString m_note;
+  // Counts the questions of CheckTmuxSessionAfterTerminated(); Restart() makes
+  // the answer of an earlier one stale.
+  int m_endedCheck{0};
   // The program of the session was typed into the terminal. Until then,
   // SendCommands() keeps its commands in m_commandsAfterStart.
   bool m_programStarted{false};

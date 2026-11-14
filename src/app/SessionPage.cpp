@@ -866,6 +866,7 @@ void SessionPage::Restart() {
   m_terminalActivity = ProgramActivity::None;
   UpdateProgramActivity();
   m_status = SessionStatus::Starting;
+  ++m_endedCheck; // The answer of a question about the old terminal is stale
   m_resume = true;
   // The machine is asked again: tmux may have been installed, or the host may
   // be there now.
@@ -887,7 +888,55 @@ void SessionPage::OnTerminated(wxTerminalEvent &evt) {
   evt.Skip();
   m_terminalActivity = ProgramActivity::None;
   UpdateProgramActivity();
+  // Only a session that really runs in tmux can outlive its terminal.
+  if (m_tmuxVersion && !m_session.tmuxName.empty() && !m_session.IsJobRun()) {
+    CheckTmuxSessionAfterTerminated();
+    return;
+  }
   SetStatus(SessionStatus::Exited);
+}
+
+void SessionPage::CheckTmuxSessionAfterTerminated() {
+  const Account account = TmuxAccountOf(m_agent, m_session);
+  const tmux::Server server =
+      m_agent ? tmux::Server::kAgent : tmux::Server::kTerminal;
+  const int generation = ++m_endedCheck;
+  // Blocks (ssh, wsl.exe): a thread of its own, nothing of the page is used
+  // until the answer is back on the UI thread.
+  std::thread([this, alive = m_alive, account, server, generation,
+               name = m_session.tmuxName] {
+    const StatusOr<bool> running =
+        TmuxClient::HasSession(account, server, name);
+    const bool answered = running.ok();
+    const bool isRunning = answered && running.value();
+    const wxString why = answered ? wxString() : running.status().message();
+    CallAfterIfAlive(alive, [this, generation, answered, isRunning, why] {
+      OnTmuxSessionChecked(generation, answered, isRunning, why);
+    });
+  }).detach();
+}
+
+void SessionPage::OnTmuxSessionChecked(int generation, bool answered,
+                                       bool running, const wxString &why) {
+  if (generation != m_endedCheck) {
+    return; // Restart() ran since: this terminal is gone
+  }
+  if (answered && !running) {
+    SetStatus(SessionStatus::Exited); // The program ended: the tab closes
+    return;
+  }
+  if (!answered) {
+    KLOG_WARN() << "Could not ask if the tmux session " << m_session.tmuxName
+                << " is running: " << why;
+  }
+  SetStatus(SessionStatus::Detached);
+  // The tab stays in both cases (a host that is out of reach must not lose the
+  // session), but the note says what is known.
+  SetNote(answered
+              ? _("Detached from tmux. Use Refresh to attach again.")
+              : wxString::Format(_("Could not reach tmux: %s. Use Refresh to "
+                                   "try again."),
+                                 why));
 }
 
 void SessionPage::OnProgramStatus(wxTerminalEvent &evt) {

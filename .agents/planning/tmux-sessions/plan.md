@@ -325,12 +325,12 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
 - [ ] Plain terminals (`plainTerminal`): same, a shell inside tmux.
 
 ### Phase 3 - Lifecycle
-- [ ] Detached state in `OnTerminated()` (ask `TmuxClient`, do not store a flag); the message and
+- [x] Detached state in `OnTerminated()` (ask `TmuxClient`, do not store a flag); the message and
       `Restart()` re-attach.
-- [ ] Close = `kill-session`; archive = detach and keep (no dialog change); closing Kennel only
+- [x] Close = `kill-session`; archive = detach and keep (no dialog change); closing Kennel only
       detaches.
-- [ ] A session that is closed (not archived) must not leave its tmux session behind.
-- [ ] Archived sessions that keep a tmux session running: show that in the archive list, and
+- [x] A session that is closed (not archived) must not leave its tmux session behind.
+- [x] Archived sessions that keep a tmux session running: show that in the archive list, and
       delete = kill the tmux session.
 
 ### Phase 4 - UI
@@ -338,7 +338,9 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
       `UI.wxcp`, change it through `wxcgen` per `CLAUDE.md`, check `git status` first), disabled
       and not shown for a Windows local session. Default **on** (a preference in `UiPrefs` / settings).
 - [ ] Mark tmux sessions: a small badge on the tab and "tmux: kennel-<group>-<session>" in the status bar
-      (`PublishStatus()`); the context menu of the tab: Detach, Kill tmux session.
+      (`PublishStatus()`); the context menu of the tab: Detach, Kill tmux session. The badge also
+      shows `SessionStatus::Detached` (Phase 3 sets it, but only the footer note shows it so far:
+      nothing else reads it yet).
 - [ ] Settings dialog, a new **"Tmux"** page: tmux **on by default** (a checkbox), and **two editable lists of tmux commands**:
       one for agent sessions (default: the four settings) and one for terminals (default in
       "Decisions", 1), with "Reset to default". The probe picks `all` / `on` for passthrough

@@ -297,14 +297,15 @@ void MainNotebook::OnPageClose(GlyphBookEvent &event) {
   }
 }
 
-void MainNotebook::StopTmux(const Session &session) {
+std::optional<MainNotebook::TmuxTarget>
+MainNotebook::TmuxTargetOf(const Session &session) {
   if (session.tmuxName.empty()) {
-    return;
+    return std::nullopt;
   }
   // Where the session runs, from what the session says: a terminal, or an
   // agent. An archived session has no page to ask. An agent that is not in the
   // configuration any more (removed or renamed) can not be told where it runs:
-  // it is left alone, because a kill on the terminal server of this machine
+  // it is left alone, because a call on the terminal server of this machine
   // would find nothing and still say that it worked.
   std::optional<AgentDef> agent;
   if (!session.plainTerminal && !session.agentName.empty()) {
@@ -312,18 +313,27 @@ void MainNotebook::StopTmux(const Session &session) {
         AppManager::Get().Adapters().FindAgent(session.agentName);
     if (found == nullptr) {
       KLOG_WARN() << "The tmux session " << session.tmuxName
-                  << " is not ended: the agent '" << session.agentName
+                  << " is left alone: the agent '" << session.agentName
                   << "' is not known any more";
-      return;
+      return std::nullopt;
     }
     agent = *found;
   }
-  const Account account = SessionPage::TmuxAccountOf(agent, session);
-  if (!TmuxClient::IsAvailableFor(account)) {
+  TmuxTarget target{SessionPage::TmuxAccountOf(agent, session),
+                    agent ? tmux::Server::kAgent : tmux::Server::kTerminal};
+  if (!TmuxClient::IsAvailableFor(target.account)) {
+    return std::nullopt;
+  }
+  return target;
+}
+
+void MainNotebook::StopTmux(const Session &session) {
+  const std::optional<TmuxTarget> target = TmuxTargetOf(session);
+  if (!target) {
     return;
   }
-  const tmux::Server server =
-      agent ? tmux::Server::kAgent : tmux::Server::kTerminal;
+  const Account account = target->account;
+  const tmux::Server server = target->server;
   const wxString name = session.tmuxName;
   // The name stays taken until the kill is done: a session made now with the
   // same names (UniqueTmuxName()) would attach to the one that is ending, or be
@@ -2355,8 +2365,70 @@ void MainNotebook::ShowArchiveDialog() {
   dlg.Bind(wxEVT_ARCHIVE_RESTORE, &MainNotebook::OnArchiveRestore, this);
   dlg.Bind(wxEVT_ARCHIVE_DELETE, &MainNotebook::OnArchiveDelete, this);
   dlg.SetItems(m_archived);
+  AskTmuxOfArchived(dlg);
   dlg.CenterOnParent();
   dlg.ShowModal();
+}
+
+void MainNotebook::AskTmuxOfArchived(ArchiveDlg &dlg) const {
+  struct Question {
+    wxString name;
+    TmuxTarget target;
+  };
+  std::vector<Question> questions;
+  for (const ArchivedSession &archived : m_archived) {
+    const Session &session = archived.session;
+    if (session.tmuxName.empty()) {
+      continue;
+    }
+    if (const auto target = TmuxTargetOf(session)) {
+      questions.push_back({session.tmuxName, *target});
+    } else {
+      dlg.SetTmuxState(session.tmuxName, ArchiveDlg::TmuxState::kUnknown);
+    }
+  }
+  if (questions.empty()) {
+    return;
+  }
+
+  // Blocks (ssh, wsl.exe): a thread of its own. It asks each machine once for
+  // each server, then answers for each session; the dialog may be gone by then.
+  std::thread([alive = dlg.GetAliveFlag(), target = &dlg,
+               questions = std::move(questions)] {
+    // The sessions of a machine and server; nothing when it could not be asked.
+    std::map<wxString, std::optional<std::set<wxString>>> lists;
+    for (const Question &question : questions) {
+      const wxString key =
+          question.target.account.GetId() +
+          (question.target.server == tmux::Server::kAgent ? "|agent" : "|term");
+      auto it = lists.find(key);
+      if (it == lists.end()) {
+        std::optional<std::set<wxString>> names;
+        const auto sessions = TmuxClient::ListSessions(question.target.account,
+                                                       question.target.server);
+        if (sessions.ok()) {
+          names.emplace();
+          for (const tmux::SessionInfo &info : sessions.value()) {
+            names->insert(info.name);
+          }
+        } else {
+          KLOG_WARN() << "Could not list the tmux sessions of "
+                      << question.target.account.GetDisplayName() << ": "
+                      << sessions.status().message();
+        }
+        it = lists.emplace(key, std::move(names)).first;
+      }
+      ArchiveDlg::TmuxState state = ArchiveDlg::TmuxState::kUnknown;
+      if (it->second) {
+        state = it->second->count(question.name) != 0
+                    ? ArchiveDlg::TmuxState::kRunning
+                    : ArchiveDlg::TmuxState::kGone;
+      }
+      CallAfterIfAlive(alive, [target, name = question.name, state] {
+        target->SetTmuxState(name, state);
+      });
+    }
+  }).detach();
 }
 
 void MainNotebook::OnArchiveRestore(wxCommandEvent &e) {
