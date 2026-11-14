@@ -1,8 +1,9 @@
 # Plan: tmux based sessions
 
 Progress: `[x]` done, `[ ]` open. Tick a box when its commit is pushed.
-Status as of 2026-11-13: nothing is implemented. This is a draft: the decisions in "Open
-questions" are the user's to make.
+Status as of 2026-11-14: nothing is implemented. The decisions are made (see "Decisions"). The
+user tried `tmux-shim -- claude` in tmux: the progress and the icons (pulse, done) show on the
+tab (see Findings).
 
 ## Goal
 A session can run its agent (or shell) inside a tmux session on the machine where it runs, so
@@ -89,14 +90,15 @@ verify the order with tmux 3.4).
 | Remote host (ssh) | yes: the main target |
 | WSL distribution | yes |
 | Linux / macOS, this machine | yes |
-| Windows, this machine (cmd, PowerShell, Git Bash) | **not in v1**: there is no tmux for the Windows shells. The option is off and says why. See "Local sessions". |
+| Windows, this machine (cmd, PowerShell, Git Bash) | **no, by decision (2026-11-14)**: there is no tmux for the Windows shells. The option is not offered. See "Local sessions". |
 
 ### Local sessions
-- **Linux and macOS (this machine): fully supported, and the easiest case.** The login shell is
-  local, so the typed command is the same `env -u TMUX tmux -L kennel ... new-session -A ...`
-  without the `ssh` line. `TmuxClient` runs tmux with `Process` directly. tmux comes from the
-  package manager (`apt`, `brew`); the probe tells the user when it is missing. Do this first:
-  it exercises everything except ssh.
+- **Linux and macOS (this machine): supported, on by default like everywhere else (decided
+  2026-11-14), and the easiest case.** The login shell is local, so the typed command is the same
+  `env -u TMUX tmux -L kennel ... new-session -A ...` without the `ssh` line. `TmuxClient` runs
+  tmux with `Process` directly. tmux comes from the package manager (`apt`, `brew`; see Decision
+  9); the probe tells the user when it is missing. Do this first: it exercises everything except
+  ssh.
 - **Windows, agent in WSL:** already covered (a WSL agent is a WSL account). The tmux server
   lives inside the distribution and survives Kennel closing. (A distribution that is idle may be
   shut down by WSL itself (`vmIdleTimeout`); an attached tmux client does not count, so check
@@ -114,8 +116,8 @@ verify the order with tmux 3.4).
      attach to a pipe instead of spawning a process. A separate, larger project: write its own
      plan if the Windows case matters.
   3. *Move the agent to WSL*: the user creates a WSL agent; nothing to build.
-- Until then, on Windows a native local session shows the option disabled with the text "tmux
-  needs WSL or a remote host on Windows".
+- A native Windows session (local) has no tmux, and the choice is not shown for it (decided
+  2026-11-14). If the Windows case matters later, the choices above are the way.
 
 ### Lifecycle
 - **Kennel starts (decided 2026-11-13):** each restored session that has a `tmuxName` first
@@ -249,17 +251,18 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
     architecture without an asset): run the agent plainly, in tmux, and show that the activity
     icon is not available (the degrade option 1). A missing shim must never stop a session from
     starting.
-  - A host that is not Linux x86_64 / aarch64 (macOS local): no pinned asset; the release has no
-    macOS binary. Same fallback; add a macOS asset to the release if local macOS matters.
+  - A host that is not Linux x86_64 / aarch64 (a macOS host): no pinned asset; the release has no
+    macOS binary. Same fallback; add a macOS asset to the release if a macOS host matters.
     Pick the asset from `uname -m` on the host (`x86_64`, `aarch64`; `arm64` on macOS is
     not served).
 - **Verified** by its own tests and CI in the shim repo: the filter's unit tests (including
   "the result does not depend on how the input is cut into reads"), the tests on a real pty,
   tests with a real tmux (`TMUX_SHIM_REQUIRE_TMUX`), the oldest supported Rust, and the static
   build on x86_64 and aarch64 (the arm job runs the tests on `ubuntu-24.04-arm`).
-  **Not yet verified end to end:** the shim inside real tmux with Claude Code in a Kennel tab
-  (Phase 0, below). Still to do there: a speed check (`yes | head -c 1G` through the shim vs
-  without).
+  **Verified by the user (2026-11-14):** the shim inside tmux with Claude Code in a Kennel tab
+  shows the progress and the icons (pulse, done); Codex and Kiro are fine too (the user,
+  2026-11-14). The speed (`yes | head -c 1G` through the shim vs without) is checked only if a
+  slowdown is seen.
 
 ## Phases
 
@@ -268,15 +271,17 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
       resize, detach / re-attach, and `claude` working inside it.
 - [x] Find where OSC 7501 comes from (Claude Code sends it plain; see Findings) and try it
       wrapped in the passthrough DCS (works with `allow-passthrough on`).
-- [ ] **End to end with the shim:** download `tmux-shim-x86_64-linux` v1.1.1 on a host (WSL is
-      enough), run `claude` as `tmux-shim -- claude` in the command above, check the spinner /
-      check / hand on the tab. Also Codex and Kiro (Kiro is where Kennel's 7501 support came
-      from). Check the first-screen latency, a very long output, a resize, and that the
-      tmux scrollback still works.
-- [ ] Speed: `yes | head -c 1G` through the shim vs without.
-- [ ] Decide the scrolling model. Write the findings under "Findings".
+- [x] **End to end with the shim, Claude Code:** `tmux-shim -- claude` in tmux in a Kennel tab:
+      the progress and the icons (pulse, done) show (the user, 2026-11-14).
+- [x] The same with Codex and Kiro: fine (the user, 2026-11-14). Not checked in detail: the
+      first-screen latency, a very long output, a resize, and that the tmux scrollback still
+      works.
+- [ ] Speed (`yes | head -c 1G` through the shim vs without): **only if a slowdown is seen** (the
+      user, 2026-11-14).
 - [ ] Local Linux or macOS: the same command with no ssh.
-- [ ] WSL: does a detached tmux session survive the distribution going idle after the last
+- [x] Scrolling model: `mouse on` (Decision 6, the user, 2026-11-14).
+- [ ] WSL idle shutdown: **ignored for now** (the user, 2026-11-14). Partly done, see Findings 2026-11-14: with systemd on it survives while the VM is up;
+      the full idle shutdown is not tested): does a detached tmux session survive the distribution going idle after the last
       `wsl.exe` ends?
 - [ ] Windows: MSYS2 tmux with a native `claude.exe` inside (raw mode, colours, mouse, does the
       server outlive Kennel?). Decides whether option 1 of "Local sessions" is worth a phase.
@@ -290,7 +295,7 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
 - [ ] `TmuxClient`: runs tmux on an `Account` and returns `Status` / `StatusOr` (blocking, for a
       worker thread, like `SftpClient`): `Probe()` (installed? version?), `HasSession()`,
       `ListSessions()` (name, created, attached), `KillSession()`. Remote: `SshClient::Execute`;
-      WSL: `wsl.exe -d <distro> --`; local Linux/macOS: `Process`.
+      WSL: `wsl.exe -d <distro> --`; local Linux/macOS: `Process`. No Windows-local implementation.
 - [ ] `Session`: add `tmuxName` (empty = not a tmux session); persist in `WorkspaceStore`; an old
       `workspace.json` without it loads as before.
 - [ ] Add the files to `CMakeLists.txt`.
@@ -321,10 +326,10 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
 ### Phase 4 - UI
 - [ ] A "Run in tmux" choice when a session is created (`StartAgentDialog`; if the dialog is in
       `UI.wxcp`, change it through `wxcgen` per `CLAUDE.md`, check `git status` first), disabled
-      with the reason on Windows local. Default from a new preference (`UiPrefs` / settings).
+      and not shown for a Windows local session. Default **on** (a preference in `UiPrefs` / settings).
 - [ ] Mark tmux sessions: a small badge on the tab and "tmux: kennel-xxxx" in the status bar
       (`PublishStatus()`); the context menu of the tab: Detach, Kill tmux session.
-- [ ] Settings: tmux **on by default** (a checkbox), and **two editable lists of tmux commands**:
+- [ ] Settings dialog, a new **"Tmux"** page: tmux **on by default** (a checkbox), and **two editable lists of tmux commands**:
       one for agent sessions (default: the four settings) and one for terminals (default in
       "Decisions", 1), with "Reset to default". The probe picks `all` / `on` for passthrough
       from the host's tmux version, so the stored text must not hard-code it (or the command is
@@ -355,31 +360,48 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
    **Terminals use other settings, and they are configurable** (a preference for each kind: the
    list of tmux commands, with the defaults below). Plain terminals do not need the shim by
    default (no agent reports a status); the settings go on the `new-session` line.
-   - Agent defaults: the four above. Terminal defaults (proposed, to confirm): `set -g mouse on;
+   - Agent defaults: the four above. Terminal defaults (confirmed, editable on the "Tmux" page of the settings dialog): `set -g mouse on;
      setw -g mode-keys vi; set -g set-clipboard on`, no `allow-passthrough`.
    - **One server cannot hold two sets of `-g` settings** (the last session started would win,
      and `set-clipboard` is a server option). So each kind gets its own tmux server: agents
      `tmux -L kennel`, terminals `tmux -L kennel-term`. (Alternative if one server is wanted:
      scope the options to the session / window with `-t`, which cannot do `set-clipboard`.)
-2. **Default: tmux on**, wherever the probe says it is available (tmux >= 3.3 on the host).
-   Not available (Windows local, no tmux, too old): off, with the reason. Still a choice per
-   session when it is created.
-3. **Windows local: fine for v1** ("tmux needs WSL or a remote host on Windows").
+2. **Default: tmux on on every platform** (remote, WSL, local Linux and macOS), wherever the
+   probe says it is available (tmux >= 3.3 on the host; decided 2026-11-14). Not available (no
+   tmux, too old): off, with the reason. Still a choice per session when it is created.
+3. **Windows local is the one exception** (decided 2026-11-14): there is no tmux for the Windows
+   shells, so a native local session on Windows has no tmux and the choice is not shown. (WSL
+   sessions on Windows are fine.)
 4. **Closing a tab and archive** (the user: "should we close it? we do have archive"): the
    dialog does **not** get a third choice. **Close = stop**, as today (the tmux session is
    killed with the agent). **Archive = keep running**: the tmux session is detached and stays,
    and restoring the archived session re-attaches it. Closing Kennel itself only detaches.
-   *Interpretation, to confirm.*
+   Confirmed by the user, 2026-11-14.
 5. **Isolated servers** (`-L kennel`, `-L kennel-term`): yes. To look at them yourself:
    `tmux -L kennel ls`.
 6. **Scrolling: `mouse on`** (tmux scrollback).
 7. **Restart: re-attach is enough.** No separate "Restart agent" (kill the tmux session and
    start fresh with resume) in v1.
 8. **A second client on a live session: share it** (`new-session -A`, no `-d`).
+9. **Where tmux comes from (2026-11-14): the package manager of the machine, in v1.** Kennel does
+   **not** download tmux. tmux publishes no official binaries, and a static build (with libevent
+   and ncurses, for x86_64 and aarch64) would need its own build and release, like `tmux-shim`.
+   - Only `tmux-shim` is installed by Kennel (`RemoteInstaller`, a `ToolDescription` with the
+     pinned v1.1.1 hashes). The installer already exists: no new downloader is needed.
+   - The probe (`TmuxClient::Probe()`) checks `tmux -V` on the machine: missing, or older than 3.3
+     (no `allow-passthrough`) = the session starts **without tmux** and the page says why and
+     what to install (`apt install tmux`, `brew install tmux`). A user without root on the host
+     gets no tmux there.
+   - **Later, not v1:** a static tmux as a `ToolDescription` (installed into `~/.kennel/bin`, run
+     by its full path), built and released in a repository of its own (the `tmux-shim` repository
+     or a new one) with pinned SHA-256 hashes. Its own plan when the missing-tmux case turns out
+     to matter.
 
-## Open questions (for the user)
-- Terminal defaults in decision 1 (the three settings, no passthrough, no shim): right?
-- Decision 4 (close = stop, archive = keep running): right?
+## Open questions
+None. Answered on 2026-11-14: the terminal defaults (configurable under "Tmux" in the settings
+dialog), close = stop / archive = keep running, and tmux on by default on every platform except
+Windows local. Codex and Kiro are fine, the scrolling is `mouse on`, the WSL idle shutdown is ignored for now, and the speed is looked at
+only if a slowdown is seen.
 
 ## Findings
 
@@ -428,3 +450,21 @@ at the bytes the client writes out. Own server (`-L`), `-f /dev/null`. Script:
   with `allow-passthrough all`). Everything else is copied unchanged.
 - Kiro CLI and Codex: not checked yet (Kiro is where Kennel's support came from).
 - Scrolling model (mouse on or off) and the WSL idle shutdown: not tested yet.
+
+### 2026-11-14: Claude Code with the shim in tmux (the user's test)
+- The user ran `claude` as `tmux-shim -- claude` inside tmux in a Kennel tab: the progress and the
+  icons (pulse, done) show on the tab. So the shim does what the design needs for Claude Code.
+- Codex and Kiro are fine, and the scrolling is `mouse on` (the user). Not checked yet: WSL
+  idle shutdown, a remote host. The speed is checked only if a slowdown is seen.
+
+### 2026-11-14: a detached tmux session in WSL (WSL 2.7.8, Ubuntu-24.04 tmux 3.4, Debian tmux 3.5a)
+- Both distributions have `systemd=true` (`/etc/wsl.conf`). A detached `tmux -L idletest` session
+  was started with `wsl.exe -d <distro> --exec`, and the `wsl.exe` ended. **Debian** (it was
+  stopped before): after 150 s it was still `Running` and the session was alive. Ubuntu: the
+  session was alive after 120 s.
+- **Not conclusive for a real idle shutdown:** both distributions share one WSL VM, which had been
+  up for 2 days and had another distro (Ubuntu, "1 user") running, so the VM never went idle. What
+  it shows: with systemd on, a distro with no `wsl.exe` attached stays running, and a detached
+  tmux session lives on. Not shown: the case where every distro is idle and the VM stops
+  (`vmIdleTimeout`), nor a distro **without** systemd. To test it, close everything that uses WSL
+  (also Kennel), wait, and look at `wsl -l --running` and the session.
