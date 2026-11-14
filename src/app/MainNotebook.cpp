@@ -390,12 +390,13 @@ void MainNotebook::OnFileTreeActivated(FileEvent &event) {
   const Account &account = event.GetAccount();
   if (account.IsRemote()) {
     OpenRemoteFile(RemoteHostDetails{account.m_name, account.m_user},
-                   event.GetPath(), {}, event.GetLine(), event.GetColumn());
+                   event.GetPath(), {}, event.GetLine(), event.GetColumn(),
+                   event.GetLength());
   } else {
     OpenFileAt({account.IsWSL()
                     ? wsl::ToWindowsPath(account.m_name, event.GetPath())
                     : event.GetPath(),
-                event.GetLine(), event.GetColumn()});
+                event.GetLine(), event.GetColumn(), event.GetLength()});
   }
 }
 
@@ -1046,11 +1047,11 @@ void MainNotebook::OnFileSaveDone(FileEvent &e) {
 void MainNotebook::OpenRemoteFile(const RemoteHostDetails &remoteHost,
                                   const wxString &clickedPath,
                                   const std::vector<wxString> &searchDirs,
-                                  int line, int column) {
+                                  int line, int column, int length) {
   KLOG_DEBUG() << "Opening remote file: " << clickedPath;
   const wxString key = FileEvent::MakeKey(clickedPath, remoteHost);
   if (line > 0) {
-    m_gotoAfterFetch[key] = FileLocation{clickedPath, line, column};
+    m_gotoAfterFetch[key] = FileLocation{clickedPath, line, column, length};
   }
   if (!m_fetchingRemote.insert(key).second) {
     // A previous click, or the restore of the file, is still
@@ -1161,7 +1162,7 @@ void MainNotebook::OnRemoteFileRead(const RemoteReadResult &result) {
   ShowRemoteFile(result.remoteHost, path, text, editable, reload, restoring);
   if (target) {
     if (auto *page = FindFile(FileEvent::MakeKey(path, result.remoteHost))) {
-      page->GotoLine(target->line, target->column);
+      page->GotoLine(target->line, target->column, target->length);
     }
   }
 }
@@ -1252,7 +1253,7 @@ void MainNotebook::OpenFileAt(const FileLocation &where) {
     return;
   }
   if (auto *page = FindFile(wxFileName(where.path).GetFullPath())) {
-    page->GotoLine(where.line, where.column);
+    page->GotoLine(where.line, where.column, where.length);
   }
 }
 

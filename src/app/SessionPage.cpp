@@ -1536,26 +1536,27 @@ void SessionPage::OpenLatestReview() {
 // Find
 // ---------------------------------------------------------------------------
 
-void SessionPage::ShowFind() {
-  // The text selected in the terminal is what the user looks for (its first
-  // line). A TUI application (tmux, vim, claude) selects text itself, and the
-  // terminal does not know it: the text that it copied (OSC 52) comes first.
-  // Otherwise the text selected with the mouse.
-  wxString text = m_findText;
-  if (wxTerminalViewCtrl *terminal = SearchTerminal()) {
-    wxString first;
-    if (const auto appSelection = terminal->GetAppSelection()) {
-      first = SearchBar::TextFromSelection(*appSelection);
-    }
-    if (first.empty()) {
-      if (const auto selected = terminal->GetMouseSelection()) {
-        first = SearchBar::TextFromSelection(*selected);
-      }
-    }
-    if (!first.empty()) {
-      text = first;
+wxString SessionPage::SelectedSearchText() const {
+  wxTerminalViewCtrl *terminal = SearchTerminal();
+  if (terminal == nullptr) {
+    return wxString();
+  }
+  wxString first;
+  if (const auto appSelection = terminal->GetAppSelection()) {
+    first = SearchBar::TextFromSelection(*appSelection);
+  }
+  if (first.empty()) {
+    if (const auto selected = terminal->GetMouseSelection()) {
+      first = SearchBar::TextFromSelection(*selected);
     }
   }
+  return first;
+}
+
+void SessionPage::ShowFind() {
+  // The selected text of the terminal is what the user looks for.
+  const wxString selected = SelectedSearchText();
+  const wxString text = selected.empty() ? m_findText : selected;
   if (!m_searchBar->IsShown()) {
     m_searchBar->Show();
     Layout();

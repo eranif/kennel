@@ -189,27 +189,27 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
 
   boxSizer594->Add(m_sessionsBook, 1, wxEXPAND, WXC_FROM_DIP(5));
 
-  m_panelFindResults =
+  m_panelOutput =
       new wxPanel(this, wxID_ANY, wxDefaultPosition,
                   wxDLG_UNIT(this, wxSize(-1, -1)), wxTAB_TRAVERSAL);
 
-  m_auimgr->AddPane(m_panelFindResults, wxAuiPaneInfo()
-                                            .Name(wxT("FindResults"))
-                                            .Caption(_("Find Results"))
-                                            .Direction(wxAUI_DOCK_BOTTOM)
-                                            .Layer(0)
-                                            .Row(0)
-                                            .Position(0)
-                                            .BestSize(-1, 240)
-                                            .CaptionVisible(true)
-                                            .MaximizeButton(false)
-                                            .CloseButton(true)
-                                            .MinimizeButton(false)
-                                            .PinButton(false));
+  m_auimgr->AddPane(m_panelOutput, wxAuiPaneInfo()
+                                       .Name(wxT("Output"))
+                                       .Caption(_("Output"))
+                                       .Direction(wxAUI_DOCK_BOTTOM)
+                                       .Layer(0)
+                                       .Row(0)
+                                       .Position(0)
+                                       .BestSize(-1, 240)
+                                       .CaptionVisible(true)
+                                       .MaximizeButton(false)
+                                       .CloseButton(true)
+                                       .MinimizeButton(false)
+                                       .PinButton(false));
   m_auimgr->Update();
 
-  wxBoxSizer *boxSizerFindResults = new wxBoxSizer(wxVERTICAL);
-  m_panelFindResults->SetSizer(boxSizerFindResults);
+  wxBoxSizer *boxSizerOutput = new wxBoxSizer(wxVERTICAL);
+  m_panelOutput->SetSizer(boxSizerOutput);
 
   SetName(wxT("MainViewBase"));
   SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));

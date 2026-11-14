@@ -327,8 +327,8 @@ void FilePage::SetViewState(const FileViewState &state) {
   ctrl->SetFirstVisibleLine(state.firstLine);
 }
 
-void FilePage::GotoLine(int line, int column) {
-  m_editor->GotoLine(line, column);
+void FilePage::GotoLine(int line, int column, int length) {
+  m_editor->GotoLine(line, column, length);
   // Deferred: a page that was not showing yet has no size to centre in. Only
   // the last call centres.
   const int serial = ++m_viewSerial;

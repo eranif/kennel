@@ -5,7 +5,7 @@
 #include "app/ActivityView.hpp"
 #include "app/AssetBootstrap.h"
 #include "app/FileTreeCtrl.hpp"
-#include "app/FindResultsView.hpp"
+#include "app/OutputView.hpp"
 #include "app/SettingsDlg.hpp"
 #include "app/SideView.hpp"
 #include "app/TabIcon.h"
@@ -34,7 +34,9 @@ const wxString kSidePanes[] = {"SideView", "Activity"};
 // The pane of the results of Find in Files. It starts hidden, a search shows
 // it, and it is hidden again when a saved layout is restored (see
 // RestoreLayout()).
-const wxString kFindResultsPane = "FindResults";
+const wxString kOutputPane = "Output";
+// The height the output pane gets when it is shown, in DIP.
+constexpr int kOutputHeightDip = 400;
 } // namespace
 
 MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
@@ -63,10 +65,9 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
   m_panelSideView->GetSizer()->Add(m_sideView, wxSizerFlags(1).Expand());
   m_activityView = new ActivityView(GetPanelActivity());
   GetPanelActivity()->GetSizer()->Add(m_activityView, wxSizerFlags(1).Expand());
-  m_findResults = new FindResultsView(GetPanelFindResults());
-  GetPanelFindResults()->GetSizer()->Add(m_findResults,
-                                         wxSizerFlags(1).Expand());
-  m_auimgr->GetPane(kFindResultsPane).Hide();
+  m_output = new OutputView(GetPanelOutput());
+  GetPanelOutput()->GetSizer()->Add(m_output, wxSizerFlags(1).Expand());
+  m_auimgr->GetPane(kOutputPane).Hide();
   m_auimgr->Update();
 
   // The size a pane gets when it floats (it only matters then, so no Update()).
@@ -148,6 +149,7 @@ void MainView::FinaliseConstruction() {
 void MainView::OnToolBarStyle(wxCommandEvent &event) {
   event.Skip(); // The main toolbar of the frame follows too
   m_sideView->ApplyToolBarStyle();
+  m_output->ApplyToolBarStyle();
 }
 
 void MainView::OnFileTreeActivated(FileEvent &event) {
@@ -184,10 +186,10 @@ void MainView::RestoreLayout() {
       // The results of a search are not kept between runs, so the pane of them
       // does not come back, whether the layout was saved with it showing or
       // does not know it: the next search shows it.
-      m_auimgr->GetPane(kFindResultsPane).Hide();
+      m_auimgr->GetPane(kOutputPane).Hide();
       wxAuiPaneInfoArray &panes = m_auimgr->GetAllPanes();
       for (size_t i = 0; i < panes.GetCount(); ++i) {
-        if (panes[i].name == kFindResultsPane) {
+        if (panes[i].name == kOutputPane) {
           continue;
         }
         if (!layout.Contains("name=" + panes[i].name + ";")) {
@@ -227,6 +229,17 @@ void MainView::ShowPane(const wxString &name, bool show) {
     return;
   }
   pane.Show(show);
+  if (show && name == kOutputPane) {
+    // The output is a list: it needs height. A dock keeps the size it got
+    // when it was created, so a minimum size makes it that tall, and is dropped
+    // again to let the user make it smaller. Not when it is that tall already.
+    const int height = FromDIP(kOutputHeightDip);
+    if (pane.rect.GetHeight() < height) {
+      pane.BestSize(-1, height).MinSize(-1, height);
+      m_auimgr->Update();
+      pane.MinSize(wxDefaultSize);
+    }
+  }
   m_auimgr->Update();
 }
 
@@ -369,6 +382,12 @@ void MainView::LoadBitmaps() {
   bmps.Load("find.svg");
   bmps.AddAlias("find.svg", "find");
 
+  bmps.Load("stop.svg");
+  bmps.AddAlias("stop.svg", "stop");
+
+  bmps.Load("clear.svg");
+  bmps.AddAlias("clear.svg", "clear");
+
   bmps.Load("code-reviewer.svg");
   bmps.AddAlias("code-reviewer.svg", "code-reviewer");
 
@@ -432,4 +451,7 @@ void MainView::OnAppPrefsSaved(wxCommandEvent &event) {
   ApplyPrefs();
 }
 
-void MainView::ApplyPrefs() { m_sideView->ApplyPrefs(); }
+void MainView::ApplyPrefs() {
+  m_sideView->ApplyPrefs();
+  m_output->ApplyPrefs();
+}

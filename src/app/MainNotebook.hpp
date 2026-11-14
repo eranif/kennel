@@ -184,11 +184,12 @@ public:
   // already being fetched the call starts no second fetch; if that fetch is the
   // restore of the file, the file is selected when it arrives.
   // `line` and `column` (from 1; no line: 0) say where the caret goes once the
-  // file is shown.
+  // file is shown; `length` (characters, 0: none) is how much is selected from
+  // there, and then the column counts characters (see FileLocation).
   void OpenRemoteFile(const RemoteHostDetails &remoteHost,
                       const wxString &clickedPath,
                       const std::vector<wxString> &searchDirs, int line = 0,
-                      int column = 0);
+                      int column = 0, int length = 0);
 
   // Shows `text`, fetched from `path` on `remoteHost`, in an editor page.
   // Saving writes it back over SFTP. An already-open page is refreshed, unless

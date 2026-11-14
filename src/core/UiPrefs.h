@@ -89,4 +89,14 @@ struct UiPrefs {
 #endif
   // Where the tabs of the side bar (file explorer, git) are.
   wxDirection sideBarTabPosition{wxDirection::wxTOP};
+  // The last Find in Files: what its dialog shows when it opens. The folder is
+  // the one of the last search; the dialog starts with the folder of the page
+  // that is showing, and takes this one when the page has none.
+  wxString findPattern;
+  bool findRegex{false};
+  bool findMatchCase{false};
+  bool findWholeWord{false};
+  wxString findInclude;
+  wxString findExclude;
+  wxString findFolder;
 };

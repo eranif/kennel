@@ -9,6 +9,9 @@ struct FileLocation {
   wxString path;
   int line{0};
   int column{0};
+  // How many characters to select from the place (a match of a search), and
+  // then `column` and `length` count characters, not bytes. 0: no selection.
+  int length{0};
 };
 
 // Splits "path:line:column" (the column is optional) into its parts. The path

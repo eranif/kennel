@@ -280,6 +280,7 @@ add_library(
   src/core/GitDriverSSH.cpp
   src/core/Sha256.cpp
   src/core/TarGz.cpp
+  src/core/ZipArchive.cpp
   src/core/Ripgrep.cpp
   src/core/FindInFiles.cpp
   src/core/RemoteInstaller.cpp)
@@ -345,6 +346,7 @@ set(KENNEL_APP_SOURCES
     src/app/GotoAnythingDlg.cpp
     src/app/FindInFilesDlg.cpp
     src/app/FindResultsView.cpp
+    src/app/OutputView.cpp
     src/app/GitCommitMessageDlg.cpp
     src/app/GitPanel.cpp
     src/app/FileActions.cpp

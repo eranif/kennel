@@ -45,8 +45,11 @@ public:
 
   void SetEditorLanguage(EditorLang lang);
   // Puts the caret at `line` and `column`, both from 1 (the column in bytes).
-  // Out of range goes to the nearest place that exists. Unfolds the line.
-  void GotoLine(int line, int column = 1);
+  // Out of range goes to the nearest place that exists. Unfolds the line. With
+  // a `length` (more than 0) that many characters from the column are selected
+  // (not past the end of the line), and then the column and the length count
+  // characters, not bytes.
+  void GotoLine(int line, int column = 1, int length = 0);
   void SetTheme(const wxTerminalTheme &theme);
   // Wraps the long lines, or lets them run off to the right.
   void SetWrapLines(bool wrap);

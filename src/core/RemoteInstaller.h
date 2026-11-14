@@ -28,6 +28,10 @@ public:
   // Stopped by Cancel().
   bool IsCancelled() const { return m_cancelled; }
   void SetCancelled(bool cancelled) { m_cancelled = cancelled; }
+  // Only for Mode::kCheckOnly: the program is not there, or is not the right
+  // version, so an install is needed. Nothing was changed; GetResult() is ok.
+  bool NeedsInstall() const { return m_needsInstall; }
+  void SetNeedsInstall(bool needed) { m_needsInstall = needed; }
   // Where the program is: the target folder (without the slashes at its end)
   // plus the name of the program ("$HOME/.kennel/bin/rg"). Empty on an error.
   const wxString &GetPath() const { return m_path; }
@@ -37,6 +41,7 @@ private:
   Status m_result;
   bool m_alreadyInstalled{false};
   bool m_cancelled{false};
+  bool m_needsInstall{false};
   wxString m_path;
 };
 
@@ -73,10 +78,11 @@ wxDECLARE_EVENT(wxEVT_INSTALL_DONE, InstallEvent);
 // starting with `~` or `$HOME` ("$HOME/.kennel/bin"). Missing folders are
 // created.
 //
-// This machine on Windows is not served: Kennel ships its own tools there (see
-// Ripgrep.h), and an install there is reported as an error. A macOS host
-// (`uname -s` says "Darwin", `arm64` is taken as `aarch64`) is served as far as
-// the tool has an asset for it.
+// This machine is served on every system, Windows included (there the program
+// is "<binary>.exe", the asset is a .zip, and no shell is used). A host that is
+// reached over ssh or WSL must run Linux or macOS (`uname -s` says "Linux" or
+// "Darwin", `arm64` is taken as `aarch64`), as far as the tool has an asset for
+// it.
 //
 // Nothing here blocks the UI thread, in any call. Everything that blocks (ssh,
 // the wsl.exe calls, the file writes) runs on a thread of its own; the download
@@ -91,6 +97,13 @@ wxDECLARE_EVENT(wxEVT_INSTALL_DONE, InstallEvent);
 // The handler must outlive this object.
 class RemoteInstaller {
 public:
+  // What Start() does when the program is not there.
+  enum class Mode {
+    kInstall,   // Install it
+    kCheckOnly, // Change nothing: say that an install is needed (see
+                // InstallEvent::NeedsInstall()), for the caller to ask the user
+  };
+
   // A download is stopped when it goes over this many bytes (it is read in
   // pieces as it arrives, so it is never held in memory beyond the limit by
   // much), and so is one that says in its headers that it is bigger.
@@ -111,7 +124,7 @@ public:
   // is destroyed first, or Stop() was called). May be called from the handler
   // of wxEVT_INSTALL_DONE (to install the next tool).
   Status Start(const Account &account, const ToolDescription &tool,
-               const wxString &targetDir);
+               const wxString &targetDir, Mode mode = Mode::kInstall);
 
   // Asks the running install to stop: the download is cancelled at once, a
   // step that runs (ssh, an upload) is not interrupted. wxEVT_INSTALL_DONE

@@ -7,7 +7,7 @@
 #include <span>
 
 class ActivityView;
-class FindResultsView;
+class OutputView;
 class SideView;
 
 // The main window's content: the side panes (the side bar, the activity
@@ -30,10 +30,10 @@ public:
   // with the default width of the side panes: what a start without a saved
   // layout shows.
   void ResetLayout();
-  // The output of Find in Files, in the pane "FindResults" (hidden until a
-  // search shows it with ShowPane()).
-  FindResultsView *GetFindResults() const { return m_findResults; }
-  // Shows or hides a pane ("SideView", "Activity" or "FindResults").
+  // The output pane ("Output"): hidden until something shows it with
+  // ShowPane().
+  OutputView *GetOutput() const { return m_output; }
+  // Shows or hides a pane ("SideView", "Activity" or "Output").
   bool IsPaneShown(const wxString &name) const;
   void ShowPane(const wxString &name, bool show);
   // Hides all the side panes, leaving only the main view. When they are all
@@ -70,7 +70,7 @@ private:
 
   SideView *m_sideView{nullptr};
   ActivityView *m_activityView{nullptr};
-  FindResultsView *m_findResults{nullptr};
+  OutputView *m_output{nullptr};
   bool m_layoutRestored{false};
   // The AUI perspective of the panes as they are created (see ResetLayout()).
   wxString m_defaultLayout;

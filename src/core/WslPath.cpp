@@ -39,9 +39,12 @@ wxString HomeDir(const wxString &distro) {
 #ifdef __WXMSW__
   // The same switch FindShells() uses to get UTF-8 out of wsl.exe.
   ::wxSetEnv("WSL_UTF8", "1");
+  // The arguments are joined into one command line as they are: the script has
+  // a space, so it is quoted, or `sh -c echo $HOME` prints an empty line.
   auto result = Process::RunProcessAndWait(
       {R"(C:\Windows\System32\wsl.exe)", "--distribution",
-       distro.ToStdString(wxConvUTF8), "-e", "sh", "-c", "echo $HOME"});
+       Process::QuoteArgument(distro.ToStdString(wxConvUTF8)), "-e", "sh", "-c",
+       Process::QuoteArgument("echo $HOME")});
   ::wxUnsetEnv("WSL_UTF8");
   wxString home;
   if (result.ok) {

@@ -85,6 +85,12 @@ public:
   // has the focus (or had it last). The selected text of the terminal is what
   // it looks for.
   void ShowFind();
+  // The text selected in the terminal (its first line); empty when nothing is
+  // selected. What Find and Find in Files look for. A TUI application (tmux,
+  // vim, claude) selects text itself, and the terminal does not know it: the
+  // text that it copied (OSC 52) comes first, then the text selected with the
+  // mouse.
+  wxString SelectedSearchText() const;
   // Selects the next (or previous) match of the last search. Shows the search
   // bar if there was no search yet.
   void FindNext(bool forward);

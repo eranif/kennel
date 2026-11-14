@@ -83,7 +83,7 @@ protected:
   wxPanel *m_panelActivity;
   wxPanel *m_mainPanel;
   MainNotebook *m_sessionsBook;
-  wxPanel *m_panelFindResults;
+  wxPanel *m_panelOutput;
 
 protected:
 public:
@@ -91,7 +91,7 @@ public:
   wxPanel *GetPanelActivity() { return m_panelActivity; }
   MainNotebook *GetSessionsBook() { return m_sessionsBook; }
   wxPanel *GetMainPanel() { return m_mainPanel; }
-  wxPanel *GetPanelFindResults() { return m_panelFindResults; }
+  wxPanel *GetPanelOutput() { return m_panelOutput; }
   wxAuiManager *GetAuimgr() { return m_auimgr; }
   MainViewBase(wxWindow *parent, wxWindowID id = wxID_ANY,
                const wxPoint &pos = wxDefaultPosition,

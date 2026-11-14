@@ -40,9 +40,13 @@ public:
   // (0, the default): the file is only opened.
   int GetLine() const { return m_line; }
   int GetColumn() const { return m_column; }
-  void SetLocation(int line, int column) {
+  // How many characters from the column are selected (a match of a search; the
+  // column and the length count characters then). 0: none.
+  int GetLength() const { return m_length; }
+  void SetLocation(int line, int column, int length = 0) {
     m_line = line;
     m_column = column;
+    m_length = length;
   }
 
   // The place the file is on.
@@ -82,6 +86,7 @@ private:
   bool m_isDir{false};
   int m_line{0};
   int m_column{0};
+  int m_length{0};
   Account m_account;
   Status m_status;
 };

@@ -2,6 +2,8 @@
 
 #include "core/Ripgrep.h"
 
+#include <wx/msgdlg.h>
+
 namespace {
 // The width the status line wraps at, in DIP.
 constexpr int kStatusWrapDip = 460;
@@ -63,20 +65,38 @@ void FindInFilesDlg::OnOkUI(wxUpdateUIEvent &event) {
 
 void FindInFilesDlg::CheckRipgrep() {
   m_ready = false;
-  if (!ripgrep::IsInstalledByKennel(m_account)) {
-    // This machine on Windows or macOS: the copy that comes with Kennel.
-    m_ready = !ripgrep::ExecutableOf(m_account).empty();
-    SetStatus(m_ready ? wxString::Format(_("ripgrep %s is ready."),
-                                         ripgrep::Tool().version)
-                      : _("ripgrep (rg) was not found next to Kennel: it needs "
-                          "to be installed again."));
-    return;
-  }
-
   SetStatus(wxString::Format(_("Checking ripgrep on %s ..."),
                              m_account.GetDisplayName()));
+  // Only looks: nothing is put on the machine before the user agrees.
   const Status started =
-      m_installer.Start(m_account, ripgrep::Tool(), ripgrep::LinuxInstallDir());
+      m_installer.Start(m_account, ripgrep::Tool(), ripgrep::InstallDir(),
+                        RemoteInstaller::Mode::kCheckOnly);
+  if (!started.ok()) {
+    SetStatus(started.message());
+  }
+}
+
+void FindInFilesDlg::AskToInstall() {
+  const ToolDescription &tool = ripgrep::Tool();
+  const int answer = wxMessageBox(
+      wxString::Format(_("%s %s is needed to search %s, and it is not "
+                         "installed there (or it is another version).\n\n"
+                         "Kennel will download it and put it in %s.\n\n"
+                         "Install it now?"),
+                       tool.name, tool.version, m_account.GetDisplayName(),
+                       ripgrep::InstallDir()),
+      wxString::Format(_("Download and Install %s?"), tool.name),
+      wxYES_NO | wxICON_QUESTION, this);
+  if (answer != wxYES) {
+    // Nothing to search with: there is no point in keeping the dialog open.
+    EndModal(wxID_CANCEL);
+    return;
+  }
+  SetStatus(wxString::Format(_("Installing %s on %s ..."), tool.name,
+                             m_account.GetDisplayName()));
+  // From the handler of the end of the check, which is allowed.
+  const Status started =
+      m_installer.Start(m_account, tool, ripgrep::InstallDir());
   if (!started.ok()) {
     SetStatus(started.message());
   }
@@ -92,6 +112,10 @@ void FindInFilesDlg::OnInstallDone(InstallEvent &event) {
   }
   if (!event.GetResult().ok()) {
     SetStatus(event.GetResult().message());
+    return;
+  }
+  if (event.NeedsInstall()) {
+    AskToInstall();
     return;
   }
   m_ready = true;

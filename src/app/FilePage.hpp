@@ -98,8 +98,10 @@ public:
   // Puts the caret at `line` and `column` (both from 1; the column is a byte
   // offset in the line, as compilers count it) and shows that line in the
   // middle of the editor. A line or a column out of range goes to the nearest
-  // place that exists.
-  void GotoLine(int line, int column = 1);
+  // place that exists. With a `length` (more than 0) the text from the column,
+  // that many characters, is selected, and the column and the length count
+  // characters, not bytes (what a search reports).
+  void GotoLine(int line, int column = 1, int length = 0);
   // Saved before a move of the caret that may be taken back (GotoLine() as the
   // user types), and put back with SetViewState(). That also cancels the
   // centring that GotoLine() has still to do.
@@ -114,6 +116,9 @@ public:
   // Shows the search bar (find and replace) below the editor. The selected
   // text, if it is on one line, is what it looks for.
   void ShowFind();
+  // The selected text (its first line); empty when nothing is selected. What
+  // Find and Find in Files look for.
+  wxString SelectedSearchText() const;
   // Selects the next (or previous) match of the last search, with wrap around.
   // Shows the search bar if there was no search yet.
   void FindNext(bool forward);
@@ -127,8 +132,6 @@ private:
   void OnSearchBarClose(wxCommandEvent &event);
   // Takes the text and the options of the search from an event of the bar.
   void TakeSearch(const wxCommandEvent &event);
-  // The selected text, if it is on one line; empty otherwise.
-  wxString SelectedSearchText() const;
 
   // Selects the next match from the selection, in the given direction, and
   // wraps around once. False if there is none. `incremental` (the text is

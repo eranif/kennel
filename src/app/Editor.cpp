@@ -608,14 +608,21 @@ void Editor::InitMakefileStyle(wxStyledTextCtrl *ctrl,
   AddProperty(ctrl, wxSTC_STYLE_INDENTGUIDE, theme.bg, theme.black);
 }
 
-void Editor::GotoLine(int line, int column) {
+void Editor::GotoLine(int line, int column, int length) {
   const int lastLine = std::max(m_ctrl->GetLineCount() - 1, 0);
   const int row = std::clamp(line - 1, 0, lastLine);
   const int start = m_ctrl->PositionFromLine(row);
   const int end = m_ctrl->GetLineEndPosition(row);
-  const int pos = std::min(start + std::max(column - 1, 0), end);
   m_ctrl->EnsureVisible(row);
-  m_ctrl->GotoPos(pos);
+  if (length > 0) {
+    // A match: the characters of the line are counted, not its bytes.
+    const int from =
+        std::min(m_ctrl->PositionRelative(start, std::max(column - 1, 0)), end);
+    const int to = std::min(m_ctrl->PositionRelative(from, length), end);
+    m_ctrl->SetSelection(from, to);
+  } else {
+    m_ctrl->GotoPos(std::min(start + std::max(column - 1, 0), end));
+  }
   m_ctrl->ChooseCaretX();
   m_ctrl->VerticalCentreCaret();
 }

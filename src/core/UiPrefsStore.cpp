@@ -59,6 +59,13 @@ json ToJson(const UiPrefs &p) {
       {"highlightIndentLines", p.highlightIndentLines},
       {"terminalLoginShell", ToUtf8(p.terminalLoginShell)},
       {"terminalHomeDir", ToUtf8(p.terminalHomeDir)},
+      {"findPattern", ToUtf8(p.findPattern)},
+      {"findRegex", p.findRegex},
+      {"findMatchCase", p.findMatchCase},
+      {"findWholeWord", p.findWholeWord},
+      {"findInclude", ToUtf8(p.findInclude)},
+      {"findExclude", ToUtf8(p.findExclude)},
+      {"findFolder", ToUtf8(p.findFolder)},
   };
 }
 
@@ -109,6 +116,13 @@ void ParsePrefs(const json &root, UiPrefs &p) {
   p.terminalLoginShell =
       GetStr(root, "terminalLoginShell", p.terminalLoginShell);
   p.terminalHomeDir = GetStr(root, "terminalHomeDir", p.terminalHomeDir);
+  p.findPattern = GetStr(root, "findPattern", p.findPattern);
+  p.findRegex = GetBool(root, "findRegex", p.findRegex);
+  p.findMatchCase = GetBool(root, "findMatchCase", p.findMatchCase);
+  p.findWholeWord = GetBool(root, "findWholeWord", p.findWholeWord);
+  p.findInclude = GetStr(root, "findInclude", p.findInclude);
+  p.findExclude = GetStr(root, "findExclude", p.findExclude);
+  p.findFolder = GetStr(root, "findFolder", p.findFolder);
   p.terminalOptimizedDrawing =
       GetBool(root, "terminalOptimizedDrawing", p.terminalOptimizedDrawing);
   p.blockCursor = GetBool(root, "blockCursor", p.blockCursor);

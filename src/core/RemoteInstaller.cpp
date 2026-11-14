@@ -9,6 +9,7 @@
 #include "core/SshClient.h"
 #include "core/TarGz.h"
 #include "core/WslPath.h"
+#include "core/ZipArchive.h"
 
 #include <atomic>
 #include <chrono>
@@ -19,6 +20,7 @@
 #include <wx/file.h>
 #include <wx/filename.h>
 #include <wx/stream.h>
+#include <wx/utils.h>
 #include <wx/webrequest.h>
 
 wxDEFINE_EVENT(wxEVT_INSTALL_PROGRESS, InstallEvent);
@@ -106,6 +108,19 @@ StatusOr<ShellResult> RunShell(const Account &account,
   return result;
 }
 
+// This machine is Windows: it has no `sh`, `uname`, `mkdir -p` or `chmod`, so
+// the steps that use them have a way of their own for it (DetectMachine(),
+// VersionMatches(), Upload()). A WSL distribution and a remote host are not
+// Windows, whatever this machine is.
+bool IsLocalWindows(const Account &account) {
+#ifdef __WXMSW__
+  return account.IsLocalHost();
+#else
+  wxUnusedVar(account);
+  return false;
+#endif
+}
+
 struct Machine {
   wxString os;   // `uname -s`: "Linux", "Darwin"
   wxString arch; // `uname -m`, as ToolAsset names it: "x86_64", "aarch64"
@@ -124,6 +139,11 @@ wxString NormalizedArch(const wxString &arch) {
 }
 
 StatusOr<Machine> DetectMachine(const Account &account) {
+  if (IsLocalWindows(account)) {
+    // The CPU of the machine, not the one of the Kennel that runs (an x86_64
+    // Kennel on an ARM machine gets the ARM program).
+    return Machine{"Windows", NormalizedArch(wxGetNativeCpuArchitectureName())};
+  }
   auto reply = RunShell(account, "uname -s; uname -m", kShortTimeout);
   if (!reply.ok()) {
     return reply.status();
@@ -202,6 +222,14 @@ wxString AbsolutePath(const Account &account, const wxString &path) {
   return path.StartsWith("/") ? path : wxString();
 }
 
+// `path` (absolute, or under the home folder) as a path of this machine on
+// Windows. Empty if the home folder is not known.
+wxString WindowsPath(const Account &account, const wxString &path) {
+  wxString native = AbsolutePath(account, path);
+  native.Replace("/", "\\");
+  return native;
+}
+
 // `path` as a word for the shell of the machine. A leading `~` or `$HOME` is
 // the home of the user there: it becomes "$HOME" in double quotes, which the
 // shell expands (in single quotes it would not).
@@ -230,6 +258,28 @@ std::string ShellPath(const Account &account, const wxString &path) {
 // no error, just "no".
 StatusOr<bool> VersionMatches(const Account &account, const wxString &path,
                               const wxString &banner) {
+  if (IsLocalWindows(account)) {
+    // No shell: the program is run itself.
+    const wxString native = WindowsPath(account, path);
+    if (native.empty()) {
+      return Status::Error(wxString::Format(
+          _("Could not find the home folder on %s"), account.GetDisplayName()));
+    }
+    if (!wxFileExists(native)) {
+      return false;
+    }
+    std::string out;
+    const int code = Process::RunProcessAndWait(
+        {Process::QuoteArgument(native.ToStdString(wxConvUTF8)), "--version"},
+        [&](const std::string &text, const std::string &) {
+          out += text;
+          return true;
+        });
+    if (code != 0) {
+      return false;
+    }
+    return RemoteInstaller::MatchesBanner(wxString::FromUTF8(out), banner);
+  }
   auto reply =
       RunShell(account, ShellPath(account, path) + " --version 2>/dev/null",
                kShortTimeout);
@@ -273,6 +323,35 @@ Status WriteFile(const Account &account, const wxString &path,
 Status Upload(const Account &account, const wxString &dir, const wxString &path,
               const std::string &data) {
   const wxString tempPath = path + ".kennel-tmp";
+
+  if (IsLocalWindows(account)) {
+    // The same steps without a shell: a folder, the file under another name,
+    // and a rename over the program (a program has no mode to set here).
+    const wxString nativeDir = WindowsPath(account, dir);
+    const wxString nativePath = WindowsPath(account, path);
+    if (nativeDir.empty() || nativePath.empty()) {
+      return Status::Error(wxString::Format(
+          _("Could not find the home folder on %s"), account.GetDisplayName()));
+    }
+    if (!wxFileName::Mkdir(nativeDir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL)) {
+      return Status::Error(
+          wxString::Format(_("Could not create the folder %s"), nativeDir));
+    }
+    const wxString nativeTemp = nativePath + ".kennel-tmp";
+    Status written = WriteFile(account, tempPath, data);
+    if (!written.ok()) {
+      wxRemoveFile(nativeTemp); // Best effort
+      return written;
+    }
+    if (!wxRenameFile(nativeTemp, nativePath, /*overwrite=*/true)) {
+      wxRemoveFile(nativeTemp);
+      // Windows does not replace a program that is running: a search that
+      // runs, or an rg that something else started.
+      return Status::Error(wxString::Format(
+          _("Could not install %s (is it running?)"), nativePath));
+    }
+    return Status::Ok();
+  }
   const std::string temp = ShellPath(account, tempPath);
 
   auto made =
@@ -335,10 +414,12 @@ class RemoteInstaller::Job : public wxEvtHandler,
                              public std::enable_shared_from_this<Job> {
 public:
   Job(wxEvtHandler *handler, const Account &account,
-      const ToolDescription &tool, const wxString &targetDir)
-      : m_account(account), m_tool(tool),
+      const ToolDescription &tool, const wxString &targetDir, Mode mode)
+      : m_account(account), m_tool(tool), m_mode(mode),
         m_dir(WithoutTrailingSlashes(targetDir)),
-        m_path(JoinPath(m_dir, tool.binary)), m_handler(handler) {
+        m_path(JoinPath(m_dir, IsLocalWindows(account) ? tool.binary + ".exe"
+                                                       : tool.binary)),
+        m_handler(handler) {
     Bind(wxEVT_WEBREQUEST_STATE, &Job::OnRequestState, this);
     Bind(wxEVT_WEBREQUEST_DATA, &Job::OnData, this);
   }
@@ -379,14 +460,6 @@ private:
   // Worker: what is the machine, and is the program there already?
   void Detect() {
     Progress(wxString::Format(_("Looking at %s"), m_account.GetDisplayName()));
-#ifdef __WXMSW__
-    if (m_account.IsLocalHost()) {
-      Report(Status::Error(_("Kennel comes with its own programs on Windows: "
-                             "there is nothing to install on this machine")));
-      return;
-    }
-#endif
-
     auto machine = DetectMachine(m_account);
     if (!machine.ok()) {
       Report(machine.status());
@@ -407,6 +480,11 @@ private:
     }
     if (*installed) {
       Report(Status::Ok(), /*alreadyInstalled=*/true);
+      return;
+    }
+    if (m_mode == Mode::kCheckOnly) {
+      Complete(Status::Ok(), /*alreadyInstalled=*/false, /*cancelled=*/false,
+               /*needsInstall=*/true);
       return;
     }
     if (m_cancel) {
@@ -569,7 +647,9 @@ private:
 
     std::string program = std::move(download);
     if (!m_asset.member.empty()) {
-      auto member = ReadTarGzMember(program, m_asset.member);
+      auto member = m_asset.url.EndsWith(".zip")
+                        ? ReadZipMember(program, m_asset.member)
+                        : ReadTarGzMember(program, m_asset.member);
       if (!member.ok()) {
         Report(member.status());
         return;
@@ -648,24 +728,27 @@ private:
 
   // Any thread: runs Finish() on the UI thread, through the EventNotifier (see
   // Detect()). The call owns the job, so it is alive until Finish() has run.
-  void Complete(const Status &result, bool alreadyInstalled, bool cancelled) {
-    CallOnUiThread(
-        [job = shared_from_this(), result, alreadyInstalled, cancelled] {
-          job->Finish(result, alreadyInstalled, cancelled);
-        });
+  void Complete(const Status &result, bool alreadyInstalled, bool cancelled,
+                bool needsInstall = false) {
+    CallOnUiThread([job = shared_from_this(), result, alreadyInstalled,
+                    cancelled, needsInstall] {
+      job->Finish(result, alreadyInstalled, cancelled, needsInstall);
+    });
   }
 
   // UI thread. The install is over: IsRunning() turns false, and the event of
   // the end is queued for the handler. Between the two the UI thread may run
   // another event, so the handler does not know that IsRunning() is false when
   // it gets the event; the header says what a caller may rely on.
-  void Finish(const Status &result, bool alreadyInstalled, bool cancelled) {
+  void Finish(const Status &result, bool alreadyInstalled, bool cancelled,
+              bool needsInstall) {
     m_running = false;
     auto *event = new InstallEvent(wxEVT_INSTALL_DONE);
     event->SetResult(result);
     event->SetAlreadyInstalled(alreadyInstalled);
     event->SetCancelled(cancelled);
-    if (result.ok()) {
+    event->SetNeedsInstall(needsInstall);
+    if (result.ok() && !needsInstall) {
       event->SetPath(m_path);
     }
     Post(event);
@@ -676,6 +759,7 @@ private:
   // one spelling that is used for the checks, the upload and the event.
   const Account m_account;
   const ToolDescription m_tool;
+  const Mode m_mode;
   const wxString m_dir;
   const wxString m_path;
 
@@ -723,7 +807,7 @@ void RemoteInstaller::Cancel() {
 
 Status RemoteInstaller::Start(const Account &account,
                               const ToolDescription &tool,
-                              const wxString &targetDir) {
+                              const wxString &targetDir, Mode mode) {
   if (IsRunning()) {
     return Status::Error(_("An installation is already running"));
   }
@@ -738,7 +822,7 @@ Status RemoteInstaller::Start(const Account &account,
   }
   // The job of the last install may have a thread that is about to return: it
   // owns what it uses, so there is nothing to wait for.
-  m_job = std::make_shared<Job>(m_handler, account, tool, targetDir);
+  m_job = std::make_shared<Job>(m_handler, account, tool, targetDir, mode);
   m_job->Launch();
   return Status::Ok();
 }

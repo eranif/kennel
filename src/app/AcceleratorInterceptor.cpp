@@ -22,6 +22,12 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
                                                               : wxID_FORWARD};
     GetMainFrame()->GetEventHandler()->AddPendingEvent(evtSwitch);
     return;
+  } else if (keyEvent.GetKeyCode() == '`' &&
+             keyEvent.GetModifiers() == wxMOD_CONTROL) {
+    // Show or hide the output pane. The terminal would get it otherwise.
+    wxCommandEvent evtOutput{wxEVT_MENU, XRCID("show-output")};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtOutput);
+    return;
   } else if (keyEvent.GetKeyCode() == WXK_F2) {
     // Rename
     wxCommandEvent evtRename{wxEVT_MENU, XRCID("rename-selection")};

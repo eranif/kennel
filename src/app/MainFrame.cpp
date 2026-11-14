@@ -14,6 +14,7 @@
 #include "app/GotoAnythingDlg.hpp"
 #include "app/JobLogViewer.hpp"
 #include "app/NewAgentWizard.hpp"
+#include "app/OutputView.hpp"
 #include "app/PageNames.h"
 #include "app/PageViewEvent.hpp"
 #include "app/PopupStyle.hpp"
@@ -535,8 +536,15 @@ void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
                             _("Show or hide the side bar"));
   viewMenu->AppendCheckItem(XRCID("show-activity"), _("Activity"),
                             _("Show or hide the activity view"));
-  viewMenu->AppendCheckItem(XRCID("show-find-results"), _("Find Results"),
-                            _("Show or hide the results of Find in Files"));
+#ifdef __WXOSX__
+  // The physical Ctrl key, not Cmd (Cmd+` switches the windows of the system).
+  const wxString outputLabel = _("Output	RawCtrl+`");
+#else
+  // AcceleratorInterceptor handles the key (a terminal would get it otherwise).
+  const wxString outputLabel = _("Output	Ctrl+`");
+#endif
+  viewMenu->AppendCheckItem(XRCID("show-output"), outputLabel,
+                            _("Show or hide the output pane"));
 #ifdef __WXOSX__
   // The physical Ctrl key, not Cmd.
   const wxString toggleLabel = _("Toggle All Views\tRawCtrl+M");
@@ -551,12 +559,11 @@ void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
   viewMenu->AppendSeparator();
   Bind(wxEVT_MENU, &MainFrame::OnShowPane, this, XRCID("show-side-view"));
   Bind(wxEVT_MENU, &MainFrame::OnShowPane, this, XRCID("show-activity"));
-  Bind(wxEVT_MENU, &MainFrame::OnShowPane, this, XRCID("show-find-results"));
+  Bind(wxEVT_MENU, &MainFrame::OnShowPane, this, XRCID("show-output"));
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnShowPaneUI, this,
        XRCID("show-side-view"));
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnShowPaneUI, this, XRCID("show-activity"));
-  Bind(wxEVT_UPDATE_UI, &MainFrame::OnShowPaneUI, this,
-       XRCID("show-find-results"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnShowPaneUI, this, XRCID("show-output"));
   Bind(
       wxEVT_MENU, [this](wxCommandEvent &) { m_mainView->ToggleAllPanes(); },
       XRCID("toggle-all-views"));
@@ -972,8 +979,7 @@ wxString PaneOfMenuId(int id) {
   if (id == XRCID("show-side-view")) {
     return "SideView";
   }
-  return id == XRCID("show-find-results") ? wxString("FindResults")
-                                          : wxString("Activity");
+  return id == XRCID("show-output") ? wxString("Output") : wxString("Activity");
 }
 } // namespace
 
@@ -1254,30 +1260,69 @@ SearchTarget SearchTargetOf(MainNotebook *book) {
   }
   return {Account::LocalHost(), wxFileName::GetHomeDir()};
 }
+
+// The text that is selected in the page that is showing (its first line), like
+// Find takes it; empty when nothing is.
+wxString SelectedTextOf(MainNotebook *book) {
+  if (SessionPage *session = book->GetActiveSessionPage()) {
+    return session->SelectedSearchText();
+  }
+  if (FilePage *file = book->GetActiveFilePage()) {
+    return file->SelectedSearchText();
+  }
+  return wxString();
+}
 } // namespace
 
 void MainFrame::OnFindInFiles(wxCommandEvent &) {
-  FindResultsView *results = m_mainView->GetFindResults();
+  OutputView *output = m_mainView->GetOutput();
+  FindResultsView *results = output->GetFindInFiles();
+  UiPrefs &prefs = AppManager::Get().GetPrefs();
   Account account;
   FindQuery query;
   {
     const SearchTarget target = SearchTargetOf(m_mainView->GetSessionsBook());
     FindInFilesDlg dlg(this);
-    if (results->GetQuery()) {
-      dlg.SetQuery(*results->GetQuery());
+    // What the user asked for last time.
+    FindQuery last;
+    last.pattern = prefs.findPattern;
+    last.isRegex = prefs.findRegex;
+    last.matchCase = prefs.findMatchCase;
+    last.wholeWord = prefs.findWholeWord;
+    last.include = prefs.findInclude;
+    last.exclude = prefs.findExclude;
+    // A selection is what the user looks for, over what was typed last time.
+    if (const wxString selected = SelectedTextOf(m_mainView->GetSessionsBook());
+        !selected.empty()) {
+      last.pattern = selected;
     }
-    // Starts the check of ripgrep on the machine, while the dialog is open.
-    dlg.SetTarget(target.account,
-                  target.folder.empty() && target.account.IsLocalHost()
-                      ? wxFileName::GetHomeDir()
-                      : target.folder);
+    dlg.SetQuery(last);
+    // The folder of the page, or the last one when the page has none (and the
+    // home folder of this machine for a first search here). Starts the check of
+    // ripgrep on the machine, while the dialog is open.
+    wxString folder = target.folder.empty() ? prefs.findFolder : target.folder;
+    if (folder.empty() && target.account.IsLocalHost()) {
+      folder = wxFileName::GetHomeDir();
+    }
+    dlg.SetTarget(target.account, folder);
     if (dlg.ShowModal() != wxID_OK) {
       return;
     }
     account = dlg.GetAccount();
     query = dlg.GetQuery();
   }
-  m_mainView->ShowPane("FindResults", true);
+  prefs.findPattern = query.pattern;
+  prefs.findRegex = query.isRegex;
+  prefs.findMatchCase = query.matchCase;
+  prefs.findWholeWord = query.wholeWord;
+  prefs.findInclude = query.include;
+  prefs.findExclude = query.exclude;
+  prefs.findFolder = query.root;
+  if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+    KLOG_WARN() << "Could not save the preferences: " << st.message();
+  }
+  output->SelectFindInFiles();
+  m_mainView->ShowPane("Output", true);
   if (const Status started = results->Search(account, query); !started.ok()) {
     wxMessageBox(started.message(), _("Find in Files"), wxOK | wxICON_ERROR,
                  this);

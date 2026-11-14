@@ -8,12 +8,11 @@
 // What to search for, and where (File -> Find in Files, Ctrl+Shift+F).
 //
 // The place is the machine and folder that the owner gives (SetTarget()). The
-// moment it does, the dialog finds out whether ripgrep is on that machine:
-// where Kennel installs it (a remote host, WSL, Linux) the RemoteInstaller
-// checks for the right version and installs it when it is missing, and the
-// status line says what is going on. Find stays disabled until ripgrep is
-// there. This machine on Windows or macOS has its own copy, which is only
-// looked for.
+// moment it does, the dialog finds out whether ripgrep is on that machine: the
+// RemoteInstaller checks for the right version, whatever the machine is (this
+// one included). When ripgrep is missing the user is asked before anything is
+// installed. The status line says what is going on, and Find stays disabled
+// until ripgrep is there.
 //
 // The dialog does not search: when the user presses Find, the owner reads
 // GetAccount() and GetQuery() and starts the search (FindResultsView).
@@ -38,6 +37,9 @@ private:
   // Finds out whether ripgrep is on the machine of m_account, and installs it
   // when Kennel is the one that does.
   void CheckRipgrep();
+  // ripgrep is not there: asks the user whether to install it, and installs it
+  // when the answer is yes.
+  void AskToInstall();
   void OnInstallProgress(InstallEvent &event);
   void OnInstallDone(InstallEvent &event);
   void SetStatus(const wxString &text);

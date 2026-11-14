@@ -970,7 +970,7 @@
               ],
               "wxAuiPaneInfo": {
                 "m_bestSize": "-1,240",
-                "m_caption": "Find Results",
+                "m_caption": "Output",
                 "m_captionVisible": true,
                 "m_closeButton": true,
                 "m_dockDirection": "wxAUI_DOCK_BOTTOM",
@@ -979,7 +979,7 @@
                 "m_maxSize": "-1,-1",
                 "m_minButton": false,
                 "m_minSize": "-1,-1",
-                "m_name": "FindResults",
+                "m_name": "Output",
                 "m_pinButton": false,
                 "m_position": 0,
                 "m_resizable": true,
@@ -1012,7 +1012,7 @@
                 {
                   "type": "string",
                   "m_label": "Name:",
-                  "m_value": "m_panelFindResults"
+                  "m_value": "m_panelOutput"
                 },
                 {
                   "type": "multi-string",
@@ -1091,7 +1091,7 @@
                     {
                       "type": "string",
                       "m_label": "Name:",
-                      "m_value": "boxSizerFindResults"
+                      "m_value": "boxSizerOutput"
                     },
                     {
                       "type": "string",
