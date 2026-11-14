@@ -29,6 +29,12 @@ json SessionToJson(const Session &s) {
     entry["plainTerminal"] = true;
     entry["loginShell"] = ToUtf8(s.loginShell);
   }
+  if (!s.remoteHost.empty()) {
+    entry["remoteHost"] = ToUtf8(s.remoteHost);
+    if (!s.remoteUser.empty()) {
+      entry["remoteUser"] = ToUtf8(s.remoteUser);
+    }
+  }
   if (!s.tmuxName.empty()) {
     entry["tmuxName"] = ToUtf8(s.tmuxName);
   }
@@ -94,7 +100,9 @@ Session ParseSession(const json &j) {
   }
   s.loginShell = GetStr(j, "loginShell");
   s.sideDir = GetStr(j, "sideDir");
-  s.tmuxName = GetStr(j, "tmuxName"); // An older file has none: no tmux
+  s.tmuxName = GetStr(j, "tmuxName");     // An older file has none: no tmux
+  s.remoteHost = GetStr(j, "remoteHost"); // Only a terminal on a remote host
+  s.remoteUser = GetStr(j, "remoteUser");
   return s;
 }
 

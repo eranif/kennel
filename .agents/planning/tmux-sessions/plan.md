@@ -368,8 +368,11 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
 1. **Scope: both** agent sessions and plain terminals. The four settings (`mouse on`,
    `mode-keys vi`, `set-clipboard on`, `allow-passthrough all`) are for the **agent sessions**.
    **Terminals use other settings, and they are configurable** (a preference for each kind: the
-   list of tmux commands, with the defaults below). Plain terminals do not need the shim by
-   default (no agent reports a status); the settings go on the `new-session` line.
+   list of tmux commands, with the defaults below). The settings go on the `new-session` line.
+   **Changed 2026-11-15 (the user): a plain terminal runs its shell through the shim too**
+   (`"${SHELL:-/bin/sh}" -l` as the program of the shim, `tmux::TerminalCommand()`), so that the
+   folder and the title of the shell reach Kennel through tmux (review finding 10). It still falls
+   back to the bare shell when the shim is not on the machine.
    - Agent defaults: the four above. Terminal defaults (confirmed, editable on the "Tmux" page of the settings dialog): `set -g mouse on;
      setw -g mode-keys vi; set -g set-clipboard on`, no `allow-passthrough`.
    - **One server cannot hold two sets of `-g` settings** (the last session started would win,

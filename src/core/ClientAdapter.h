@@ -28,6 +28,18 @@ void ApplyClientDefaults(AgentDef &agent);
 // executable, remoteHost and loginShell of `agent`.
 wxString DefaultIconFor(const AgentDef &agent);
 
+// `cd "<dir>"` for a POSIX shell. In double quotes. Only a leading `$HOME` (or
+// a leading `~`, which is written as `$HOME`: a tilde is not expanded inside
+// quotes) is expanded by the shell; every other `$`, and a backtick, is
+// escaped, so that a folder name of a host (not trusted) never runs a command
+// or changes the folder.
+wxString ChangeDirCommand(const wxString &dir);
+
+// The command that logs in to `host` over ssh in a terminal (a shell on this
+// machine): `ssh -o ServerAliveInterval=10 [user@]host`. `user` empty: the ssh
+// default.
+wxString SshLoginCommand(const wxString &host, const wxString &user);
+
 // Builds the list of commands to send to the terminal to launch a session.
 // When resume is true and agent.resumeArg is non-empty, the resume arg is
 // appended before agent.extraArgs. The command is then

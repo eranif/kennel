@@ -13,15 +13,7 @@ std::vector<wxString> WrapCommand(const AgentDef &agent,
                                   const wxString &cmd) {
   std::vector<wxString> commands;
   if (!agent.remoteHost.empty()) {
-    wxString loginCommand;
-    if (agent.remoteUser.empty()) {
-      loginCommand = wxString::Format("ssh -o ServerAliveInterval=10 %s",
-                                      agent.remoteHost);
-    } else {
-      loginCommand = wxString::Format("ssh -o ServerAliveInterval=10 %s@%s",
-                                      agent.remoteUser, agent.remoteHost);
-    }
-    commands.push_back(loginCommand);
+    commands.push_back(SshLoginCommand(agent.remoteHost, agent.remoteUser));
     if (!workingDir.empty()) {
       commands.push_back(wxString::Format(R"(mkdir -p "%s" && cd "%s")",
                                           workingDir, workingDir));
@@ -248,4 +240,37 @@ std::vector<wxString> BuildJobCommandLine(const AgentDef &agent,
   cmd << " " << wxString::Format(R"("%s")", prompt);
 
   return WrapCommand(agent, workingDir, cmd);
+}
+
+wxString SshLoginCommand(const wxString &host, const wxString &user) {
+  return wxString::Format("ssh -o ServerAliveInterval=10 %s",
+                          user.empty() ? host : user + "@" + host);
+}
+
+wxString ChangeDirCommand(const wxString &dir) {
+  wxString rest = dir;
+  // Only a leading $HOME is left for the shell to expand; a tilde is not
+  // expanded inside quotes.
+  wxString head;
+  if (rest == "~") {
+    head = "$HOME";
+    rest.clear();
+  } else if (rest.StartsWith("~/")) {
+    head = "$HOME";
+    rest = rest.Mid(1);
+  } else if (rest == "$HOME" || rest.StartsWith("$HOME/")) {
+    head = "$HOME";
+    rest = rest.Mid(5);
+  }
+  // The rest is a folder name: nothing in it is special to the shell, not even
+  // `$` (a name such as `a$(cmd)` must not run, nor `$VAR` change the folder).
+  wxString quoted = "\"" + head;
+  for (const wxUniChar c : rest) {
+    if (c == '"' || c == '\\' || c == '`' || c == '$') {
+      quoted << '\\';
+    }
+    quoted << c;
+  }
+  quoted << '"';
+  return "cd " + quoted;
 }

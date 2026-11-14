@@ -87,10 +87,6 @@ struct LaunchSpec {
   Server server{Server::kAgent};
   // The name of the tmux session (see SessionNameFor()).
   wxString sessionName;
-  // The folder the program starts in, where it is created (`-c`). Empty: the
-  // folder of the shell. A path that needs no expansion: `~` and `$HOME` are
-  // not expanded in it.
-  wxString dir;
   // What runs in the session, as one `sh` command line: "claude --continue ||
   // claude". It is passed to `sh -c`, so it is POSIX whatever the shell of the
   // user is. Empty: the shell of the user.
@@ -106,7 +102,7 @@ struct LaunchSpec {
 // it that could race). It has no `-d`: a second client shares the session.
 //
 //   env -u TMUX tmux -L kennel -f /dev/null new-session -A -s kennel-1a2b3c4d \
-//     -c /home/me/proj sh -c 'claude --continue || claude' \
+//     sh -c 'claude --continue || claude' \
 //     \; set-option -g status off \; set-option -g set-titles on \; ...
 //
 // `env -u TMUX` lets it run in a shell that is inside the tmux of the user. The
@@ -120,6 +116,17 @@ wxString AttachOrCreate(const LaunchSpec &spec);
 // notation of a shell and is put in double quotes (so `$HOME` is expanded where
 // the command runs).
 wxString ShimPrefix(const wxString &shimPath);
+
+// What a plain terminal runs in tmux: the shell of the machine (`$SHELL`, else
+// `sh`) as a login shell, as tmux starts its own, through tmux-shim when that
+// is installed on the machine (checked there, when the command runs). The shim
+// needs a program to run, which is why the shell is named and not left to tmux:
+// it is what carries the folder and the title of the shell through tmux. It is
+// `$SHELL` of the machine, not the shell that Kennel picked for the terminal:
+// that one is a command that logs in (`wsl.exe -d ...`, the shell of this
+// machine), and tmux itself started the shell of the machine (its
+// `default-shell`) before this change as well.
+wxString TerminalCommand(const wxString &shimPath);
 
 // The answers about the sessions of a server. Each exits with 0 when the thing
 // is true or done. `name` is matched exactly (not as a prefix).

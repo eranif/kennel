@@ -413,10 +413,11 @@ void MainNotebook::OnShowSessionRequested(PageViewEvent &event) {
 void MainNotebook::OnOpenTerminalRequested(PageViewEvent &event) {
   const Account &account = event.GetAccount();
   const wxString &dir = account.m_rootDir;
-  // A terminal on a remote host or in a WSL distribution starts in the home
-  // folder: it goes to the folder of the session with a command.
+  // A terminal in a WSL distribution starts in the home folder: it goes to the
+  // folder of the session with a command. A terminal on a remote host starts in
+  // that folder itself (LaunchTerminal() gives it to the session).
   std::vector<wxString> commands;
-  if (!dir.empty() && !account.IsLocalHost()) {
+  if (!dir.empty() && account.IsWSL()) {
     wxString quoted = dir;
     quoted.Replace("'", "'\\''");
     commands.push_back("cd '" + quoted + "'");
@@ -830,9 +831,14 @@ void MainNotebook::SyncWorkspaceToDisk() {
   ws.version = 1;
   for (auto *page : GetSessions()) {
     Session session = page->GetSession();
-    if (session.plainTerminal) {
+    if (session.plainTerminal && session.remoteHost.empty()) {
       // Where the user is now, if it is a folder of this machine (a shell in
-      // WSL, for one, reports a path that is not).
+      // WSL, for one, reports a path that is not). Not for a terminal on a
+      // remote host: until it has logged in, the folder the local shell
+      // reports is a local one, and the folder of the session is the one on
+      // the host. So the saved folder stays the one the terminal was made in:
+      // it only matters when the tmux session is gone at the restore (a live
+      // one keeps its own folder), and the terminal then starts there again.
       const wxString dir = page->GetCurrentDir();
       if (!dir.empty() && wxDirExists(dir)) {
         session.workingDir = dir;
@@ -1505,7 +1511,8 @@ void MainNotebook::OnGitTerminal(FileEvent &event) {
 
 // Like LaunchSession(), for a terminal that runs on `account`: a shell of the
 // distribution for WSL, a shell that logs in to the host with ssh for a remote
-// host. The commands are typed in the terminal (SendCommand()). A terminal with
+// host (and, with tmux, in tmux there). The commands are typed in the terminal
+// after that (SessionPage::SendCommands()). A terminal with
 // this name is used again, and shown.
 bool MainNotebook::LaunchTerminal(const wxString &name,
                                   const wxString &workingDir,
@@ -1513,10 +1520,12 @@ bool MainNotebook::LaunchTerminal(const wxString &name,
                                   const std::vector<wxString> &commands) {
   wxWindowUpdateLocker locker{this};
   if (SessionPage *page = FindSession(kTerminalsGroupName, name)) {
-    if (auto *terminal = page->GetTerminal()) {
-      for (const wxString &command : commands) {
-        terminal->SendCommand(command);
+    if (page->GetTerminal() != nullptr) {
+      // A terminal on a remote host that is open already goes to the folder.
+      if (account.IsRemote() && !workingDir.empty()) {
+        page->SendCommands({ChangeDirCommand(workingDir)});
       }
+      page->SendCommands(commands);
       ShowPage(page);
       return true;
     }
@@ -1529,7 +1538,6 @@ bool MainNotebook::LaunchTerminal(const wxString &name,
       .plainTerminal = true,
   };
   request.loginShell = AppManager::Get().GetPrefs().terminalLoginShell;
-  std::vector<wxString> toSend;
   if (account.IsWSL()) {
     // The shell of the distribution, as the terminals list it.
     request.loginShell.clear();
@@ -1547,10 +1555,12 @@ bool MainNotebook::LaunchTerminal(const wxString &name,
       return false;
     }
   } else if (account.IsRemote()) {
-    toSend.push_back(wxString::Format(
-        "ssh -o ServerAliveInterval=10 %s",
-        account.m_user.empty() ? account.m_name
-                               : account.m_user + "@" + account.m_name));
+    // A shell of this machine that logs in to the host: the session knows the
+    // host, so that it logs in again when it is restored, and runs in tmux on
+    // the host. The folder is a folder of the host.
+    request.remoteHost = account.m_name;
+    request.remoteUser = account.m_user;
+    request.workingDir = workingDir;
   } else {
     request.workingDir = workingDir;
   }
@@ -1562,10 +1572,8 @@ bool MainNotebook::LaunchTerminal(const wxString &name,
   if (page == nullptr || page->GetTerminal() == nullptr) {
     return false;
   }
-  toSend.insert(toSend.end(), commands.begin(), commands.end());
-  for (const wxString &command : toSend) {
-    page->GetTerminal()->SendCommand(command);
-  }
+  // After what the session runs (the login to the host, tmux).
+  page->SendCommands(commands);
   return true;
 }
 
@@ -1758,6 +1766,8 @@ bool MainNotebook::LaunchSession(const NewSessionRequest &req,
   session.groupName = req.groupName;
   session.plainTerminal = req.plainTerminal;
   session.loginShell = req.loginShell;
+  session.remoteHost = req.remoteHost;
+  session.remoteUser = req.remoteUser;
   session.jobCommands = req.jobCommands;
   session.jobName = req.jobName;
   // A restored session attaches to the tmux session it had (it is kept, and the

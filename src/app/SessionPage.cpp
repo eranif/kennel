@@ -17,6 +17,7 @@
 #include "core/Logger.h"
 #include "core/SftpClient.h"
 #include "core/TmuxClient.h"
+#include "core/TmuxShim.h"
 #include "core/WslPath.h"
 
 #include "terminal_event.h"
@@ -299,6 +300,11 @@ void SessionPage::InitStatus() {
                  : m_agent->remoteUser + "@" + m_agent->remoteHost;
   } else if (m_agent && m_agent->IsWSL()) {
     m_host = wxString::Format(_("WSL: %s"), wsl::DistroOf(m_agent->loginShell));
+  } else if (!m_agent && !m_session.remoteHost.empty()) {
+    // A terminal that logs in to a remote host.
+    m_host = m_session.remoteUser.empty()
+                 ? m_session.remoteHost
+                 : m_session.remoteUser + "@" + m_session.remoteHost;
   }
   UpdateSessionLabel();
 }
@@ -415,6 +421,7 @@ void SessionPage::SetDefaultSessionName(const wxString &name) {
 }
 
 void SessionPage::CreateTerminal() {
+  m_programStarted = false; // Of the terminal that this creates
   // Phase 1 of starting a session (the caller then calls StartProgram()):
   // creates the terminal and starts its shell. The page has a terminal after
   // it, unless the user cancelled the choice of the shell.
@@ -424,7 +431,9 @@ void SessionPage::CreateTerminal() {
   }
 
   std::optional<wxString> cwd;
-  if (!m_session.workingDir.empty()) {
+  // The folder of a terminal on a remote host is a folder of the host: the
+  // local shell that logs in there starts where it starts.
+  if (!m_session.workingDir.empty() && m_session.remoteHost.empty()) {
     cwd = m_session.workingDir;
   }
 
@@ -650,6 +659,10 @@ Account SessionPage::TmuxAccountOf(const std::optional<AgentDef> &agent,
   if (agent && agent->IsRemote()) {
     return Account::Remote(agent->remoteHost, agent->remoteUser);
   }
+  if (!agent && !session.remoteHost.empty()) {
+    // A terminal on a remote host: a local shell that logs in with ssh.
+    return Account::Remote(session.remoteHost, session.remoteUser);
+  }
   // The shell that runs on this machine, as CreateTerminal() chooses it: the
   // agent's own, else the one of the terminal (the one it chose, else the
   // default one).
@@ -689,10 +702,31 @@ std::vector<wxString> SessionPage::ProgramCommands() const {
   if (m_agent) {
     return BuildCommandLine(*m_agent, m_session.workingDir, m_resume, {}, spec);
   }
-  if (spec) {
-    return {tmux::AttachOrCreate(*spec)}; // A terminal: a shell in tmux
+
+  // A terminal is a shell of this machine. On a remote host it logs in with ssh
+  // first (also when it is restored), and the folder is one of the host.
+  std::vector<wxString> commands;
+  const bool remote = !m_session.remoteHost.empty();
+  if (remote) {
+    commands.push_back(
+        SshLoginCommand(m_session.remoteHost, m_session.remoteUser));
   }
-  return {}; // A terminal is its shell
+  if (spec) {
+    // Its shell, through the shim, in tmux. On a host the shell first goes to
+    // the folder of the session, with `$HOME` and `~` expanded there (only when
+    // the tmux session is made: an attach keeps its own folder, and a folder
+    // that is not there leaves the shell in the home folder).
+    wxString command = tmux::TerminalCommand(tmuxshim::ShellPath());
+    if (remote && !m_session.workingDir.empty()) {
+      command =
+          ChangeDirCommand(m_session.workingDir) + " 2>/dev/null; " + command;
+    }
+    spec->command = command;
+    commands.push_back(tmux::AttachOrCreate(*spec));
+  } else if (remote && !m_session.workingDir.empty()) {
+    commands.push_back(ChangeDirCommand(m_session.workingDir));
+  }
+  return commands; // Nothing for a terminal of this machine: it is its shell
 }
 
 void SessionPage::StartProgram() {
@@ -715,10 +749,27 @@ void SessionPage::StartProgram() {
   FinaliseTerminalCreate();
 }
 
+void SessionPage::SendCommands(const std::vector<wxString> &commands) {
+  if (m_programStarted && m_terminal != nullptr) {
+    for (const wxString &command : commands) {
+      m_terminal->SendCommand(command);
+    }
+    return;
+  }
+  m_commandsAfterStart.insert(m_commandsAfterStart.end(), commands.begin(),
+                              commands.end());
+}
+
 void SessionPage::FinaliseTerminalCreate() {
   CHECK_NOT_NULL_RETURN(m_terminal);
   for (const wxString &command : ProgramCommands()) {
     KLOG_DEBUG() << "Session '" << m_session.name << "' > " << command;
+    m_terminal->SendCommand(command);
+  }
+  m_programStarted = true;
+  const std::vector<wxString> after = std::move(m_commandsAfterStart);
+  m_commandsAfterStart.clear();
+  for (const wxString &command : after) {
     m_terminal->SendCommand(command);
   }
 }
@@ -820,6 +871,9 @@ void SessionPage::Restart() {
   // be there now.
   m_tmuxVersion.reset();
   m_note.clear();
+  // The commands that wait stay: the new terminal types them once its program
+  // is started (the user asked for them).
+  m_programStarted = false;
   if (m_tmuxPreparer) {
     m_tmuxPreparer->Cancel(); // An answer that is queued already is dropped
   }
@@ -1027,12 +1081,15 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
     baseDirs.push_back(m_session.workingDir);
   }
 
-  if (m_agent && m_agent->IsRemote()) {
-    // The path lives on the remote host: fetch it over SFTP.
+  if (const Account account = GetAccount(); account.IsRemote()) {
+    // The path lives on the remote host (the agent runs there, or the terminal
+    // logged in there): fetch it over SFTP.
     std::vector<wxString> searchDirs = baseDirs;
-    searchDirs.push_back("$HOME/.kennel/sessions");
+    if (m_agent) {
+      searchDirs.push_back("$HOME/.kennel/sessions");
+    }
     GetMainFrame()->GetMainView()->GetSessionsBook()->FindOrOpenFile(
-        Account::Remote(m_agent->remoteHost, m_agent->remoteUser),
+        Account::Remote(account.m_name, account.m_user),
         ParseFileLocation(text), searchDirs);
     return;
   }
@@ -1524,6 +1581,16 @@ Account SessionPage::GetAccount() const {
     return Account::WSL(
         distro,
         wsl::ResolveLinuxPath(distro, m_session.workingDir, wxEmptyString));
+  }
+  if (m_agent == std::nullopt && !m_session.remoteHost.empty()) {
+    // A terminal that logged in to a remote host. The folder it reports is one
+    // of the host once the login was typed (m_programStarted); before that it
+    // is a folder of the local shell (a Windows one, or an MSYS one that also
+    // starts with `/`), and the folder of the session is used.
+    const wxString dir = GetCurrentDir();
+    return Account::Remote(
+        m_session.remoteHost, m_session.remoteUser,
+        m_programStarted && dir.StartsWith("/") ? dir : m_session.workingDir);
   }
   if (m_agent == std::nullopt) {
     // A terminal can run a shell of a WSL distribution too.

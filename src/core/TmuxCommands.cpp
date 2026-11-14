@@ -215,9 +215,6 @@ wxString AttachOrCreate(const LaunchSpec &spec) {
   std::string line = "env -u TMUX " + SocketArguments(spec.server) +
                      " -f /dev/null new-session -A -s " +
                      ShellWord(Utf8(spec.sessionName));
-  if (!spec.dir.empty()) {
-    line += " -c " + ShellWord(Utf8(spec.dir));
-  }
   if (!spec.command.empty()) {
     line += " sh -c " + ShellQuote(Utf8(spec.command));
   }
@@ -237,6 +234,12 @@ wxString AttachOrCreate(const LaunchSpec &spec) {
 wxString ShimPrefix(const wxString &shimPath) {
   // In double quotes, so that `$HOME` is expanded by the shell that runs it.
   return "\"" + shimPath + "\" --";
+}
+
+wxString TerminalCommand(const wxString &shimPath) {
+  const wxString shell = "\"${SHELL:-/bin/sh}\" -l";
+  return "if [ -x \"" + shimPath + "\" ]; then " + ShimPrefix(shimPath) + " " +
+         shell + "; else " + shell + "; fi";
 }
 
 wxString HasSession(Server server, const wxString &name) {

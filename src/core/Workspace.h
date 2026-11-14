@@ -23,6 +23,14 @@ struct Session {
   // attaches to, and a rename of the session must not lose it. Empty: the
   // session does not run in tmux.
   wxString tmuxName;
+  // A plain terminal that runs on a remote host: the host (and the ssh user,
+  // empty for the default one). The terminal is a local shell that logs in with
+  // ssh (and then runs in tmux on the host), so a restored terminal needs to
+  // know where to log in. Empty: a terminal of this machine (or of a WSL
+  // distribution, which loginShell names). Never set for an agent session: its
+  // agent says where it runs.
+  wxString remoteHost;
+  wxString remoteUser;
 
   // Transient, never persisted: set when this session is a one-shot job run.
   // When non-empty, SessionPage sends jobCommands as-is instead of building
@@ -96,6 +104,9 @@ struct NewSessionRequest {
   // keeps its tmux session on the machine); empty: a new name is made, if the
   // session runs in tmux (see MainNotebook::LaunchSession()).
   wxString tmuxName;
+  // A plain terminal on a remote host, see Session::remoteHost.
+  wxString remoteHost;
+  wxString remoteUser;
   // The shell of a plain terminal. Empty: the default one.
   wxString loginShell;
 

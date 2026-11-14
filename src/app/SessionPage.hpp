@@ -72,6 +72,11 @@ public:
                                const Session &session);
   inline bool IsPlainTerminal() const { return !m_agent.has_value(); }
   void Restart();
+  // Types `commands` into the terminal, once what the session runs is started
+  // (in tmux, that is after the machine has answered): a command typed before
+  // would go to the shell that tmux is started from. Typed at once when it is
+  // started. They stay through Restart(): the new terminal types them.
+  void SendCommands(const std::vector<wxString> &commands);
   // The agent's own terminal.
   wxTerminalViewCtrl *GetTerminal() { return m_terminal; }
   // The agent's terminal, plus the review buddy's while it is open.
@@ -351,6 +356,10 @@ private:
   // What the strip at the bottom of the terminal says instead of the header,
   // see SetNote(). Ends at the next Restart().
   wxString m_note;
+  // The program of the session was typed into the terminal. Until then,
+  // SendCommands() keeps its commands in m_commandsAfterStart.
+  bool m_programStarted{false};
+  std::vector<wxString> m_commandsAfterStart;
   ProgramActivity m_programActivity{ProgramActivity::None};
   ProgramActivity m_terminalActivity{ProgramActivity::None};
   ProgramActivity m_reviewActivity{ProgramActivity::None};
