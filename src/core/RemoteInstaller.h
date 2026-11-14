@@ -74,8 +74,9 @@ wxDECLARE_EVENT(wxEVT_INSTALL_DONE, InstallEvent);
 // created.
 //
 // This machine on Windows is not served: Kennel ships its own tools there (see
-// Ripgrep.h), and an install there is reported as an error. Same for macOS,
-// as far as a tool has no asset for it.
+// Ripgrep.h), and an install there is reported as an error. A macOS host
+// (`uname -s` says "Darwin", `arm64` is taken as `aarch64`) is served as far as
+// the tool has an asset for it.
 //
 // Nothing here blocks the UI thread, in any call. Everything that blocks (ssh,
 // the wsl.exe calls, the file writes) runs on a thread of its own; the download

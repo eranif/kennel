@@ -29,6 +29,16 @@ ToolDescription MakeTool() {
        wxString(kRelease) + "ripgrep-15.2.0-aarch64-unknown-linux-musl.tar.gz",
        "800b1e7206afe799dfb5a6901f23147cfaabe0e52210538100f61e86e1740915",
        "rg"},
+      // A macOS host that is reached over ssh (or this machine, when Kennel
+      // runs on macOS and has no bundled copy).
+      {"Darwin", "x86_64",
+       wxString(kRelease) + "ripgrep-15.2.0-x86_64-apple-darwin.tar.gz",
+       "af7825fcc69a2afc7a7aea55fc9af90e26421d8f20fe59df32e233c0b8a231c1",
+       "rg"},
+      {"Darwin", "aarch64",
+       wxString(kRelease) + "ripgrep-15.2.0-aarch64-apple-darwin.tar.gz",
+       "3750b2e93f37e0c692657da574d7019a101c0084da05a790c83fd335bad973e4",
+       "rg"},
   };
   return tool;
 }

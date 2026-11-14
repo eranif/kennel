@@ -25,7 +25,7 @@ commits signed off (`-s`), no Co-Authored-By, no push without approval.
 Known state: when `ExecutableOf()` is empty, `FindInFiles` ends with the error
 "ripgrep is not installed". Nothing installs it yet.
 
-## Phase 2 - RemoteInstaller (`src/core/`, not started)
+## Phase 2 - RemoteInstaller (`src/core/`, done in 0c90feb; not run against a real host yet)
 A generic class: puts one tool of a `ToolDescription` into a target folder of an account. It must
 work for any tool and any folder (clangd later), not only `rg` in `~/.kennel/bin`.
 
@@ -58,8 +58,10 @@ Design:
 Done when: a remote host, a WSL distro and a Linux host without rg get it, and run again =
 "already installed", and a wrong checksum writes nothing.
 
-- [ ] `RemoteInstaller` + `InstallEvent` in `src/core/`
-- [ ] Add the files to `CMakeLists.txt`
+- [x] `RemoteInstaller` + `InstallEvent` in `src/core/`
+- [x] Add the files to `CMakeLists.txt`
+- [ ] Manual check of the "Done when" line above (remote host, WSL distro, Linux host, re-run,
+      wrong checksum): the code builds but has never been run against a real machine.
 
 ## Phase 3 - Make sure rg is there before a search (`src/core/`)
 - [ ] `ripgrep::Ensure(account)` (or the caller in the app) runs `RemoteInstaller` when

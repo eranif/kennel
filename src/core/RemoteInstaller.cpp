@@ -107,9 +107,21 @@ StatusOr<ShellResult> RunShell(const Account &account,
 }
 
 struct Machine {
-  wxString os;   // `uname -s`: "Linux"
-  wxString arch; // `uname -m`: "x86_64", "aarch64"
+  wxString os;   // `uname -s`: "Linux", "Darwin"
+  wxString arch; // `uname -m`, as ToolAsset names it: "x86_64", "aarch64"
 };
+
+// `uname -m` is not the same everywhere: macOS on Apple Silicon says "arm64"
+// where Linux says "aarch64", and some systems say "amd64" for "x86_64".
+wxString NormalizedArch(const wxString &arch) {
+  if (arch == "arm64") {
+    return "aarch64";
+  }
+  if (arch == "amd64") {
+    return "x86_64";
+  }
+  return arch;
+}
 
 StatusOr<Machine> DetectMachine(const Account &account) {
   auto reply = RunShell(account, "uname -s; uname -m", kShortTimeout);
@@ -119,7 +131,8 @@ StatusOr<Machine> DetectMachine(const Account &account) {
   const wxString out = wxString::FromUTF8(reply->out);
   Machine machine;
   machine.os = out.BeforeFirst('\n').Trim().Trim(false);
-  machine.arch = out.AfterFirst('\n').BeforeFirst('\n').Trim().Trim(false);
+  machine.arch =
+      NormalizedArch(out.AfterFirst('\n').BeforeFirst('\n').Trim().Trim(false));
   if (reply->exitCode != 0 || machine.os.empty() || machine.arch.empty()) {
     return Status::Error(
         wxString::Format(_("Could not find out what kind of machine %s is: %s"),

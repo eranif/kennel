@@ -8,8 +8,9 @@
 // ripgrep, the engine of Find in Files.
 //
 // This machine (Windows, macOS): Kennel ships its own rg next to the program.
-// Linux, WSL and remote hosts: Kennel installs the pinned release into
-// ~/.kennel/bin of that machine (see RemoteInstaller). We never use an rg that
+// Linux, WSL and remote hosts (Linux or macOS, whatever this machine is):
+// Kennel installs the pinned release into ~/.kennel/bin of that machine (see
+// RemoteInstaller). We never use an rg that
 // is somewhere else on the machine, so that the version is always the one the
 // results were tested with.
 namespace ripgrep {
@@ -17,7 +18,7 @@ namespace ripgrep {
 // The release Kennel was built for.
 const ToolDescription &Tool();
 
-// The folder on a Linux machine (a remote host, a WSL distribution, this
+// The folder on a Unix machine (a remote host, a WSL distribution, this
 // machine on Linux) that Kennel installs tools into, in the notation of a
 // shell: "$HOME/.kennel/bin".
 wxString LinuxInstallDir();

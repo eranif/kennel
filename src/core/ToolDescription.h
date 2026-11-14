@@ -10,7 +10,7 @@
 struct ToolAsset {
   // The machine this is for, as `uname -s` and `uname -m` print them.
   wxString os;   // "Linux"
-  wxString arch; // "x86_64", "aarch64"
+  wxString arch; // "x86_64", "aarch64" (macOS's "arm64" is the second)
   wxString url;  // A .tar.gz, or a plain executable
   // SHA-256 of what `url` serves, 64 lower-case hex digits.
   wxString sha256;
