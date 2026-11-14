@@ -179,6 +179,20 @@ public:
   // at `where.line` and `where.column`, both counted from 1. No line (0 or
   // less): the file is only opened.
   void OpenFileAt(const FileLocation &where);
+  // The page of a file of `account` (this machine, a WSL distribution or an ssh
+  // host): an open one is shown, otherwise the file is opened. `where.path` is
+  // in the notation of the account; with a line (more than 0) the caret goes
+  // there, as in OpenFileAt(). Returns the page, or null when there is none
+  // yet: a remote file that is not open is read on a worker thread, and the
+  // caret goes to `where` when it arrives. Also null when the file can not be
+  // opened.
+  //
+  // `searchDirs` (remote only): `where.path` may be relative to one of these
+  // folders of the host. Each is tried as it is for an open page before the
+  // file is fetched (where they are searched too). A folder that starts with
+  // `~` or `$HOME` can not be tried here, the home of the host is not known.
+  FilePage *FindOrOpenFile(const Account &account, const FileLocation &where,
+                           const std::vector<wxString> &searchDirs = {});
 
   // Reads `clickedPath` (resolved against `searchDirs`) from `remoteHost` on
   // a worker thread, then shows it via ShowRemoteFile(). While the same file is

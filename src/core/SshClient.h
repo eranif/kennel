@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/Process.hpp"
 #include "core/Status.h"
 
 #include <chrono>
@@ -42,4 +43,25 @@ public:
   static StatusOr<Result>
   Execute(const wxString &host, const wxString &user, const wxString &command,
           std::chrono::seconds timeout = std::chrono::minutes(2));
+
+  // Like Execute(), but the output is handed to `onOutput` as it arrives, in
+  // the order it came, and is not kept: `Result::out` and `err` stay empty.
+  // `onOutput` runs on the calling thread. It is also called with two empty
+  // strings while the command is quiet (about ten times a second), so that the
+  // caller can notice a cancel. When it returns false the command is
+  // abandoned: the channel is closed (the command ends when it next writes)
+  // and the call returns with no exit code. The connection is then not reused.
+  // `timeout` is for the whole command. Nothing is kept, so there is no limit
+  // on the size of the output (Execute() stops a command at 256 MB): a command
+  // that never stops writing ends with `timeout` or when `onOutput` returns
+  // false, which is for the caller to decide. When a command ends with an error
+  // (the timeout, a lost connection), the chunk that was read last is still
+  // handed to `onOutput` first.
+  //
+  // `onOutput` is the `on_output_callback` of Process: a function that the
+  // blocking call runs, not a notification, so it is not a wx event.
+  static StatusOr<Result>
+  ExecuteStreaming(const wxString &host, const wxString &user,
+                   const wxString &command, const on_output_callback &onOutput,
+                   std::chrono::seconds timeout = std::chrono::minutes(2));
 };

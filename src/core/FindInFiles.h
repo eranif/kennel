@@ -83,15 +83,13 @@ wxDECLARE_EVENT(wxEVT_FIND_DONE, FindEvent);
 // Searches the files of an account with ripgrep (see Ripgrep.h) on a thread of
 // its own and reports with FindEvent. One search at a time.
 //
-// A search of this machine or of a WSL distribution streams: the matches come
-// while rg runs, and Cancel() stops it within a few milliseconds. A remote
-// search runs the command over ssh and reports when it ends (SshClient does not
-// stream), so there Cancel() only drops the result.
+// The matches come while rg runs, on this machine, in a WSL distribution and
+// over ssh (SshClient::ExecuteStreaming), and Cancel() stops the search within
+// a fraction of a second. Over ssh the channel is closed, and rg on the host
+// ends when it next writes.
 //
 // The handler must outlive this object. The destructor cancels and waits for
-// the worker, so destroying a FindInFiles during a remote search blocks until
-// the command ends (up to its timeout of 5 minutes): SshClient::Execute can not
-// be interrupted.
+// the worker.
 class FindInFiles {
 public:
   // Stop after this many matches.

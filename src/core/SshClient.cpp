@@ -60,8 +60,12 @@ StatusOr<ConnectionPtr> NewConnection(const wxString &host,
 // Runs `command` (UTF-8) on a new channel of `conn`. `*started` is set just
 // before the command is sent: from then on, a failure must not run it again,
 // even when the host did not answer (it may have started the command).
+// With `onOutput` the output is handed to it as it comes, and not kept; when it
+// returns false the command is abandoned and `*stopped` is set.
 StatusOr<SshClient::Result> Run(Connection &conn, const std::string &command,
-                                std::chrono::seconds timeout, bool *started) {
+                                std::chrono::seconds timeout, bool *started,
+                                const on_output_callback *onOutput,
+                                bool *stopped) {
   ssh_session session = conn.ssh.get();
   SshChannelPtr channel{ssh_channel_new(session)};
   if (!channel) {
@@ -79,8 +83,13 @@ StatusOr<SshClient::Result> Run(Connection &conn, const std::string &command,
   const auto deadline = std::chrono::steady_clock::now() + timeout;
   // The limits are checked after each chunk, so that a command that never
   // stops writing (to either stream) is stopped too.
+  // What was read in this round, not handed over yet.
+  std::string outChunk;
+  std::string errChunk;
   auto checkLimits = [&]() -> Status {
-    if (result.out.size() + result.err.size() > kMaxOutputBytes) {
+    if (result.out.size() + result.err.size() + outChunk.size() +
+            errChunk.size() >
+        kMaxOutputBytes) {
       return Status::Error("The command wrote too much output");
     }
     if (std::chrono::steady_clock::now() > deadline) {
@@ -90,10 +99,20 @@ StatusOr<SshClient::Result> Run(Connection &conn, const std::string &command,
     }
     return Status::Ok();
   };
+  // A limit was hit: what was read in this round is not lost, the callback
+  // gets it before the call ends with the error.
+  auto failWith = [&](const Status &st) -> Status {
+    if (onOutput != nullptr && (!outChunk.empty() || !errChunk.empty())) {
+      (*onOutput)(outChunk, errChunk);
+    }
+    return st;
+  };
   char buffer[16 * 1024];
   // Both streams are read in turns, so that a command that writes a lot to
   // one of them never waits for the other one to be read.
   while (!ssh_channel_is_eof(channel.get())) {
+    outChunk.clear();
+    errChunk.clear();
     const int n = ssh_channel_read_timeout(channel.get(), buffer,
                                            sizeof(buffer), 0, kReadSliceMs);
     // Only SSH_ERROR is an error. The other negative values are no data:
@@ -103,21 +122,32 @@ StatusOr<SshClient::Result> Run(Connection &conn, const std::string &command,
       return SshError("Could not read the output", session);
     }
     if (n > 0) {
-      result.out.append(buffer, n);
+      outChunk.assign(buffer, n);
     }
     if (Status st = checkLimits(); !st.ok()) {
-      return st;
+      return failWith(st);
     }
     int m = 0;
     while ((m = ssh_channel_read_nonblocking(channel.get(), buffer,
                                              sizeof(buffer), 1)) > 0) {
-      result.err.append(buffer, m);
+      errChunk.append(buffer, m);
       if (Status st = checkLimits(); !st.ok()) {
-        return st;
+        return failWith(st);
       }
     }
     if (m == SSH_ERROR) {
-      return SshError("Could not read the output", session);
+      return failWith(SshError("Could not read the output", session));
+    }
+    if (onOutput != nullptr) {
+      // Also when nothing came (both chunks empty): the caller can see a
+      // cancel while the command is quiet.
+      if (!(*onOutput)(outChunk, errChunk)) {
+        *stopped = true;
+        return result; // The channel is closed by its deleter
+      }
+    } else {
+      result.out += outChunk;
+      result.err += errChunk;
     }
   }
 
@@ -143,19 +173,23 @@ StatusOr<SshClient::Result> Run(Connection &conn, const std::string &command,
   return result;
 }
 
-} // namespace
-
-StatusOr<SshClient::Result> SshClient::Execute(const wxString &host,
-                                               const wxString &user,
-                                               const wxString &command,
-                                               std::chrono::seconds timeout) {
+StatusOr<SshClient::Result> Dispatch(const wxString &host, const wxString &user,
+                                     const wxString &command,
+                                     std::chrono::seconds timeout,
+                                     const on_output_callback *onOutput) {
   const wxString key = PoolKey(host, user);
   const std::string commandUtf8 = command.ToStdString(wxConvUTF8);
   if (ConnectionPtr pooled = Pool().Take(key)) {
     bool started = false;
-    auto result = Run(*pooled, commandUtf8, timeout, &started);
+    bool stopped = false;
+    auto result =
+        Run(*pooled, commandUtf8, timeout, &started, onOutput, &stopped);
     if (result.ok()) {
-      Pool().Return(key, std::move(pooled));
+      // A command that was abandoned may still have data on its way: that
+      // connection is not reused.
+      if (!stopped) {
+        Pool().Return(key, std::move(pooled));
+      }
       return result;
     }
     // A connection from the pool that failed before the command was sent is
@@ -169,9 +203,26 @@ StatusOr<SshClient::Result> SshClient::Execute(const wxString &host,
     return fresh.status();
   }
   bool started = false;
-  auto result = Run(*fresh.value(), commandUtf8, timeout, &started);
-  if (result.ok()) {
+  bool stopped = false;
+  auto result =
+      Run(*fresh.value(), commandUtf8, timeout, &started, onOutput, &stopped);
+  if (result.ok() && !stopped) {
     Pool().Return(key, std::move(fresh.value()));
   }
   return result;
+}
+
+} // namespace
+
+StatusOr<SshClient::Result> SshClient::Execute(const wxString &host,
+                                               const wxString &user,
+                                               const wxString &command,
+                                               std::chrono::seconds timeout) {
+  return Dispatch(host, user, command, timeout, nullptr);
+}
+
+StatusOr<SshClient::Result> SshClient::ExecuteStreaming(
+    const wxString &host, const wxString &user, const wxString &command,
+    const on_output_callback &onOutput, std::chrono::seconds timeout) {
+  return Dispatch(host, user, command, timeout, &onOutput);
 }

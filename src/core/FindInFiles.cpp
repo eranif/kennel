@@ -454,16 +454,20 @@ void FindInFiles::Run(Account account, FindQuery query, int generation) {
     // be one: it only has to read `sh -c` and one word in single quotes. $HOME
     // in the path of rg is expanded by sh.
     const std::string command = "sh -c " + ShellQuote(script);
-    auto reply = SshClient::Execute(account.m_name, account.m_user,
-                                    wxString::FromUTF8(command),
-                                    std::chrono::minutes(5));
+    std::string errorText;
+    auto reply = SshClient::ExecuteStreaming(
+        account.m_name, account.m_user, wxString::FromUTF8(command),
+        [&](const std::string &out, const std::string &err) {
+          if (errorText.size() < kMaxErrorText) {
+            errorText += err;
+          }
+          return !m_cancel && collector.Feed(out);
+        },
+        std::chrono::minutes(5));
     if (!reply.ok()) {
       result = reply.status();
-    } else if (!m_cancel) {
-      collector.Feed(reply->out);
-      if (collector.Total() == 0 && !reply->err.empty()) {
-        result = Status::Error(TrimmedError(reply->err, _("ripgrep failed")));
-      }
+    } else if (!m_cancel && collector.Total() == 0 && !errorText.empty()) {
+      result = Status::Error(TrimmedError(errorText, _("ripgrep failed")));
     }
   } else {
     std::vector<std::string> argv;

@@ -387,17 +387,55 @@ void MainNotebook::OnFileTreeActivated(FileEvent &event) {
   if (event.IsDir()) {
     return; // The tree opens or closes the folder
   }
-  const Account &account = event.GetAccount();
-  if (account.IsRemote()) {
-    OpenRemoteFile(RemoteHostDetails{account.m_name, account.m_user},
-                   event.GetPath(), {}, event.GetLine(), event.GetColumn(),
-                   event.GetLength());
-  } else {
-    OpenFileAt({account.IsWSL()
-                    ? wsl::ToWindowsPath(account.m_name, event.GetPath())
-                    : event.GetPath(),
-                event.GetLine(), event.GetColumn(), event.GetLength()});
+  FindOrOpenFile(event.GetAccount(), {event.GetPath(), event.GetLine(),
+                                      event.GetColumn(), event.GetLength()});
+}
+
+FilePage *
+MainNotebook::FindOrOpenFile(const Account &account, const FileLocation &where,
+                             const std::vector<wxString> &searchDirs) {
+  const bool remote = account.IsRemote();
+  const RemoteHostDetails host{account.m_name, account.m_user};
+  // The path of the page: a Windows path for a WSL file.
+  const wxString path = remote || !account.IsWSL()
+                            ? where.path
+                            : wsl::ToWindowsPath(account.m_name, where.path);
+  const wxString key = remote ? FileEvent::MakeKey(where.path, host)
+                              : wxFileName(path).GetFullPath();
+
+  FilePage *page = FindFile(key);
+  if (page == nullptr && remote && !where.path.StartsWith("/")) {
+    // Where the host would find the file: the page of such a file is open.
+    for (const wxString &dir : searchDirs) {
+      if (!dir.StartsWith("/")) {
+        continue; // `~` and `$HOME`: the home of the host is not known
+      }
+      const wxString candidate =
+          dir.EndsWith("/") ? dir + where.path : dir + "/" + where.path;
+      if ((page = FindFile(FileEvent::MakeKey(candidate, host))) != nullptr) {
+        break;
+      }
+    }
   }
+  if (page == nullptr) {
+    if (remote) {
+      // Fetched on a worker thread: the page comes later, and the caret goes
+      // to `where` when it does.
+      OpenRemoteFile(host, where.path, searchDirs, where.line, where.column,
+                     where.length);
+      return nullptr;
+    }
+    OpenLocalFile(path);
+    page = FindFile(key);
+  } else {
+    // Open already: shown as it is, nothing is read again (Reload does that,
+    // when the user asks).
+    ShowPage(page);
+  }
+  if (page != nullptr && where.line > 0) {
+    page->GotoLine(where.line, where.column, where.length);
+  }
+  return page;
 }
 
 // A diff of the git view: a page with the text, read-only, that is not kept in

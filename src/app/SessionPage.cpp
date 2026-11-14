@@ -872,10 +872,9 @@ void SessionPage::OnTerminalLink(wxTerminalEvent &evt) {
     // The path lives on the remote host: fetch it over SFTP.
     std::vector<wxString> searchDirs = baseDirs;
     searchDirs.push_back("$HOME/.kennel/sessions");
-    const FileLocation remote = ParseFileLocation(text);
-    GetMainFrame()->GetMainView()->GetSessionsBook()->OpenRemoteFile(
-        RemoteHostDetails{m_agent->remoteHost, m_agent->remoteUser},
-        remote.path, searchDirs, remote.line, remote.column);
+    GetMainFrame()->GetMainView()->GetSessionsBook()->FindOrOpenFile(
+        Account::Remote(m_agent->remoteHost, m_agent->remoteUser),
+        ParseFileLocation(text), searchDirs);
     return;
   }
 
@@ -1521,6 +1520,7 @@ void SessionPage::OpenLatestReview() {
     if (!dir.empty()) {
       searchDirs.push_back(dir);
     }
+    // Fetched every time: the agent rewrites the review file on the host.
     mainView->GetSessionsBook()->OpenRemoteFile(
         RemoteHostDetails{m_agent->remoteHost, m_agent->remoteUser}, relative,
         searchDirs);
