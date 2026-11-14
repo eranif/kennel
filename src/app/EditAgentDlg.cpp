@@ -12,6 +12,8 @@
 #include <wx/textdlg.h>
 #include <wx/tokenzr.h>
 
+#include <thread>
+
 EditAgentDlg::EditAgentDlg(wxWindow *parent, const AgentDef *agent)
     : EditAgentDlgBase(parent) {
   const auto &pref = AppManager::Get().GetPrefs();
@@ -24,31 +26,6 @@ EditAgentDlg::EditAgentDlg(wxWindow *parent, const AgentDef *agent)
     m_choiceShell->SetStringSelection(*shellName);
   }
 
-  wxBusyCursor bc{};
-  // Locate common binaries — locally or on the remote host.
-  wxArrayString execs;
-  if (agent && agent->IsRemote()) {
-    auto remote =
-        std::make_shared<KennelRemote>(agent->remoteHost, agent->remoteUser);
-    auto clis = remote->FindCli();
-    for (const auto &cli : clis) {
-      execs.push_back(cli.path);
-    }
-  } else {
-    const std::vector<std::optional<wxString>> executables{
-        platform::Which("claude"),
-        platform::Which("kiro-cli"),
-        platform::Which("codex"),
-        platform::Which("opencode"),
-    };
-    for (const auto &e : executables) {
-      if (e.has_value()) {
-        execs.push_back(*e);
-      }
-    }
-  }
-
-  m_comboBoxExecutable->Append(execs);
   if (agent) {
     m_textCtrlName->SetValue(agent->name);
     m_comboBoxExecutable->SetValue(agent->executable);
@@ -68,11 +45,24 @@ EditAgentDlg::EditAgentDlg(wxWindow *parent, const AgentDef *agent)
     }
   }
 
+  // A small button with the icon of Reload, or its name when the icon is not
+  // there.
+  const wxBitmapBundle &reload =
+      AppManager::Get().GetBitmaps().GetByAlias("reload", false);
+  if (reload.IsOk()) {
+    m_buttonRefreshExecutables->SetBitmap(reload);
+  } else {
+    m_buttonRefreshExecutables->SetLabel(_("Refresh"));
+  }
+
+  // The programs of this machine, or of the host of the agent.
+  RefreshExecutables();
+
   GetSizer()->Fit(this);
   ::PositionDialog(this, Orientation::kTop);
 }
 
-EditAgentDlg::~EditAgentDlg() {}
+EditAgentDlg::~EditAgentDlg() { m_alive->store(false); }
 
 void EditAgentDlg::OnDeleteEnv(wxCommandEvent &event) {
   auto item = m_dvListCtrlEnv->GetSelection();
@@ -173,4 +163,68 @@ void EditAgentDlg::OnRemoteHost(wxCommandEvent &event) {
   }
   m_textCtrlHost->ChangeValue(dlg.GetSelection().address);
   m_textCtrlHost->SetFocus();
+  // The agent is a remote one now: its programs are those of that host.
+  RefreshExecutables();
+}
+
+void EditAgentDlg::RefreshExecutables() {
+  const int request = ++m_executablesRequest;
+  wxString host = m_textCtrlHost->GetValue();
+  wxString user = m_textCtrlUser->GetValue();
+  host.Trim().Trim(false);
+  user.Trim().Trim(false);
+
+  if (host.empty()) {
+    SetCursor(wxNullCursor);
+    // This machine: a quick look at the PATH.
+    std::vector<wxString> executables;
+    for (const char *name : {"claude", "kiro-cli", "codex", "opencode"}) {
+      if (const auto found = platform::Which(name); found.has_value()) {
+        executables.push_back(*found);
+      }
+    }
+    ShowExecutables(executables);
+    return;
+  }
+
+  // A remote host: connected and asked on a thread of its own. The thread
+  // uses no member; the answer comes back to the UI thread.
+  SetCursor(wxCursor(wxCURSOR_ARROWWAIT)); // Busy, but the dialog answers
+  ShowExecutables({});                     // Not the programs of this machine
+  std::thread([this, alive = m_alive, host, user, request] {
+    KennelRemote remote(host, user);
+    std::vector<wxString> executables;
+    for (const auto &cli : remote.FindCli()) {
+      executables.push_back(cli.path);
+    }
+    CallAfterIfAlive(alive, [this, request, executables] {
+      if (request != m_executablesRequest) {
+        return; // The user chose another host meanwhile
+      }
+      SetCursor(wxNullCursor);
+      ShowExecutables(executables);
+    });
+  }).detach();
+}
+
+void EditAgentDlg::ShowExecutables(const std::vector<wxString> &executables) {
+  const wxString current = m_comboBoxExecutable->GetValue();
+  // A program that was in the list is of the machine of that list: it is not
+  // kept for another one. What the user wrote stays.
+  bool wasListed = false;
+  for (unsigned i = 0; i < m_comboBoxExecutable->GetCount(); ++i) {
+    wasListed = wasListed || m_comboBoxExecutable->GetString(i) == current;
+  }
+  m_comboBoxExecutable->Clear();
+  for (const wxString &executable : executables) {
+    m_comboBoxExecutable->Append(executable);
+  }
+  m_comboBoxExecutable->SetValue(wasListed ? wxString() : current);
+}
+
+void EditAgentDlg::OnRefreshExecutables(wxCommandEvent &event) {
+  wxUnusedVar(event);
+  // The programs of a host are kept for the run of the application: look again.
+  KennelRemote::ClearCliCache();
+  RefreshExecutables();
 }

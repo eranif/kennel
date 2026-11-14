@@ -10,6 +10,8 @@
 #include <wx/filename.h>
 #include <wx/tokenzr.h>
 
+#include <thread>
+
 //===--------------------------------
 // FileBrowserDlg
 //===--------------------------------
@@ -44,13 +46,41 @@ FileBrowserDlg::FileBrowserDlg(wxWindow *parent,
   GetSizer()->Layout();
 }
 
-FileBrowserDlg::~FileBrowserDlg() {}
+FileBrowserDlg::~FileBrowserDlg() { m_alive->store(false); }
 
 void FileBrowserDlg::PopulateView(const wxString &dir) {
+  if (m_loading) {
+    return; // The one that is going on is shown first
+  }
   m_textCtrlCurrnentDir->SetValue(dir);
-  wxBusyCursor bc{}; // A remote host takes a while to answer
-  auto files = m_provider->ListFiles(dir);
+  m_loading = true;
+  SetCursor(wxCursor(wxCURSOR_ARROWWAIT)); // Busy, but the dialog answers
 
+  // A remote host is connected and asked on a thread of its own (ssh blocks for
+  // seconds). The thread uses the provider (it has a copy) and nothing else of
+  // the dialog; the result comes back to the UI thread.
+  std::thread([this, alive = m_alive, provider = m_provider, dir] {
+    const Status connected = provider->Connect();
+    std::vector<FileProvider::File> files;
+    if (connected.ok()) {
+      files = provider->ListFiles(dir);
+    }
+    CallAfterIfAlive(alive,
+                     [this, connected, files = std::move(files)]() mutable {
+                       m_loading = false;
+                       SetCursor(wxNullCursor);
+                       if (!connected.ok()) {
+                         // The listing that was shown stays.
+                         ::wxMessageBox(connected.message(), "Kennel",
+                                        wxICON_WARNING | wxOK, this);
+                         return;
+                       }
+                       ShowListing(std::move(files));
+                     });
+  }).detach();
+}
+
+void FileBrowserDlg::ShowListing(std::vector<FileProvider::File> files) {
   std::sort(files.begin(), files.end(),
             [](const FileProvider::File &a, const FileProvider::File &b) {
               const bool aDir = a.type == FileProvider::FileType::kDir;
@@ -120,6 +150,9 @@ void FileBrowserDlg::PopulateView(const wxString &dir) {
 }
 
 void FileBrowserDlg::OnActivated(wxDataViewEvent &event) {
+  if (m_loading) {
+    return; // The folder is being listed: the provider is not ours to change
+  }
   UpdateSelection(event.GetItem());
   if (!m_selection) {
     return;
@@ -138,12 +171,18 @@ void FileBrowserDlg::OnActivated(wxDataViewEvent &event) {
 }
 
 void FileBrowserDlg::OnUp(wxCommandEvent &event) {
+  if (m_loading) {
+    return;
+  }
   wxUnusedVar(event);
   m_provider->Up();
   PopulateView(m_provider->GetCurrentWorkingDir());
 }
 
 void FileBrowserDlg::OnHome(wxCommandEvent &event) {
+  if (m_loading) {
+    return;
+  }
   wxUnusedVar(event);
   m_provider->ChangeDir(m_provider->GetHome());
   PopulateView(m_provider->GetCurrentWorkingDir());

@@ -616,6 +616,10 @@ EditAgentDlgBase::EditAgentDlgBase(wxWindow *parent, wxWindowID id,
                        wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
                        WXC_FROM_DIP(5));
 
+  wxBoxSizer *boxSizer666 = new wxBoxSizer(wxHORIZONTAL);
+
+  flexGridSizer82->Add(boxSizer666, 1, wxEXPAND, WXC_FROM_DIP(5));
+
   wxArrayString m_comboBoxExecutableArr;
   m_comboBoxExecutable = new wxComboBox(
       m_panel87, wxID_ANY, wxT(""), wxDefaultPosition,
@@ -624,8 +628,15 @@ EditAgentDlgBase::EditAgentDlgBase(wxWindow *parent, wxWindowID id,
   m_comboBoxExecutable->SetHint(wxT(""));
 #endif
 
-  flexGridSizer82->Add(m_comboBoxExecutable, 0, wxALL | wxEXPAND,
-                       WXC_FROM_DIP(5));
+  boxSizer666->Add(m_comboBoxExecutable, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
+  m_buttonRefreshExecutables =
+      new wxButton(m_panel87, wxID_ANY, wxT(""), wxDefaultPosition,
+                   wxDLG_UNIT(m_panel87, wxSize(-1, -1)), wxBU_EXACTFIT);
+  m_buttonRefreshExecutables->SetToolTip(_("Look for the programs again"));
+
+  boxSizer666->Add(m_buttonRefreshExecutables, 0,
+                   wxALL | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
 
   m_staticText89 = new wxStaticText(m_panel87, wxID_ANY, _("Launch Args:"),
                                     wxDefaultPosition,
@@ -821,6 +832,9 @@ EditAgentDlgBase::EditAgentDlgBase(wxWindow *parent, wxWindowID id,
     wxPersistenceManager::Get().Restore(this);
   }
   // Connect events
+  m_buttonRefreshExecutables->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
+                                   &EditAgentDlgBase::OnRefreshExecutables,
+                                   this);
   m_button155->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
                     &EditAgentDlgBase::OnBrowseBitmap, this);
   m_button292->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
@@ -838,6 +852,9 @@ EditAgentDlgBase::EditAgentDlgBase(wxWindow *parent, wxWindowID id,
 }
 
 EditAgentDlgBase::~EditAgentDlgBase() {
+  m_buttonRefreshExecutables->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
+                                     &EditAgentDlgBase::OnRefreshExecutables,
+                                     this);
   m_button155->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
                       &EditAgentDlgBase::OnBrowseBitmap, this);
   m_button292->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,

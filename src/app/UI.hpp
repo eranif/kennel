@@ -199,6 +199,7 @@ protected:
   wxTextCtrl *m_textCtrlName;
   wxStaticText *m_staticText295;
   wxComboBox *m_comboBoxExecutable;
+  wxButton *m_buttonRefreshExecutables;
   wxStaticText *m_staticText89;
   wxTextCtrl *m_textCtrlLaunchArgs;
   wxStaticText *m_staticText372;
@@ -219,6 +220,7 @@ protected:
   wxButton *m_buttonCancel;
 
 protected:
+  virtual void OnRefreshExecutables(wxCommandEvent &event) { event.Skip(); }
   virtual void OnBrowseBitmap(wxCommandEvent &event) { event.Skip(); }
   virtual void OnRemoteHost(wxCommandEvent &event) { event.Skip(); }
   virtual void OnEnvActivated(wxDataViewEvent &event) { event.Skip(); }
@@ -233,6 +235,7 @@ public:
   wxTextCtrl *GetTextCtrlName() { return m_textCtrlName; }
   wxStaticText *GetStaticText295() { return m_staticText295; }
   wxComboBox *GetComboBoxExecutable() { return m_comboBoxExecutable; }
+  wxButton *GetButtonRefreshExecutables() { return m_buttonRefreshExecutables; }
   wxStaticText *GetStaticText89() { return m_staticText89; }
   wxTextCtrl *GetTextCtrlLaunchArgs() { return m_textCtrlLaunchArgs; }
   wxStaticText *GetStaticText372() { return m_staticText372; }
