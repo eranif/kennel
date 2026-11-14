@@ -2908,12 +2908,12 @@ FindInFilesDlgBase::FindInFilesDlgBase(wxWindow *parent, wxWindowID id,
   flexGridSizerFields->Add(boxSizerOptions, 0, wxALL | wxEXPAND,
                            WXC_FROM_DIP(0));
 
-  m_checkBoxRegex =
-      new wxCheckBox(this, wxID_ANY, _("Regex"), wxDefaultPosition,
+  m_checkBoxWholeWord =
+      new wxCheckBox(this, wxID_ANY, _("Whole word"), wxDefaultPosition,
                      wxDLG_UNIT(this, wxSize(-1, -1)), 0);
-  m_checkBoxRegex->SetValue(false);
+  m_checkBoxWholeWord->SetValue(false);
 
-  boxSizerOptions->Add(m_checkBoxRegex, 0, wxALL | wxALIGN_CENTER_VERTICAL,
+  boxSizerOptions->Add(m_checkBoxWholeWord, 0, wxALL | wxALIGN_CENTER_VERTICAL,
                        WXC_FROM_DIP(5));
 
   m_checkBoxMatchCase =
@@ -2924,12 +2924,12 @@ FindInFilesDlgBase::FindInFilesDlgBase(wxWindow *parent, wxWindowID id,
   boxSizerOptions->Add(m_checkBoxMatchCase, 0, wxALL | wxALIGN_CENTER_VERTICAL,
                        WXC_FROM_DIP(5));
 
-  m_checkBoxWholeWord =
-      new wxCheckBox(this, wxID_ANY, _("Whole word"), wxDefaultPosition,
+  m_checkBoxRegex =
+      new wxCheckBox(this, wxID_ANY, _("Regex"), wxDefaultPosition,
                      wxDLG_UNIT(this, wxSize(-1, -1)), 0);
-  m_checkBoxWholeWord->SetValue(false);
+  m_checkBoxRegex->SetValue(false);
 
-  boxSizerOptions->Add(m_checkBoxWholeWord, 0, wxALL | wxALIGN_CENTER_VERTICAL,
+  boxSizerOptions->Add(m_checkBoxRegex, 0, wxALL | wxALIGN_CENTER_VERTICAL,
                        WXC_FROM_DIP(5));
 
   m_staticTextStatus =

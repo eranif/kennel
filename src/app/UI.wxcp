@@ -29315,7 +29315,7 @@
                         {
                           "type": "string",
                           "m_label": "Name:",
-                          "m_value": "m_checkBoxRegex"
+                          "m_value": "m_checkBoxWholeWord"
                         },
                         {
                           "type": "multi-string",
@@ -29370,7 +29370,7 @@
                         {
                           "type": "string",
                           "m_label": "Label:",
-                          "m_value": "Regex"
+                          "m_value": "Whole word"
                         },
                         {
                           "type": "bool",
@@ -29515,7 +29515,7 @@
                         {
                           "type": "string",
                           "m_label": "Name:",
-                          "m_value": "m_checkBoxWholeWord"
+                          "m_value": "m_checkBoxRegex"
                         },
                         {
                           "type": "multi-string",
@@ -29570,7 +29570,7 @@
                         {
                           "type": "string",
                           "m_label": "Label:",
-                          "m_value": "Whole word"
+                          "m_value": "Regex"
                         },
                         {
                           "type": "bool",

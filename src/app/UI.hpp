@@ -740,9 +740,9 @@ protected:
   wxStaticText *m_staticTextExcludeLabel;
   wxTextCtrl *m_textCtrlExclude;
   wxStaticText *m_staticTextOptionsLabel;
-  wxCheckBox *m_checkBoxRegex;
-  wxCheckBox *m_checkBoxMatchCase;
   wxCheckBox *m_checkBoxWholeWord;
+  wxCheckBox *m_checkBoxMatchCase;
+  wxCheckBox *m_checkBoxRegex;
   wxStaticText *m_staticTextStatus;
   wxStdDialogButtonSizer *m_stdBtnSizer;
   wxButton *m_buttonOK;
@@ -763,9 +763,9 @@ public:
   wxStaticText *GetStaticTextExcludeLabel() { return m_staticTextExcludeLabel; }
   wxTextCtrl *GetTextCtrlExclude() { return m_textCtrlExclude; }
   wxStaticText *GetStaticTextOptionsLabel() { return m_staticTextOptionsLabel; }
-  wxCheckBox *GetCheckBoxRegex() { return m_checkBoxRegex; }
-  wxCheckBox *GetCheckBoxMatchCase() { return m_checkBoxMatchCase; }
   wxCheckBox *GetCheckBoxWholeWord() { return m_checkBoxWholeWord; }
+  wxCheckBox *GetCheckBoxMatchCase() { return m_checkBoxMatchCase; }
+  wxCheckBox *GetCheckBoxRegex() { return m_checkBoxRegex; }
   wxStaticText *GetStaticTextStatus() { return m_staticTextStatus; }
   FindInFilesDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,
                      const wxString &title = _("Find in Files"),
