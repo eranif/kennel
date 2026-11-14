@@ -17,6 +17,12 @@ struct Session {
   // The shell a plain terminal runs. Empty: the default one (or ask, when
   // there are several). Saved so that a restored terminal does not ask again.
   wxString loginShell;
+  // The name of the tmux session that the agent (or the terminal) runs in, on
+  // its machine: "kennel-<group>-<name>" (tmux::SessionNameFor()). Made once,
+  // when the session is created, and kept: it is what a restored session
+  // attaches to, and a rename of the session must not lose it. Empty: the
+  // session does not run in tmux.
+  wxString tmuxName;
 
   // Transient, never persisted: set when this session is a one-shot job run.
   // When non-empty, SessionPage sends jobCommands as-is instead of building
@@ -86,6 +92,10 @@ struct NewSessionRequest {
   bool resume{false};
   wxString groupName;
   bool plainTerminal{false};
+  // The tmux session of the session when it is restored (an archived session
+  // keeps its tmux session on the machine); empty: a new name is made, if the
+  // session runs in tmux (see MainNotebook::LaunchSession()).
+  wxString tmuxName;
   // The shell of a plain terminal. Empty: the default one.
   wxString loginShell;
 

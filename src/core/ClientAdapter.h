@@ -3,7 +3,9 @@
 #include <wx/string.h>
 
 #include "core/Config.h"
+#include "core/TmuxCommands.h"
 
+#include <optional>
 #include <vector>
 
 // The CLI tools Kennel supports. Anything else needs code changes here: the
@@ -39,9 +41,14 @@ wxString DefaultIconFor(const AgentDef &agent);
 // escaped for a POSIX shell (also over ssh and in WSL). A Windows shell (cmd,
 // PowerShell) does not understand that escaping, so keep the prompt to plain
 // text there.
-std::vector<wxString> BuildCommandLine(const AgentDef &agent,
-                                       const wxString &workingDir, bool resume,
-                                       const wxString &initialPrompt = {});
+// With `tmuxSpec` (its `command` is made here) the program runs in a tmux
+// session (attached when it exists, created with the program otherwise; see
+// tmux::AttachOrCreate()), through tmux-shim when it is installed on the
+// machine.
+std::vector<wxString> BuildCommandLine(
+    const AgentDef &agent, const wxString &workingDir, bool resume,
+    const wxString &initialPrompt = {},
+    const std::optional<tmux::LaunchSpec> &tmuxSpec = std::nullopt);
 
 // Builds the list of commands to send to the terminal to run a single
 // "Prompt" job non-interactively: like BuildCommandLine, but appends

@@ -66,6 +66,9 @@ json ToJson(const UiPrefs &p) {
       {"findInclude", ToUtf8(p.findInclude)},
       {"findExclude", ToUtf8(p.findExclude)},
       {"findFolder", ToUtf8(p.findFolder)},
+      {"tmuxEnabled", p.tmuxEnabled},
+      {"tmuxAgentSettings", ToUtf8(p.tmuxAgentSettings)},
+      {"tmuxTerminalSettings", ToUtf8(p.tmuxTerminalSettings)},
   };
 }
 
@@ -123,6 +126,10 @@ void ParsePrefs(const json &root, UiPrefs &p) {
   p.findInclude = GetStr(root, "findInclude", p.findInclude);
   p.findExclude = GetStr(root, "findExclude", p.findExclude);
   p.findFolder = GetStr(root, "findFolder", p.findFolder);
+  p.tmuxEnabled = GetBool(root, "tmuxEnabled", p.tmuxEnabled);
+  p.tmuxAgentSettings = GetStr(root, "tmuxAgentSettings", p.tmuxAgentSettings);
+  p.tmuxTerminalSettings =
+      GetStr(root, "tmuxTerminalSettings", p.tmuxTerminalSettings);
   p.terminalOptimizedDrawing =
       GetBool(root, "terminalOptimizedDrawing", p.terminalOptimizedDrawing);
   p.blockCursor = GetBool(root, "blockCursor", p.blockCursor);

@@ -7,6 +7,7 @@
 #include "app/ReviewBuddyEvent.hpp"
 #include "app/SearchablePage.hpp"
 #include "app/SessionStatusEvent.hpp"
+#include "app/TmuxPreparer.hpp"
 #include "core/Account.h"
 #include "core/ActivityMonitor.h"
 #include "core/AppPaths.h"
@@ -62,6 +63,13 @@ public:
   // Where the files of the session are: this machine, the WSL distribution or
   // the remote host the program runs on, starting in the folder of the session.
   Account GetAccount() const;
+  // The machine a session runs in tmux on: where the agent runs, or where the
+  // shell of a plain terminal runs. `agent` is empty for a plain terminal. The
+  // same rules as CreateTerminal() for the shell (so a default shell that is a
+  // WSL distribution counts), and no page is needed (an archived session has
+  // none).
+  static Account TmuxAccountOf(const std::optional<AgentDef> &agent,
+                               const Session &session);
   inline bool IsPlainTerminal() const { return !m_agent.has_value(); }
   void Restart();
   // The agent's own terminal.
@@ -134,7 +142,32 @@ public:
   void OpenLatestReview();
 
 private:
+  // Starting a session takes two calls, in this order, from the caller (the
+  // constructor, Restart()):
+  // Phase 1: creates the terminal and starts its shell. The page has a terminal
+  // after it, unless the user cancelled the choice of the shell.
   void CreateTerminal();
+  // Phase 2: starts what runs in the terminal. A session that runs in tmux
+  // asks the machine first (TmuxPreparer, without blocking the UI) and
+  // OnTmuxPrepared() goes on; the others go on at once. Both end in
+  // FinaliseTerminalCreate().
+  void StartProgram();
+  // Types the commands of the session into the terminal (ProgramCommands()).
+  void FinaliseTerminalCreate();
+  // What is typed into the shell: the agent (resume or not, in tmux or not),
+  // the commands of a job, or the attach of tmux for a terminal. Nothing for a
+  // terminal without tmux.
+  std::vector<wxString> ProgramCommands() const;
+  // The session starts without tmux: a new session loses its tmux name for
+  // good, a restored one keeps it (see StartWithoutTmux() in the .cpp).
+  void StartWithoutTmux();
+  // The session is not in tmux (any more): forgets the name, saved at once.
+  void DropTmux();
+  // A text in the strip at the bottom of the terminal, in place of the header,
+  // until it is replaced or cleared (an empty text): "Connecting to ...", why
+  // tmux could not be used.
+  void SetNote(const wxString &text);
+  void OnTmuxPrepared(TmuxPreparedEvent &event);
   // Everything both terminals need once they exist: theme, scrollback, links,
   // the context menu.
   void ConfigureTerminal(wxTerminalViewCtrl *terminal);
@@ -310,6 +343,14 @@ private:
   AliveFlag m_alive{MakeAliveFlag()};
   std::unique_ptr<ActivityMonitor> m_monitor;
   SessionStatus m_status = SessionStatus::Starting;
+  // What tmux needs on the machine, before the session can start in tmux.
+  std::unique_ptr<TmuxPreparer> m_tmuxPreparer;
+  // The version of the tmux of the machine, once TmuxPreparer has said it is
+  // there: the session starts in tmux. Asked again at each Restart().
+  std::optional<tmux::Version> m_tmuxVersion;
+  // What the strip at the bottom of the terminal says instead of the header,
+  // see SetNote(). Ends at the next Restart().
+  wxString m_note;
   ProgramActivity m_programActivity{ProgramActivity::None};
   ProgramActivity m_terminalActivity{ProgramActivity::None};
   ProgramActivity m_reviewActivity{ProgramActivity::None};
@@ -325,6 +366,9 @@ wxDECLARE_EVENT(wxEVT_SESSION_ACTIVE, wxCommandEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_EXITED, wxCommandEvent);
 // The folder of a page changed. The event object is the page.
 wxDECLARE_EVENT(wxEVT_SESSION_CWD, wxCommandEvent);
+// A field of the session that is saved in the workspace changed (its tmux
+// name): it is saved again. The event object is the page.
+wxDECLARE_EVENT(wxEVT_SESSION_CHANGED, wxCommandEvent);
 // The program activity of a page changed (see SessionPage::ProgramActivity).
 // The event object is the page; read the state from it.
 wxDECLARE_EVENT(wxEVT_SESSION_PROGRAM, wxCommandEvent);

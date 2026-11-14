@@ -16,6 +16,7 @@
 #include "core/Helpers.h"
 #include "core/Logger.h"
 #include "core/SftpClient.h"
+#include "core/TmuxClient.h"
 #include "core/WslPath.h"
 
 #include "terminal_event.h"
@@ -49,6 +50,7 @@ wxDEFINE_EVENT(wxEVT_SESSION_ACTIVE, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_EXITED, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_PROGRAM, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_CWD, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_SESSION_CHANGED, wxCommandEvent);
 
 namespace {
 
@@ -277,6 +279,7 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
   m_body->Add(m_searchBar, wxSizerFlags(0).Expand());
   Bind(wxEVT_SEARCHBAR_FIND, &SessionPage::OnSearchBarFind, this);
   Bind(wxEVT_SEARCHBAR_CLOSE, &SessionPage::OnSearchBarClose, this);
+  Bind(wxEVT_TMUX_PREPARED, &SessionPage::OnTmuxPrepared, this);
   Bind(wxEVT_REVIEW_BUDDY_CLOSE, [this](ReviewBuddyEvent &event) {
     // The buddy that asked may be closed already, and a new one started.
     if (m_review && m_review->LoopId() == event.GetString()) {
@@ -284,6 +287,7 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
     }
   });
   CreateTerminal();
+  StartProgram();
 }
 
 void SessionPage::InitStatus() {
@@ -411,15 +415,11 @@ void SessionPage::SetDefaultSessionName(const wxString &name) {
 }
 
 void SessionPage::CreateTerminal() {
-  std::vector<wxString> commands;
+  // Phase 1 of starting a session (the caller then calls StartProgram()):
+  // creates the terminal and starts its shell. The page has a terminal after
+  // it, unless the user cancelled the choice of the shell.
   std::optional<wxTerminalViewCtrl::EnvironmentList> env{std::nullopt};
-  if (m_session.IsJobRun()) {
-    commands = m_session.jobCommands;
-    if (m_agent) {
-      env = BuildEnvironment(m_agent->env);
-    }
-  } else if (m_agent) {
-    commands = BuildCommandLine(*m_agent, m_session.workingDir, m_resume);
+  if (m_agent) {
     env = BuildEnvironment(m_agent->env);
   }
 
@@ -501,9 +501,6 @@ void SessionPage::CreateTerminal() {
     }
     if (!m_agent->remoteHost.empty()) {
       KLOG_DEBUG() << "Launching remote session: " << m_session.name;
-      for (const auto &cmd : commands) {
-        KLOG_DEBUG() << " > " << cmd;
-      }
       cwd.reset();
       env.reset();
     } else {
@@ -511,8 +508,7 @@ void SessionPage::CreateTerminal() {
         wxFileName::Mkdir(m_session.workingDir, wxS_DIR_DEFAULT,
                           wxPATH_MKDIR_FULL);
       }
-      KLOG_DEBUG() << "Launching local session '" << m_session.name
-                   << "': " << commands[0]
+      KLOG_DEBUG() << "Launching local session '" << m_session.name << "'"
                    << (cwd ? wxString(" (cwd=" + *cwd + ")") : wxString());
     }
   }
@@ -541,10 +537,6 @@ void SessionPage::CreateTerminal() {
   m_acceleratorInterceptor =
       std::make_unique<AcceleratorInterceptor>(m_terminal);
   GetSizer()->Layout();
-  for (const auto &cmd : commands) {
-    m_terminal->SendCommand(cmd);
-  }
-
   m_terminal->SetOutputCallback(
       [this](const std::string &chunk) { m_monitor->OnOutput(chunk); });
   m_terminal->RegisterTextClickedFilter([](const std::string &) -> bool {
@@ -653,6 +645,157 @@ std::vector<wxTerminalViewCtrl *> SessionPage::GetTerminals() const {
   return terminals;
 }
 
+Account SessionPage::TmuxAccountOf(const std::optional<AgentDef> &agent,
+                                   const Session &session) {
+  if (agent && agent->IsRemote()) {
+    return Account::Remote(agent->remoteHost, agent->remoteUser);
+  }
+  // The shell that runs on this machine, as CreateTerminal() chooses it: the
+  // agent's own, else the one of the terminal (the one it chose, else the
+  // default one).
+  wxString shell;
+  if (agent && !agent->loginShell.empty()) {
+    shell = agent->loginShell;
+  } else if (!agent && !session.loginShell.empty()) {
+    shell = session.loginShell;
+  } else {
+    shell = AppManager::Get().GetPrefs().terminalLoginShell;
+  }
+  if (const wxString distro = wsl::DistroOf(shell); !distro.empty()) {
+    return Account::WSL(distro);
+  }
+  return Account::LocalHost();
+}
+
+std::vector<wxString> SessionPage::ProgramCommands() const {
+  if (m_session.IsJobRun()) {
+    return m_session.jobCommands;
+  }
+
+  // In tmux when the session was made to (the name is kept with it) and the
+  // machine has said that it has tmux (see StartProgram()).
+  std::optional<tmux::LaunchSpec> spec;
+  if (!m_session.tmuxName.empty() && m_tmuxVersion) {
+    const auto &prefs = AppManager::Get().GetPrefs();
+    spec = tmux::LaunchSpec{};
+    spec->server = m_agent ? tmux::Server::kAgent : tmux::Server::kTerminal;
+    spec->sessionName = m_session.tmuxName;
+    spec->settings = tmux::AdaptToVersion(
+        tmux::ParseCommands(m_agent ? prefs.tmuxAgentSettings
+                                    : prefs.tmuxTerminalSettings),
+        *m_tmuxVersion);
+  }
+
+  if (m_agent) {
+    return BuildCommandLine(*m_agent, m_session.workingDir, m_resume, {}, spec);
+  }
+  if (spec) {
+    return {tmux::AttachOrCreate(*spec)}; // A terminal: a shell in tmux
+  }
+  return {}; // A terminal is its shell
+}
+
+void SessionPage::StartProgram() {
+  CHECK_NOT_NULL_RETURN(m_terminal);
+  if (!m_session.tmuxName.empty() && !m_session.IsJobRun()) {
+    const Account account = TmuxAccountOf(m_agent, m_session);
+    if (TmuxClient::IsAvailableFor(account)) {
+      // The machine is asked without blocking the UI: OnTmuxPrepared() calls
+      // FinaliseTerminalCreate() when it has answered.
+      SetNote(
+          wxString::Format(_("Connecting to %s..."), account.GetDisplayName()));
+      if (!m_tmuxPreparer) {
+        m_tmuxPreparer = std::make_unique<TmuxPreparer>(this);
+      }
+      m_tmuxPreparer->Start(account);
+      return;
+    }
+    DropTmux(); // No tmux on this machine (Windows)
+  }
+  FinaliseTerminalCreate();
+}
+
+void SessionPage::FinaliseTerminalCreate() {
+  CHECK_NOT_NULL_RETURN(m_terminal);
+  for (const wxString &command : ProgramCommands()) {
+    KLOG_DEBUG() << "Session '" << m_session.name << "' > " << command;
+    m_terminal->SendCommand(command);
+  }
+}
+
+void SessionPage::DropTmux() {
+  m_session.tmuxName.clear();
+  // The workspace is saved without it.
+  wxCommandEvent event{wxEVT_SESSION_CHANGED};
+  event.SetEventObject(this);
+  GetParent()->GetEventHandler()->AddPendingEvent(event);
+}
+
+void SessionPage::StartWithoutTmux() {
+  // A new session loses tmux for good. A restored one (or one that is
+  // restarted) keeps its tmux name: its tmux session may be alive on the
+  // machine, and the next start attaches to it.
+  if (!m_resume) {
+    DropTmux();
+  }
+  FinaliseTerminalCreate();
+}
+
+void SessionPage::SetNote(const wxString &text) {
+  // The strip at the bottom of the terminal is the header of the session (see
+  // UpdateHeader()): while there is a note, it shows the note, and the header
+  // comes back when the note ends.
+  m_note = text;
+  UpdateHeader(true);
+}
+
+void SessionPage::OnTmuxPrepared(TmuxPreparedEvent &event) {
+  // The answer of a run that was dropped (Restart() while it was queued).
+  if (!m_tmuxPreparer || event.GetInt() != m_tmuxPreparer->GetGeneration()) {
+    return;
+  }
+  SetNote({}); // "Connecting to ..." is over
+  switch (event.GetOutcome()) {
+  case TmuxPreparedEvent::Outcome::kReady:
+    m_tmuxVersion = event.GetVersion();
+    FinaliseTerminalCreate();
+    return;
+  case TmuxPreparedEvent::Outcome::kUnsupported: {
+    KLOG_WARN() << "tmux for '" << m_session.name << "': " << event.GetString();
+    const AliveFlag alive = m_alive;
+    const int generation = event.GetInt();
+    wxMessageDialog dialog(
+        this, event.GetString() + "\n\n" + _("Start the session without tmux?"),
+        _("tmux is not available"), wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+    const int answer = dialog.ShowModal();
+    if (!alive->load() || !m_tmuxPreparer ||
+        generation != m_tmuxPreparer->GetGeneration()) {
+      return; // The page was closed, or restarted, while the dialog was open
+    }
+    if (answer == wxID_YES) {
+      StartWithoutTmux();
+      return;
+    }
+    SetNote(event.GetString() + " " + _("Use Refresh to try again."));
+    return;
+  }
+  case TmuxPreparedEvent::Outcome::kWithoutTmux:
+    StartWithoutTmux();
+    return;
+  case TmuxPreparedEvent::Outcome::kCancelled:
+    // The user does not want this session: the page closes (the exit of a
+    // session closes its tab).
+    SetStatus(SessionStatus::Exited);
+    return;
+  case TmuxPreparedEvent::Outcome::kFailed:
+    // Nothing is typed: a session that is in tmux already must not get a second
+    // one because the machine could not be asked.
+    KLOG_WARN() << "tmux for '" << m_session.name << "': " << event.GetString();
+    SetNote(event.GetString() + " " + _("Use Refresh to try again."));
+    return;
+  }
+}
+
 void SessionPage::SetFocus() {
   if (m_terminal)
     m_terminal->SetFocus();
@@ -673,7 +816,17 @@ void SessionPage::Restart() {
   UpdateProgramActivity();
   m_status = SessionStatus::Starting;
   m_resume = true;
-  CallAfter(&SessionPage::CreateTerminal);
+  // The machine is asked again: tmux may have been installed, or the host may
+  // be there now.
+  m_tmuxVersion.reset();
+  m_note.clear();
+  if (m_tmuxPreparer) {
+    m_tmuxPreparer->Cancel(); // An answer that is queued already is dropped
+  }
+  CallAfter([this] {
+    CreateTerminal();
+    StartProgram();
+  });
 }
 
 void SessionPage::OnTerminated(wxTerminalEvent &evt) {
@@ -764,8 +917,14 @@ void SessionPage::UpdateHeader(bool force) {
   const wxString head = m_session.plainTerminal || m_session.agentName.empty()
                             ? wxString(_("Terminal"))
                             : m_session.agentName;
+  // A note (tmux is connecting, why it could not be used) takes the place of
+  // the header until it is cleared: the terminal has one strip, and the title
+  // and the folder change it at each prompt.
   ReviewBuddyHeader::SetText(
-      m_terminal, JoinHeader(head, m_terminalTitle, GetCurrentDir()), force);
+      m_terminal,
+      m_note.empty() ? JoinHeader(head, m_terminalTitle, GetCurrentDir())
+                     : m_note,
+      force);
 }
 
 void SessionPage::UpdateReviewHeader(bool force) {

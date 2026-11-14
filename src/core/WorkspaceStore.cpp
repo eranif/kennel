@@ -29,6 +29,9 @@ json SessionToJson(const Session &s) {
     entry["plainTerminal"] = true;
     entry["loginShell"] = ToUtf8(s.loginShell);
   }
+  if (!s.tmuxName.empty()) {
+    entry["tmuxName"] = ToUtf8(s.tmuxName);
+  }
   return entry;
 }
 
@@ -91,6 +94,7 @@ Session ParseSession(const json &j) {
   }
   s.loginShell = GetStr(j, "loginShell");
   s.sideDir = GetStr(j, "sideDir");
+  s.tmuxName = GetStr(j, "tmuxName"); // An older file has none: no tmux
   return s;
 }
 

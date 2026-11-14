@@ -283,7 +283,11 @@ add_library(
   src/core/ZipArchive.cpp
   src/core/Ripgrep.cpp
   src/core/FindInFiles.cpp
-  src/core/RemoteInstaller.cpp)
+  src/core/RemoteInstaller.cpp
+  src/core/TmuxCommands.cpp
+  src/core/TmuxClient.cpp
+  src/core/TmuxShim.cpp
+  src/core/RunShell.cpp)
 
 target_include_directories(kennel_core PUBLIC src ${wxWidgets_INCLUDE_DIRS})
 # libssh is an implementation detail of SftpClient.cpp, SshClient.cpp and their
@@ -347,6 +351,7 @@ set(KENNEL_APP_SOURCES
     src/app/FindInFilesDlg.cpp
     src/app/FindResultsView.cpp
     src/app/OutputView.cpp
+    src/app/TmuxPreparer.cpp
     src/app/GitCommitMessageDlg.cpp
     src/app/GitPanel.cpp
     src/app/FileActions.cpp

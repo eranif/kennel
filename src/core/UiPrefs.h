@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/Helpers.h"
+#include "core/TmuxCommands.h"
 #include <vector>
 #include <wx/arrstr.h>
 #include <wx/string.h>
@@ -99,4 +100,12 @@ struct UiPrefs {
   wxString findInclude;
   wxString findExclude;
   wxString findFolder;
+  // Sessions run in tmux on their machine, so that the agent keeps running when
+  // Kennel closes or the connection drops (see TmuxCommands.h). It is the
+  // default of a new session; this machine on Windows has no tmux.
+  bool tmuxEnabled{true};
+  // The tmux commands set for the sessions of each kind, one command per line
+  // (tmux::ParseCommands()). An empty text is a list of no commands.
+  wxString tmuxAgentSettings{tmux::DefaultAgentSettings()};
+  wxString tmuxTerminalSettings{tmux::DefaultTerminalSettings()};
 };

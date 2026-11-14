@@ -1,5 +1,6 @@
 #pragma once
 #include "GlyphBook.h"
+#include "app/AsyncGuard.hpp"
 #include "app/FileEvent.hpp"
 #include "app/FileViewState.hpp"
 #include "app/PageSwitcherDlg.hpp"
@@ -269,6 +270,13 @@ public:
   bool CanFindNext() const;
 
 private:
+  // `base` (tmux::SessionNameFor()), with "-2", "-3", ... when a session that
+  // is open, archived or being ended (StopTmux()) has the name already.
+  wxString UniqueTmuxName(const wxString &base) const;
+  // Ends the tmux session of `session` on its machine (Close, Delete: the agent
+  // stops with it), without blocking the UI. Not for an exit (it ended by
+  // itself or the user detached) and not for an archive (it is kept).
+  void StopTmux(const Session &session);
   // ---- The tabs ------------------------------------------------------------
   // The window to create a page with: pages are children of the book.
   wxBookCtrlBase *GetPageParent() const { return m_book; }
@@ -427,6 +435,8 @@ private:
   // A page started / stopped working, or is done (OSC 7501).
   void OnSessionProgram(wxCommandEvent &e);
   void OnSessionCwd(wxCommandEvent &e);
+  // A saved field of a session changed (its tmux name): save the workspace.
+  void OnSessionChanged(wxCommandEvent &e);
   // The spinner turned: the tabs of the working pages get the new frame.
   void OnSpinnerFrame();
   // Shows what `page` is doing (the spinner, the check mark or the hand) as
@@ -481,6 +491,11 @@ private:
   std::vector<SessionFile> m_restoringFiles;
   // The archive (see ArchiveSession()); loaded from workspace.json.
   std::vector<ArchivedSession> m_archived;
+  // The tmux sessions that are being ended on their machine (StopTmux()): their
+  // names are not given to a new session until the kill is done.
+  std::set<wxString> m_stoppingTmux;
+  // For the threads of StopTmux(), see AsyncGuard.hpp.
+  AliveFlag m_alive{MakeAliveFlag()};
   // Remote files that were being restored when the workspace was cleared: their
   // results are dropped.
   std::set<wxString> m_ignoreRemote;

@@ -28,6 +28,7 @@
 #include "core/JobLog.h"
 #include "core/Logger.h"
 #include "core/SftpClient.h"
+#include "core/TmuxClient.h"
 #include "core/Workspace.h"
 #include "core/WorkspaceStore.h"
 #include "core/WslPath.h"
@@ -187,6 +188,7 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
   Bind(wxEVT_SESSION_EXITED, &MainNotebook::OnSessionExited, this);
   Bind(wxEVT_SESSION_PROGRAM, &MainNotebook::OnSessionProgram, this);
   Bind(wxEVT_SESSION_CWD, &MainNotebook::OnSessionCwd, this);
+  Bind(wxEVT_SESSION_CHANGED, &MainNotebook::OnSessionChanged, this);
   Bind(wxEVT_IDLE, &MainNotebook::OnIdleEvent, this);
   // A FilePage handles its own save events first and then Skip()s them, so
   // they propagate up to wxTheApp, where the notebook does its part (activity
@@ -202,6 +204,7 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
 }
 
 MainNotebook::~MainNotebook() {
+  m_alive->store(false); // For the threads that end a tmux session
   EventNotifier::Get()->Unbind(wxEVT_THEME_APPLIED,
                                &MainNotebook::OnThemeApplied, this);
   EventNotifier::Get()->Unbind(wxEVT_APP_CLOSING, &MainNotebook::OnAppClosing,
@@ -233,6 +236,7 @@ MainNotebook::~MainNotebook() {
   Unbind(wxEVT_SESSION_EXITED, &MainNotebook::OnSessionExited, this);
   Unbind(wxEVT_SESSION_PROGRAM, &MainNotebook::OnSessionProgram, this);
   Unbind(wxEVT_SESSION_CWD, &MainNotebook::OnSessionCwd, this);
+  Unbind(wxEVT_SESSION_CHANGED, &MainNotebook::OnSessionChanged, this);
   Unbind(wxEVT_IDLE, &MainNotebook::OnIdleEvent, this);
   if (wxTheApp) {
     wxTheApp->Unbind(wxEVT_FILE_SAVE_STARTED, &MainNotebook::OnFileSaveStarted,
@@ -293,12 +297,56 @@ void MainNotebook::OnPageClose(GlyphBookEvent &event) {
   }
 }
 
+void MainNotebook::StopTmux(const Session &session) {
+  if (session.tmuxName.empty()) {
+    return;
+  }
+  // Where the session runs, from what the session says: a terminal, or an
+  // agent. An archived session has no page to ask. An agent that is not in the
+  // configuration any more (removed or renamed) can not be told where it runs:
+  // it is left alone, because a kill on the terminal server of this machine
+  // would find nothing and still say that it worked.
+  std::optional<AgentDef> agent;
+  if (!session.plainTerminal && !session.agentName.empty()) {
+    const AgentDef *found =
+        AppManager::Get().Adapters().FindAgent(session.agentName);
+    if (found == nullptr) {
+      KLOG_WARN() << "The tmux session " << session.tmuxName
+                  << " is not ended: the agent '" << session.agentName
+                  << "' is not known any more";
+      return;
+    }
+    agent = *found;
+  }
+  const Account account = SessionPage::TmuxAccountOf(agent, session);
+  if (!TmuxClient::IsAvailableFor(account)) {
+    return;
+  }
+  const tmux::Server server =
+      agent ? tmux::Server::kAgent : tmux::Server::kTerminal;
+  const wxString name = session.tmuxName;
+  // The name stays taken until the kill is done: a session made now with the
+  // same names (UniqueTmuxName()) would attach to the one that is ending, or be
+  // ended by this kill.
+  m_stoppingTmux.insert(name);
+  // Blocks (ssh, wsl.exe): a thread of its own, nothing of the UI is used.
+  std::thread([this, alive = m_alive, account, server, name] {
+    if (const Status st = TmuxClient::KillSession(account, server, name);
+        !st.ok()) {
+      KLOG_WARN() << "Could not end the tmux session " << name << ": "
+                  << st.message();
+    }
+    CallAfterIfAlive(alive, [this, name] { m_stoppingTmux.erase(name); });
+  }).detach();
+}
+
 void MainNotebook::CloseOrArchiveSession(const wxString &groupName,
                                          const wxString &sessionName) {
   auto *page = FindSession(groupName, sessionName);
   CHECK_NOT_NULL_RETURN(page);
   // Only an agent session can be archived.
   if (page->IsPlainTerminal() || !page->GetSession().IsPersistent()) {
+    StopTmux(page->GetSession()); // Close = stop
     CloseSession(groupName, sessionName);
     return;
   }
@@ -333,6 +381,9 @@ void MainNotebook::CloseOrArchiveSession(const wxString &groupName,
   if (action == CloseAction::Archive) {
     ArchiveSession(groupName, sessionName);
   } else {
+    if (auto *current = FindSession(groupName, sessionName)) {
+      StopTmux(current->GetSession()); // Close = stop, Archive keeps it
+    }
     CloseSession(groupName, sessionName);
   }
 }
@@ -1658,6 +1709,33 @@ void MainNotebook::RememberWorkingDir(const wxString &dir) {
   }
 }
 
+wxString MainNotebook::UniqueTmuxName(const wxString &base) const {
+  // Two sessions can end up with the same name (the groups "a b" and "a-b"): a
+  // second one would attach to the tmux session of the first. The sessions that
+  // are archived keep their tmux session too.
+  auto inUse = [this](const wxString &name) {
+    if (m_stoppingTmux.count(name) != 0) {
+      return true; // Being ended: see StopTmux()
+    }
+    for (const SessionPage *page : GetSessions()) {
+      if (page->GetSession().tmuxName == name) {
+        return true;
+      }
+    }
+    for (const ArchivedSession &archived : m_archived) {
+      if (archived.session.tmuxName == name) {
+        return true;
+      }
+    }
+    return false;
+  };
+  wxString name = base;
+  for (int n = 2; inUse(name); ++n) {
+    name = wxString::Format("%s-%d", base, n);
+  }
+  return name;
+}
+
 bool MainNotebook::LaunchSession(const NewSessionRequest &req,
                                  bool selectAfterLaunch) {
   if (req.name.empty()) {
@@ -1682,6 +1760,18 @@ bool MainNotebook::LaunchSession(const NewSessionRequest &req,
   session.loginShell = req.loginShell;
   session.jobCommands = req.jobCommands;
   session.jobName = req.jobName;
+  // A restored session attaches to the tmux session it had (it is kept, and the
+  // name is reserved by the entry that is being restored). A new session runs
+  // in tmux unless the user turned it off: the name is made once and kept. A
+  // job run is one-shot and Kennel owns its whole life: no tmux. (The machine
+  // that has no tmux is handled by the page, which can ask it.)
+  if (!req.tmuxName.empty()) {
+    session.tmuxName = req.tmuxName;
+  } else if (req.jobCommands.empty() &&
+             AppManager::Get().GetPrefs().tmuxEnabled) {
+    session.tmuxName =
+        UniqueTmuxName(tmux::SessionNameFor(session.groupName, session.name));
+  }
 
   auto *page = AddSessionPage(session, req.resume);
   if (page == nullptr) {
@@ -2026,6 +2116,9 @@ void MainNotebook::DeleteAll() {
   }
   m_restoringFiles.clear();
   m_selectWhenRestored.clear();
+  for (const SessionPage *page : GetSessions()) {
+    StopTmux(page->GetSession()); // Closing all sessions stops them
+  }
   DeleteAllTabs();
 
   // Notify about all pages cleared
@@ -2066,6 +2159,7 @@ void MainNotebook::DeleteGroupByName(const wxString &name) {
     GetMainFrame()->ClearSessionStatus();
   }
   for (auto *page : sessions) {
+    StopTmux(page->GetSession()); // Closing a group stops its sessions
     SendPageEvent(
         wxEVT_SESSION_PAGE_REMOVED,
         SessionRef{page->GetSession().groupName, page->GetSession().name});
@@ -2220,6 +2314,8 @@ bool MainNotebook::RestoreArchived(size_t index) {
   req.agentName = archived.agentName;
   req.workingDir = archived.workingDir;
   req.groupName = archived.groupName;
+  req.tmuxName =
+      archived.tmuxName; // Attaches to the tmux session that was kept
   req.resume = true;
   for (int suffix = 1; IsNameExist(req.name, req.groupName); ++suffix) {
     req.name = wxString::Format("%s%d", archived.name, suffix);
@@ -2237,6 +2333,9 @@ void MainNotebook::DeleteArchived(size_t index) {
   if (index >= m_archived.size()) {
     return;
   }
+  // The tmux session of an archived session is still running: deleting the
+  // session stops it.
+  StopTmux(m_archived[index].session);
   m_archived.erase(m_archived.begin() + index);
   SyncWorkspaceToDisk();
 }
@@ -2316,6 +2415,11 @@ void MainNotebook::OnSessionIdle(wxCommandEvent &e) {
 }
 
 void MainNotebook::OnSessionActive(wxCommandEvent &e) { e.Skip(); }
+
+void MainNotebook::OnSessionChanged(wxCommandEvent &e) {
+  e.Skip();
+  SyncWorkspaceSoon();
+}
 
 void MainNotebook::OnSessionCwd(wxCommandEvent &e) {
   e.Skip();
