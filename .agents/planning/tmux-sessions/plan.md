@@ -1,9 +1,15 @@
 # Plan: tmux based sessions
 
 Progress: `[x]` done, `[ ]` open. Tick a box when its commit is pushed.
-Status as of 2026-11-14: nothing is implemented. The decisions are made (see "Decisions"). The
-user tried `tmux-shim -- claude` in tmux: the progress and the icons (pulse, done) show on the
-tab (see Findings).
+Status as of 2026-11-15: Phases 1, 2 and 3 are done. Agents and plain terminals (local, WSL and
+remote) run in tmux, through `tmux-shim` when it is installed; Close stops the tmux session,
+Archive keeps it; a terminal that ends while its tmux session lives leaves the tab Detached
+(Refresh attaches again); the archive list shows which tmux sessions still run. Open: Phase 4
+(UI: the "Run in tmux" choice, the badge and tab menu, the Settings "Tmux" page), Phase 5 (attach
+at startup, one question per host, the attach dialog), Phase 6 (docs, manual checks), and the
+Phase 0 checks that are left. Nothing was run in the real UI against a real ssh host yet. The
+decisions are made (see "Decisions"). The user tried `tmux-shim -- claude` in tmux: the progress
+and the icons (pulse, done) show on the tab (see Findings).
 
 ## Goal
 A session can run its agent (or shell) inside a tmux session on the machine where it runs, so
@@ -295,34 +301,34 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
       server outlive Kennel?). Decides whether option 1 of "Local sessions" is worth a phase.
 
 ### Phase 1 - Core (`src/core/`, no UI)
-- [ ] `TmuxCommands`: pure functions that build the command lines: attach-or-create, kill, list,
+- [x] `TmuxCommands`: pure functions that build the command lines: attach-or-create, kill, list,
       has-session, version probe, and the list of the four launch settings (mouse, vi keys,
       clipboard, passthrough `all` / `on` by version) rendered as `--config-string='...'` for
       the shim or as `\; set-option -g ...` without it. Takes the session name, the folder, the command chain. Unit
       checked by hand (no test suite) with a few quoting cases: spaces, quotes, `$`, non-ASCII.
-- [ ] `TmuxClient`: runs tmux on an `Account` and returns `Status` / `StatusOr` (blocking, for a
+- [x] `TmuxClient`: runs tmux on an `Account` and returns `Status` / `StatusOr` (blocking, for a
       worker thread, like `SftpClient`): `Probe()` (installed? version?), `HasSession()`,
       `ListSessions()` (name, created, attached), `KillSession()`. Remote: `SshClient::Execute`;
       WSL: `wsl.exe -d <distro> --`; local Linux/macOS: `Process`. No Windows-local implementation.
-- [ ] `Session`: add `tmuxName` (empty = not a tmux session); persist in `WorkspaceStore`; an old
+- [x] `Session`: add `tmuxName` (empty = not a tmux session); persist in `WorkspaceStore`; an old
       `workspace.json` without it loads as before.
-- [ ] Add the files to `CMakeLists.txt`.
-- [ ] `tmux-shim` as a tool: a `ToolDescription` with the v1.1.1 assets (x86_64 and aarch64) and
+- [x] Add the files to `CMakeLists.txt`.
+- [x] `tmux-shim` as a tool: a `ToolDescription` with the v1.1.1 assets (x86_64 and aarch64) and
       their SHA-256 from "The shim", next to the ripgrep one. Depends on `RemoteInstaller` (see
       the Find in Files plan, Phase 2), which both features share.
-- [ ] No `TmuxShim::Ensure` class (changed while writing Phase 1): `RemoteInstaller` already installs and
+- [x] No `TmuxShim::Ensure` class (changed while writing Phase 1): `RemoteInstaller` already installs and
       verifies a tool and answers with `InstallEvent` (the path, or an error). Phase 2 starts it with
       `tmuxshim::Tool()` and `tmuxshim::InstallDir()`; an error or no asset = the caller runs the agent
       plainly in tmux (the fallback of "The shim"). Ask the user before the first install, like rg.
 
 ### Phase 2 - Launch (`ClientAdapter`, `SessionPage`)
-- [ ] `BuildCommandLine()` gets the tmux form when the session has a `tmuxName` (a new parameter
+- [x] `BuildCommandLine()` gets the tmux form when the session has a `tmuxName` (a new parameter
       or a sibling function; keep `WrapCommand()` for the ssh / cd / export part).
-- [ ] `CreateTerminal()` passes it through; the resume chain stays inside the quoted command,
+- [x] `CreateTerminal()` passes it through; the resume chain stays inside the quoted command,
       with `tmux-shim --` in front of each agent command when the shim is available.
-- [ ] Probe before the first launch (on a worker thread): no tmux or too old -> the page shows
+- [x] Probe before the first launch (on a worker thread): no tmux or too old -> the page shows
       the reason and offers to start without tmux (the session then loses `tmuxName`).
-- [ ] Plain terminals (`plainTerminal`): same, a shell inside tmux.
+- [x] Plain terminals (`plainTerminal`): same, a shell inside tmux.
 
 ### Phase 3 - Lifecycle
 - [x] Detached state in `OnTerminated()` (ask `TmuxClient`, do not store a flag); the message and
