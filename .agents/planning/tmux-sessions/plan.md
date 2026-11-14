@@ -57,6 +57,13 @@ The four settings are **one list in Kennel** (`TmuxCommands`), rendered in two w
 `new-session` when it is not (so a missing shim never loses `mouse on` or the clipboard). The
 settings that need no shim (`status off`, `set-titles on`, `window-size latest`) stay on the
 `new-session` line, because they should hold before the first byte is drawn.
+
+**Changed while building Phase 2 (review round 1, 2026-11-14): the four settings always go on
+the `new-session` line (`\; set -g mouse on ...`), never through `--config-string`.** Whether the
+shim is on the machine is decided there, when the command runs (`if [ -x ".../tmux-shim" ]`), so
+Kennel can not know it when it builds the line, and the settings must hold in both cases. The
+`--config-string` code was removed (nothing used it); the text above describes the earlier design.
+
 Points to check in Phase 0: the shim applies each command at **every** start, so a restart of
 the agent re-applies them (harmless); the settings change the whole `-L kennel` server, which is
 ours; and that `set -g allow-passthrough all` from `--config-string` and the shim's own
@@ -78,9 +85,10 @@ verify the order with tmux 3.4).
 - `-f /dev/null` + the options on the command line (`\;` on `new-session`, `--config-string` in
   the shim) means no config file has to be uploaded to the host.
 - `env -u TMUX` lets Kennel run when the remote shell is itself inside the user's tmux.
-- The session name is stable and unique: `kennel-<id>`, the id generated once when the session
-  is created and **persisted** in `Session` (it is state nothing else holds; the name of the
-  session is not unique across groups, so it cannot be derived).
+- The session name is `kennel-<group>-<session>`, the names the user gave, normalised (white
+  space, `.` and `:` become `-`; decided by the user, 2026-11-14). It is made once when the session
+  is created, with `-2`, `-3`... when another session (open or archived) has it already, and
+  **persisted** in `Session`: a rename of the session must not lose its tmux session.
 - Quoting: the agent chain is one `sh -c`-safe single-quoted argument; reuse/extend the quoting
   helpers in `ClientAdapter.cpp` (the prompt quoting there is for double quotes).
 
@@ -302,8 +310,10 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
 - [ ] `tmux-shim` as a tool: a `ToolDescription` with the v1.1.1 assets (x86_64 and aarch64) and
       their SHA-256 from "The shim", next to the ripgrep one. Depends on `RemoteInstaller` (see
       the Find in Files plan, Phase 2), which both features share.
-- [ ] `TmuxShim::Ensure(Account)`: installs / verifies the shim on the host; returns the path or
-      "not available" (the caller falls back to running the agent plainly).
+- [ ] No `TmuxShim::Ensure` class (changed while writing Phase 1): `RemoteInstaller` already installs and
+      verifies a tool and answers with `InstallEvent` (the path, or an error). Phase 2 starts it with
+      `tmuxshim::Tool()` and `tmuxshim::InstallDir()`; an error or no asset = the caller runs the agent
+      plainly in tmux (the fallback of "The shim"). Ask the user before the first install, like rg.
 
 ### Phase 2 - Launch (`ClientAdapter`, `SessionPage`)
 - [ ] `BuildCommandLine()` gets the tmux form when the session has a `tmuxName` (a new parameter
@@ -327,7 +337,7 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
 - [ ] A "Run in tmux" choice when a session is created (`StartAgentDialog`; if the dialog is in
       `UI.wxcp`, change it through `wxcgen` per `CLAUDE.md`, check `git status` first), disabled
       and not shown for a Windows local session. Default **on** (a preference in `UiPrefs` / settings).
-- [ ] Mark tmux sessions: a small badge on the tab and "tmux: kennel-xxxx" in the status bar
+- [ ] Mark tmux sessions: a small badge on the tab and "tmux: kennel-<group>-<session>" in the status bar
       (`PublishStatus()`); the context menu of the tab: Detach, Kill tmux session.
 - [ ] Settings dialog, a new **"Tmux"** page: tmux **on by default** (a checkbox), and **two editable lists of tmux commands**:
       one for agent sessions (default: the four settings) and one for terminals (default in

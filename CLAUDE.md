@@ -54,6 +54,16 @@ Always build after a change before calling it done. wxWidgets headers for refere
 under `.build-release/wxWidgets-install/include/wx-3.3/wx/`. There is no test suite;
 build success plus manual verification (see the `run` skill) is the bar.
 
+**When a change breaks something the code relied on, find every user of it before
+calling the work done.** A page that always had a terminal can now exist without one; a
+function that was synchronous is now asynchronous; a value that was never empty can be;
+a status gains a new state. Before building, grep the whole repo for every use of the
+thing that changed (`GetTerminal()`, `m_terminal`, the status enum, the old function) and
+read each hit, in `src/app/` as well as the file you edited. Then trace the first code
+that runs at startup for the case you changed (restoring sessions, loading the workspace),
+not only the path where the user creates something new. A green build says nothing about
+this. In the report, list the paths you read, and say which you did not.
+
 Format before committing:
 
 ```bash
