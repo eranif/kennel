@@ -1,15 +1,21 @@
-# Kennel 2.1.0 Release Notes
+# Kennel 3.0.0 Release Notes
 
 *Covers changes since tag `2.0.0`.*
 
-Kennel 2.1.0 polishes the window that 2.0 introduced. The main toolbar has a new look and gains
-an **Archive** button, the buttons of the main toolbar show their keyboard shortcut, and the
-height of the tabs is now a setting you can change from the right-click menu of the tab bar and
-see at once. **Review Buddy** has a menu of its own and a shortcut. **Goto Anything** and the
-page switcher open at the top of the window, with rounded corners and a shadow.
+Kennel 3.0.0 adds **Find in Files**: search a folder of this computer, of a WSL distribution or
+of a host that you reach over ssh, and open a match in the editor with the text selected. The
+results are in a new **Output** pane. Kennel installs the search program (ripgrep) on the machine
+for you, after it asks. The release also polishes the window that 2.0 introduced: the main
+toolbar has a new look and gains an **Archive** button and the shortcut of each button in its
+tooltip, the height of the tabs is a setting that you see at once, **Review Buddy** has a menu of
+its own and a shortcut, and **Goto Anything** and the page switcher open at the top of the
+window, with rounded corners and a shadow.
 
 Highlights:
 
+- **Find in Files** (Ctrl+Shift+F) for this computer, WSL and ssh hosts, with the matches in the
+  new **Output** pane (Ctrl+`).
+- **ripgrep is installed by Kennel**, the same version everywhere, after you agree.
 - A new **main toolbar** with grouped buttons, a new **Archive** button and the shortcut of each
   button in its tooltip.
 - A new **Tab Height** setting with four sizes (Short, Small, Medium, Tall), applied live to the
@@ -19,6 +25,54 @@ Highlights:
 - Find starts with the selected text, also in a terminal.
 
 ## Major Improvements
+
+### Find in Files
+
+- **Search a folder of any machine.** **Search → Find in Files...** (Ctrl+Shift+F, also while a
+  terminal has the focus) asks what to find, in which folder, and with which options: **Regex**,
+  **Match case**, **Whole word**, and the files to **Include** and **Exclude** (globs separated by
+  commas, for example `*.cpp, *.hpp`). It works on this computer, in a WSL distribution and on a
+  host that runs Linux or macOS and that you reach over ssh.
+- **It starts from where you are.** The text selected in the page that is showing is what the
+  dialog looks for (like Find does, also in a terminal). The folder is the one of the session. For
+  a file it is the **closest workspace**: the working folder of a session, or the folder of its
+  file explorer, that holds the file, on the same machine; without one, the folder of the file.
+  The home folder of this computer is never taken for a workspace. The pattern, the options, the
+  globs and the folder are remembered for the next time.
+- **The results are in the Output pane.** **View → Output** (Ctrl+`, Control+` on macOS)
+  shows or hides the pane, which has a tab for **Find in Files**. A toolbar has **Stop** and
+  **Clear**. The first line says what was searched, where and with which options; the matches
+  come grouped by file, with the line number and the matched text in a color of its own; the last
+  line says how many matches were found (a search stops at 5000). A search of this computer or of
+  WSL shows the matches while it runs; a search of a host over ssh shows them when it ends, and
+  **Stop** drops its result. A new search replaces the results.
+- **A click opens the match.** One click (or Enter) on a match opens the file at that line, with
+  the matched text selected and the line in the middle of the editor. It works for local, WSL and
+  ssh files. Nothing in the results can be selected: a click is for opening.
+
+### ripgrep, installed for you
+
+- **Kennel installs ripgrep 15.2.0 on the machine that you search**, into `~/.kennel/bin`, on
+  Windows, macOS and Linux, in WSL and on ssh hosts. It is the same version everywhere, and Kennel
+  never uses another `rg` that it finds on the machine. A host that runs Windows over ssh is not
+  supported.
+- **It asks first.** When ripgrep is missing (or is another version), the dialog asks **Download
+  and Install ripgrep?** and says where the file goes. Nothing is downloaded or written before you
+  say yes; **No** closes the dialog.
+- **The download is checked.** It comes from the ripgrep release on GitHub and is compared with a
+  SHA-256 checksum that is part of Kennel. A file that does not match is thrown away and nothing
+  is written. The program is written under another name and renamed, so a failed install never
+  leaves a file that looks installed. A remote machine needs no internet: this computer
+  downloads the file and sends it.
+
+### The file explorer follows a file without waiting
+
+- **A file that you open is shown in the file explorer at once.** The folders on the way that are
+  not listed yet are listed on a thread of their own, so a click on a match in a folder that was
+  not open no longer freezes the window (a big folder, a WSL share). Only the file that is
+  showing is selected, and it is scrolled into view.
+- **Close All Files is lighter.** The file explorer does not follow every page that shows while
+  the files close one after the other.
 
 ### The main toolbar
 
@@ -111,6 +165,9 @@ Highlights:
 
 ## Fixes
 
+- **WSL: the home folder was not found.** A path that starts with `~` in a WSL distribution could
+  not be resolved, because the command that asks the distribution for its home folder was started
+  without quotes and printed nothing.
 - **Windows: folders and names that are not ASCII.** Kennel starts programs with their
   command line in UTF-16, so a folder such as `C:\Users\José\project` or `D:\проект` is passed
   correctly to `git` and to the other programs that Kennel runs. Before, the system code page
@@ -133,12 +190,28 @@ Highlights:
   `SetGlassBackground()` draws the blurred background on macOS.
 - **`Process::QuoteArgument()`** quotes an argument for a Windows command line. `Process` starts
   programs with `CreateProcessW`.
-- **Groundwork for Find in Files** (no user interface yet): a search with ripgrep for this
-  machine, WSL and remote hosts, with a pinned ripgrep release and its SHA-256 checksums, and the
-  helpers to check and unpack a download (`Sha256`, `TarGz`, `ToolDescription`, `Ripgrep`,
-  `FindInFiles`).
+- **Find in Files:** `FindInFiles` searches with ripgrep (this machine, WSL, ssh) and numbers its
+  searches, so a late answer of a replaced search is ignored. `FindInFilesDlg` is the dialog and
+  `FindResultsView` the results. `Ripgrep` and `ToolDescription` pin the release and its SHA-256
+  checksums for Linux, macOS and Windows (`.zip` assets, read by `ZipArchive`; `.tar.gz` by
+  `TarGz`).
+- **`RemoteInstaller`** puts one tool of a `ToolDescription` into a folder of an account: it asks
+  the machine what it is, checks the installed version, downloads once here, checks the checksum,
+  and uploads it, without blocking the UI thread. It is GUI free, works for any tool and folder,
+  and has a check-only mode so that the caller can ask the user first.
+- **`OutputView`** is the Output pane: a `wxAuiNotebook` with the `GlyphTabArt` of the
+  application and one tab for each kind of output (`SelectTab()`).
+- **`SearchablePage`** is the interface of the pages that have a search (`CanFind()`,
+  `ShowFind()`, `FindNext()`, `GetFindWhat()`, `GetSearchTarget()`); `FilePage` and `SessionPage`
+  implement it, and `MainNotebook` forwards the Find commands to the page that is showing.
+- **`FileEvent`** carries a line, a column and a length (a match to select), and
+  `wxEVT_CLOSE_ALL_FILES_STARTED` / `_ENDED` surround Close All Files. `FileTreeCtrl` lists the
+  folders that a reveal needs on one joinable thread, from a queue that replaces a folder that is
+  queued already.
+- **`UiPrefs`** keeps the last Find in Files (pattern, options, globs, folder).
+- **`AGENTS.md`** says how agents work with the user.
 - **wxCrafter files** are changed through `UI.wxcp` and `wxcgen`; `CLAUDE.md` describes how.
-- The version number is 2.1.0.
+- The version number is 3.0.0.
 
 ## Upgrade Notes
 
@@ -147,7 +220,13 @@ Highlights:
   Short is 4 DIPs, tighter than the 10 of 2.0. Pick another height in **Settings → Tab Height**
   or from the right-click menu of the tab bar.
 - **The Side Bar tabs follow the tab height** of the notebook.
-- **New shortcuts:** Ctrl+Shift+A (Archived Sessions) and Ctrl+Shift+R (Start Review Buddy).
-  Programs in a terminal no longer get these two keys while Kennel handles them.
+- **New shortcuts:** Ctrl+Shift+A (Archived Sessions), Ctrl+Shift+R (Start Review Buddy),
+  Ctrl+Shift+F (Find in Files) and Ctrl+` (the Output pane; Control+` on macOS). Programs in a
+  terminal no longer get these keys while Kennel handles them.
 - **The Review Buddy button is not in the toolbar of a terminal.** An agent session still has
   it, and so has the new Review Buddy menu.
+- **The first search on a machine downloads ripgrep.** This computer needs internet for it, once
+  for each machine that you search, and Kennel asks before it does. The file goes into
+  `~/.kennel/bin` of that machine.
+- **The pane layout:** the Output pane is hidden when Kennel starts, and a layout that was saved
+  with it showing is restored with it hidden.
