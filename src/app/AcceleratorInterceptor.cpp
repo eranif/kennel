@@ -58,6 +58,12 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     GetMainFrame()->GetEventHandler()->AddPendingEvent(evtGoto);
     return;
 #endif
+  } else if (keyEvent.GetUnicodeKey() == 'F' &&
+             keyEvent.GetModifiers() == (wxMOD_CONTROL | wxMOD_SHIFT)) {
+    // Find in Files. The terminal would get it otherwise.
+    wxCommandEvent evtFindInFiles{wxEVT_MENU, XRCID("find-in-files")};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtFindInFiles);
+    return;
   } else if (keyEvent.GetUnicodeKey() == 'P' &&
              keyEvent.GetModifiers() == (wxMOD_CONTROL | wxMOD_SHIFT)) {
     // Goto Anything. The terminal would get it otherwise.

@@ -83,6 +83,7 @@ protected:
   wxPanel *m_panelActivity;
   wxPanel *m_mainPanel;
   MainNotebook *m_sessionsBook;
+  wxPanel *m_panelFindResults;
 
 protected:
 public:
@@ -90,6 +91,7 @@ public:
   wxPanel *GetPanelActivity() { return m_panelActivity; }
   MainNotebook *GetSessionsBook() { return m_sessionsBook; }
   wxPanel *GetMainPanel() { return m_mainPanel; }
+  wxPanel *GetPanelFindResults() { return m_panelFindResults; }
   wxAuiManager *GetAuimgr() { return m_auimgr; }
   MainViewBase(wxWindow *parent, wxWindowID id = wxID_ANY,
                const wxPoint &pos = wxDefaultPosition,
@@ -723,6 +725,54 @@ public:
                       const wxSize &size = wxSize(-1, -1),
                       long style = wxCAPTION);
   virtual ~GotoAnythingDlgBase();
+};
+
+class FindInFilesDlgBase : public wxDialog {
+protected:
+  wxStaticText *m_staticTextHostLabel;
+  wxStaticText *m_staticTextHost;
+  wxStaticText *m_staticTextPatternLabel;
+  wxTextCtrl *m_textCtrlPattern;
+  wxStaticText *m_staticTextFolderLabel;
+  wxTextCtrl *m_textCtrlFolder;
+  wxStaticText *m_staticTextIncludeLabel;
+  wxTextCtrl *m_textCtrlInclude;
+  wxStaticText *m_staticTextExcludeLabel;
+  wxTextCtrl *m_textCtrlExclude;
+  wxStaticText *m_staticTextOptionsLabel;
+  wxCheckBox *m_checkBoxRegex;
+  wxCheckBox *m_checkBoxMatchCase;
+  wxCheckBox *m_checkBoxWholeWord;
+  wxStaticText *m_staticTextStatus;
+  wxStdDialogButtonSizer *m_stdBtnSizer;
+  wxButton *m_buttonOK;
+  wxButton *m_buttonCancel;
+
+protected:
+  virtual void OnOkUI(wxUpdateUIEvent &event) { event.Skip(); }
+
+public:
+  wxStaticText *GetStaticTextHostLabel() { return m_staticTextHostLabel; }
+  wxStaticText *GetStaticTextHost() { return m_staticTextHost; }
+  wxStaticText *GetStaticTextPatternLabel() { return m_staticTextPatternLabel; }
+  wxTextCtrl *GetTextCtrlPattern() { return m_textCtrlPattern; }
+  wxStaticText *GetStaticTextFolderLabel() { return m_staticTextFolderLabel; }
+  wxTextCtrl *GetTextCtrlFolder() { return m_textCtrlFolder; }
+  wxStaticText *GetStaticTextIncludeLabel() { return m_staticTextIncludeLabel; }
+  wxTextCtrl *GetTextCtrlInclude() { return m_textCtrlInclude; }
+  wxStaticText *GetStaticTextExcludeLabel() { return m_staticTextExcludeLabel; }
+  wxTextCtrl *GetTextCtrlExclude() { return m_textCtrlExclude; }
+  wxStaticText *GetStaticTextOptionsLabel() { return m_staticTextOptionsLabel; }
+  wxCheckBox *GetCheckBoxRegex() { return m_checkBoxRegex; }
+  wxCheckBox *GetCheckBoxMatchCase() { return m_checkBoxMatchCase; }
+  wxCheckBox *GetCheckBoxWholeWord() { return m_checkBoxWholeWord; }
+  wxStaticText *GetStaticTextStatus() { return m_staticTextStatus; }
+  FindInFilesDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,
+                     const wxString &title = _("Find in Files"),
+                     const wxPoint &pos = wxDefaultPosition,
+                     const wxSize &size = wxSize(-1, -1),
+                     long style = wxDEFAULT_DIALOG_STYLE);
+  virtual ~FindInFilesDlgBase();
 };
 
 #endif

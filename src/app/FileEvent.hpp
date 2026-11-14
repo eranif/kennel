@@ -36,6 +36,15 @@ public:
   bool IsDir() const { return m_isDir; }
   void SetIsDir(bool isDir) { m_isDir = isDir; }
 
+  // Where the caret goes when the file is opened, both counted from 1. No line
+  // (0, the default): the file is only opened.
+  int GetLine() const { return m_line; }
+  int GetColumn() const { return m_column; }
+  void SetLocation(int line, int column) {
+    m_line = line;
+    m_column = column;
+  }
+
   // The place the file is on.
   const Account &GetAccount() const { return m_account; }
   void SetAccount(const Account &account) { m_account = account; }
@@ -71,6 +80,8 @@ public:
 private:
   wxString m_path;
   bool m_isDir{false};
+  int m_line{0};
+  int m_column{0};
   Account m_account;
   Status m_status;
 };

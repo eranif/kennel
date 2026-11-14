@@ -28,4 +28,10 @@ wxString LinuxInstallDir();
 // host, the Linux path for WSL, a native path for this machine.
 wxString ExecutableOf(const Account &account);
 
+// Whether Kennel puts rg on the machine of `account` itself (RemoteInstaller):
+// everywhere but this machine on Windows and macOS, where rg comes with the
+// program (a missing copy there is a broken installation, not something to
+// install).
+bool IsInstalledByKennel(const Account &account);
+
 } // namespace ripgrep

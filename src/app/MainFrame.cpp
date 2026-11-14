@@ -9,6 +9,8 @@
 #include "app/EditMenu.hpp"
 #include "app/FileActions.h"
 #include "app/FilePage.hpp"
+#include "app/FindInFilesDlg.hpp"
+#include "app/FindResultsView.hpp"
 #include "app/GotoAnythingDlg.hpp"
 #include "app/JobLogViewer.hpp"
 #include "app/NewAgentWizard.hpp"
@@ -509,6 +511,12 @@ void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnFindUI, this, wxID_FIND);
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnFindUI, this, XRCID("find-next"));
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnFindUI, this, XRCID("find-previous"));
+  // AcceleratorInterceptor handles the key (a terminal would get it otherwise).
+  searchMenu->Append(XRCID("find-in-files"),
+                     _("Find in Files...\tCtrl+Shift+F"),
+                     _("Search the files of a folder, on this machine, in WSL "
+                       "or on a remote host"));
+  Bind(wxEVT_MENU, &MainFrame::OnFindInFiles, this, XRCID("find-in-files"));
 #ifdef __WXOSX__
   searchMenu->Append(XRCID("goto-line"), _("Go to Line...\tRawCtrl+G"));
 #else
@@ -527,6 +535,8 @@ void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
                             _("Show or hide the side bar"));
   viewMenu->AppendCheckItem(XRCID("show-activity"), _("Activity"),
                             _("Show or hide the activity view"));
+  viewMenu->AppendCheckItem(XRCID("show-find-results"), _("Find Results"),
+                            _("Show or hide the results of Find in Files"));
 #ifdef __WXOSX__
   // The physical Ctrl key, not Cmd.
   const wxString toggleLabel = _("Toggle All Views\tRawCtrl+M");
@@ -541,9 +551,12 @@ void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
   viewMenu->AppendSeparator();
   Bind(wxEVT_MENU, &MainFrame::OnShowPane, this, XRCID("show-side-view"));
   Bind(wxEVT_MENU, &MainFrame::OnShowPane, this, XRCID("show-activity"));
+  Bind(wxEVT_MENU, &MainFrame::OnShowPane, this, XRCID("show-find-results"));
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnShowPaneUI, this,
        XRCID("show-side-view"));
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnShowPaneUI, this, XRCID("show-activity"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnShowPaneUI, this,
+       XRCID("show-find-results"));
   Bind(
       wxEVT_MENU, [this](wxCommandEvent &) { m_mainView->ToggleAllPanes(); },
       XRCID("toggle-all-views"));
@@ -956,8 +969,11 @@ void MainFrame::RunGotoItem(const GotoItem &item) {
 namespace {
 // The pane a View menu item shows or hides.
 wxString PaneOfMenuId(int id) {
-  return id == XRCID("show-side-view") ? wxString("SideView")
-                                       : wxString("Activity");
+  if (id == XRCID("show-side-view")) {
+    return "SideView";
+  }
+  return id == XRCID("show-find-results") ? wxString("FindResults")
+                                          : wxString("Activity");
 }
 } // namespace
 
@@ -1208,6 +1224,64 @@ void MainFrame::OnNextSessionUI(wxUpdateUIEvent &e) {
 void MainFrame::OnFind(wxCommandEvent &e) {
   wxUnusedVar(e);
   m_mainView->GetSessionsBook()->ShowFind();
+}
+
+namespace {
+// Where Find in Files starts: the machine and the folder of what is showing.
+struct SearchTarget {
+  Account account;
+  wxString folder;
+};
+
+SearchTarget SearchTargetOf(MainNotebook *book) {
+  if (SessionPage *session = book->GetActiveSessionPage()) {
+    const Account account = session->GetAccount();
+    return {account, account.m_rootDir};
+  }
+  if (FilePage *file = book->GetActiveFilePage()) {
+    const Account account = file->GetAccount();
+    const wxString path = file->GetAccountPath();
+    wxString folder;
+    if (account.IsLocalHost()) {
+      folder = wxFileName(path).GetPath();
+    } else {
+      folder = path.BeforeLast('/');
+      if (folder.empty() && path.StartsWith("/")) {
+        folder = "/"; // A file at the root
+      }
+    }
+    return {account, folder};
+  }
+  return {Account::LocalHost(), wxFileName::GetHomeDir()};
+}
+} // namespace
+
+void MainFrame::OnFindInFiles(wxCommandEvent &) {
+  FindResultsView *results = m_mainView->GetFindResults();
+  Account account;
+  FindQuery query;
+  {
+    const SearchTarget target = SearchTargetOf(m_mainView->GetSessionsBook());
+    FindInFilesDlg dlg(this);
+    if (results->GetQuery()) {
+      dlg.SetQuery(*results->GetQuery());
+    }
+    // Starts the check of ripgrep on the machine, while the dialog is open.
+    dlg.SetTarget(target.account,
+                  target.folder.empty() && target.account.IsLocalHost()
+                      ? wxFileName::GetHomeDir()
+                      : target.folder);
+    if (dlg.ShowModal() != wxID_OK) {
+      return;
+    }
+    account = dlg.GetAccount();
+    query = dlg.GetQuery();
+  }
+  m_mainView->ShowPane("FindResults", true);
+  if (const Status started = results->Search(account, query); !started.ok()) {
+    wxMessageBox(started.message(), _("Find in Files"), wxOK | wxICON_ERROR,
+                 this);
+  }
 }
 
 void MainFrame::OnFindNext(wxCommandEvent &e) {

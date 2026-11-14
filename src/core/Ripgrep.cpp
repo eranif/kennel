@@ -52,6 +52,17 @@ const ToolDescription &Tool() {
 
 wxString LinuxInstallDir() { return "$HOME/.kennel/bin"; }
 
+bool IsInstalledByKennel(const Account &account) {
+  if (account.m_type != HostType::kLocalHost) {
+    return true;
+  }
+#if defined(__WXMSW__) || defined(__WXOSX__)
+  return false;
+#else
+  return true;
+#endif
+}
+
 wxString ExecutableOf(const Account &account) {
   const ToolDescription &tool = Tool();
   switch (account.m_type) {

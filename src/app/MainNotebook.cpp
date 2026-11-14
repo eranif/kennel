@@ -390,11 +390,12 @@ void MainNotebook::OnFileTreeActivated(FileEvent &event) {
   const Account &account = event.GetAccount();
   if (account.IsRemote()) {
     OpenRemoteFile(RemoteHostDetails{account.m_name, account.m_user},
-                   event.GetPath(), {});
+                   event.GetPath(), {}, event.GetLine(), event.GetColumn());
   } else {
-    OpenLocalFile(account.IsWSL()
-                      ? wsl::ToWindowsPath(account.m_name, event.GetPath())
-                      : event.GetPath());
+    OpenFileAt({account.IsWSL()
+                    ? wsl::ToWindowsPath(account.m_name, event.GetPath())
+                    : event.GetPath(),
+                event.GetLine(), event.GetColumn()});
   }
 }
 

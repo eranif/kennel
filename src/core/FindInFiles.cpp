@@ -209,8 +209,9 @@ const std::string *TextOf(const json &object, const char *key) {
 // handler in batches.
 class Collector {
 public:
-  explicit Collector(wxEvtHandler *handler)
-      : m_handler(handler), m_lastFlush(std::chrono::steady_clock::now()) {}
+  Collector(wxEvtHandler *handler, int generation)
+      : m_handler(handler), m_generation(generation),
+        m_lastFlush(std::chrono::steady_clock::now()) {}
 
   // `chunk` is whatever rg wrote (may end in the middle of a line). False when
   // the search has enough and rg should stop.
@@ -332,12 +333,14 @@ private:
       return;
     }
     auto *event = new FindEvent(wxEVT_FIND_BATCH);
+    event->SetInt(m_generation);
     event->Matches() = std::move(m_batch);
     m_batch.clear();
     m_handler->QueueEvent(event);
   }
 
   wxEvtHandler *m_handler;
+  int m_generation;
   std::string m_buffer;
   std::vector<FindMatch> m_batch;
   size_t m_total{0};
@@ -413,16 +416,18 @@ Status FindInFiles::Start(const Account &account, const FindQuery &query) {
   }
   m_cancel = false;
   m_reported = false;
-  m_future = std::async(std::launch::async,
-                        [this, account, query] { Run(account, query); });
+  const int generation = ++m_generation;
+  m_future = std::async(std::launch::async, [this, account, query, generation] {
+    Run(account, query, generation);
+  });
   return Status::Ok();
 }
 
-void FindInFiles::Run(Account account, FindQuery query) {
+void FindInFiles::Run(Account account, FindQuery query, int generation) {
   // WSL asks wsl.exe for the home folder the first time: not on the UI thread.
   const wxString exe = ripgrep::ExecutableOf(account);
 
-  Collector collector(m_handler);
+  Collector collector(m_handler, generation);
   Status result;
   const std::vector<std::string> args = BuildArguments(query);
   const std::string root = query.root.ToStdString(wxConvUTF8);
@@ -517,6 +522,7 @@ void FindInFiles::Run(Account account, FindQuery query) {
   }
 
   auto *done = new FindEvent(wxEVT_FIND_DONE);
+  done->SetInt(generation);
   done->SetResult(result);
   done->SetTruncated(collector.IsTruncated());
   done->SetCancelled(m_cancel);

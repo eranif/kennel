@@ -5,6 +5,7 @@
 #include "app/ActivityView.hpp"
 #include "app/AssetBootstrap.h"
 #include "app/FileTreeCtrl.hpp"
+#include "app/FindResultsView.hpp"
 #include "app/SettingsDlg.hpp"
 #include "app/SideView.hpp"
 #include "app/TabIcon.h"
@@ -30,6 +31,10 @@ constexpr int kFloatingPaneWidthDip = 400;
 constexpr int kFloatingPaneHeightDip = 600;
 // The names of the side panes (see MainViewBase).
 const wxString kSidePanes[] = {"SideView", "Activity"};
+// The pane of the results of Find in Files. It starts hidden, a search shows
+// it, and it is hidden again when a saved layout is restored (see
+// RestoreLayout()).
+const wxString kFindResultsPane = "FindResults";
 } // namespace
 
 MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
@@ -58,6 +63,11 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
   m_panelSideView->GetSizer()->Add(m_sideView, wxSizerFlags(1).Expand());
   m_activityView = new ActivityView(GetPanelActivity());
   GetPanelActivity()->GetSizer()->Add(m_activityView, wxSizerFlags(1).Expand());
+  m_findResults = new FindResultsView(GetPanelFindResults());
+  GetPanelFindResults()->GetSizer()->Add(m_findResults,
+                                         wxSizerFlags(1).Expand());
+  m_auimgr->GetPane(kFindResultsPane).Hide();
+  m_auimgr->Update();
 
   // The size a pane gets when it floats (it only matters then, so no Update()).
   for (const wxString &name : kSidePanes) {
@@ -158,7 +168,9 @@ void MainView::RestoreLayout() {
     m_sideView->SetSelection(sideTab);
     bool restored = false;
     if (!layout.empty()) {
-      restored = m_auimgr->LoadPerspective(layout, /*update=*/true);
+      // No update yet: the pane of the results is hidden below, before the
+      // window shows the layout.
+      restored = m_auimgr->LoadPerspective(layout, /*update=*/false);
       if (!restored) {
         KLOG_WARN() << "Could not restore the layout of the panes";
       }
@@ -169,8 +181,15 @@ void MainView::RestoreLayout() {
       // with the default width if they are side panes. The check relies on the
       // format of the AUI perspective ("name=<pane>;" for each pane).
       std::vector<wxString> added;
+      // The results of a search are not kept between runs, so the pane of them
+      // does not come back, whether the layout was saved with it showing or
+      // does not know it: the next search shows it.
+      m_auimgr->GetPane(kFindResultsPane).Hide();
       wxAuiPaneInfoArray &panes = m_auimgr->GetAllPanes();
       for (size_t i = 0; i < panes.GetCount(); ++i) {
+        if (panes[i].name == kFindResultsPane) {
+          continue;
+        }
         if (!layout.Contains("name=" + panes[i].name + ";")) {
           panes[i].Show();
           if (std::find(std::begin(kSidePanes), std::end(kSidePanes),

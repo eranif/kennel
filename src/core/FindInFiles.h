@@ -70,6 +70,11 @@ private:
   bool m_cancelled{false};
 };
 
+// Both events carry the number of their search in GetInt(): the
+// FindInFiles::GetGeneration() of the Start() that began it. A search that
+// ended can still have events waiting in the queue of the handler when the next
+// one starts, so a handler that starts searches one after the other ignores the
+// ones that are not of the search it started last.
 // Sent while the search runs, any number of times, in order.
 wxDECLARE_EVENT(wxEVT_FIND_BATCH, FindEvent);
 // Sent once, last, whatever the outcome.
@@ -112,16 +117,21 @@ public:
 
   bool IsRunning() const;
 
+  // The number of the last search that Start() began (1 for the first). Only
+  // the UI thread calls Start() and this.
+  int GetGeneration() const { return m_generation; }
+
   // The arguments for rg for `query`, without the program and the path.
   static std::vector<std::string> BuildArguments(const FindQuery &query);
 
 private:
-  void Run(Account account, FindQuery query);
+  void Run(Account account, FindQuery query, int generation);
 
   wxEvtHandler *m_handler;
   std::atomic<bool> m_cancel{false};
   // The worker has queued wxEVT_FIND_DONE. The future can not say it: it is
   // ready only when the worker returned, a moment later.
   std::atomic<bool> m_reported{false};
+  int m_generation{0};
   std::future<void> m_future;
 };

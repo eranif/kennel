@@ -179,7 +179,6 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
                                      .CloseButton(false)
                                      .MinimizeButton(false)
                                      .PinButton(false));
-  m_auimgr->Update();
 
   wxBoxSizer *boxSizer594 = new wxBoxSizer(wxVERTICAL);
   m_mainPanel->SetSizer(boxSizer594);
@@ -189,6 +188,28 @@ MainViewBase::MainViewBase(wxWindow *parent, wxWindowID id, const wxPoint &pos,
                                     wxTAB_TRAVERSAL | wxBORDER_NONE);
 
   boxSizer594->Add(m_sessionsBook, 1, wxEXPAND, WXC_FROM_DIP(5));
+
+  m_panelFindResults =
+      new wxPanel(this, wxID_ANY, wxDefaultPosition,
+                  wxDLG_UNIT(this, wxSize(-1, -1)), wxTAB_TRAVERSAL);
+
+  m_auimgr->AddPane(m_panelFindResults, wxAuiPaneInfo()
+                                            .Name(wxT("FindResults"))
+                                            .Caption(_("Find Results"))
+                                            .Direction(wxAUI_DOCK_BOTTOM)
+                                            .Layer(0)
+                                            .Row(0)
+                                            .Position(0)
+                                            .BestSize(-1, 240)
+                                            .CaptionVisible(true)
+                                            .MaximizeButton(false)
+                                            .CloseButton(true)
+                                            .MinimizeButton(false)
+                                            .PinButton(false));
+  m_auimgr->Update();
+
+  wxBoxSizer *boxSizerFindResults = new wxBoxSizer(wxVERTICAL);
+  m_panelFindResults->SetSizer(boxSizerFindResults);
 
   SetName(wxT("MainViewBase"));
   SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
@@ -2765,3 +2786,195 @@ GotoAnythingDlgBase::GotoAnythingDlgBase(wxWindow *parent, wxWindowID id,
 }
 
 GotoAnythingDlgBase::~GotoAnythingDlgBase() {}
+
+FindInFilesDlgBase::FindInFilesDlgBase(wxWindow *parent, wxWindowID id,
+                                       const wxString &title,
+                                       const wxPoint &pos, const wxSize &size,
+                                       long style)
+    : wxDialog(parent, id, title, pos, size, style) {
+  if (!bBitmapLoaded) {
+    // We need to initialise the default bitmap handler
+    wxXmlResource::Get()->AddHandler(new wxBitmapXmlHandler);
+    wxCrafterFiTVkcInitBitmapResources();
+    bBitmapLoaded = true;
+  }
+
+  wxBoxSizer *boxSizerFindInFiles = new wxBoxSizer(wxVERTICAL);
+  this->SetSizer(boxSizerFindInFiles);
+
+  wxFlexGridSizer *flexGridSizerFields = new wxFlexGridSizer(0, 2, 0, 0);
+  flexGridSizerFields->SetFlexibleDirection(wxBOTH);
+  flexGridSizerFields->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
+  flexGridSizerFields->AddGrowableCol(1);
+
+  boxSizerFindInFiles->Add(flexGridSizerFields, 0, wxALL | wxEXPAND,
+                           WXC_FROM_DIP(10));
+
+  m_staticTextHostLabel =
+      new wxStaticText(this, wxID_ANY, _("Host:"), wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+  flexGridSizerFields->Add(m_staticTextHostLabel, 0,
+                           wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
+                           WXC_FROM_DIP(5));
+
+  m_staticTextHost =
+      new wxStaticText(this, wxID_ANY, _("localhost"), wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+  flexGridSizerFields->Add(m_staticTextHost, 0,
+                           wxALL | wxEXPAND | wxALIGN_CENTER_VERTICAL,
+                           WXC_FROM_DIP(5));
+
+  m_staticTextPatternLabel =
+      new wxStaticText(this, wxID_ANY, _("Find:"), wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+  flexGridSizerFields->Add(m_staticTextPatternLabel, 0,
+                           wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
+                           WXC_FROM_DIP(5));
+
+  m_textCtrlPattern = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition,
+                                     wxDLG_UNIT(this, wxSize(350, -1)), 0);
+  m_textCtrlPattern->SetFocus();
+#if wxVERSION_NUMBER >= 3000
+  m_textCtrlPattern->SetHint(_("Text to find"));
+#endif
+
+  flexGridSizerFields->Add(m_textCtrlPattern, 0, wxALL | wxEXPAND,
+                           WXC_FROM_DIP(5));
+
+  m_staticTextFolderLabel =
+      new wxStaticText(this, wxID_ANY, _("Folder:"), wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+  flexGridSizerFields->Add(m_staticTextFolderLabel, 0,
+                           wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
+                           WXC_FROM_DIP(5));
+
+  m_textCtrlFolder = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition,
+                                    wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+#if wxVERSION_NUMBER >= 3000
+  m_textCtrlFolder->SetHint(_("Folder to search"));
+#endif
+
+  flexGridSizerFields->Add(m_textCtrlFolder, 0, wxALL | wxEXPAND,
+                           WXC_FROM_DIP(5));
+
+  m_staticTextIncludeLabel =
+      new wxStaticText(this, wxID_ANY, _("Include:"), wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+  flexGridSizerFields->Add(m_staticTextIncludeLabel, 0,
+                           wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
+                           WXC_FROM_DIP(5));
+
+  m_textCtrlInclude = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition,
+                                     wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+#if wxVERSION_NUMBER >= 3000
+  m_textCtrlInclude->SetHint(_("*.cpp, *.hpp  (all files when empty)"));
+#endif
+
+  flexGridSizerFields->Add(m_textCtrlInclude, 0, wxALL | wxEXPAND,
+                           WXC_FROM_DIP(5));
+
+  m_staticTextExcludeLabel =
+      new wxStaticText(this, wxID_ANY, _("Exclude:"), wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+  flexGridSizerFields->Add(m_staticTextExcludeLabel, 0,
+                           wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
+                           WXC_FROM_DIP(5));
+
+  m_textCtrlExclude = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition,
+                                     wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+#if wxVERSION_NUMBER >= 3000
+  m_textCtrlExclude->SetHint(_("build, *.min.js"));
+#endif
+
+  flexGridSizerFields->Add(m_textCtrlExclude, 0, wxALL | wxEXPAND,
+                           WXC_FROM_DIP(5));
+
+  m_staticTextOptionsLabel =
+      new wxStaticText(this, wxID_ANY, _("Options:"), wxDefaultPosition,
+                       wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+  flexGridSizerFields->Add(m_staticTextOptionsLabel, 0,
+                           wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL,
+                           WXC_FROM_DIP(5));
+
+  wxBoxSizer *boxSizerOptions = new wxBoxSizer(wxHORIZONTAL);
+
+  flexGridSizerFields->Add(boxSizerOptions, 0, wxALL | wxEXPAND,
+                           WXC_FROM_DIP(0));
+
+  m_checkBoxRegex =
+      new wxCheckBox(this, wxID_ANY, _("Regex"), wxDefaultPosition,
+                     wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  m_checkBoxRegex->SetValue(false);
+
+  boxSizerOptions->Add(m_checkBoxRegex, 0, wxALL | wxALIGN_CENTER_VERTICAL,
+                       WXC_FROM_DIP(5));
+
+  m_checkBoxMatchCase =
+      new wxCheckBox(this, wxID_ANY, _("Match case"), wxDefaultPosition,
+                     wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  m_checkBoxMatchCase->SetValue(false);
+
+  boxSizerOptions->Add(m_checkBoxMatchCase, 0, wxALL | wxALIGN_CENTER_VERTICAL,
+                       WXC_FROM_DIP(5));
+
+  m_checkBoxWholeWord =
+      new wxCheckBox(this, wxID_ANY, _("Whole word"), wxDefaultPosition,
+                     wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  m_checkBoxWholeWord->SetValue(false);
+
+  boxSizerOptions->Add(m_checkBoxWholeWord, 0, wxALL | wxALIGN_CENTER_VERTICAL,
+                       WXC_FROM_DIP(5));
+
+  m_staticTextStatus =
+      new wxStaticText(this, wxID_ANY, _("Checking ripgrep..."),
+                       wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+  boxSizerFindInFiles->Add(m_staticTextStatus, 0,
+                           wxALL | wxALIGN_CENTER_HORIZONTAL |
+                               wxALIGN_CENTER_VERTICAL,
+                           WXC_FROM_DIP(10));
+
+  m_stdBtnSizer = new wxStdDialogButtonSizer();
+
+  boxSizerFindInFiles->Add(m_stdBtnSizer, 0, wxALL | wxALIGN_CENTER_HORIZONTAL,
+                           WXC_FROM_DIP(10));
+
+  m_buttonOK = new wxButton(this, wxID_OK, wxT(""), wxDefaultPosition,
+                            wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  m_buttonOK->SetDefault();
+  m_stdBtnSizer->AddButton(m_buttonOK);
+
+  m_buttonCancel = new wxButton(this, wxID_CANCEL, wxT(""), wxDefaultPosition,
+                                wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  m_stdBtnSizer->AddButton(m_buttonCancel);
+  m_stdBtnSizer->Realize();
+
+  SetName(wxT("FindInFilesDlgBase"));
+  SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
+  if (GetSizer()) {
+    GetSizer()->Fit(this);
+  }
+  if (GetParent()) {
+    CentreOnParent(wxBOTH);
+  } else {
+    CentreOnScreen(wxBOTH);
+  }
+  if (!wxPersistenceManager::Get().Find(this)) {
+    wxPersistenceManager::Get().RegisterAndRestore(this);
+  } else {
+    wxPersistenceManager::Get().Restore(this);
+  }
+  // Connect events
+  m_buttonOK->Bind(wxEVT_UPDATE_UI, &FindInFilesDlgBase::OnOkUI, this);
+}
+
+FindInFilesDlgBase::~FindInFilesDlgBase() {
+  m_buttonOK->Unbind(wxEVT_UPDATE_UI, &FindInFilesDlgBase::OnOkUI, this);
+}

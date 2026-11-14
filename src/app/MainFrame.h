@@ -154,6 +154,9 @@ private:
   // Ctrl+Shift+P: a search box over the menu items, the pages and the actions
   // of the page that is showing.
   void OnGotoAnything(wxCommandEvent &e);
+  // Ctrl+Shift+F: asks what to search for, then searches into the pane of the
+  // results.
+  void OnFindInFiles(wxCommandEvent &e);
   std::vector<GotoItem> CollectGotoItems();
   void CollectMenuItems(wxMenu *menu, const wxString &path,
                         std::vector<GotoItem> &items);

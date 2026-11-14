@@ -343,6 +343,8 @@ set(KENNEL_APP_SOURCES
     src/app/ArchiveDlg.cpp
     src/app/AgentScan.cpp
     src/app/GotoAnythingDlg.cpp
+    src/app/FindInFilesDlg.cpp
+    src/app/FindResultsView.cpp
     src/app/GitCommitMessageDlg.cpp
     src/app/GitPanel.cpp
     src/app/FileActions.cpp
