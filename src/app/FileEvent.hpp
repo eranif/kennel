@@ -103,6 +103,14 @@ wxDECLARE_EVENT(wxEVT_FILE_SAVE_DONE, FileEvent);
 // GetAccount()) became the page that is showing. The receiver shows where it is
 // in the file views; it sends nothing back.
 wxDECLARE_EVENT(wxEVT_FILE_REVEAL, FileEvent);
+
+// Sent on the EventNotifier (processed, so before and after the files are
+// closed) around the closing of all the files at once (Close All Files). The
+// views that follow the page that is showing (the file explorer selects its
+// file) have nothing to follow meanwhile: they skip the work until the end.
+wxDECLARE_EVENT(wxEVT_CLOSE_ALL_FILES_STARTED, wxCommandEvent);
+wxDECLARE_EVENT(wxEVT_CLOSE_ALL_FILES_ENDED, wxCommandEvent);
+
 // Sent on the EventNotifier by a FilePage when the file became modified or was
 // saved (or reloaded): GetInt() is 1 for modified. The event object is the
 // page; the event is pending, so the page may be gone: compare the pointer

@@ -49,6 +49,10 @@ SideView::SideView(wxWindow *parent) : SideViewBase(parent) {
   notifier->Bind(wxEVT_GITVIEW_CHANGE_FOLDER, &SideView::OnChangeFolder, this);
   notifier->Bind(wxEVT_FILE_SAVED, &SideView::OnFileSaved, this);
   notifier->Bind(wxEVT_FILE_REVEAL, &SideView::OnFileReveal, this);
+  notifier->Bind(wxEVT_CLOSE_ALL_FILES_STARTED,
+                 &SideView::OnCloseAllFilesStarted, this);
+  notifier->Bind(wxEVT_CLOSE_ALL_FILES_ENDED, &SideView::OnCloseAllFilesEnded,
+                 this);
   // The remote trees answer on the notifier (see ShowContext()).
   notifier->Bind(wxEVT_FILETREE_CONNECTED, &SideView::OnTreeConnected, this);
   notifier->Bind(wxEVT_APP_TAB_HEIGHT, &SideView::OnTabHeight, this);
@@ -75,6 +79,10 @@ SideView::~SideView() {
                    this);
   notifier->Unbind(wxEVT_FILE_SAVED, &SideView::OnFileSaved, this);
   notifier->Unbind(wxEVT_FILE_REVEAL, &SideView::OnFileReveal, this);
+  notifier->Unbind(wxEVT_CLOSE_ALL_FILES_STARTED,
+                   &SideView::OnCloseAllFilesStarted, this);
+  notifier->Unbind(wxEVT_CLOSE_ALL_FILES_ENDED, &SideView::OnCloseAllFilesEnded,
+                   this);
   notifier->Unbind(wxEVT_FILETREE_CONNECTED, &SideView::OnTreeConnected, this);
   notifier->Unbind(wxEVT_APP_TAB_HEIGHT, &SideView::OnTabHeight, this);
   // The drivers of the contexts that are left end here, with the others.
@@ -500,12 +508,27 @@ void SideView::OnTreeConnected(FileTreeConnectedEvent &event) {
   }
 }
 
+void SideView::OnCloseAllFilesStarted(wxCommandEvent &event) {
+  event.Skip();
+  m_closingAllFiles = true;
+}
+
+void SideView::OnCloseAllFilesEnded(wxCommandEvent &event) {
+  event.Skip();
+  m_closingAllFiles = false;
+}
+
 // A file is showing: its place in the tree that shows is selected, if the file
 // is inside it (the path is converted between this machine and WSL when the
 // tree is of the other one). Nothing happens when the file explorer is not on
 // the screen, and a remote host is never listed.
 void SideView::OnFileReveal(FileEvent &event) {
   event.Skip();
+  // Files are closing one after the other: no file stays to be shown, and the
+  // tree has nothing to do for the ones that show on the way.
+  if (m_closingAllFiles) {
+    return;
+  }
   const Account &account = event.GetAccount();
   if (!m_explorerBook->IsShownOnScreen() || account.IsRemote()) {
     return;

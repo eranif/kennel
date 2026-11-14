@@ -111,6 +111,9 @@ private:
   void OnChangeFolder(FileEvent &event);
   void OnFileSaved(FileEvent &event);
   void OnFileReveal(FileEvent &event);
+  // wxEVT_CLOSE_ALL_FILES_STARTED and _ENDED: no file is revealed meanwhile.
+  void OnCloseAllFilesStarted(wxCommandEvent &event);
+  void OnCloseAllFilesEnded(wxCommandEvent &event);
   void OnTreeConnected(FileTreeConnectedEvent &event);
   // wxEVT_APP_TAB_HEIGHT: shows the tab height.
   void OnTabHeight(wxCommandEvent &event);
@@ -119,6 +122,8 @@ private:
   wxSimplebook *m_gitBook{nullptr};      // The git panels
   // By KeyOf(). A node never moves: the pages keep pointers to it.
   std::map<wxString, Context> m_contexts;
+  // Close All Files is running (see OnCloseAllFilesStarted()).
+  bool m_closingAllFiles{false};
   // The session the user is working in (its context shows).
   std::optional<SessionRef> m_active;
   // The number of the next context of a terminal (for its key).

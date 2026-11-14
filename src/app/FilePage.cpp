@@ -448,8 +448,23 @@ void FilePage::OnClose(wxCommandEvent &event) {
 // Find and Replace
 // ---------------------------------------------------------------------------
 
-wxString FilePage::SelectedSearchText() const {
+wxString FilePage::GetFindWhat() const {
   return SearchBar::TextFromSelection(m_editor->GetCtrl()->GetSelectedText());
+}
+
+SearchTarget FilePage::GetSearchTarget() const {
+  const Account account = GetAccount();
+  const wxString path = GetAccountPath();
+  wxString folder;
+  if (account.IsLocalHost()) {
+    folder = wxFileName(path).GetPath();
+  } else {
+    folder = path.BeforeLast('/');
+    if (folder.empty() && path.StartsWith("/")) {
+      folder = "/"; // A file at the root
+    }
+  }
+  return {account, folder};
 }
 
 void FilePage::ShowFind() {
@@ -460,7 +475,7 @@ void FilePage::ShowFind() {
   }
   m_searchBar->EnableReplace(CanReplace());
   // The selected text (its first line) is what the user looks for.
-  const wxString selected = SelectedSearchText();
+  const wxString selected = GetFindWhat();
   m_searchBar->Activate(selected.empty() ? m_findText : selected);
 }
 

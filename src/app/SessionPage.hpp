@@ -5,6 +5,7 @@
 #include "app/AsyncGuard.hpp"
 #include "app/PageViewEvent.hpp"
 #include "app/ReviewBuddyEvent.hpp"
+#include "app/SearchablePage.hpp"
 #include "app/SessionStatusEvent.hpp"
 #include "core/Account.h"
 #include "core/ActivityMonitor.h"
@@ -35,7 +36,7 @@ class wxUpdateUIEvent;
 
 enum class SessionStatus { Starting, Running, Idle, Exited, Error };
 
-class SessionPage : public SessionBasePage {
+class SessionPage : public SessionBasePage, public SearchablePage {
 public:
   using StatusChangedFn = std::function<void(SessionStatus)>;
 
@@ -81,21 +82,18 @@ public:
   // page is showing). Also called when the page is selected.
   void PublishStatus();
 
-  // Shows the search bar below the terminals. It searches the terminal that
-  // has the focus (or had it last). The selected text of the terminal is what
-  // it looks for.
-  void ShowFind();
-  // The text selected in the terminal (its first line); empty when nothing is
-  // selected. What Find and Find in Files look for. A TUI application (tmux,
-  // vim, claude) selects text itself, and the terminal does not know it: the
-  // text that it copied (OSC 52) comes first, then the text selected with the
-  // mouse.
-  wxString SelectedSearchText() const;
-  // Selects the next (or previous) match of the last search. Shows the search
-  // bar if there was no search yet.
-  void FindNext(bool forward);
-  // Whether there is a search for FindNext() to repeat.
-  bool HasSearch() const { return !m_findText.empty(); }
+  // SearchablePage. The search bar is below the terminals, and searches the
+  // terminal that has the focus (or had it last). GetFindWhat() is the text
+  // selected in the terminal: a TUI application (tmux, vim, claude) selects
+  // text itself, and the terminal does not know it, so the text that it copied
+  // (OSC 52) comes first, then the text selected with the mouse.
+  // GetSearchTarget() is the account of the session and its folder.
+  bool CanFind() const override { return true; }
+  void ShowFind() override;
+  bool CanFindNext() const override { return !m_findText.empty(); }
+  void FindNext(bool forward) override;
+  wxString GetFindWhat() const override;
+  SearchTarget GetSearchTarget() const override;
 
   // ---- Review buddy, for the commands outside of the toolbar -------------
   // The agents this session can be reviewed with now. Empty if it cannot (a

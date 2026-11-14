@@ -19,6 +19,7 @@
 #include "app/PageViewEvent.hpp"
 #include "app/PopupStyle.hpp"
 #include "app/ReviewBuddyMenu.hpp"
+#include "app/SearchablePage.hpp"
 #include "app/SessionPage.hpp"
 #include "app/SettingsDlg.hpp"
 #include "app/ToolBarArt.h"
@@ -1232,48 +1233,6 @@ void MainFrame::OnFind(wxCommandEvent &e) {
   m_mainView->GetSessionsBook()->ShowFind();
 }
 
-namespace {
-// Where Find in Files starts: the machine and the folder of what is showing.
-struct SearchTarget {
-  Account account;
-  wxString folder;
-};
-
-SearchTarget SearchTargetOf(MainNotebook *book) {
-  if (SessionPage *session = book->GetActiveSessionPage()) {
-    const Account account = session->GetAccount();
-    return {account, account.m_rootDir};
-  }
-  if (FilePage *file = book->GetActiveFilePage()) {
-    const Account account = file->GetAccount();
-    const wxString path = file->GetAccountPath();
-    wxString folder;
-    if (account.IsLocalHost()) {
-      folder = wxFileName(path).GetPath();
-    } else {
-      folder = path.BeforeLast('/');
-      if (folder.empty() && path.StartsWith("/")) {
-        folder = "/"; // A file at the root
-      }
-    }
-    return {account, folder};
-  }
-  return {Account::LocalHost(), wxFileName::GetHomeDir()};
-}
-
-// The text that is selected in the page that is showing (its first line), like
-// Find takes it; empty when nothing is.
-wxString SelectedTextOf(MainNotebook *book) {
-  if (SessionPage *session = book->GetActiveSessionPage()) {
-    return session->SelectedSearchText();
-  }
-  if (FilePage *file = book->GetActiveFilePage()) {
-    return file->SelectedSearchText();
-  }
-  return wxString();
-}
-} // namespace
-
 void MainFrame::OnFindInFiles(wxCommandEvent &) {
   OutputView *output = m_mainView->GetOutput();
   FindResultsView *results = output->GetFindInFiles();
@@ -1281,7 +1240,11 @@ void MainFrame::OnFindInFiles(wxCommandEvent &) {
   Account account;
   FindQuery query;
   {
-    const SearchTarget target = SearchTargetOf(m_mainView->GetSessionsBook());
+    // The page that is showing says where to search and what to look for.
+    const SearchablePage *page =
+        m_mainView->GetSessionsBook()->GetSearchablePage();
+    const SearchTarget target =
+        m_mainView->GetSessionsBook()->GetSearchTarget();
     FindInFilesDlg dlg(this);
     // What the user asked for last time.
     FindQuery last;
@@ -1292,7 +1255,8 @@ void MainFrame::OnFindInFiles(wxCommandEvent &) {
     last.include = prefs.findInclude;
     last.exclude = prefs.findExclude;
     // A selection is what the user looks for, over what was typed last time.
-    if (const wxString selected = SelectedTextOf(m_mainView->GetSessionsBook());
+    if (const wxString selected =
+            page != nullptr ? page->GetFindWhat() : wxString();
         !selected.empty()) {
       last.pattern = selected;
     }

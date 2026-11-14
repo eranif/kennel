@@ -872,13 +872,7 @@ void MainNotebook::PageShown(wxWindow *page, bool updateRecent) {
     session->ApplyTitle();
     session->PublishStatus();
   } else if (auto *file = dynamic_cast<FilePage *>(page)) {
-    // The file is selected in the file explorer, if it is inside the tree that
-    // is showing.
-    FileEvent revealEvent(wxEVT_FILE_REVEAL, GetId());
-    revealEvent.SetEventObject(this);
-    revealEvent.SetPath(file->GetAccountPath());
-    revealEvent.SetAccount(file->GetAccount());
-    EventNotifier::Get()->ProcessEvent(revealEvent);
+    RevealFile(file);
 
     wxTheApp->GetTopWindow()->SetLabel(file->GetPath());
     GetMainFrame()->ClearSessionStatus();
@@ -1372,13 +1366,36 @@ void MainNotebook::OnAppClosing(wxCloseEvent &event) {
   SyncWorkspaceToDisk();
 }
 
+// The file is selected in the file explorer, if it is inside the tree that is
+// showing.
+void MainNotebook::RevealFile(const FilePage *file) {
+  FileEvent revealEvent(wxEVT_FILE_REVEAL, GetId());
+  revealEvent.SetEventObject(this);
+  revealEvent.SetPath(file->GetAccountPath());
+  revealEvent.SetAccount(file->GetAccount());
+  EventNotifier::Get()->ProcessEvent(revealEvent);
+}
+
 void MainNotebook::CloseAllFiles() {
   std::vector<wxString> keys;
   for (auto *page : GetFiles()) {
     keys.push_back(page->GetKey());
   }
+  // Each file that closes shows another page: the views that follow the page
+  // that is showing are told to wait for the end.
+  wxCommandEvent started(wxEVT_CLOSE_ALL_FILES_STARTED, GetId());
+  started.SetEventObject(this);
+  EventNotifier::Get()->ProcessEvent(started);
   for (const wxString &key : keys) {
     CloseFileByKey(key);
+  }
+  wxCommandEvent ended(wxEVT_CLOSE_ALL_FILES_ENDED, GetId());
+  ended.SetEventObject(this);
+  EventNotifier::Get()->ProcessEvent(ended);
+  // A file that did not close (the user kept a modified one) can be the page
+  // that is showing: the views waited meanwhile, so they follow it now.
+  if (const auto *file = dynamic_cast<const FilePage *>(GetCurrentPage())) {
+    RevealFile(file);
   }
 }
 
@@ -2387,37 +2404,110 @@ void MainNotebook::OnIdleEvent(wxIdleEvent &e) {
 // Find
 // ---------------------------------------------------------------------------
 
+namespace {
+// `path` with the separators of Unix, and without a slash at its end ("/"
+// stays).
+wxString Unixish(wxString path) {
+  path.Replace("\\", "/");
+  while (path.length() > 1 && path.EndsWith("/")) {
+    path.RemoveLast();
+  }
+  return path;
+}
+
+// Whether `root` is a folder that stands for a workspace: not empty, and not
+// the top of a file system (everything is inside that). `isLocal`: it is a
+// folder of this machine.
+bool IsWorkspaceRoot(const wxString &root, bool isLocal) {
+  const wxString normalized = Unixish(root);
+  // Not the home folder of this machine either: a session that was started
+  // there is not a workspace, and a search of all the home is slow.
+  if (isLocal && normalized == Unixish(wxFileName::GetHomeDir())) {
+    return false;
+  }
+  return normalized.length() > 1 &&
+         !(normalized.length() == 2 && normalized[1] == ':') &&
+         !(normalized.length() == 3 && normalized.EndsWith(":/"));
+}
+
+// Whether `path` is `dir` or is inside it. The case does not matter on this
+// machine on Windows.
+bool IsInsideFolder(const wxString &dir, const wxString &path,
+                    bool ignoreCase) {
+  wxString root = Unixish(dir);
+  wxString file = Unixish(path);
+  if (ignoreCase) {
+    root.MakeLower();
+    file.MakeLower();
+  }
+  return file == root || file.StartsWith(root + "/");
+}
+} // namespace
+
+SearchablePage *MainNotebook::GetSearchablePage() const {
+  return dynamic_cast<SearchablePage *>(GetCurrentPage());
+}
+
+SearchTarget MainNotebook::GetSearchTarget() const {
+  const SearchablePage *page = GetSearchablePage();
+  if (page == nullptr) {
+    return {Account::LocalHost(), wxString()};
+  }
+  SearchTarget target = page->GetSearchTarget();
+  const auto *file = dynamic_cast<const FilePage *>(GetCurrentPage());
+  if (file == nullptr) {
+    return target;
+  }
+  // A file is most likely part of a workspace: the working folder of a session
+  // (or the folder of its file explorer) that holds it, on the same account.
+  // The deepest one is the closest. None: the folder of the file.
+  const wxString path = file->GetAccountPath();
+#ifdef __WXMSW__
+  const bool ignoreCase = target.account.IsLocalHost();
+#else
+  const bool ignoreCase = false;
+#endif
+  wxString best;
+  for (const SessionPage *session : GetSessions()) {
+    const Account account = session->GetAccount();
+    if (account.GetId() != target.account.GetId()) {
+      continue;
+    }
+    for (const wxString &root :
+         {account.m_rootDir, session->GetSession().sideDir}) {
+      if (IsWorkspaceRoot(root, target.account.IsLocalHost()) &&
+          IsInsideFolder(root, path, ignoreCase) &&
+          Unixish(root).length() > Unixish(best).length()) {
+        best = root;
+      }
+    }
+  }
+  if (!best.empty()) {
+    target.folder = best;
+  }
+  return target;
+}
+
 void MainNotebook::ShowFind() {
-  wxWindow *page = GetCurrentPage();
-  if (auto *file = dynamic_cast<FilePage *>(page)) {
-    file->ShowFind();
-  } else if (auto *session = dynamic_cast<SessionPage *>(page)) {
-    session->ShowFind();
+  if (SearchablePage *page = GetSearchablePage()) {
+    page->ShowFind();
   }
 }
 
 void MainNotebook::FindNext(bool forward) {
-  wxWindow *page = GetCurrentPage();
-  if (auto *file = dynamic_cast<FilePage *>(page)) {
-    file->FindNext(forward);
-  } else if (auto *session = dynamic_cast<SessionPage *>(page)) {
-    session->FindNext(forward);
+  if (SearchablePage *page = GetSearchablePage()) {
+    page->FindNext(forward);
   }
 }
 
 bool MainNotebook::CanFind() const {
-  wxWindow *page = GetCurrentPage();
-  return dynamic_cast<FilePage *>(page) != nullptr ||
-         dynamic_cast<SessionPage *>(page) != nullptr;
+  const SearchablePage *page = GetSearchablePage();
+  return page != nullptr && page->CanFind();
 }
 
 bool MainNotebook::CanFindNext() const {
-  wxWindow *page = GetCurrentPage();
-  if (dynamic_cast<FilePage *>(page) != nullptr) {
-    return true;
-  }
-  auto *session = dynamic_cast<SessionPage *>(page);
-  return session != nullptr && session->HasSearch();
+  const SearchablePage *page = GetSearchablePage();
+  return page != nullptr && page->CanFindNext();
 }
 
 void MainNotebook::OnAppPrefsSaved(wxCommandEvent &event) {

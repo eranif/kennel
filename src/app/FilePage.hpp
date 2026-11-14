@@ -4,6 +4,7 @@
 #include "app/Editor.h"
 #include "app/FileEvent.hpp"
 #include "app/FileViewState.hpp"
+#include "app/SearchablePage.hpp"
 #include "core/Account.h"
 #include "terminal_theme.h"
 
@@ -21,7 +22,7 @@ wxDECLARE_EVENT(wxEVT_WRAP_LINES_CHANGED, wxCommandEvent);
 // A file shown in the main view, opened from a path clicked in a terminal.
 // Both kinds are edited here and saved with Save / Ctrl+S: a local file is
 // written to disk, a remote file is written back over SFTP.
-class FilePage : public wxPanel {
+class FilePage : public wxPanel, public SearchablePage {
 public:
   // `remoteHost` is empty for a local file. The page's key (GetKey()) is
   // FileEvent::MakeKey(path, remoteHost), so re-opening the same file can
@@ -113,15 +114,14 @@ public:
   void PublishStatus();
 
   // ---- Find and Replace ------------------------------------------------
-  // Shows the search bar (find and replace) below the editor. The selected
-  // text, if it is on one line, is what it looks for.
-  void ShowFind();
-  // The selected text (its first line); empty when nothing is selected. What
-  // Find and Find in Files look for.
-  wxString SelectedSearchText() const;
-  // Selects the next (or previous) match of the last search, with wrap around.
-  // Shows the search bar if there was no search yet.
-  void FindNext(bool forward);
+  // SearchablePage. The search bar (find and replace) is below the editor; the
+  // search wraps around.
+  bool CanFind() const override { return true; }
+  void ShowFind() override;
+  bool CanFindNext() const override { return true; }
+  void FindNext(bool forward) override;
+  wxString GetFindWhat() const override;
+  SearchTarget GetSearchTarget() const override;
   bool CanReplace() const { return m_editor->IsEditable(); }
 
 private:

@@ -4,6 +4,7 @@
 #include "app/FileViewState.hpp"
 #include "app/PageSwitcherDlg.hpp"
 #include "app/PageViewEvent.hpp"
+#include "app/SearchablePage.hpp"
 #include "core/AppPaths.h"
 #include "core/FileLocation.h"
 #include "core/Job.h"
@@ -236,6 +237,14 @@ public:
   void ShowPage(wxWindow *page, bool updateRecent = true);
 
   // ---- Find ----------------------------------------------------------------
+  // The page that is showing, when it can be searched (a session, a file).
+  SearchablePage *GetSearchablePage() const;
+  // Where Find in Files starts for the page that is showing: what the page says
+  // (SearchablePage::GetSearchTarget()), and for a file the workspace that
+  // holds it (the deepest folder of a session, or of its file explorer, that
+  // the file is inside), so that a search is not limited to the folder of the
+  // file.
+  SearchTarget GetSearchTarget() const;
   // Find in the page that is showing: a file (its bar also replaces) or a
   // session. CanFind() is for the menu items.
   void ShowFind();
@@ -390,6 +399,9 @@ private:
   // Closes the first session called `sessionName`, whatever its group.
   void CloseSessionByName(const wxString &sessionName);
   void CloseAllFiles();
+  // Tells the views that follow the page that is showing which file it is
+  // (wxEVT_FILE_REVEAL).
+  void RevealFile(const FilePage *file);
 
   void OnSessionIdle(wxCommandEvent &e);
   // The archive dialog asks to restore / delete a session; the list is shown

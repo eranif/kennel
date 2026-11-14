@@ -26,6 +26,7 @@ wxDEFINE_EVENT(wxEVT_FILETREE_ACTIVATED, FileEvent);
 wxDEFINE_EVENT(wxEVT_FILETREE_MENU, FileEvent);
 wxDEFINE_EVENT(wxEVT_FILETREE_SET_ROOT, FileEvent);
 wxDEFINE_EVENT(wxEVT_FILETREE_CONNECTED, FileTreeConnectedEvent);
+wxDEFINE_EVENT(wxEVT_FILETREE_LISTED, FileTreeConnectedEvent);
 
 namespace {
 // The id of the last request of ConnectAsync(). Only the UI thread uses it.
@@ -125,6 +126,9 @@ FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
   m_tree->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &FileTreeCtrl::OnContextMenu,
                this);
   m_typeHelper = std::make_unique<DataViewTypeHelper>(m_tree);
+  m_listId = ++s_lastRequestId;
+  EventNotifier::Get()->Bind(wxEVT_FILETREE_LISTED, &FileTreeCtrl::OnListed,
+                             this);
 
   // Once the control is on the screen. A remote host waits for
   // ConnectAsync().
@@ -133,7 +137,59 @@ FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
   }
 }
 
-FileTreeCtrl::~FileTreeCtrl() = default;
+FileTreeCtrl::~FileTreeCtrl() {
+  EventNotifier::Get()->Unbind(wxEVT_FILETREE_LISTED, &FileTreeCtrl::OnListed,
+                               this);
+  // What is queued is not wanted any more: the thread is told to end, and ends
+  // after the folder that it is listing now.
+  {
+    std::lock_guard<std::mutex> lock(m_jobMutex);
+    m_jobs.clear();
+    m_jobs.push_back(Job::MakeShutdownJob());
+  }
+  m_jobReady.notify_one();
+  if (m_worker.joinable()) {
+    m_worker.join();
+  }
+}
+
+void FileTreeCtrl::EnqueueListing(const wxString &dir) {
+  // Started when it is first needed: most trees never reveal a file.
+  if (!m_worker.joinable()) {
+    m_worker = std::thread(&FileTreeCtrl::ListWorker, this, m_provider);
+  }
+  {
+    std::lock_guard<std::mutex> lock(m_jobMutex);
+    // The same folder again: the old job goes, the new one is last.
+    auto listDirJob = Job::MakeListDirJob(dir);
+    std::erase_if(m_jobs, [&](const Job &job) { return job == listDirJob; });
+    m_jobs.push_back(std::move(listDirJob));
+  }
+  m_jobReady.notify_one();
+}
+
+// The thread of the tree. It never touches the tree: it has its own share of
+// the provider, and it sends each answer on the EventNotifier (see
+// ConnectAsync()).
+void FileTreeCtrl::ListWorker(std::shared_ptr<FileProvider> provider) {
+  for (;;) {
+    Job job;
+    {
+      std::unique_lock<std::mutex> lock(m_jobMutex);
+      m_jobReady.wait(lock, [this] { return !m_jobs.empty(); });
+      job = std::move(m_jobs.front());
+      m_jobs.pop_front();
+    }
+    if (job.IsShutdown()) {
+      return;
+    }
+    FileTreeConnectedEvent event{wxEVT_FILETREE_LISTED};
+    event.SetRequestId(m_listId);
+    event.SetDir(job.dir);
+    event.SetFiles(provider->ListFiles(job.dir));
+    EventNotifier::Get()->AddPendingEvent(event);
+  }
+}
 
 int FileTreeCtrl::ConnectAsync() {
   const int requestId = ++s_lastRequestId;
@@ -189,14 +245,36 @@ bool FileTreeCtrl::SelectPath(const wxString &path) {
     return false;
   }
   const wxString target = ForCompare(path);
-  wxDataViewItem item = m_tree->GetNthChild(wxDataViewItem(), 0);
-  const Node *node = NodeOf(item);
+  const wxDataViewItem top = m_tree->GetNthChild(wxDataViewItem(), 0);
+  const Node *node = NodeOf(top);
   if (node == nullptr || !IsSameOrInside(ForCompare(node->file.path), target)) {
     return false;
   }
+  m_revealTarget = target;
+  Reveal();
+  return true;
+}
+
+void FileTreeCtrl::Reveal() {
+  if (m_tree->GetChildCount(wxDataViewItem()) == 0) {
+    return;
+  }
   // From the top down: open the folder, find the entry that holds the path.
-  while (ForCompare(node->file.path) != target) {
-    LoadChildren(item);
+  wxDataViewItem item = m_tree->GetNthChild(wxDataViewItem(), 0);
+  const Node *node = NodeOf(item);
+  while (node != nullptr && ForCompare(node->file.path) != m_revealTarget) {
+    if (node->file.IsFolder() && !node->loaded) {
+      if (m_account.IsRemote()) {
+        // The provider of a remote host answers one request at a time, for the
+        // UI thread: not for the thread of the tree too.
+        m_revealTarget.clear();
+        return;
+      }
+      // Not listed yet: that is the slow part (a disk, a WSL share), so the
+      // thread of the tree does it; OnListed() goes on from there.
+      EnqueueListing(node->file.path);
+      return;
+    }
     m_tree->Expand(item);
     wxDataViewItem next;
     const int count = m_tree->GetChildCount(item);
@@ -204,20 +282,78 @@ bool FileTreeCtrl::SelectPath(const wxString &path) {
       const wxDataViewItem child = m_tree->GetNthChild(item, i);
       const Node *childNode = NodeOf(child);
       if (childNode != nullptr &&
-          IsSameOrInside(ForCompare(childNode->file.path), target)) {
+          IsSameOrInside(ForCompare(childNode->file.path), m_revealTarget)) {
         next = child;
       }
     }
     if (!next.IsOk()) {
-      return false;
+      m_revealTarget.clear(); // Not in the tree
+      return;
     }
     item = next;
     node = NodeOf(item);
   }
+  m_revealTarget.clear(); // Done: another listing has nothing to go to
+  if (node == nullptr) {
+    return;
+  }
+  // Only this entry is selected (the tree takes many), and it is in view.
   wxEventBlocker blocker(m_tree, wxEVT_DATAVIEW_SELECTION_CHANGED);
+  m_tree->UnselectAll();
   m_tree->Select(item);
   m_tree->EnsureVisible(item);
-  return true;
+}
+
+wxDataViewItem FileTreeCtrl::FindOnWay(const wxString &dir) const {
+  const wxString wanted = ForCompare(dir);
+  wxDataViewItem item = m_tree->GetNthChild(wxDataViewItem(), 0);
+  const Node *node = NodeOf(item);
+  while (node != nullptr && ForCompare(node->file.path) != wanted) {
+    if (!node->loaded) {
+      return wxDataViewItem();
+    }
+    wxDataViewItem next;
+    const int count = m_tree->GetChildCount(item);
+    for (int i = 0; i < count && !next.IsOk(); ++i) {
+      const wxDataViewItem child = m_tree->GetNthChild(item, i);
+      const Node *childNode = NodeOf(child);
+      if (childNode != nullptr &&
+          IsSameOrInside(ForCompare(childNode->file.path), wanted)) {
+        next = child;
+      }
+    }
+    if (!next.IsOk()) {
+      return wxDataViewItem();
+    }
+    item = next;
+    node = NodeOf(item);
+  }
+  return node != nullptr ? item : wxDataViewItem();
+}
+
+void FileTreeCtrl::OnListed(FileTreeConnectedEvent &event) {
+  event.Skip(); // The other trees look at it too
+  if (event.GetRequestId() != m_listId) {
+    return;
+  }
+  // The folder goes into the tree if it is still not listed (the user may have
+  // opened it meanwhile)...
+  const wxDataViewItem item = FindOnWay(event.GetDir());
+  Node *node = NodeOf(item);
+  if (node != nullptr && node->file.IsFolder() && !node->loaded) {
+    node->loaded = true;
+    m_tree->DeleteChildren(item); // The empty child
+    auto files = event.GetFiles();
+    SortFiles(&files);
+    for (const auto &file : files) {
+      AddNode(item, file);
+    }
+  }
+  // ...and the way goes on to the file that is wanted now, which may be another
+  // one than when this folder was asked for.
+  if (!m_revealTarget.empty()) {
+    Reveal();
+  }
 }
 
 std::optional<FileProvider::File> FileTreeCtrl::GetSelection() const {
@@ -241,6 +377,7 @@ void FileTreeCtrl::Load(const wxString &dir,
 void FileTreeCtrl::Fill(const wxString &dir,
                         std::vector<FileProvider::File> files,
                         const std::set<wxString> &expanded) {
+  m_revealTarget.clear(); // A reveal that was waiting belongs to the old tree
   // A remote host tells which folder it starts in when it lists it, so the top
   // is known after the listing.
   m_root =

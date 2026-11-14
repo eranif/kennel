@@ -1536,7 +1536,7 @@ void SessionPage::OpenLatestReview() {
 // Find
 // ---------------------------------------------------------------------------
 
-wxString SessionPage::SelectedSearchText() const {
+wxString SessionPage::GetFindWhat() const {
   wxTerminalViewCtrl *terminal = SearchTerminal();
   if (terminal == nullptr) {
     return wxString();
@@ -1553,9 +1553,14 @@ wxString SessionPage::SelectedSearchText() const {
   return first;
 }
 
+SearchTarget SessionPage::GetSearchTarget() const {
+  const Account account = GetAccount();
+  return {account, account.m_rootDir};
+}
+
 void SessionPage::ShowFind() {
   // The selected text of the terminal is what the user looks for.
-  const wxString selected = SelectedSearchText();
+  const wxString selected = GetFindWhat();
   const wxString text = selected.empty() ? m_findText : selected;
   if (!m_searchBar->IsShown()) {
     m_searchBar->Show();

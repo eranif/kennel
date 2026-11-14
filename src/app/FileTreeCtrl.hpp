@@ -5,9 +5,13 @@
 #include "core/Account.h"
 #include "core/Status.h"
 
+#include <condition_variable>
+#include <deque>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <set>
+#include <thread>
 #include <vector>
 #include <wx/dataview.h>
 #include <wx/panel.h>
@@ -68,6 +72,12 @@ private:
 };
 wxDECLARE_EVENT(wxEVT_FILETREE_CONNECTED, FileTreeConnectedEvent);
 
+// Sent on the EventNotifier, from a worker thread, when a folder that
+// SelectPath() needs is listed. It is a FileTreeConnectedEvent (the request id,
+// GetDir() and GetFiles() are what it uses); each tree handles only its own
+// request, and skips the event in any case.
+wxDECLARE_EVENT(wxEVT_FILETREE_LISTED, FileTreeConnectedEvent);
+
 // The files of an Account (this machine, a WSL distribution or a remote host)
 // as a tree: a folder is listed when it is opened. The tree shows what the
 // FileProvider of the account lists; it never changes a file. It knows nothing
@@ -107,9 +117,14 @@ public:
   // not be reached (the error is in the event).
   bool FinishConnect(const FileTreeConnectedEvent &event);
 
-  // Selects the entry `path` (opening the folders on the way, which lists them)
-  // and scrolls to it. False when the path is not under the top of the tree.
-  // Never sends events.
+  // Selects the entry `path` (opening the folders on the way) and scrolls to
+  // it. False when the path is not under the top of the tree. Never sends
+  // events. For a local or a WSL tree: a remote one is listed by ConnectAsync()
+  // only, and a folder on the way that it has not listed is not opened. A
+  // folder on the way that is not listed yet is listed on a worker
+  // thread, and the selection happens when it is there: this returns at once,
+  // and the UI does not wait for the disk. A newer call (or a new listing of
+  // the tree) replaces the one that is waiting.
   bool SelectPath(const wxString &path);
 
   // The selected entry, if any.
@@ -161,6 +176,16 @@ private:
   bool IsSameOrInside(const wxString &dir, const wxString &path) const;
   void SendFileEvent(wxEventType type, const wxDataViewItem &item);
 
+  // Goes down from the top to `m_revealTarget`, opening the folders; stops at
+  // the first one that is not listed (OnListed() goes on) and selects the
+  // target when it gets there.
+  void Reveal();
+  // The item of the folder `dir`, which is on the way to `m_revealTarget`, when
+  // the tree is listed down to it; invalid otherwise.
+  wxDataViewItem FindOnWay(const wxString &dir) const;
+  // wxEVT_FILETREE_LISTED, on the EventNotifier.
+  void OnListed(FileTreeConnectedEvent &event);
+
   void OnExpanding(wxDataViewEvent &event);
   void OnSelectionChanged(wxDataViewEvent &event);
   void OnActivated(wxDataViewEvent &event);
@@ -173,4 +198,51 @@ private:
   // Typing selects the next entry that starts with the letters.
   std::unique_ptr<DataViewTypeHelper> m_typeHelper;
   wxString m_root;
+  // The path that SelectPath() is going to (in the form of ForCompare()); empty
+  // when none is waited for.
+  wxString m_revealTarget;
+
+  // The folders that Reveal() needs are listed by one thread of the tree, in
+  // the order they were asked for. A folder that is queued already is replaced
+  // by the new request (it goes to the back), so there is never a second job
+  // for it. The destructor clears the queue, pushes the job that tells the
+  // thread to end, and joins it. The queue is guarded by `m_jobMutex`.
+  enum class JobType {
+    ListDir,
+    Shutdown,
+  };
+  struct Job {
+    JobType type{JobType::ListDir};
+    wxString dir; // relevant for JobType::ListDir
+
+    static Job MakeShutdownJob() {
+      return {
+          JobType::Shutdown,
+          wxString{},
+      };
+    }
+
+    static Job MakeListDirJob(const wxString &dir) {
+      return {
+          JobType::ListDir,
+          dir,
+      };
+    }
+
+    bool operator==(const Job &other) const {
+      return other.type == type && other.dir == dir;
+    }
+
+    bool IsShutdown() const { return type == JobType::Shutdown; }
+  };
+
+  void EnqueueListing(const wxString &dir);
+  void ListWorker(std::shared_ptr<FileProvider> provider);
+  std::mutex m_jobMutex;
+  std::condition_variable m_jobReady;
+  std::deque<Job> m_jobs;
+  std::thread m_worker;
+  // Put on the answers of the thread (the request id of the event), so that a
+  // tree takes only its own.
+  int m_listId{0};
 };
