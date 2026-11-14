@@ -281,7 +281,8 @@ add_library(
   src/core/Sha256.cpp
   src/core/TarGz.cpp
   src/core/Ripgrep.cpp
-  src/core/FindInFiles.cpp)
+  src/core/FindInFiles.cpp
+  src/core/RemoteInstaller.cpp)
 
 target_include_directories(kennel_core PUBLIC src ${wxWidgets_INCLUDE_DIRS})
 # libssh is an implementation detail of SftpClient.cpp, SshClient.cpp and their

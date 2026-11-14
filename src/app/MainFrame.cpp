@@ -25,6 +25,7 @@
 #include "core/ClientAdapter.h"
 #include "core/EventNotifier.hpp"
 #include "core/Logger.h"
+#include "core/RemoteInstaller.h"
 #include "core/UpdateChecker.h"
 #include "core/Version.h"
 #include "core/WslPath.h"
@@ -246,8 +247,10 @@ void MainFrame::ClearSessionStatus() {
 }
 
 MainFrame::~MainFrame() {
-  // A scan that is still running ends without telling us.
+  // A scan that is still running ends without telling us, and so does an
+  // install of a tool.
   AgentScan::Stop();
+  RemoteInstaller::Stop();
   EventNotifier::Get()->Unbind(wxEVT_AGENT_SCAN, &MainFrame::OnAgentScan, this);
   mainFrame = nullptr;
   Unbind(wxEVT_ACTIVATE, &MainFrame::OnActivate, this);
