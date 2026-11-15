@@ -15,7 +15,7 @@
 **[▶ Watch the one-minute tour](media/promo/kennel-promo.mp4)** ·
 **[Open the interactive tour](https://htmlpreview.github.io/?https://github.com/eranif/kennel/blob/main/media/promo/kennel-promo.html)**
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Version](https://img.shields.io/badge/version-3.0.0-blue)
 ![License](https://img.shields.io/badge/license-BSD--3--Clause-green)
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-informational)
 
@@ -24,18 +24,21 @@
 Kennel is a fast, native desktop application for working with interactive AI CLI agents: **Claude
 Code**, **OpenAI Codex**, **Kiro CLI**, **OpenCode** or any tool of your own. It runs many agent
 sessions side by side in one window, and it gives you what you need around them: a file explorer,
-a git view, an editor, a code reviewer that is a second agent, and a search for everything.
+a git view, an editor, a code reviewer that is a second agent, **Find in Files** on any machine,
+and a search for everything in the application.
 
 Sessions run on this machine, in **WSL** or on **remote hosts over SSH**, and the tools around
 them always show the session you are working in. **When you restart the application or reboot the
 machine, every session returns where it left off**, using the native resume flag of the agent
-(for example Claude's `--continue` or Kiro's `--resume`).
+(for example Claude's `--continue` or Kiro's `--resume`). On Linux, macOS, WSL and remote hosts,
+sessions run in **tmux**, so **an agent continues to run when Kennel is closed**, and Kennel
+attaches to it again at the next start (see [Sessions in tmux](#sessions-in-tmux)).
 
 ---
 
 ## Download
 
-The downloads of Kennel 2.0.0 are in the table at the top of this page, and all the files are on the
+The downloads are in the table at the top of this page, and all the files are on the
 **[Releases](https://github.com/eranif/kennel/releases)** page. On Linux, build Kennel from source,
 see [BUILDING.md](BUILDING.md).
 
@@ -60,8 +63,13 @@ solves these problems and adds the tools that surround an agent.
   that always show the active session, on this machine, in WSL or on a remote host.
 - 🤖 **A second agent that reviews the first.** **Review Buddy** reviews the changes of a session
   and sends its findings back to the first agent, with no one in between.
+- 🧵 **Agents that outlive the window.** Sessions run in **tmux** on this machine (Linux and
+  macOS), in WSL and on remote hosts. When Kennel is closed or the connection is lost, the agent
+  continues to run, and the next start attaches to it again.
 - 🔎 **Find anything fast.** **Goto Anything** (`Ctrl`/`Cmd`+`Shift`+`P`) searches the menus, the
-  open pages and the actions of the current page.
+  open pages and the actions of the current page. **Find in Files** (`Ctrl`/`Cmd`+`Shift`+`F`)
+  searches a folder of this machine, of WSL or of an SSH host, and a click on a match opens the
+  file at that line.
 - ⚡ **A true, fast terminal.** Every session is a full PTY terminal, drawn with **OpenGL** on all
   platforms. It supports advanced ANSI sequences such as **OSC 9;4** (progress bars) and
   **OSC 7501** (Program Status Protocol), the clipboard, and mouse events for TUI applications,
@@ -101,9 +109,33 @@ The screenshots and the tour are made with the scripts in [`media/`](media/AGENT
 
 ---
 
-## What's New in 2.0
+## What's New in 3.0
 
-Version 2.0.0 is a redesign of the main window and of the terminal page:
+- **Sessions in tmux.** Agents and plain terminals run in tmux on Linux, macOS, WSL and remote
+  hosts, and continue to run when Kennel is closed. **Close** stops a session, **Archive** keeps
+  it running, and a tab whose terminal has ended while its tmux session is still running is shown
+  as **Detached** and can be attached again with **Restart**. Problems with tmux are reported in
+  a message bar on the tab, not in a dialog. See [Sessions in tmux](#sessions-in-tmux).
+- **Find in Files** (`Ctrl`/`Cmd`+`Shift`+`F`) for this machine, WSL and SSH hosts, with the
+  matches in the new **Output** pane (`Ctrl`+`` ` ``). A remote search streams its matches while it
+  runs. ripgrep is installed on the target machine after confirmation.
+- **A new main toolbar** with grouped buttons, an **Archive** button, and the shortcut of each
+  button in its tooltip.
+- **Tab Height**: Short, Small, Medium or Tall, applied live to the notebook and the Side Bar.
+- **A Review Buddy menu** and the shortcut `Ctrl`/`Cmd`+`Shift`+`R`.
+- **Goto Anything and the page switcher open at the top** of the window, with rounded corners.
+- **Remote hosts do not block the window**: the folder browser and the agent dialog query a host
+  in the background, and **Edit Agents** lists the programs installed on the host.
+- A file that is already open is shown again when it is selected in the results or linked from a
+  terminal, including remote files.
+
+See the [Release Notes](release-notes/RELEASE_NOTES_3_0.md) for the complete list of changes and
+the upgrade notes. Earlier releases: [2.0.0](release-notes/RELEASE_NOTES_2_0.md),
+[1.4.0](release-notes/RELEASE_NOTES_1_4.md), [1.3.0](release-notes/RELEASE_NOTES_1.3.0.md).
+
+### What was new in 2.0
+
+Version 2.0.0 was a redesign of the main window and of the terminal page:
 
 - **One notebook** for all sessions, terminals and files, in place of the session tree. Tabs are
   grouped by session group, and the position of the tabs is yours to choose.
@@ -122,10 +154,6 @@ Version 2.0.0 is a redesign of the main window and of the terminal page:
   **OpenCode**, including WSL distributions and SSH hosts.
 - **Windows**: a newer ConPTY, color emoji, and an installer built on GitHub Actions.
 
-See the [Release Notes](release-notes/RELEASE_NOTES_2_0.md) for the complete list of changes and
-the upgrade notes. Earlier releases: [1.4.0](release-notes/RELEASE_NOTES_1_4.md),
-[1.3.0](release-notes/RELEASE_NOTES_1.3.0.md).
-
 ---
 
 ## Core Concepts
@@ -133,7 +161,7 @@ the upgrade notes. Earlier releases: [1.4.0](release-notes/RELEASE_NOTES_1_4.md)
 | Concept | Description |
 |---|---|
 | **Agent** | A definition of *how to launch* an AI CLI: its executable, arguments, environment, icon and, optionally, a remote host or a WSL distribution. Kennel finds and defines **Claude Code**, **OpenAI Codex**, **Kiro CLI** and **OpenCode** when they are installed. |
-| **Session** | A named, running instance of an agent in a working directory. Each session is a live terminal. |
+| **Session** | A named, running instance of an agent in a working directory. Each session is a live terminal, and it runs in a **tmux** session on its machine (not on Windows), so it outlives the window. |
 | **Group** | A set of related sessions. The tabs of a group are shown together under a header with the name of the group. The **Default** group always exists. |
 | **Terminal** | A plain terminal without an agent. Kennel restores it with its folder and shell. |
 | **File** | A file open in the built-in editor, local or remote. |
@@ -174,9 +202,9 @@ Click a tab to bring its terminal to the front. On the left of every session the
 
 | Tool | Description |
 |---|---|
-| **Restart** | Restarts the session. |
+| **Restart** | Restarts the session (also **File → Refresh Current Selection**, `F5`). A session in tmux attaches to its tmux session again, and asks its machine about tmux again. |
 | **Review Buddy** | Starts a second agent that reviews the work of the session, and controls the review. |
-| **Terminal** | Opens a terminal named `<Session> \| Terminal` on the same host and in the same folder as the session (agent sessions only). |
+| **Terminal** | Opens a terminal named `<Session> \| Terminal` on the same host and in the same folder as the session (agent sessions only). On a remote host it logs in with ssh and runs in tmux there. |
 | **Copy**, **Paste** | Clipboard actions for the terminal that has the focus. |
 | **Find** | Opens the search bar of the terminal. |
 
@@ -202,8 +230,8 @@ Right-click a tab for its context menu:
 - **Move To Group** sends the session to another group, or creates a group with **New Group...**.
   A group that loses its last session is removed, except for **Default**.
 - **Archive** stores the session so that you can restore it later (see
-  [Archive a Session](#archive-a-session)).
-- **Close** closes the session.
+  [Archive a Session](#archive-a-session)). Its tmux session keeps running.
+- **Close** closes the session. A session in tmux is **stopped**: its tmux session ends with it.
 
 The **Group** submenu works on the whole group: **Start Agent...** in the group,
 **Rename Group...**, **Close Group** and **Refresh Group** (restarts every session of the group).
@@ -251,7 +279,9 @@ Kennel saves the choice with the session.
 ## Archive a Session
 
 Archiving removes a session from the notebook and keeps it in `workspace.json`, so that you can
-restore it later. Terminals cannot be archived.
+restore it later. Terminals cannot be archived. The **tmux session** of an archived session keeps
+running on its machine, so a restore attaches to the agent that was working all along; **Delete**
+stops it.
 
 - Use **Archive** in the context menu of a tab. If the agent is working, Kennel asks first.
 - When you close an agent session, Kennel asks whether to **Archive**, **Close** or **Cancel**.
@@ -259,14 +289,17 @@ restore it later. Terminals cannot be archived.
   **View → Close Button of a Session**.
 - **File → Archived Sessions...** lists the archived sessions, with a filter box. Sort by any
   column, **Restore** a session with its resume option (the dialog stays open, so you can restore
-  several sessions), or **Delete** an entry for good.
+  several sessions), or **Delete** an entry for good. The **tmux** column says what each archived
+  session's tmux session is doing: *Running* (a restore attaches to it), *Ended* (a restore starts
+  a new one with the resume option), or *Unknown* (its machine could not be asked).
+- The **Archive** button of the main toolbar (`Ctrl`/`Cmd`+`Shift`+`A`) opens the same list.
 
 ---
 
 ## Goto Anything
 
 Press **`Ctrl`/`Cmd`+`Shift`+`P`** (it also works inside a terminal), or choose
-**Search → Goto Anything...**. Type words to filter the list, move with the arrow keys or Page
+**Search → Goto Anything...**. It opens at the top of the window. Type words to filter the list, move with the arrow keys or Page
 Up / Page Down, press Enter to select and Escape to close. The list contains:
 
 - the actions of the current page, such as **Restart Session**, **Start Review Buddy with ...**
@@ -306,14 +339,77 @@ one, and it is built for speed and compatibility.
 
 ---
 
+## Sessions in tmux
+
+Agents and plain terminals run inside **tmux** on the machine where they run: this machine
+(Linux and macOS), a WSL distribution, or a remote host over SSH. The terminal in Kennel is a view
+of the tmux session. An agent therefore continues to run when Kennel is closed, the connection is
+lost or the application terminates unexpectedly. Native Windows sessions (a Windows shell on this
+machine) do not use tmux.
+
+**Behavior**
+
+- **Restore.** At the next start, Kennel attaches to the tmux session of each saved session. If a
+  tmux session no longer exists (for example after the machine was rebooted), Kennel starts a new
+  one with the resume option of the agent.
+- **Close and Archive.** Closing a session, a group or all sessions ends their tmux sessions.
+  **Archive** leaves the tmux session running, and **Restore** attaches to it.
+- **Detached.** When the terminal of a session ends while its tmux session is still running (the
+  user pressed `Ctrl+b` `d` and ran `exit`, or the connection was lost), the tab remains and shows
+  **Detached**. **Restart** (`F5`) attaches again. If the tmux session no longer exists, the tab
+  is closed.
+- **Activity status.** **tmux-shim** forwards the working, done and blocked status of the program
+  through tmux, so that the spinner, the check mark and the pulse on the tab behave as they do
+  without tmux (see below).
+- **Terminals.** A plain terminal runs its shell in tmux. A terminal on a remote host logs in with
+  ssh again when it is restored, and attaches to its tmux session on that host.
+- **Configuration.** The tmux session has no status line and follows the size of the Kennel
+  terminal. The mouse wheel scrolls the history (`mouse on`).
+
+**Requirements.** tmux **3.3 or newer** must be installed on the machine, using its package
+manager (for example `apt install tmux` or `brew install tmux`). Kennel does not install tmux.
+When a machine is used for the first time, Kennel verifies the tmux version and whether
+**tmux-shim** is installed. Each machine is checked once, regardless of the number of sessions it
+holds, and all machines are checked concurrently on background threads. The window is not blocked:
+every session has its terminal immediately, and its program starts when its machine is ready.
+
+**Messages.** Questions and problems are shown in a message bar at the top of the session, not in
+a dialog, so that each session can present its own:
+
+| Message | Action |
+|---|---|
+| *tmux-shim is not installed on X* | **Download** installs it into `~/.kennel/bin` on that machine, once for all sessions of the machine, with a SHA-256 verification. Alternatively, **Close session**. |
+| *tmux is not installed on X*, or *older than 3.3* | Install or update tmux on that machine, then use **Restart** (`F5`). Alternatively, **Close session**. |
+| *Could not reach X* | Verify the connection, then use **Restart**. Alternatively, **Close session**. |
+
+**Close session** closes the tab and ends its tmux session. No tmux session is stopped without an
+explicit action: if the shell of a session ends before its machine is ready, the tab remains
+**Detached**.
+
+**Names and sockets.** The tmux session of a Kennel session is named `kennel-<group>-<session>`
+(spaces, dots and colons are replaced with `-`), and the name is retained when the session is
+renamed. Agents use the tmux server `-L kennel` and terminals use `-L kennel-term`. Both are
+started without a configuration file, so a personal tmux configuration is not affected. The sessions
+can be inspected with `tmux -L kennel ls` and `tmux -L kennel attach -t <name>`.
+
+**tmux-shim.** [tmux-shim](https://github.com/eranif/tmux-shim) (version 1.1.1, for Linux x86_64
+and aarch64) wraps the progress and status sequences of a program in the passthrough of tmux. On a
+machine that it does not support (macOS, for example), the session runs in tmux without it and
+shows no activity status.
+
+---
+
 ## Review Buddy
 
 Review Buddy is an **autonomous code reviewer**. It starts a second agent on the same host as the
 session, and the two agents work together until the review is done. **No user intervention is
 needed**: you do not copy findings, switch between windows or start another round.
 
-1. Start Review Buddy from the **Review Buddy** drop-down of the session toolbar (or from Goto
-   Anything), and choose the agent that acts as the reviewer.
+1. Start Review Buddy from the **Review Buddy** menu of the menu bar (it is there while an agent
+   session is showing), from the **Review Buddy** drop-down of the session toolbar, from Goto
+   Anything, or with **`Ctrl`/`Cmd`+`Shift`+`R`**. Choose the agent that acts as the reviewer from
+   the list (when only one agent can review, it starts at once). If a review cannot start (the
+   folder is not a git repository, or no agent runs on the same host), a message states the reason.
 2. The reviewer reviews the unpushed work of the session in its own pane, next to the session,
    and writes its comments to a file in the working directory (`.agents/reviews/<id>/`).
 3. Kennel tells the first agent to read the comments and fix them. The first agent confirms when
@@ -326,7 +422,8 @@ and the header shows it too. When the review ends, a marker shows the result: �
 clean, 👎 it stalled or failed, and 🔴 the round limit was reached with open findings.
 
 You stay in control. At any time you can send the request again, stop the review, open the latest
-review, or close Review Buddy. A review needs a working directory that is a git repository.
+review, or close Review Buddy, all from the **Review Buddy** menu. A review needs a working
+directory that is a git repository.
 
 ---
 
@@ -343,10 +440,43 @@ Kennel contains a built-in editor with syntax highlighting and line numbers.
   keeps its own key bindings.
 - **Search bar.** `Ctrl`/`Cmd`+`F` opens a search bar below the editor or the terminal, with
   incremental search, **Full word**, **Case sensitive** and, for files, **Replace** and
-  **Replace all**. `F3` and `Shift`+`F3` find the next and the previous match.
+  **Replace all**. `F3` and `Shift`+`F3` find the next and the previous match. The search box
+  starts with the text selected in the editor or in the terminal (the first non-empty line, when
+  several lines are selected). In a terminal, text selected by a full-screen program takes
+  precedence.
+- **Find in Files.** See below.
 - **Go to Line.** `Ctrl`/`Cmd`+`G` jumps to a line (`:12` or `:12:5`).
 - **Unsaved changes.** When Kennel closes, every file with unsaved changes asks to save, discard
   or cancel. Open files return at the next start.
+- **A file is opened once.** A click on a match, or on a path in a terminal, shows the page of the
+  file when it is open already, local, in WSL or on a remote host (a remote file is not
+  downloaded again). **File → Close All Files** closes them all.
+
+### Find in Files
+
+**Search → Find in Files...** (`Ctrl`/`Cmd`+`Shift`+`F`, also while a terminal has the focus)
+searches a folder of **this machine, of a WSL distribution or of a host that is reached over SSH**
+(Linux or macOS), with [ripgrep](https://github.com/BurntSushi/ripgrep).
+
+- **The dialog** asks what to find, in which folder, and with which options: **Regex**,
+  **Match case**, **Whole word**, and the files to **Include** and **Exclude** (globs separated by
+  commas, for example `*.cpp, *.hpp`). `.gitignore` and hidden files are handled by ripgrep. It
+  starts with the text that is selected in the page that is showing, and with the **closest
+  workspace** as the folder: the working folder of a session (or the folder of its file explorer)
+  that holds the file, on the same machine. The last choices are remembered.
+- **The results** are in the **Output** pane (`Ctrl`+`` ` ``, `Control`+`` ` `` on macOS; **View →
+  Output**), on a **Find in Files** tab: the first line says what was searched and where, the
+  matches are grouped by file with the line number and the matched text in color, and the last
+  line counts the matches (a search stops at 5000). **Stop** ends a search, **Clear** empties the
+  pane. A new search replaces the results. A remote search streams its matches while it runs, and
+  **Stop** closes the SSH channel.
+- **A click opens the match.** One click (or `Enter`) opens the file at that line, with the text
+  selected and the line in the middle of the editor, for local, WSL and remote files.
+- **ripgrep installation.** Kennel installs a pinned version (15.2.0) into `~/.kennel/bin` on the
+  machine that is searched, and does not use any other `rg` found on that machine. The user is
+  asked for confirmation first: nothing is downloaded or written before it is given. The download
+  is verified against a SHA-256 checksum that is part of Kennel. A remote machine does not need
+  internet access: this computer downloads the file and uploads it.
 
 ---
 
@@ -431,11 +561,15 @@ dialog.
 | New Terminal | `Ctrl` + `E` |
 | New File | `Ctrl` + `N` |
 | Open File | `Ctrl` + `Shift` + `O` |
+| Find in Files | `Ctrl` + `Shift` + `F` |
+| Show or hide the Output pane | `Ctrl` + `` ` `` (`Control` + `` ` `` on macOS) |
+| Archived Sessions | `Ctrl` + `Shift` + `A` |
+| Start Review Buddy | `Ctrl` + `Shift` + `R` |
 | Goto Anything | `Ctrl` + `Shift` + `P` |
 | Toggle All Views | `Ctrl` + `M` (the physical `Ctrl` key, also on macOS) |
 | Switch to the Next Page | `Ctrl` + `Tab` (the physical `Ctrl` key, also on macOS) |
 | Switch to the Previous Page | `Ctrl` + `Shift` + `Tab` (the physical `Ctrl` key, also on macOS) |
-| Restart the Current Session | `F5` |
+| Restart (Refresh) the Current Session | `F5` |
 | Rename Session | `F2` |
 | Find | `Ctrl` + `F` |
 | Find Next / Previous | `F3` / `Shift` + `F3` |
@@ -466,7 +600,14 @@ Plain terminals return with their last folder and shell, and open files return a
 edits are not kept). Closing Kennel, or rebooting the machine, does not cost your agent its
 context.
 
-Sessions that exit on their own (with `Ctrl-D` or `exit`) are removed automatically.
+Sessions that run in tmux (see [Sessions in tmux](#sessions-in-tmux)) do more than resume: the
+agent **kept running** while Kennel was closed, and the restore **attaches** to it. The resume
+option is used only when the tmux session is gone. A session on a machine that is down keeps its
+tab, with a message bar, and starts after **Restart** once the machine is available again.
+
+Sessions whose program ends on its own (with `Ctrl-D` or `exit`) are removed automatically. In
+tmux, a tab is removed only when its tmux session is gone too: if it is still running, the tab
+stays as **Detached**.
 
 ---
 
@@ -480,7 +621,17 @@ Sessions that exit on their own (with `Ctrl-D` or `exit`) are removed automatica
   preview.
 - **Tabs.** Set the position of the tabs and of the Side Bar tabs, the color of the tab outline,
   and a close button on every tab. A middle click always closes a tab. Right-click the tab bar
-  for **Tab Position** and **Group Tabs by Session Group**.
+  for **Tab Position**, **Tab Height** and **Group Tabs by Session Group**.
+- **Tab Height.** **Settings → Tab Height** has **Short**, **Small**, **Medium** and **Tall**, applied
+  during selection (**Cancel** restores the previous height). The tabs of the Side Bar follow. The
+  default is Medium on Windows and macOS, and Short on Linux.
+- **The main toolbar.** The buttons are grouped on rounded pills, with the shortcut of a button in
+  its tooltip.
+- **tmux.** Sessions run in tmux unless this machine is Windows. The setting and the tmux commands
+  that Kennel sets for the sessions are in `~/.kennel/.persist.json`: `tmuxEnabled` (default
+  `true`), `tmuxAgentSettings` and `tmuxTerminalSettings` (one tmux command per line, by default
+  `set -g mouse on`, `setw -g mode-keys vi`, `set -g set-clipboard on`, and for agents
+  `set -g allow-passthrough all`). `allow-passthrough` is adapted to the version of tmux.
 - **Terminal preferences.** Set the size of the scrollback buffer.
 - **Layout.** Show or hide the **Side Bar** and the **Activity** pane from the **View** menu.
   **Toggle All Views** (`Ctrl`+`M`) hides every pane except the pages. **View → Reset Kennel
@@ -514,6 +665,11 @@ Everything is stored under `~/.kennel/`:
     ├── kennel.log   # Application log
     └── jobs.log     # Job run history (JSON Lines: one JSON object per line)
 ```
+
+Kennel also installs two programs, after confirmation, in `~/.kennel/bin/` on the machine where a
+session runs or where a search is made (this machine, a WSL distribution or an SSH host): `rg`
+(ripgrep 15.2.0, for Find in Files) and `tmux-shim` (1.1.1, for the activity status of sessions in
+tmux). Each has a pinned version and a SHA-256 checksum. Nothing else is written there.
 
 A corrupt `config.json` or `workspace.json` recovers by itself. Kennel saves the damaged file as
 `*.bak-<timestamp>` and falls back to safe defaults, so the application always starts.
@@ -579,6 +735,25 @@ Set `remoteHost` and `remoteUser` to run an agent over SSH.
 **A remote (SSH) agent cannot connect.** Confirm that you can run `ssh <user>@<host>`
 non-interactively (with key-based authentication). Kennel uploads a small helper and runs the
 agent over an interactive SSH session.
+
+**A session says that tmux is not installed (or is too old).** Install tmux 3.3 or newer on that
+machine with its package manager (for example `apt install tmux`, `brew install tmux`), then use
+**Restart** (`F5`). Kennel does not install tmux. On Windows, a native shell never uses tmux.
+
+**A session in tmux keeps running after I closed it.** Only **Close** stops a session; **Archive**
+and quitting Kennel keep it. To stop one by hand: `tmux -L kennel kill-session -t <name>` (terminals:
+`-L kennel-term`), on the machine where it runs. `tmux -L kennel ls` lists them.
+
+**A tab says Detached.** Its terminal ended (for example `Ctrl+b` `d` and `exit`, or a dropped
+connection) while the tmux session is still running. Use **Restart** (`F5`) to attach again, or
+close the tab to stop the session.
+
+**There is no activity icon in a session in tmux.** tmux-shim is not on that machine: it is not
+Linux x86_64 or aarch64 (macOS, for example), or the check or the install failed (the log says
+why). The session works as usual in tmux, without the icon.
+
+**Find in Files finds nothing, or asks to install ripgrep.** Kennel uses its own `rg` in
+`~/.kennel/bin` on the machine that is searched. A host that runs Windows over SSH is not supported.
 
 **Sessions do not return after a restart.** Verify that `~/.kennel/workspace.json` exists and is
 readable. If it was corrupt, look for a `workspace.json.bak-<timestamp>` backup.
