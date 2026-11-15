@@ -1,7 +1,7 @@
 # Plan: LSP support in Kennel
 
 Progress: `[x]` done, `[ ]` open. Tick a box when its commit is pushed.
-Status as of 2026-11-14. Nothing is started.
+Status as of 2026-11-16. Nothing is started.
 
 ## Context
 Kennel opens files in `FilePage` (an `Editor`, a `wxStyledTextCtrl`) for this machine, a WSL
@@ -29,14 +29,18 @@ approval.
 - `Account` (this machine / WSL / ssh) and `FileLocation`; `FilePage::GetAccount()` and
   `GetAccountPath()` already give "whose file, which path" in the notation of the account.
 - `Editor::GotoLine(line, column, length)` (select a range), `FileEvent` open-at-line, the
-  `OutputView` (`wxAuiNotebook`, tabs by name) for a "Problems" tab, `SearchablePage`.
+  side bar (`SideView`, a `wxAuiNotebook`: file explorer, git, activity, find results) which gets
+  a new "LSP" tab for the results, `FindResultsView`, `SearchablePage`.
+- `SshClient::ExecuteStreaming` (written for find-in-files): a remote command whose output
+  arrives as it is produced. It is the read side only (no stdin).
 - `EventNotifier`, `Status`/`StatusOr`, `json.hpp` (only in `.cpp`).
 
 ## What is missing
-- **A streaming ssh channel.** `SshClient::Execute` is one-shot (run, wait, get all output).
-  A language server on a remote host needs a long-lived channel with stdin and stdout
-  (libssh `ssh_channel`, `ssh_channel_read_nonblocking`). Phase 1 builds it, nothing else in
-  Kennel needs it yet except the "remote search cannot stream" item of find-in-files.
+- **A bidirectional ssh channel.** `SshClient::ExecuteStreaming` streams the output of a
+  command, but it has no stdin and ends with the command. A language server on a remote host
+  needs a long-lived channel with stdin and stdout (libssh `ssh_channel`,
+  `ssh_channel_read_nonblocking`). Phase 1 builds it, on what `ExecuteStreaming` already does
+  for reading.
 - JSON-RPC framing (`Content-Length` headers), request ids, a response table.
 - Position conversion: LSP counts **UTF-16 code units**, STC counts **bytes** (UTF-8). Needs a
   converter per line (`PositionFromLSP` / `PositionToLSP`), and it must be right for emoji
@@ -95,8 +99,8 @@ account + language. A "Language Servers" menu/status item shows what runs and le
 - [ ] `JsonRpc` framing: parse `Content-Length: N\r\n\r\n<json>` from a chunk stream (partial
       messages, several messages per chunk, UTF-8 bodies), write the same.
 - [ ] `LspTransport` interface; local + WSL implementation on `Process::StartInteractive`.
-- [ ] Streaming ssh channel in `SshClient` (or a new `SshChannel` class): open exec channel,
-      write, read without blocking, close, keep-alive. Remote implementation of `LspTransport`.
+- [ ] Bidirectional ssh channel in `SshClient` (or a new `SshChannel` class), extending
+      `ExecuteStreaming`: open exec channel, write, read without blocking, close, keep-alive. Remote implementation of `LspTransport`.
 - [ ] `LspClient`: handshake, requests/responses, notifications, cancel, timeouts, shutdown,
       crash detection. `LspEvent` in the style of `FindEvent` / `InstallEvent`.
 - [ ] Capabilities: send a minimal client capabilities object; keep the server's, and
@@ -115,12 +119,14 @@ account + language. A "Language Servers" menu/status item shows what runs and le
 
 ### Phase 3 - Read features (the useful part)
 - [ ] Diagnostics: `publishDiagnostics` -> STC indicators (squiggles) + a margin marker +
-      tooltip; a "Problems" tab in the `OutputView` listing them (click = `GotoLine`).
+      tooltip;
+      the new "LSP" tab of the side bar (a page of the side-bar notebook, added to `UI.wxcp`
+      through the `wxcrafter` skill) lists them as "Problems" (click = `GotoLine`).
 - [ ] Hover (`textDocument/hover`): call tip on mouse dwell, markdown stripped to text.
 - [ ] Go to definition / declaration / type definition: Ctrl+click and F12 -> opens the file at
       the place via the `FileEvent` path (the target may be another file or another root).
       Several results -> a small popup list.
-- [ ] Find references: results in the `OutputView` as a new tab reusing the layout of
+- [ ] Find references: results in the "LSP" tab of the side bar, reusing the layout of
       `FindResultsView` (file, line, text, click to open). A base class if the two share enough.
 - [ ] Document symbols: an outline (a popup like Go to Anything, `Ctrl+Shift+O`), and
       workspace symbols in the Go to Anything bar if the server supports it.
