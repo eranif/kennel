@@ -307,6 +307,7 @@ target_link_libraries(kennel_core PUBLIC ${wxWidgets_LIBRARIES})
 set(KENNEL_APP_SOURCES
     src/app/KennelApp.cpp
     src/app/AcceleratorInterceptor.cpp
+    src/app/AuiBookLayout.cpp
     src/app/ToolBarUtils.cpp
     src/app/ToolBarArt.cpp
     src/app/MainFrame.cpp
@@ -351,7 +352,6 @@ set(KENNEL_APP_SOURCES
     src/app/GotoAnythingDlg.cpp
     src/app/FindInFilesDlg.cpp
     src/app/FindResultsView.cpp
-    src/app/OutputView.cpp
     src/app/TmuxPreparer.cpp
     src/app/TmuxMachines.cpp
     src/app/GitCommitMessageDlg.cpp

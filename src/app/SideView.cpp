@@ -1,8 +1,10 @@
 #include "app/SideView.hpp"
 
-#include "GlyphBook.h"
-#include "GlyphTabPainter.h"
+#include "GlyphTabArt.h"
 #include "ThemeManager.h"
+#include "app/ActivityView.hpp"
+#include "app/AuiBookLayout.hpp"
+#include "app/FindResultsView.hpp"
 #include "app/GitPanel.hpp"
 #include "app/PageNames.h"
 #include "app/SettingsDlg.hpp"
@@ -16,6 +18,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <wx/aui/auibook.h>
 #include <wx/settings.h>
 #include <wx/simplebook.h>
 #include <wx/sizer.h>
@@ -32,7 +35,11 @@ SideView::SideView(wxWindow *parent) : SideViewBase(parent) {
     m_auiSideBook->SetPageBitmap(
         page, TabIcon(AppManager::Get().GetBitmaps().GetByAlias("git", false)));
   }
-  m_auiSideBook->GetTabBar()->SetCursor(wxCURSOR_HAND);
+  m_activity = new ActivityView(GetPanelActivity());
+  GetPanelActivity()->GetSizer()->Add(m_activity, wxSizerFlags(1).Expand());
+  m_findInFiles = new FindResultsView(GetPanelFindInFiles());
+  GetPanelFindInFiles()->GetSizer()->Add(m_findInFiles,
+                                         wxSizerFlags(1).Expand());
 
   auto *notifier = EventNotifier::Get();
   notifier->Bind(wxEVT_SESSION_PAGE_ADDED, &SideView::OnSessionPageAdded, this);
@@ -56,6 +63,8 @@ SideView::SideView(wxWindow *parent) : SideViewBase(parent) {
   // The remote trees answer on the notifier (see ShowContext()).
   notifier->Bind(wxEVT_FILETREE_CONNECTED, &SideView::OnTreeConnected, this);
   notifier->Bind(wxEVT_APP_TAB_HEIGHT, &SideView::OnTabHeight, this);
+  notifier->Bind(wxEVT_THEME_APPLIED, &SideView::OnThemeApplied, this);
+  m_defaultBookLayout = SaveLayout();
 }
 
 SideView::~SideView() {
@@ -85,6 +94,7 @@ SideView::~SideView() {
                    this);
   notifier->Unbind(wxEVT_FILETREE_CONNECTED, &SideView::OnTreeConnected, this);
   notifier->Unbind(wxEVT_APP_TAB_HEIGHT, &SideView::OnTabHeight, this);
+  notifier->Unbind(wxEVT_THEME_APPLIED, &SideView::OnThemeApplied, this);
   // The drivers of the contexts that are left end here, with the others.
   for (auto &[key, context] : m_contexts) {
     ReapDriver(context.git->ReleaseDriver());
@@ -128,41 +138,85 @@ void SideView::JoinReapers() {
 // The tabs
 // ---------------------------------------------------------------------------
 
-int SideView::GetSelection() const { return m_auiSideBook->GetSelection(); }
+wxString SideView::SaveLayout() const {
+  AuiBookLayout layout;
+  m_auiSideBook->SaveLayout("side", layout);
+  return layout.ToString();
+}
 
-void SideView::SetSelection(int index) {
-  if (index >= 0 && index < static_cast<int>(m_auiSideBook->GetPageCount())) {
+void SideView::ResetLayout() { LoadLayout(m_defaultBookLayout); }
+
+void SideView::LoadLayout(const wxString &text) {
+  AuiBookLayout layout;
+  if (!layout.FromString(text) ||
+      !layout.FitsPages(m_auiSideBook->GetPageCount())) {
+    return;
+  }
+  m_auiSideBook->LoadLayout("side", layout);
+}
+
+wxWindow *SideView::GetTabPage(Tab tab) const {
+  switch (tab) {
+  case Tab::kFileExplorer:
+    return m_bookPageFileExplorer;
+  case Tab::kGit:
+    return m_bookPageGit;
+  case Tab::kActivity:
+    return m_bookPageActivity;
+  case Tab::kFindInFiles:
+    return m_bookPageFindInFiles;
+  }
+  return nullptr;
+}
+
+void SideView::SelectTab(Tab tab) {
+  if (const int index = m_auiSideBook->FindPage(GetTabPage(tab));
+      index != wxNOT_FOUND) {
     m_auiSideBook->SetSelection(index);
   }
 }
 
 void SideView::ApplyPrefs() {
   const auto &prefs = AppManager::Get().GetPrefs();
-  auto theme = ThemeManager::Get().ActiveTheme().value_or(
+  const auto theme = ThemeManager::Get().ActiveTheme().value_or(
       wxSystemSettings::GetAppearance().IsDark()
           ? wxTerminalTheme::MakeDarkTheme()
           : wxTerminalTheme::MakeLightTheme());
-  m_auiSideBook->SetTheme(
-      theme, SettingsDlg::GetTabOutlineColourOf(theme, prefs.tabOutlineColour),
-      GlyphTabPainter::Style::Browser);
+  // The art does not follow the theme by itself: a new one for each change. The
+  // notebook takes it and owns it.
+  auto *art = new GlyphTabArt(theme, GlyphTabPainter::Style::Browser);
+  art->SetOutlineColour(
+      SettingsDlg::GetTabOutlineColourOf(theme, prefs.tabOutlineColour));
+  art->SetPaddingY(TabPaddingOf(prefs.tabHeight));
+  m_auiSideBook->SetArtProvider(art);
   // Top or bottom: a vertical tab bar would take the width of the side bar.
-  m_auiSideBook->SetTabPosition(prefs.sideBarTabPosition == wxBOTTOM ? wxBOTTOM
-                                                                     : wxTOP);
-  m_auiSideBook->SetTabPaddingY(TabPaddingOf(prefs.tabHeight));
+  long style = m_auiSideBook->GetWindowStyleFlag();
+  style &= ~(wxAUI_NB_TOP | wxAUI_NB_BOTTOM);
+  style |=
+      prefs.sideBarTabPosition == wxBOTTOM ? wxAUI_NB_BOTTOM : wxAUI_NB_TOP;
+  m_auiSideBook->SetWindowStyleFlag(style);
   m_auiSideBook->Refresh();
+}
+
+void SideView::OnThemeApplied(wxCommandEvent &event) {
+  event.Skip();
+  ApplyPrefs();
 }
 
 void SideView::OnTabHeight(wxCommandEvent &event) {
   event.Skip(); // The notebook shows it too
-  m_auiSideBook->SetTabPaddingY(
-      TabPaddingOf(static_cast<TabHeight>(event.GetInt())));
-  m_auiSideBook->Refresh();
+  if (auto *art =
+          dynamic_cast<GlyphTabArt *>(m_auiSideBook->GetArtProvider())) {
+    art->SetPaddingY(TabPaddingOf(static_cast<TabHeight>(event.GetInt())));
+    m_auiSideBook->Refresh();
+  }
 }
 
 void SideView::ApplyToolBarStyle() {
   for (auto &[key, context] : m_contexts) {
     context.git->ApplyToolBarStyle();
   }
+  m_findInFiles->ApplyToolBarStyle();
 }
 
 // ---------------------------------------------------------------------------

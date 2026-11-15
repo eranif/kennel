@@ -54,8 +54,8 @@ solves these problems and adds the tools that surround an agent.
   notebook. The tabs of a session group sit together under the name of the group, and
   **Ctrl+Tab** switches between pages in most-recently-used order.
 - 🚦 **See what each agent is doing.** A spinner, a check mark or an orange pulse on the tab tells
-  you whether an agent is working, done or blocked and waiting for you. The **Activity** pane
-  lists these sessions in one place.
+  you whether an agent is working, done or blocked and waiting for you. The **Activity** tab of
+  the Side Bar lists these sessions in one place.
 - 🔄 **Never lose your place.** Sessions, terminals and open files return at the next start, and
   agents resume their conversation with their native resume flag. A session can also be
   **archived** and restored later.
@@ -87,7 +87,7 @@ solves these problems and adds the tools that surround an agent.
 
 | One window for every agent | Working, done and blocked at a glance |
 |---|---|
-| ![Sessions in one window, grouped by session group](media/screenshots/api-refactor.jpg) | ![A spinner, a check mark and a pulse on the tabs and in the Activity pane](media/screenshots/infra.jpg) |
+| ![Sessions in one window, grouped by session group](media/screenshots/api-refactor.jpg) | ![A spinner, a check mark and a pulse on the tabs and in the Activity tab](media/screenshots/infra.jpg) |
 
 | Ctrl+Tab switches in most-recently-used order | Goto Anything |
 |---|---|
@@ -139,9 +139,9 @@ Version 2.0.0 was a redesign of the main window and of the terminal page:
 
 - **One notebook** for all sessions, terminals and files, in place of the session tree. Tabs are
   grouped by session group, and the position of the tabs is yours to choose.
-- **A Side Bar** with a **File Explorer** and a **Git** view (status, diff, add, commit, log,
-  blame, push and pull) for local, WSL and remote locations.
-- **An Activity pane** that lists the working, done and blocked sessions.
+- **A Side Bar** on the right, with the **File Explorer**, **Git** (status, diff, add, commit, log,
+  blame, push and pull, for local, WSL and remote locations), **Activity** (the working, done and
+  blocked sessions) and **Find in Files** (the results of a search) as tabs.
 - **Archive** a session instead of closing it, and restore it from **File → Archived Sessions**.
 - **Goto Anything** for menus, pages and page actions.
 - **A toolbar, a header and a progress bar** for every terminal and file, on the left of the page,
@@ -167,7 +167,7 @@ Version 2.0.0 was a redesign of the main window and of the terminal page:
 | **File** | A file open in the built-in editor, local or remote. |
 
 The main area is a notebook with one tab for each session, terminal and file. The **Side Bar**
-shows the files and the git status of the active page, and the **Activity** pane lists the
+shows the files and the git status of the active page, and its **Activity** tab lists the
 sessions that are working, done or blocked.
 
 ---
@@ -218,7 +218,7 @@ doing:
 | A green check mark | The agent is **done**. The mark goes away when you look at the page. |
 | An orange pulse | The agent is **blocked** and needs you. |
 
-The same icons are in the **Activity** pane, which lists the blocked sessions first. Kennel also
+The same icons are in the **Activity** tab of the Side Bar, which lists the blocked sessions first. Kennel also
 asks for your attention when a background session finishes while the window is inactive.
 
 ### 4. Organize your sessions
@@ -243,9 +243,13 @@ right), or to turn **Group Tabs by Session Group** on or off.
 
 ## The Side Bar
 
-The Side Bar has two tabs. Both show the location of the page you are working in: a folder on
-this machine, in a WSL distribution or on a remote host, and they **change when you change
-page**. A **terminal** has its own views, which follow the folder its shell is in.
+The Side Bar is on the right, a quarter of the window wide at first, and has four tabs: **File
+Explorer**, **Git**, **Activity** and **Find in Files**. Drag a tab to change the order, or drag it
+to an edge of the Side Bar to split the Side Bar in two. Kennel keeps the order and the split
+between runs. The File Explorer and Git tabs show the
+location of the page you are working in: a folder on this machine, in a WSL distribution or on a
+remote host, and they **change when you change page**. The Activity tab lists the sessions that
+are working, done or blocked, and the Find in Files tab shows the results of a search. A **terminal** has its own views, which follow the folder its shell is in.
 
 ### File Explorer
 
@@ -570,7 +574,7 @@ dialog.
 | New File | `Ctrl` + `N` |
 | Open File | `Ctrl` + `Shift` + `O` |
 | Find in Files | `Ctrl` + `Shift` + `F` |
-| Show or hide the Output pane | `Ctrl` + `` ` `` (`Control` + `` ` `` on macOS) |
+| Toggle the Side Bar | `Ctrl` + `` ` `` (`Control` + `` ` `` on macOS) |
 | Archived Sessions | `Ctrl` + `Shift` + `A` |
 | Start Review Buddy | `Ctrl` + `Shift` + `R` |
 | Goto Anything | `Ctrl` + `Shift` + `P` |
@@ -643,8 +647,9 @@ stays as **Detached**.
   (`allow-passthrough` is adapted to the version of tmux). The values are stored in
   `~/.kennel/.persist.json` (`tmuxEnabled`, `tmuxAgentSettings`, `tmuxTerminalSettings`).
 - **Terminal preferences.** Set the size of the scrollback buffer.
-- **Layout.** Show or hide the **Side Bar** and the **Activity** pane from the **View** menu.
-  **Toggle All Views** (`Ctrl`+`M`) hides every pane except the pages. **View → Reset Kennel
+- **Layout.** **View → Toggle SideBar** (`Ctrl`+`` ` ``) shows or hides the Side Bar, and **View →
+  SideBar Position** puts it on the left or on the right. **Toggle All
+  Views** (`Ctrl`+`M`) hides the Side Bar, leaving only the pages. **View → Reset Kennel
   Layout** restores the default layout.
 - **Remote hosts.** Manage reusable SSH hosts in **Settings → Manage Remote Hosts...**.
 - **Update checks.** Use **Settings → Check for Updates...** to look for a newer version.

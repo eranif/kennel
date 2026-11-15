@@ -47,7 +47,6 @@
 #include <wx/dateevt.h>
 #include <wx/srchctrl.h>
 #include <wx/aui/auibook.h>
-#include "GlyphBook.h"
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
 #include <wx/persist/toplevel.h>
@@ -95,19 +94,15 @@ class MainViewBase : public wxPanel
 protected:
     wxAuiManager* m_auimgr;
     wxPanel* m_panelSideView;
-    wxPanel* m_panelActivity;
     wxPanel* m_mainPanel;
     MainNotebook* m_sessionsBook;
-    wxPanel* m_panelOutput;
 
 protected:
 
 public:
     wxPanel* GetPanelSideView() { return m_panelSideView; }
-    wxPanel* GetPanelActivity() { return m_panelActivity; }
     MainNotebook* GetSessionsBook() { return m_sessionsBook; }
     wxPanel* GetMainPanel() { return m_mainPanel; }
-    wxPanel* GetPanelOutput() { return m_panelOutput; }
     wxAuiManager* GetAuimgr() { return m_auimgr; }
     MainViewBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxTAB_TRAVERSAL|wxBORDER_NONE);
     virtual ~MainViewBase();
@@ -662,11 +657,15 @@ public:
 class SideViewBase : public wxPanel
 {
 protected:
-    GlyphBook* m_auiSideBook;
+    wxAuiNotebook* m_auiSideBook;
     wxPanel* m_bookPageGit;
     wxPanel* m_panelGit;
     wxPanel* m_bookPageFileExplorer;
     wxPanel* m_panelFileExplorer;
+    wxPanel* m_bookPageActivity;
+    wxPanel* m_panelActivity;
+    wxPanel* m_bookPageFindInFiles;
+    wxPanel* m_panelFindInFiles;
 
 protected:
 
@@ -675,7 +674,11 @@ public:
     wxPanel* GetBookPageGit() { return m_bookPageGit; }
     wxPanel* GetPanelFileExplorer() { return m_panelFileExplorer; }
     wxPanel* GetBookPageFileExplorer() { return m_bookPageFileExplorer; }
-    GlyphBook* GetAuiSideBook() { return m_auiSideBook; }
+    wxPanel* GetPanelActivity() { return m_panelActivity; }
+    wxPanel* GetBookPageActivity() { return m_bookPageActivity; }
+    wxPanel* GetPanelFindInFiles() { return m_panelFindInFiles; }
+    wxPanel* GetBookPageFindInFiles() { return m_bookPageFindInFiles; }
+    wxAuiNotebook* GetAuiSideBook() { return m_auiSideBook; }
     SideViewBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500,300), long style = wxTAB_TRAVERSAL);
     virtual ~SideViewBase();
 };

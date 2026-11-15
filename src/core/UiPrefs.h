@@ -41,8 +41,10 @@ struct UiPrefs {
   // default layout. The sizes in it are in device pixels, so after a change of
   // display scaling the side panes keep their pixel width.
   wxString auiLayout;
-  // The page of the side book (file explorer, git) that was selected.
-  int sideTab{0};
+  // The layout of the tabs of the side bar (AuiBookLayout): their order, the
+  // tab controls that the user split off, and the tab that shows. Empty => the
+  // tabs as they are made.
+  wxString sideBookLayout;
   wxString lastSelectedSession;      // empty => no prior selection
   wxString terminalTheme{"Mariana"}; // name of the last-applied terminal theme
   wxString terminalFontDesc;         // wxFont native info (empty => default)

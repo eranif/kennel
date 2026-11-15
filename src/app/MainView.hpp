@@ -2,42 +2,46 @@
 
 #include "UI.hpp"
 #include "app/FileEvent.hpp"
+#include "app/SideView.hpp"
 #include "app/ThemeManager.h"
 
-#include <span>
+class FindResultsView;
 
-class ActivityView;
-class OutputView;
-class SideView;
-
-// The main window's content: the side panes (the side bar, the activity
-// view) and their layout. The pages are in the notebook (MainNotebook), which
-// this class does not know. The side views listen on the EventNotifier to what
-// happens to the sessions and files, and send what the user asks to it
-// themselves; this class only hosts them and lays them out.
+// The main window's content: the side bar (a notebook with the file explorer,
+// git, the activity and the results of Find in Files) and its layout. The pages
+// are in the notebook (MainNotebook), which this class does not know. The side
+// views listen on the EventNotifier to what happens to the sessions and files,
+// and send what the user asks to it themselves; this class only hosts them and
+// lays them out.
 class MainView : public MainViewBase {
 public:
   explicit MainView(wxWindow *parent);
   ~MainView() override;
 
-  // The layout of the panes (the AUI perspective) is remembered between runs in
-  // the UI prefs. RestoreLayout() applies it (once the window has its final
-  // size); SaveLayout() records the current one into the prefs (the caller
-  // saves the prefs).
+  // The layout (the AUI perspective: where the side bar is, and how wide, and
+  // the layout of its tabs) is remembered between runs in the UI prefs.
+  // RestoreLayout() applies it (once the window has its final size);
+  // SaveLayout() records the current one into the prefs (the caller saves the
+  // prefs).
   void RestoreLayout();
   void SaveLayout();
-  // Puts the panes back to the layout they had when the window was created,
-  // with the default width of the side panes: what a start without a saved
-  // layout shows.
+  // Puts the side bar back to the layout it had when the window was created
+  // (on the right, a quarter of the window wide, the tabs as they are made):
+  // what a start without a saved layout shows.
   void ResetLayout();
-  // The output pane ("Output"): hidden until something shows it with
-  // ShowPane().
-  OutputView *GetOutput() const { return m_output; }
-  // Shows or hides a pane ("SideView", "Activity" or "Output").
-  bool IsPaneShown(const wxString &name) const;
-  void ShowPane(const wxString &name, bool show);
-  // Hides all the side panes, leaving only the main view. When they are all
-  // hidden already, shows the ones that were hidden by the previous call.
+  // The side bar, with all the views as tabs.
+  bool IsSideBarShown() const;
+  // The side of the window that the side bar is on: wxLEFT or wxRIGHT. It
+  // starts on the right.
+  wxDirection GetSideBarPosition() const;
+  void SetSideBarPosition(wxDirection position);
+  void ShowSideBar(bool show);
+  // Shows the side bar with the tab `tab` in front.
+  void ShowSideTab(SideView::Tab tab);
+  // The results of Find in Files (the "Find in Files" tab).
+  FindResultsView *GetFindInFiles() const;
+  // Hides the side bar, leaving only the main view; shows it again when it is
+  // hidden.
   void ToggleAllPanes();
 
   const std::vector<LoadedTheme> &Themes() const {
@@ -52,28 +56,20 @@ private:
   void BindFocusChildEvent(wxWindow *win, ChildFocusEvent handlerFn);
 
   void OnMainPanelChildFocus(wxChildFocusEvent &event);
-  void OnActivityPanelChildFocus(wxChildFocusEvent &event);
   void OnFileExplorerPanelChildFocus(wxChildFocusEvent &event);
 
-  // Gives the side panes `names` their default width (kSidePaneWidthDip).
-  void ApplyDefaultPaneWidths(std::span<const wxString> names);
+  // Gives the side bar its default width (kSidePaneWidthPercent of the window).
+  void ApplySideBarDefaultWidth();
 
   // ---- The theme changed, and the file explorer's files ---------------------
   void OnToolBarStyle(wxCommandEvent &event);
-  // The captions of the panes take the colours of the terminal theme.
-  void OnThemeApplied(wxCommandEvent &event);
-  void ApplyCaptionColours();
   // A file or a folder of the file explorer was double clicked: passed on.
   void OnFileTreeActivated(FileEvent &event);
   void OnAppPrefsSaved(wxCommandEvent &event);
   void ApplyPrefs();
 
   SideView *m_sideView{nullptr};
-  ActivityView *m_activityView{nullptr};
-  OutputView *m_output{nullptr};
   bool m_layoutRestored{false};
   // The AUI perspective of the panes as they are created (see ResetLayout()).
   wxString m_defaultLayout;
-  // The panes ToggleAllPanes() hid.
-  std::vector<wxString> m_hiddenByToggle;
 };

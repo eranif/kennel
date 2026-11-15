@@ -161,8 +161,10 @@ private:
   void CollectMenuItems(wxMenu *menu, const wxString &path,
                         std::vector<GotoItem> &items);
   void RunGotoItem(const GotoItem &item);
-  void OnShowPane(wxCommandEvent &e);
-  void OnShowPaneUI(wxUpdateUIEvent &e);
+  void OnToggleSideBar(wxCommandEvent &e);
+  void OnToggleSideBarUI(wxUpdateUIEvent &e);
+  void OnSideBarPosition(wxCommandEvent &e);
+  void OnSideBarPositionUI(wxUpdateUIEvent &e);
 
   // Opens the global config.json for editing
   void OnSettings(wxCommandEvent &evt);

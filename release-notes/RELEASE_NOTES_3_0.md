@@ -26,7 +26,7 @@ Highlights:
 - **tmux-shim** preserves the working, done and blocked icons of a tab in tmux sessions.
 - **Remote hosts do not block the window**: the folder browser and the agent dialog.
 - **Find in Files** (Ctrl+Shift+F) for this computer, WSL and ssh hosts, with the matches in the
-  new **Output** pane (Ctrl+`).
+  new **Find in Files** tab of the Side Bar (Ctrl+`).
 - **ripgrep is installed by Kennel**, in the same version everywhere, after confirmation.
 - A new **main toolbar** with grouped buttons, a new **Archive** button, and the shortcut of each
   button in its tooltip.
@@ -134,8 +134,8 @@ Highlights:
   explorer, that contains the file on the same machine; without one, the folder of the file. The
   home folder of this computer is never treated as a workspace. The pattern, the options, the
   globs and the folder are remembered for the next use.
-- **Results in the Output pane.** **View → Output** (Ctrl+`, Control+` on macOS) shows or hides
-  the pane, which has a **Find in Files** tab. A toolbar provides **Stop** and **Clear**. The
+- **Results in the Side Bar.** A search shows the **Find in Files** tab of the Side Bar.
+  **View → Toggle SideBar** (Ctrl+`, Control+` on macOS) shows or hides the Side Bar. A toolbar provides **Stop** and **Clear**. The
   first line states what was searched, where and with which options. The matches are grouped by
   file, with the line number and the matched text in a distinct color, and the last line reports
   the number of matches (a search stops at 5000). A search displays its matches while it runs,
@@ -253,8 +253,6 @@ Highlights:
 - **The context menu of the Git view starts with Open File**, followed by a separator and the
   other entries. For a single file it also has **Open with Default App** (not for a file on a
   remote host, which this computer cannot open).
-- **The captions of the side panes** use the colors of the terminal theme and follow it when it
-  changes.
 - **On macOS** the tab bar of the notebook shows a blurred view of the desktop where it has no
   tab.
 - **The Job dialog** has a tidier layout: **Keep terminal open** and **Enabled** are on one line,
@@ -299,8 +297,8 @@ Highlights:
   queries the machine, checks the installed version, downloads once on this computer, verifies the
   checksum, and uploads the file, without blocking the UI thread. It is GUI-free, works for any
   tool and folder, and has a check-only mode so that the caller can ask the user first.
-- **`OutputView`** is the Output pane: a `wxAuiNotebook` with the `GlyphTabArt` of the application
-  and one tab for each kind of output (`SelectTab()`).
+- **`SideView`** is the content of the Side Bar: a `wxAuiNotebook` with the `GlyphTabArt` of the
+  application and four tabs (File Explorer, Git, Activity and Find in Files; `SelectTab()`).
 - **`SearchablePage`** is the interface of the pages that have a search (`CanFind()`,
   `ShowFind()`, `FindNext()`, `GetFindWhat()`, `GetSearchTarget()`); `FilePage` and `SessionPage`
   implement it, and `MainNotebook` forwards the Find commands to the page that is showing.
@@ -352,7 +350,7 @@ Highlights:
   Height** or from the context menu of the tab bar.
 - **The Side Bar tabs follow the tab height** of the notebook.
 - **New shortcuts:** Ctrl+Shift+A (Archived Sessions), Ctrl+Shift+R (Start Review Buddy),
-  Ctrl+Shift+F (Find in Files) and Ctrl+` (the Output pane; Control+` on macOS). Programs in a
+  Ctrl+Shift+F (Find in Files) and Ctrl+` (Toggle SideBar; Control+` on macOS). Programs in a
   terminal no longer receive these keys while Kennel handles them.
 - **The Review Buddy button is not in the toolbar of a terminal.** An agent session still has it,
   as does the new Review Buddy menu.
@@ -374,5 +372,9 @@ Highlights:
 - **The tmux setting and its commands** (`tmuxEnabled`, `tmuxAgentSettings`,
   `tmuxTerminalSettings`) are edited in **Settings → Tmux** and stored in
   `~/.kennel/.persist.json`.
-- **The pane layout:** the Output pane is hidden when Kennel starts, and a layout that was saved
-  with it showing is restored with it hidden.
+- **The layout:** the Side Bar is the only pane next to the pages. It has no caption, is on the
+  right and a quarter of the window wide at first, and has the File Explorer, Git, Activity and
+  Find in Files as tabs. **View → SideBar Position** puts it on the left or on the right. The tabs
+  can be moved and split, and Kennel keeps their layout between runs.
+  The Activity and Output panes of earlier builds are gone, and a layout that was saved with them
+  is not applied.

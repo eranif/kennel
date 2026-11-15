@@ -88,7 +88,7 @@ SessionBasePage::SessionBasePage(wxWindow* parent, wxWindowID id, const wxPoint&
     wxBoxSizer* boxSizer1 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(boxSizer1);
     
-    m_splitterMain = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxSP_LIVE_UPDATE|wxSP_3DSASH);
+    m_splitterMain = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxSP_LIVE_UPDATE|wxSP_NO_XP_THEME|wxSP_3DSASH);
     m_splitterMain->SetSashGravity(0.5);
     m_splitterMain->SetMinimumPaneSize(150);
     
@@ -99,7 +99,7 @@ SessionBasePage::SessionBasePage(wxWindow* parent, wxWindowID id, const wxPoint&
     wxBoxSizer* boxSizer679 = new wxBoxSizer(wxVERTICAL);
     m_splitterPageSession->SetSizer(boxSizer679);
     
-    m_splitterReviewBuddy = new wxSplitterWindow(m_splitterPageSession, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_splitterPageSession, wxSize(-1,-1)), wxSP_LIVE_UPDATE|wxSP_3DSASH);
+    m_splitterReviewBuddy = new wxSplitterWindow(m_splitterPageSession, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_splitterPageSession, wxSize(-1,-1)), wxSP_LIVE_UPDATE|wxSP_NO_XP_THEME|wxSP_3DSASH);
     m_splitterReviewBuddy->SetSashGravity(0.5);
     m_splitterReviewBuddy->SetMinimumPaneSize(10);
     
@@ -150,21 +150,15 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     
     m_panelSideView = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
     
-    m_auimgr->AddPane(m_panelSideView, wxAuiPaneInfo().Name(wxT("SideView")).Caption(_("Side Bar")).Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(0).CaptionVisible(true).MaximizeButton(false).CloseButton(true).MinimizeButton(false).PinButton(false));
+    m_auimgr->AddPane(m_panelSideView, wxAuiPaneInfo().Name(wxT("SideView")).Caption(_("Side Bar")).Direction(wxAUI_DOCK_RIGHT).Layer(0).Row(0).Position(0).CaptionVisible(false).MaximizeButton(false).CloseButton(true).MinimizeButton(false).PinButton(false));
     
     wxBoxSizer* boxSizer596 = new wxBoxSizer(wxVERTICAL);
     m_panelSideView->SetSizer(boxSizer596);
     
-    m_panelActivity = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
-    
-    m_auimgr->AddPane(m_panelActivity, wxAuiPaneInfo().Name(wxT("Activity")).Caption(_("Activity")).Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(1).CaptionVisible(true).MaximizeButton(false).CloseButton(true).MinimizeButton(false).PinButton(false));
-    
-    wxBoxSizer* boxSizer600 = new wxBoxSizer(wxVERTICAL);
-    m_panelActivity->SetSizer(boxSizer600);
-    
     m_mainPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL|wxBORDER_NONE);
     
     m_auimgr->AddPane(m_mainPanel, wxAuiPaneInfo().Name(wxT("Sessions")).Direction(wxAUI_DOCK_CENTER).Layer(0).Row(0).Position(0).CaptionVisible(false).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
+    m_auimgr->Update();
     
     wxBoxSizer* boxSizer594 = new wxBoxSizer(wxVERTICAL);
     m_mainPanel->SetSizer(boxSizer594);
@@ -172,14 +166,6 @@ MainViewBase::MainViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     m_sessionsBook = new MainNotebook(m_mainPanel, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_mainPanel, wxSize(-1,-1)), wxTAB_TRAVERSAL|wxBORDER_NONE);
     
     boxSizer594->Add(m_sessionsBook, 1, wxEXPAND, WXC_FROM_DIP(5));
-    
-    m_panelOutput = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxTAB_TRAVERSAL);
-    
-    m_auimgr->AddPane(m_panelOutput, wxAuiPaneInfo().Name(wxT("Output")).Caption(_("Output")).Direction(wxAUI_DOCK_BOTTOM).Layer(0).Row(0).Position(0).BestSize(-1,240).CaptionVisible(true).MaximizeButton(false).CloseButton(true).MinimizeButton(false).PinButton(false));
-    m_auimgr->Update();
-    
-    wxBoxSizer* boxSizerOutput = new wxBoxSizer(wxVERTICAL);
-    m_panelOutput->SetSizer(boxSizerOutput);
     
     SetName(wxT("MainViewBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1,-1)));
@@ -2116,7 +2102,7 @@ SideViewBase::SideViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     wxBoxSizer* boxSizer638 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(boxSizer638);
     
-    m_auiSideBook = new GlyphBook(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(250,250)), wxAUI_NB_TOP);
+    m_auiSideBook = new wxAuiNotebook(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(250,250)), wxAUI_NB_TOP|wxAUI_NB_TAB_MOVE|wxAUI_NB_SCROLL_BUTTONS|wxAUI_NB_TAB_SPLIT|wxBORDER_NONE);
     m_auiSideBook->SetName(wxT("m_auiSideBook"));
     
     boxSizer638->Add(m_auiSideBook, 1, wxEXPAND, WXC_FROM_DIP(5));
@@ -2146,6 +2132,32 @@ SideViewBase::SideViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     
     wxBoxSizer* boxSizer613 = new wxBoxSizer(wxVERTICAL);
     m_panelFileExplorer->SetSizer(boxSizer613);
+    
+    m_bookPageActivity = new wxPanel(m_auiSideBook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_auiSideBook, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    m_auiSideBook->AddPage(m_bookPageActivity, _("Activity"), false);
+    
+    wxBoxSizer* boxSizerActivityPage = new wxBoxSizer(wxVERTICAL);
+    m_bookPageActivity->SetSizer(boxSizerActivityPage);
+    
+    m_panelActivity = new wxPanel(m_bookPageActivity, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_bookPageActivity, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    
+    boxSizerActivityPage->Add(m_panelActivity, 1, wxEXPAND, WXC_FROM_DIP(5));
+    
+    wxBoxSizer* boxSizerActivity = new wxBoxSizer(wxVERTICAL);
+    m_panelActivity->SetSizer(boxSizerActivity);
+    
+    m_bookPageFindInFiles = new wxPanel(m_auiSideBook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_auiSideBook, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    m_auiSideBook->AddPage(m_bookPageFindInFiles, _("Find in Files"), false);
+    
+    wxBoxSizer* boxSizerFindInFilesPage = new wxBoxSizer(wxVERTICAL);
+    m_bookPageFindInFiles->SetSizer(boxSizerFindInFilesPage);
+    
+    m_panelFindInFiles = new wxPanel(m_bookPageFindInFiles, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_bookPageFindInFiles, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    
+    boxSizerFindInFilesPage->Add(m_panelFindInFiles, 1, wxEXPAND, WXC_FROM_DIP(5));
+    
+    wxBoxSizer* boxSizerFindInFiles = new wxBoxSizer(wxVERTICAL);
+    m_panelFindInFiles->SetSizer(boxSizerFindInFiles);
     
     SetName(wxT("SideViewBase"));
     SetSize(wxDLG_UNIT(this, wxSize(500,300)));

@@ -14,13 +14,16 @@
 #include <thread>
 #include <vector>
 
+class ActivityView;
+class FindResultsView;
 class GitDriver;
 class GitPanel;
 class wxSimplebook;
 
-// The content of the side bar: a book with the file explorer and the git view.
-// MainView hosts it and knows nothing of the book; the tabs are only reached
-// through the functions below.
+// The content of the side bar: a notebook (a wxAuiNotebook with the tab art of
+// the application, GlyphTabArt) with the file explorer, the git view, the
+// activity view and the results of Find in Files. MainView hosts it and knows
+// nothing of the book; the tabs are only reached through the functions below.
 //
 // Both tabs show the files of one place, the "context": an Account (this
 // machine, a WSL distribution or a remote host) and a folder. A context has a
@@ -42,13 +45,22 @@ public:
   explicit SideView(wxWindow *parent);
   ~SideView() override;
 
-  // The index of the tab that shows, or wxNOT_FOUND.
-  int GetSelection() const;
-  // Shows the tab `index`. An index that is not a tab is ignored.
-  void SetSelection(int index);
+  enum class Tab { kFileExplorer, kGit, kActivity, kFindInFiles };
+  // Shows the tab.
+  void SelectTab(Tab tab);
+  // The layout of the tabs (their order, the tab controls that the user split
+  // off) as text, to keep in the preferences; and the way back. A text that is
+  // not a layout of these tabs is ignored.
+  wxString SaveLayout() const;
+  void LoadLayout(const wxString &layout);
+  // The tabs as they were made: in their order, not split.
+  void ResetLayout();
+  // The results of Find in Files (a tab of the side bar).
+  FindResultsView *GetFindInFiles() const { return m_findInFiles; }
 
-  // Takes the theme, the outline colour of the tabs and the position of the
-  // tabs from the prefs (call it when they change).
+  // Takes the theme, the outline colour of the tabs, their height and their
+  // position from the prefs (call it when they change; a change of the theme
+  // does it too).
   void ApplyPrefs();
   // Gives the toolbars of the views the style of the theme of the application.
   void ApplyToolBarStyle();
@@ -69,6 +81,9 @@ private:
     // with the terminal to the folders it visits (see OnSessionPageMoved()).
     bool isTerminal{false};
   };
+
+  // The page of the notebook that holds the tab.
+  wxWindow *GetTabPage(Tab tab) const;
 
   // Identifies the place of `account`: the account and its folder.
   static wxString KeyOf(const Account &account);
@@ -117,9 +132,15 @@ private:
   void OnTreeConnected(FileTreeConnectedEvent &event);
   // wxEVT_APP_TAB_HEIGHT: shows the tab height.
   void OnTabHeight(wxCommandEvent &event);
+  // wxEVT_THEME_APPLIED: the tabs take the theme.
+  void OnThemeApplied(wxCommandEvent &event);
 
   wxSimplebook *m_explorerBook{nullptr}; // The trees
   wxSimplebook *m_gitBook{nullptr};      // The git panels
+  // The layout of the tabs as they are made (see ResetLayout()).
+  wxString m_defaultBookLayout;
+  ActivityView *m_activity{nullptr};
+  FindResultsView *m_findInFiles{nullptr};
   // By KeyOf(). A node never moves: the pages keep pointers to it.
   std::map<wxString, Context> m_contexts;
   // Close All Files is running (see OnCloseAllFilesStarted()).

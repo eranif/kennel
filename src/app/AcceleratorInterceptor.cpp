@@ -24,8 +24,8 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     return;
   } else if (keyEvent.GetKeyCode() == '`' &&
              keyEvent.GetModifiers() == wxMOD_CONTROL) {
-    // Show or hide the output pane. The terminal would get it otherwise.
-    wxCommandEvent evtOutput{wxEVT_MENU, XRCID("show-output")};
+    // Toggle the side bar. The terminal would get it otherwise.
+    wxCommandEvent evtOutput{wxEVT_MENU, XRCID("show-sidebar")};
     GetMainFrame()->GetEventHandler()->AddPendingEvent(evtOutput);
     return;
   } else if (keyEvent.GetKeyCode() == WXK_F2) {

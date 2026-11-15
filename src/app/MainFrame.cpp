@@ -14,7 +14,6 @@
 #include "app/GotoAnythingDlg.hpp"
 #include "app/JobLogViewer.hpp"
 #include "app/NewAgentWizard.hpp"
-#include "app/OutputView.hpp"
 #include "app/PageNames.h"
 #include "app/PageViewEvent.hpp"
 #include "app/PopupStyle.hpp"
@@ -542,38 +541,30 @@ void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
 
 void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
   auto *viewMenu = new wxMenu();
-  viewMenu->AppendCheckItem(XRCID("show-side-view"), _("Side Bar"),
+  // The physical Ctrl key, also on macOS (Cmd+` switches the windows of the
+  // system). AcceleratorInterceptor handles the key (a terminal would get it
+  // otherwise).
+  viewMenu->AppendCheckItem(XRCID("show-sidebar"),
+                            _("Toggle SideBar\tRawCtrl+`"),
                             _("Show or hide the side bar"));
-  viewMenu->AppendCheckItem(XRCID("show-activity"), _("Activity"),
-                            _("Show or hide the activity view"));
-#ifdef __WXOSX__
-  // The physical Ctrl key, not Cmd (Cmd+` switches the windows of the system).
-  const wxString outputLabel = _("Output	RawCtrl+`");
-#else
-  // AcceleratorInterceptor handles the key (a terminal would get it otherwise).
-  const wxString outputLabel = _("Output	Ctrl+`");
-#endif
-  viewMenu->AppendCheckItem(XRCID("show-output"), outputLabel,
-                            _("Show or hide the output pane"));
-#ifdef __WXOSX__
-  // The physical Ctrl key, not Cmd.
-  const wxString toggleLabel = _("Toggle All Views\tRawCtrl+M");
-#else
-  // AcceleratorInterceptor handles the key (a terminal would get it otherwise);
-  // the text after the tab shows it.
-  const wxString toggleLabel = _("Toggle All Views\tCtrl+M");
-#endif
-  viewMenu->Append(XRCID("toggle-all-views"), toggleLabel,
+  // The physical Ctrl key, also on macOS. AcceleratorInterceptor handles the
+  // key (a terminal would get it otherwise); the text after the tab shows it.
+  viewMenu->Append(XRCID("toggle-all-views"), _("Toggle All Views\tRawCtrl+M"),
                    _("Hide all the views except for the main view, or show "
                      "them again"));
   viewMenu->AppendSeparator();
-  Bind(wxEVT_MENU, &MainFrame::OnShowPane, this, XRCID("show-side-view"));
-  Bind(wxEVT_MENU, &MainFrame::OnShowPane, this, XRCID("show-activity"));
-  Bind(wxEVT_MENU, &MainFrame::OnShowPane, this, XRCID("show-output"));
-  Bind(wxEVT_UPDATE_UI, &MainFrame::OnShowPaneUI, this,
-       XRCID("show-side-view"));
-  Bind(wxEVT_UPDATE_UI, &MainFrame::OnShowPaneUI, this, XRCID("show-activity"));
-  Bind(wxEVT_UPDATE_UI, &MainFrame::OnShowPaneUI, this, XRCID("show-output"));
+  // Which side of the window the side bar is on (see MainView).
+  auto *positionMenu = new wxMenu();
+  positionMenu->AppendRadioItem(XRCID("sidebar-left"), _("Left"));
+  positionMenu->AppendRadioItem(XRCID("sidebar-right"), _("Right"));
+  viewMenu->AppendSubMenu(positionMenu, _("SideBar Position"));
+  for (const char *name : {"sidebar-left", "sidebar-right"}) {
+    Bind(wxEVT_MENU, &MainFrame::OnSideBarPosition, this, XRCID(name));
+    Bind(wxEVT_UPDATE_UI, &MainFrame::OnSideBarPositionUI, this, XRCID(name));
+  }
+  Bind(wxEVT_MENU, &MainFrame::OnToggleSideBar, this, XRCID("show-sidebar"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnToggleSideBarUI, this,
+       XRCID("show-sidebar"));
   Bind(
       wxEVT_MENU, [this](wxCommandEvent &) { m_mainView->ToggleAllPanes(); },
       XRCID("toggle-all-views"));
@@ -983,23 +974,23 @@ void MainFrame::RunGotoItem(const GotoItem &item) {
   }
 }
 
-namespace {
-// The pane a View menu item shows or hides.
-wxString PaneOfMenuId(int id) {
-  if (id == XRCID("show-side-view")) {
-    return "SideView";
-  }
-  return id == XRCID("show-output") ? wxString("Output") : wxString("Activity");
-}
-} // namespace
-
-void MainFrame::OnShowPane(wxCommandEvent &e) {
-  const wxString name = PaneOfMenuId(e.GetId());
-  m_mainView->ShowPane(name, !m_mainView->IsPaneShown(name));
+void MainFrame::OnToggleSideBar(wxCommandEvent &) {
+  m_mainView->ShowSideBar(!m_mainView->IsSideBarShown());
 }
 
-void MainFrame::OnShowPaneUI(wxUpdateUIEvent &e) {
-  e.Check(m_mainView->IsPaneShown(PaneOfMenuId(e.GetId())));
+void MainFrame::OnToggleSideBarUI(wxUpdateUIEvent &e) {
+  e.Check(m_mainView->IsSideBarShown());
+}
+
+void MainFrame::OnSideBarPosition(wxCommandEvent &e) {
+  m_mainView->SetSideBarPosition(e.GetId() == XRCID("sidebar-left") ? wxLEFT
+                                                                    : wxRIGHT);
+}
+
+void MainFrame::OnSideBarPositionUI(wxUpdateUIEvent &e) {
+  const wxDirection position = m_mainView->GetSideBarPosition();
+  e.Check(e.GetId() ==
+          XRCID(position == wxLEFT ? "sidebar-left" : "sidebar-right"));
 }
 
 void MainFrame::BuildEditMenu(wxMenuBar *menuBar) {
@@ -1247,8 +1238,7 @@ void MainFrame::OnFind(wxCommandEvent &e) {
 }
 
 void MainFrame::OnFindInFiles(wxCommandEvent &) {
-  OutputView *output = m_mainView->GetOutput();
-  FindResultsView *results = output->GetFindInFiles();
+  FindResultsView *results = m_mainView->GetFindInFiles();
   UiPrefs &prefs = AppManager::Get().GetPrefs();
   Account account;
   FindQuery query;
@@ -1298,8 +1288,7 @@ void MainFrame::OnFindInFiles(wxCommandEvent &) {
   if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
     KLOG_WARN() << "Could not save the preferences: " << st.message();
   }
-  output->SelectFindInFiles();
-  m_mainView->ShowPane("Output", true);
+  m_mainView->ShowSideTab(SideView::Tab::kFindInFiles);
   if (const Status started = results->Search(account, query); !started.ok()) {
     wxMessageBox(started.message(), _("Find in Files"), wxOK | wxICON_ERROR,
                  this);

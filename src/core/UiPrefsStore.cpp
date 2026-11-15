@@ -31,7 +31,7 @@ json ToJson(const UiPrefs &p) {
         {"height", p.window.height},
         {"maximized", p.window.maximized}}},
       {"auiLayout", p.auiLayout},
-      {"sideTab", p.sideTab},
+      {"sideBookLayout", ToUtf8(p.sideBookLayout)},
       {"scrollbackLines", p.scrollbackLines},
       {"tabHasCloseButton", p.tabHasCloseButton},
       {"sessionCloseAction", static_cast<int>(p.sessionCloseAction)},
@@ -82,7 +82,7 @@ void ParsePrefs(const json &root, UiPrefs &p) {
     p.window.maximized = GetBool(*it, "maximized", p.window.maximized);
   }
   p.auiLayout = GetStr(root, "auiLayout", p.auiLayout);
-  p.sideTab = GetInt(root, "sideTab", p.sideTab);
+  p.sideBookLayout = GetStr(root, "sideBookLayout", p.sideBookLayout);
   p.tabHasCloseButton = GetBool(root, "tabHasCloseButton", p.tabHasCloseButton);
   {
     const int action = GetInt(root, "sessionCloseAction",

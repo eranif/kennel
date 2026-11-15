@@ -2,10 +2,9 @@
 
 #include "ThemeLoader.h"
 #include "ThemeManager.h"
-#include "app/ActivityView.hpp"
 #include "app/AssetBootstrap.h"
 #include "app/FileTreeCtrl.hpp"
-#include "app/OutputView.hpp"
+#include "app/FindResultsView.hpp"
 #include "app/SettingsDlg.hpp"
 #include "app/SideView.hpp"
 #include "app/TabIcon.h"
@@ -23,20 +22,16 @@
 #include <wx/wupdlock.h>
 
 namespace {
-// The width the side panes start with when there is no saved layout, in DIP.
-constexpr int kSidePaneWidthDip = 300;
-// The size of a side pane that is dragged out of the window, in DIP. A saved
-// layout has the size the user gave it.
-constexpr int kFloatingPaneWidthDip = 400;
-constexpr int kFloatingPaneHeightDip = 600;
-// The names of the side panes (see MainViewBase).
-const wxString kSidePanes[] = {"SideView", "Activity"};
-// The pane of the results of Find in Files. It starts hidden, a search shows
-// it, and it is hidden again when a saved layout is restored (see
-// RestoreLayout()).
-const wxString kOutputPane = "Output";
-// The height the output pane gets when it is shown, in DIP.
-constexpr int kOutputHeightDip = 400;
+// The width the side bar starts with when there is no saved layout: a quarter
+// of the window.
+constexpr int kSidePaneWidthPercent = 25;
+// The name of the pane of the side bar (see MainViewBase). The side bar has all
+// the views as tabs: the file explorer, git, the activity and the results of
+// Find in Files.
+const wxString kSidePane = "SideView";
+// The panes that an older version had: a layout that has them was saved by it,
+// and is not applied (see RestoreLayout()).
+const wxString kRemovedPanes[] = {"Activity", "Output"};
 } // namespace
 
 MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
@@ -63,18 +58,9 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
 
   m_sideView = new SideView(m_panelSideView);
   m_panelSideView->GetSizer()->Add(m_sideView, wxSizerFlags(1).Expand());
-  m_activityView = new ActivityView(GetPanelActivity());
-  GetPanelActivity()->GetSizer()->Add(m_activityView, wxSizerFlags(1).Expand());
-  m_output = new OutputView(GetPanelOutput());
-  GetPanelOutput()->GetSizer()->Add(m_output, wxSizerFlags(1).Expand());
-  m_auimgr->GetPane(kOutputPane).Hide();
-  m_auimgr->Update();
 
-  // The size a pane gets when it floats (it only matters then, so no Update()).
-  for (const wxString &name : kSidePanes) {
-    m_auimgr->GetPane(name).FloatingSize(
-        FromDIP(wxSize(kFloatingPaneWidthDip, kFloatingPaneHeightDip)));
-  }
+  // The side bar has no caption to drag it by: it stays docked, left or right.
+  m_auimgr->GetPane(kSidePane).Floatable(false);
   m_defaultLayout = m_auimgr->SavePerspective();
 
   // The theme changed: the toolbars take its style.
@@ -84,9 +70,6 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
 
   EventNotifier::Get()->Bind(wxEVT_APP_PREFS_CHANGED,
                              &MainView::OnAppPrefsSaved, this);
-  EventNotifier::Get()->Bind(wxEVT_THEME_APPLIED, &MainView::OnThemeApplied,
-                             this);
-  ApplyCaptionColours();
   // Finalise frame construction.
   FinaliseConstruction();
 }
@@ -94,32 +77,6 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
 MainView::~MainView() {
   EventNotifier::Get()->Unbind(wxEVT_APP_PREFS_CHANGED,
                                &MainView::OnAppPrefsSaved, this);
-  EventNotifier::Get()->Unbind(wxEVT_THEME_APPLIED, &MainView::OnThemeApplied,
-                               this);
-}
-
-void MainView::OnThemeApplied(wxCommandEvent &event) {
-  event.Skip();
-  ApplyCaptionColours();
-  m_auimgr->Update();
-  Refresh();
-}
-
-void MainView::ApplyCaptionColours() {
-  const auto theme = ThemeManager::Get().ActiveTheme().value_or(
-      wxSystemSettings::GetAppearance().IsDark()
-          ? wxTerminalTheme::MakeDarkTheme()
-          : wxTerminalTheme::MakeLightTheme());
-  wxAuiDockArt *art = m_auimgr->GetArtProvider();
-  // The background of the theme and its text. The caption has no gradient (see
-  // UI.cpp), but the gradient colours are set too so that it can never show
-  // another colour.
-  art->SetColour(wxAUI_DOCKART_ACTIVE_CAPTION_COLOUR, theme.bg);
-  art->SetColour(wxAUI_DOCKART_ACTIVE_CAPTION_GRADIENT_COLOUR, theme.bg);
-  art->SetColour(wxAUI_DOCKART_ACTIVE_CAPTION_TEXT_COLOUR, theme.fg);
-  art->SetColour(wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR, theme.bg);
-  art->SetColour(wxAUI_DOCKART_INACTIVE_CAPTION_GRADIENT_COLOUR, theme.bg);
-  art->SetColour(wxAUI_DOCKART_INACTIVE_CAPTION_TEXT_COLOUR, theme.fg);
 }
 
 void MainView::BindFocusChildEvent(wxWindow *win, ChildFocusEvent handlerFn) {
@@ -135,7 +92,6 @@ void MainView::BindFocusChildEvent(wxWindow *win, ChildFocusEvent handlerFn) {
 }
 
 void MainView::FinaliseConstruction() {
-  BindFocusChildEvent(m_panelActivity, &MainView::OnActivityPanelChildFocus);
   BindFocusChildEvent(m_panelSideView,
                       &MainView::OnFileExplorerPanelChildFocus);
   BindFocusChildEvent(m_mainPanel, &MainView::OnMainPanelChildFocus);
@@ -149,7 +105,6 @@ void MainView::FinaliseConstruction() {
 void MainView::OnToolBarStyle(wxCommandEvent &event) {
   event.Skip(); // The main toolbar of the frame follows too
   m_sideView->ApplyToolBarStyle();
-  m_output->ApplyToolBarStyle();
 }
 
 void MainView::OnFileTreeActivated(FileEvent &event) {
@@ -157,55 +112,42 @@ void MainView::OnFileTreeActivated(FileEvent &event) {
 }
 
 // ---------------------------------------------------------------------------
-// The left pane
+// The side bar
 // ---------------------------------------------------------------------------
 
 void MainView::RestoreLayout() {
-  // Deferred: the docks can only get the size they had where the window is big
-  // enough for them, and the window is not at its final size (e.g. maximized)
+  // Deferred: the dock can only get the size it had where the window is big
+  // enough for it, and the window is not at its final size (e.g. maximized)
   // before the first pass of the event loop.
   CallAfter([this] {
     const wxString &layout = AppManager::Get().GetPrefs().auiLayout;
-    const int sideTab = AppManager::Get().GetPrefs().sideTab;
-    m_sideView->SetSelection(sideTab);
+    m_sideView->LoadLayout(AppManager::Get().GetPrefs().sideBookLayout);
+    // A layout saved by a version with more panes (the activity and the output
+    // had their own) does not fit: the side bar starts as it does without one.
+    // The check relies on the format of the AUI perspective ("name=<pane>;" for
+    // each pane).
+    const bool isOld =
+        std::any_of(std::begin(kRemovedPanes), std::end(kRemovedPanes),
+                    [&layout](const wxString &name) {
+                      return layout.Contains("name=" + name + ";");
+                    });
     bool restored = false;
-    if (!layout.empty()) {
-      // No update yet: the pane of the results is hidden below, before the
-      // window shows the layout.
-      restored = m_auimgr->LoadPerspective(layout, /*update=*/false);
+    if (!layout.empty() && !isOld) {
+      restored = m_auimgr->LoadPerspective(layout, /*update=*/true);
       if (!restored) {
         KLOG_WARN() << "Could not restore the layout of the panes";
+      } else if (const wxAuiPaneInfo &pane = m_auimgr->GetPane(kSidePane);
+                 !pane.IsDocked() ||
+                 (pane.dock_direction != wxAUI_DOCK_LEFT &&
+                  pane.dock_direction != wxAUI_DOCK_RIGHT)) {
+        // The side bar is on the left or on the right (the menu says which).
+        KLOG_WARN() << "The saved layout has the side bar elsewhere: not used";
+        m_auimgr->LoadPerspective(m_defaultLayout, /*update=*/true);
+        restored = false;
       }
     }
-    if (restored) {
-      // LoadPerspective() hides the panes the layout does not know: a layout
-      // saved before a pane existed. They are shown where they were created,
-      // with the default width if they are side panes. The check relies on the
-      // format of the AUI perspective ("name=<pane>;" for each pane).
-      std::vector<wxString> added;
-      // The results of a search are not kept between runs, so the pane of them
-      // does not come back, whether the layout was saved with it showing or
-      // does not know it: the next search shows it.
-      m_auimgr->GetPane(kOutputPane).Hide();
-      wxAuiPaneInfoArray &panes = m_auimgr->GetAllPanes();
-      for (size_t i = 0; i < panes.GetCount(); ++i) {
-        if (panes[i].name == kOutputPane) {
-          continue;
-        }
-        if (!layout.Contains("name=" + panes[i].name + ";")) {
-          panes[i].Show();
-          if (std::find(std::begin(kSidePanes), std::end(kSidePanes),
-                        panes[i].name) != std::end(kSidePanes)) {
-            added.push_back(panes[i].name);
-          }
-        }
-      }
-      m_auimgr->Update();
-      if (!added.empty()) {
-        ApplyDefaultPaneWidths(added);
-      }
-    } else {
-      ApplyDefaultPaneWidths(kSidePanes);
+    if (!restored) {
+      ApplySideBarDefaultWidth();
     }
     m_layoutRestored = true;
   });
@@ -216,71 +158,64 @@ void MainView::ResetLayout() {
     KLOG_WARN() << "Could not reset the layout of the panes";
     return;
   }
-  ApplyDefaultPaneWidths(kSidePanes);
+  ApplySideBarDefaultWidth();
+  m_sideView->ResetLayout();
 }
 
-bool MainView::IsPaneShown(const wxString &name) const {
-  return m_auimgr->GetPane(name).IsShown();
+bool MainView::IsSideBarShown() const {
+  return m_auimgr->GetPane(kSidePane).IsShown();
 }
 
-void MainView::ShowPane(const wxString &name, bool show) {
-  wxAuiPaneInfo &pane = m_auimgr->GetPane(name);
+wxDirection MainView::GetSideBarPosition() const {
+  return m_auimgr->GetPane(kSidePane).dock_direction == wxAUI_DOCK_LEFT
+             ? wxLEFT
+             : wxRIGHT;
+}
+
+void MainView::SetSideBarPosition(wxDirection position) {
+  wxAuiPaneInfo &pane = m_auimgr->GetPane(kSidePane);
+  if (!pane.IsOk() || GetSideBarPosition() == position) {
+    return;
+  }
+  // The layout is saved with the others (SaveLayout()).
+  pane.Dock().Direction(position == wxLEFT ? wxAUI_DOCK_LEFT
+                                           : wxAUI_DOCK_RIGHT);
+  m_auimgr->Update();
+}
+
+void MainView::ShowSideBar(bool show) {
+  wxWindowUpdateLocker locker{m_mainPanel};
+  wxAuiPaneInfo &pane = m_auimgr->GetPane(kSidePane);
   if (!pane.IsOk() || pane.IsShown() == show) {
     return;
   }
   pane.Show(show);
-  if (show && name == kOutputPane) {
-    // The output is a list: it needs height. A dock keeps the size it got
-    // when it was created, so a minimum size makes it that tall, and is dropped
-    // again to let the user make it smaller. Not when it is that tall already.
-    const int height = FromDIP(kOutputHeightDip);
-    if (pane.rect.GetHeight() < height) {
-      pane.BestSize(-1, height).MinSize(-1, height);
-      m_auimgr->Update();
-      pane.MinSize(wxDefaultSize);
-    }
-  }
   m_auimgr->Update();
+}
+
+void MainView::ShowSideTab(SideView::Tab tab) {
+  ShowSideBar(true);
+  m_sideView->SelectTab(tab);
+}
+
+FindResultsView *MainView::GetFindInFiles() const {
+  return m_sideView->GetFindInFiles();
 }
 
 void MainView::ToggleAllPanes() {
-  wxWindowUpdateLocker locker{this};
-  std::vector<wxString> shown;
-  for (const wxString &name : kSidePanes) {
-    if (IsPaneShown(name)) {
-      shown.push_back(name);
-    }
-  }
-  if (!shown.empty()) {
-    for (const wxString &name : shown) {
-      m_auimgr->GetPane(name).Show(false);
-    }
-    m_hiddenByToggle = std::move(shown);
-  } else {
-    if (m_hiddenByToggle.empty()) {
-      m_hiddenByToggle.assign(std::begin(kSidePanes), std::end(kSidePanes));
-    }
-    for (const wxString &name : m_hiddenByToggle) {
-      m_auimgr->GetPane(name).Show(true);
-    }
-    m_hiddenByToggle.clear();
-  }
-  m_auimgr->Update();
+  // The side bar is the only pane next to the main view.
+  ShowSideBar(!IsSideBarShown());
 }
 
-void MainView::ApplyDefaultPaneWidths(std::span<const wxString> names) {
+void MainView::ApplySideBarDefaultWidth() {
   // A dock keeps the size it got when it was created (and a new dock is at most
   // 30% of the window wide), so BestSize() cannot change it any more. A minimum
   // size makes the dock at least that wide; it is dropped again so the user can
   // make the pane narrower.
-  const int width = FromDIP(kSidePaneWidthDip);
-  for (const wxString &name : names) {
-    m_auimgr->GetPane(name).BestSize(width, -1).MinSize(width, -1);
-  }
+  const int width = GetClientSize().x * kSidePaneWidthPercent / 100;
+  m_auimgr->GetPane(kSidePane).BestSize(width, -1).MinSize(width, -1);
   m_auimgr->Update();
-  for (const wxString &name : names) {
-    m_auimgr->GetPane(name).MinSize(wxDefaultSize);
-  }
+  m_auimgr->GetPane(kSidePane).MinSize(wxDefaultSize);
   m_auimgr->Update();
 }
 
@@ -289,7 +224,7 @@ void MainView::SaveLayout() {
   // which must not replace what was saved (see RestoreLayout()).
   if (m_layoutRestored) {
     AppManager::Get().GetPrefs().auiLayout = m_auimgr->SavePerspective();
-    AppManager::Get().GetPrefs().sideTab = m_sideView->GetSelection();
+    AppManager::Get().GetPrefs().sideBookLayout = m_sideView->SaveLayout();
   }
 }
 
@@ -433,12 +368,6 @@ void MainView::OnMainPanelChildFocus(wxChildFocusEvent &event) {
     m_auimgr->Update();
 }
 
-void MainView::OnActivityPanelChildFocus(wxChildFocusEvent &event) {
-  event.Skip();
-  if (MakeActive(m_panelActivity))
-    m_auimgr->Update();
-}
-
 void MainView::OnFileExplorerPanelChildFocus(wxChildFocusEvent &event) {
   event.Skip();
   if (MakeActive(m_panelSideView))
@@ -451,7 +380,4 @@ void MainView::OnAppPrefsSaved(wxCommandEvent &event) {
   ApplyPrefs();
 }
 
-void MainView::ApplyPrefs() {
-  m_sideView->ApplyPrefs();
-  m_output->ApplyPrefs();
-}
+void MainView::ApplyPrefs() { m_sideView->ApplyPrefs(); }
