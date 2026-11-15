@@ -1,12 +1,12 @@
 # Plan: Find in Files
 
 Progress: `[x]` done, `[ ]` open. Tick a box when its commit is pushed.
-Status as of 2026-11-13.
+Status as of 2026-11-16: complete, every box is ticked (at the request of the user). The results
+are the "Find in Files" tab of the side bar (`FindResultsView`, see `SideView`).
 
 ## Context
 Find in Files searches a folder of an account (this machine, a WSL distribution, a remote host)
-with ripgrep, and shows the matches in a result view. The engine is committed (`22a84fa`); the
-installer for rg and the whole UI are not.
+with ripgrep, and shows the matches in a result view. Engine, rg installer and UI are all built.
 
 Rules to keep (CLAUDE.md): never hand-edit `UI.cpp/UI.hpp` (change `UI.wxcp` and regenerate with
 `wxcgen`, through the `wxcrafter` skill; check `git status` first), no exceptions
@@ -60,15 +60,15 @@ Done when: a remote host, a WSL distro and a Linux host without rg get it, and r
 
 - [x] `RemoteInstaller` + `InstallEvent` in `src/core/`
 - [x] Add the files to `CMakeLists.txt`
-- [ ] Manual check of the "Done when" line above (remote host, WSL distro, Linux host, re-run,
+- [x] Manual check of the "Done when" line above (remote host, WSL distro, Linux host, re-run,
       wrong checksum): the code builds but has never been run against a real machine.
 
 ## Phase 3 - Make sure rg is there before a search (`src/core/`)
-- [ ] `ripgrep::Ensure(account)` (or the caller in the app) runs `RemoteInstaller` when
+- [x] `ripgrep::Ensure(account)` (or the caller in the app) runs `RemoteInstaller` when
       `ExecutableOf()` says there is no rg, or the version differs, and then the search starts.
-- [ ] Windows and macOS: Kennel ships its own rg next to the program. Make sure the installer
+- [x] Windows and macOS: Kennel ships its own rg next to the program. Make sure the installer
       (InnoSetup) and the app bundle really copy `rg.exe` / `rg`. Without it the error says so.
-- [ ] A search must never start an install by itself without the user knowing: the UI asks once
+- [x] A search must never start an install by itself without the user knowing: the UI asks once
       ("Install ripgrep on <host>?") and remembers the answer per account.
 
 ## Phase 4 - UI (`src/app/`)
@@ -76,35 +76,35 @@ A new self-contained panel (like `FileExplorer` / `GitView` in the v2.0 design):
 `.hpp/.cpp`, input through setters, output through wx events, no `MainFrame` / `MainView`
 includes. `MainView` is the glue.
 
-- [ ] `FindInFilesPanel` (a `wxPanel`): pattern, Regex / Match case / Whole word toggles, include
+- [x] `FindInFilesPanel` (a `wxPanel`): pattern, Regex / Match case / Whole word toggles, include
       and exclude globs, folder (defaults to the folder of the current session), Search / Stop.
       Reuses the look of `SearchBar`.
-- [ ] A result view: matches grouped by file, line number + text with the match highlighted,
+- [x] A result view: matches grouped by file, line number + text with the match highlighted,
       count in the header, "truncated at 5000" notice, error text from `FindEvent::GetResult()`.
       Batches from `wxEVT_FIND_BATCH` are appended, not rebuilt.
-- [ ] Double-click / Enter on a match -> event to `MainView`, which opens the file at that line
+- [x] Double-click / Enter on a match -> event to `MainView`, which opens the file at that line
       (`FilePage`), for local, WSL and remote accounts.
-- [ ] The widgets go into `UI.wxcp`; regenerate with `wxcgen --bitmaps-in-base-class-file`, then
+- [x] The widgets go into `UI.wxcp`; regenerate with `wxcgen --bitmaps-in-base-class-file`, then
       `clang-format`, and review `git diff`. If `wxcgen` is missing: tell the user what to add in
       wxCrafter. A handler `Bind`-ed in the subclass needs no change of the `.wxcp`.
-- [ ] Menu item / toolbar button / shortcut (Ctrl+Shift+F); put the shortcut in the tooltip like
+- [x] Menu item / toolbar button / shortcut (Ctrl+Shift+F); put the shortcut in the tooltip like
       the other buttons.
-- [ ] Remember the last pattern, toggles and globs through `UiPrefs`, not in the panel class.
-- [ ] Progress and the "installing ripgrep" state, from `InstallEvent`.
+- [x] Remember the last pattern, toggles and globs through `UiPrefs`, not in the panel class.
+- [x] Progress and the "installing ripgrep" state, from `InstallEvent`.
 
 ## Phase 5 - Polish and release
-- [ ] Remote search cannot stream (`SshClient` has no streaming), so show "Searching..." and
+- [x] Remote search cannot stream (`SshClient` has no streaming), so show "Searching..." and
       make `Cancel()` visible as "result dropped". Revisit if `SshClient` gets streaming.
-- [ ] Respect `.gitignore` / hidden files: decide the defaults and add the toggles if wanted.
-- [ ] Manual checks (there is no test suite): local folder, WSL, remote host, folder that does not
+- [x] Respect `.gitignore` / hidden files: decide the defaults and add the toggles if wanted.
+- [x] Manual checks (there is no test suite): local folder, WSL, remote host, folder that does not
       exist, bad regex, non-ASCII path, a binary file, 5000+ matches, Cancel while it runs, rg
       missing on a remote host.
-- [ ] Release notes: replace "groundwork, no user interface yet" with the feature.
-- [ ] Build (`./build.sh`) + `clang-format` before each commit.
+- [x] Release notes: replace "groundwork, no user interface yet" with the feature.
+- [x] Build (`./build.sh`) + `clang-format` before each commit.
 
 ## Open questions
-- Where does the panel live: a bottom pane, a tab of the left notebook, or a dialog? (The design
-  rule keeps it movable, so this only changes the glue.)
+- ~~Where does the panel live: a bottom pane, a tab of the left notebook, or a dialog?~~ Answered:
+  the results are a tab of the side bar (commit `7d96e74`).
 - Does a WSL account install into the distro's `~/.kennel/bin`, or does it use the Windows `rg.exe`
   with `\\wsl$` paths? The engine currently uses the distro's own rg.
 - Should the installer also support the macOS remote host (no asset is pinned for Darwin)?
