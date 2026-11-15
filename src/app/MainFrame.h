@@ -204,6 +204,8 @@ private:
   void OnCloseAllSessions(wxCommandEvent &evt);
   void OnCloseAllSessionsUI(wxUpdateUIEvent &evt);
   void OnStartAgent(wxCommandEvent &evt);
+  void OnSessionTerminal(wxCommandEvent &event);
+  void OnSessionTerminalUI(wxUpdateUIEvent &event);
   void OnRenameItem(wxCommandEvent &event);
   void OnRenameItemUI(wxUpdateUIEvent &event);
   void BuildLaunchTools();

@@ -46,9 +46,29 @@ class SessionPage : public SessionBasePage, public SearchablePage {
 public:
   using StatusChangedFn = std::function<void(SessionStatus)>;
 
-  SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
-              Session session, bool resume = false);
+  SessionPage(wxWindow *parent, std::optional<AgentDef> agent, Session session,
+              bool resume = false);
   ~SessionPage() override;
+
+  // A new page, a child of `parent` (which owns it), with a terminal that runs
+  // where this session runs: the same machine (this machine, the WSL
+  // distribution, or the remote host: it logs in with ssh), shell and folder,
+  // the same name and group, and, when this session runs in tmux, in a tmux
+  // session of its own on the same machine (the name of this one plus
+  // "-terminal": attaching to this one would show the agent). It starts the
+  // terminal (and tmux) only: no agent is launched, also not by Restart(). The
+  // clone is a plain terminal; the caller names it and keeps it (it is not in
+  // the workspace).
+  SessionPage *Clone(wxWindow *parent) const;
+
+  // The bottom pane with a terminal on the machine and in the folder of this
+  // session (a Clone()), shown or hidden: the first time it creates the
+  // terminal and shows the pane, then it hides it (the terminal goes on
+  // running) and shows it again. The end of the terminal closes the pane and
+  // forgets the terminal. Only an agent has it (CanToggleTerminalPane()); it is
+  // the Terminal button of the toolbar, and the F6 key.
+  bool CanToggleTerminalPane() const;
+  void ToggleTerminalPane();
 
   // What the program in the agent's terminal reports with OSC 7501: "working"
   // gets a spinner on the page's row, "done" a check mark and "blocked" a
@@ -191,10 +211,9 @@ private:
   // elsewhere in the application (the list of the sessions, a dialog, ...), and
   // not while the user is typing in the session's other terminal.
   void FocusTerminal(wxTerminalViewCtrl *terminal);
-  // A panel for the splitter that gives a terminal a border in the theme's
-  // background color. Create the terminal with the pane as its parent, then
-  // AddToPane() it.
-  wxPanel *NewTerminalPane();
+  // Puts `terminal` in `pane`, one of the panes that the base page has
+  // (GetAgentPanel(), ...): create the terminal with the pane as
+  // its parent, then call this.
   void AddToPane(wxPanel *pane, wxTerminalViewCtrl *terminal);
   void SetStatus(SessionStatus status);
   void OnProgramStatus(wxTerminalEvent &evt);
@@ -278,8 +297,11 @@ private:
   // The terminal the Copy button works on: one that has a selection.
   wxTerminalViewCtrl *CopyTerminal() const;
   void OnToolRestart(wxCommandEvent &event);
-  // Asks (on the EventNotifier) for a terminal in the place of this session.
+  // ToggleTerminalPane().
   void OnToolTerminal(wxCommandEvent &event);
+  // The terminal of the bottom pane ended: destroys its page and closes the
+  // pane.
+  void CloseTerminalPage();
   void OnToolReviewBuddy(wxCommandEvent &event);
   void OnToolCopy(wxCommandEvent &event);
   void OnToolPaste(wxCommandEvent &event);
@@ -329,8 +351,6 @@ private:
     ID_TMUX_CLOSE,
   };
   wxAuiToolBar *m_toolbar{nullptr};
-  // The part of the page next to the toolbar: the terminals and the search bar.
-  wxBoxSizer *m_body{nullptr};
 
   AppPaths m_paths;
   std::optional<AgentDef> m_agent{std::nullopt};
@@ -353,13 +373,14 @@ private:
   wxString m_findText;             // What the last search looked for
   SearchBar *m_searchBar{nullptr}; // Hidden until Find
 
-  // The agent's pane is the only child of the splitter until a review buddy
-  // opens its pane next to it. Each pane holds one terminal with a border.
-  wxSplitterWindow *m_splitter{nullptr};
-  wxPanel *m_mainPane{nullptr};
-  wxPanel *m_reviewPane{nullptr};
+  // The panes and splitters are the ones of the base page (wxCrafter): the
+  // agent's pane is the only one open until a review buddy opens its pane next
+  // to it. Each pane holds one terminal.
   wxTerminalViewCtrl *m_terminal{nullptr};
   wxTerminalViewCtrl *m_reviewTerminal{nullptr};
+  // The page in the bottom pane (a clone of this one), when it is open. The
+  // pane owns it.
+  SessionPage *m_terminalPage{nullptr};
   std::unique_ptr<AcceleratorInterceptor> m_reviewAcceleratorInterceptor;
   std::unique_ptr<ReviewBuddy> m_review;
   std::unique_ptr<ReviewBuddyHeader> m_reviewHeader;

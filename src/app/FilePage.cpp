@@ -33,10 +33,7 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
                    const wxTerminalTheme &theme,
                    const RemoteHostDetails &remoteHost)
     : wxPanel(parent), m_path{path}, m_remoteHost{remoteHost} {
-  m_toolbar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                               wxAUI_TB_PLAIN_BACKGROUND);
-  m_toolbar->SetArtProvider(
-      new KennelToolBarArt(KennelToolBarArt::Style::Accent, true));
+  m_toolbar = new wxAuiToolBar(this);
   AppManager::Get().GetBitmaps().Get("save", false);
   toolbar::AddTool(m_toolbar, ID_CLOSE, _("Close"),
                    AppManager::Get().GetBitmaps().Get("close", false),

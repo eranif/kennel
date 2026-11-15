@@ -253,7 +253,7 @@ wxString JoinHeader(wxString head, wxString title, const wxString &dir) {
 }
 } // namespace
 
-SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
+SessionPage::SessionPage(wxWindow *parent, std::optional<AgentDef> agent,
                          Session session, bool resume)
     : SessionBasePage(parent), m_paths(AppManager::Get().Paths()),
       m_agent(std::move(agent)), m_session(std::move(session)),
@@ -268,24 +268,53 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
         wxEVT_REVIEW_BUDDY_ERROR, wxEVT_REVIEW_BUDDY_STOPPED}) {
     Bind(type, &SessionPage::OnReviewChanged, this);
   }
-  // The toolbar is horizontal, at the top. Below it is the body: the splitter
-  // (CreateTerminal() puts it first) and the search bar below it.
+  // The sizer of the base page holds the splitters (wxCrafter): the toolbar
+  // goes above them, the message bar below it, and the search bar at the end.
+  // The review buddy's pane and the bottom pane are closed until they are used.
   CreateToolBar();
-  auto *outer = new wxBoxSizer(wxVERTICAL);
-  m_body = new wxBoxSizer(wxVERTICAL);
-  SetSizer(outer); // Replaces (and deletes) the vertical sizer of the base
-  outer->Add(m_toolbar, wxSizerFlags(0).Expand());
+  wxSizer *outer = GetSizer();
+  outer->Insert(0, m_toolbar, wxSizerFlags(0).Expand());
   // Hidden until there is something to say (ShowInfo()).
   m_infoBar = new wxInfoBar(this);
-  outer->Add(m_infoBar, wxSizerFlags(0).Expand());
+  outer->Insert(1, m_infoBar, wxSizerFlags(0).Expand());
   m_infoBar->Bind(wxEVT_BUTTON, &SessionPage::OnTmuxDownload, this,
                   ID_TMUX_DOWNLOAD);
   m_infoBar->Bind(wxEVT_BUTTON, &SessionPage::OnTmuxClose, this, ID_TMUX_CLOSE);
-  outer->Add(m_body, wxSizerFlags(1).Expand());
-  // Below the terminals: CreateTerminal() puts the splitter before it.
   m_searchBar = new SearchBar(this, SearchBar::Kind::kFindOnly);
   m_searchBar->Hide();
-  m_body->Add(m_searchBar, wxSizerFlags(0).Expand());
+  outer->Add(m_searchBar, wxSizerFlags(0).Expand());
+  m_splitterReviewBuddy->Unsplit(m_reviewBuddyPanel);
+  m_splitterMain->Unsplit(m_temrinalPanel);
+  // The page in the bottom pane (OnToolTerminal(), Clone()) has the name of
+  // this session, and the notebook goes by the name: what it says must not
+  // reach the notebook, or it would close or change this session. Its end
+  // closes the pane. These handlers do not call Skip(), so the events stop
+  // here.
+  for (const auto &type :
+       {wxEVT_SESSION_IDLE, wxEVT_SESSION_ACTIVE, wxEVT_SESSION_PROGRAM,
+        wxEVT_SESSION_CWD, wxEVT_SESSION_CHANGED}) {
+    m_temrinalPanel->Bind(type, [](wxCommandEvent &) {});
+  }
+  for (const auto &type :
+       {wxEVT_SESSION_EXITED, wxEVT_SESSION_CLOSE_REQUESTED}) {
+    m_temrinalPanel->Bind(type, [this](wxCommandEvent &) {
+      // Deferred: the page that sent it is destroyed.
+      CallAfter(&SessionPage::CloseTerminalPage);
+    });
+  }
+  // A click on the border around a terminal focuses it too.
+  m_agentPanel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &event) {
+    event.Skip();
+    if (m_terminal != nullptr) {
+      m_terminal->SetFocus();
+    }
+  });
+  m_reviewBuddyPanel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &event) {
+    event.Skip();
+    if (m_reviewTerminal != nullptr) {
+      m_reviewTerminal->SetFocus();
+    }
+  });
   Bind(wxEVT_SEARCHBAR_FIND, &SessionPage::OnSearchBarFind, this);
   Bind(wxEVT_SEARCHBAR_CLOSE, &SessionPage::OnSearchBarClose, this);
   EventNotifier::Get()->Bind(wxEVT_TMUX_MACHINE, &SessionPage::OnTmuxMachine,
@@ -298,6 +327,32 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
   });
   CreateTerminal();
   StartProgram();
+}
+
+SessionPage *SessionPage::Clone(wxWindow *parent) const {
+  Session terminal;
+  terminal.name = m_session.name;
+  terminal.groupName = m_session.groupName;
+  terminal.workingDir = m_session.workingDir;
+  terminal.sideDir = m_session.sideDir;
+  terminal.plainTerminal = true;
+  terminal.agentName = _("Terminals"); // Fake name, as for every terminal
+  // Where an agent runs says where its terminal is: a host to log in to, or the
+  // shell (a WSL distribution) of the agent. A terminal has these itself.
+  if (m_agent) {
+    terminal.loginShell = m_agent->loginShell;
+    terminal.remoteHost = m_agent->remoteHost;
+    terminal.remoteUser = m_agent->remoteUser;
+  } else {
+    terminal.loginShell = m_session.loginShell;
+    terminal.remoteHost = m_session.remoteHost;
+    terminal.remoteUser = m_session.remoteUser;
+  }
+  if (m_session.IsTmuxSession()) {
+    // Its own tmux session: the name of this one would attach to it.
+    terminal.tmuxName = m_session.tmuxName + "-terminal";
+  }
+  return new SessionPage(parent, std::nullopt, std::move(terminal));
 }
 
 void SessionPage::InitStatus() {
@@ -414,10 +469,9 @@ SessionPage::~SessionPage() {
 }
 
 void SessionPage::DestroyReviewPane() {
-  if (m_reviewPane != nullptr) {
-    m_reviewPane->Destroy(); // and the terminal in it
+  if (m_reviewTerminal != nullptr) {
+    m_reviewTerminal->Destroy(); // and its progress bar; the pane stays
   }
-  m_reviewPane = nullptr;
   m_reviewTerminal = nullptr;
   // No update here: the page may be going away. CloseReviewBuddy() does it.
   m_reviewActivity = ProgramActivity::None;
@@ -548,18 +602,8 @@ void SessionPage::CreateTerminal() {
       (m_session.workingDir.empty() ? "~" : m_session.workingDir));
 
   KLOG_DEBUG() << "Running shell: " << shellCommand;
-  if (m_splitter == nullptr) {
-    m_splitter =
-        new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                             wxSP_LIVE_UPDATE | wxSP_3DSASH);
-    m_splitter->SetSashGravity(0.5);
-    m_splitter->SetMinimumPaneSize(150);
-    m_body->Insert(0, m_splitter, wxSizerFlags(1).Expand());
-  }
-  m_mainPane = NewTerminalPane();
-  m_terminal = new wxTerminalViewCtrl(m_mainPane, shellCommand, env, cwd);
-  AddToPane(m_mainPane, m_terminal);
-  m_splitter->Initialize(m_mainPane);
+  m_terminal = new wxTerminalViewCtrl(m_agentPanel, shellCommand, env, cwd);
+  AddToPane(m_agentPanel, m_terminal);
   m_acceleratorInterceptor =
       std::make_unique<AcceleratorInterceptor>(m_terminal);
   GetSizer()->Layout();
@@ -606,14 +650,6 @@ void SessionPage::OnAppSelectionChanged(wxTerminalEvent &event) {
   }
 }
 
-wxPanel *SessionPage::NewTerminalPane() {
-  // wxBORDER_NONE without wxTAB_TRAVERSAL: the terminal takes the Tab key.
-  auto *pane = new wxPanel(m_splitter, wxID_ANY, wxDefaultPosition,
-                           wxDefaultSize, wxBORDER_NONE);
-  pane->SetSizer(new wxBoxSizer(wxVERTICAL));
-  return pane;
-}
-
 void SessionPage::FocusTerminal(wxTerminalViewCtrl *terminal) {
   if (terminal == nullptr || !IsActive() || !IsShownOnScreen()) {
     return;
@@ -628,11 +664,6 @@ void SessionPage::FocusTerminal(wxTerminalViewCtrl *terminal) {
 }
 
 void SessionPage::AddToPane(wxPanel *pane, wxTerminalViewCtrl *terminal) {
-  // A click on the border around a terminal focuses it too.
-  pane->Bind(wxEVT_LEFT_DOWN, [terminal](wxMouseEvent &event) {
-    event.Skip();
-    terminal->SetFocus();
-  });
   pane->GetSizer()->Add(terminal, wxSizerFlags(1).Expand());
   // A thin progress bar for what the program reports (OSC 9;4 and 7501). It
   // needs the sizer of the pane, so it comes after the terminal is added.
@@ -892,11 +923,8 @@ void SessionPage::SetFocus() {
 void SessionPage::Restart() {
   KLOG_DEBUG() << "Restarting session '" << m_session.name << "'";
   CloseReviewBuddy();
-  if (m_splitter != nullptr) {
-    m_body->Detach(m_splitter);
-    m_splitter->Destroy(); // and the panes, with the terminal in it
-    m_splitter = nullptr;
-    m_mainPane = nullptr;
+  if (m_terminal != nullptr) {
+    m_terminal->Destroy(); // and its progress bar; the pane stays
     m_terminal = nullptr;
     m_acceleratorInterceptor.reset();
   }
@@ -1242,11 +1270,9 @@ void SessionPage::ApplyTheme(const wxTerminalTheme &theme) {
   UpdateHeader(/*force=*/true); // The colour depends on the background.
   UpdateReviewHeader(/*force=*/true);
   // The border around each terminal has the theme's background.
-  for (wxPanel *pane : {m_mainPane, m_reviewPane}) {
-    if (pane != nullptr) {
-      pane->SetBackgroundColour(theme.bg);
-      pane->Refresh();
-    }
+  for (wxPanel *pane : {m_agentPanel, m_reviewBuddyPanel, m_temrinalPanel}) {
+    pane->SetBackgroundColour(theme.bg);
+    pane->Refresh();
   }
 }
 
@@ -1272,11 +1298,7 @@ void SessionPage::ApplyToolBarStyle() { toolbar::ApplyStyle(m_toolbar); }
 
 void SessionPage::CreateToolBar() {
   auto &bmps = AppManager::Get().GetBitmaps();
-  m_toolbar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                               wxAUI_TB_PLAIN_BACKGROUND);
-  m_toolbar->SetArtProvider(
-      new KennelToolBarArt(KennelToolBarArt::Style::Accent, true));
-
+  m_toolbar = new wxAuiToolBar(this);
   toolbar::ApplyStyle(m_toolbar);
   toolbar::AddTool(m_toolbar, ID_RESTART, _("Restart"),
                    bmps.Get("restart", false), _("Restart the session"));
@@ -1290,7 +1312,7 @@ void SessionPage::CreateToolBar() {
     toolbar::AddTool(m_toolbar, ID_TERMINAL, _("Terminal"),
                      bmps.Get("terminal", false),
                      _("Open a terminal in the folder and on the host of this "
-                       "session"));
+                       "session (F6)"));
   }
   m_toolbar->AddSeparator();
   toolbar::AddTool(m_toolbar, ID_COPY, _("Copy"), bmps.Get("copy", false),
@@ -1338,13 +1360,48 @@ void SessionPage::OnToolRestart(wxCommandEvent &) {
   CallAfter(&SessionPage::Restart);
 }
 
-void SessionPage::OnToolTerminal(wxCommandEvent &) {
-  PageViewEvent event(wxEVT_SESSION_OPEN_TERMINAL);
-  event.SetEventObject(this);
-  event.SetRef(SessionRef{m_session.groupName, m_session.name});
-  event.SetAccount(GetAccount());
-  // Pending: the toolbar's callback ends first.
-  EventNotifier::Get()->AddPendingEvent(event);
+void SessionPage::OnToolTerminal(wxCommandEvent &) { ToggleTerminalPane(); }
+
+bool SessionPage::CanToggleTerminalPane() const {
+  // As the toolbar: an agent that has its terminal (a terminal is one already).
+  return !IsPlainTerminal() && m_terminal != nullptr;
+}
+
+void SessionPage::ToggleTerminalPane() {
+  if (!CanToggleTerminalPane()) {
+    return;
+  }
+  if (m_terminalPage != nullptr && m_splitterMain->IsSplit()) {
+    // Shown: hide it. The terminal goes on running.
+    m_splitterMain->Unsplit(m_temrinalPanel);
+    if (m_terminal != nullptr) {
+      m_terminal->SetFocus();
+    }
+    return;
+  }
+  const bool isNew = m_terminalPage == nullptr;
+  if (isNew) {
+    m_terminalPage = Clone(m_temrinalPanel);
+    m_temrinalPanel->GetSizer()->Add(m_terminalPage, wxSizerFlags(1).Expand());
+  }
+  // Half each (see StartReviewer(): the default position is a stale one).
+  m_splitterMain->SplitHorizontally(
+      m_splitterPageSession, m_temrinalPanel,
+      (m_splitterMain->GetClientSize().y - m_splitterMain->GetSashSize()) / 2);
+  m_temrinalPanel->Layout();
+  m_terminalPage->SetFocus();
+}
+
+void SessionPage::CloseTerminalPage() {
+  if (m_terminalPage == nullptr) {
+    return;
+  }
+  m_splitterMain->Unsplit(m_temrinalPanel);
+  m_terminalPage->Destroy();
+  m_terminalPage = nullptr;
+  if (m_terminal != nullptr) {
+    m_terminal->SetFocus();
+  }
 }
 
 void SessionPage::OnToolCopy(wxCommandEvent &) {
@@ -1792,10 +1849,9 @@ wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
   // As for the agent's own terminal (CreateTerminal), the environment is the
   // one of the local process: the shell, or the ssh client for a remote agent.
   // BuildCommandLine() exports the same variables on the remote side.
-  m_reviewPane = NewTerminalPane();
   m_reviewTerminal = new wxTerminalViewCtrl(
-      m_reviewPane, shellCommand, BuildEnvironment(reviewer.env), cwd);
-  AddToPane(m_reviewPane, m_reviewTerminal);
+      m_reviewBuddyPanel, shellCommand, BuildEnvironment(reviewer.env), cwd);
+  AddToPane(m_reviewBuddyPanel, m_reviewTerminal);
   m_reviewAcceleratorInterceptor =
       std::make_unique<AcceleratorInterceptor>(m_reviewTerminal);
   for (const wxString &command :
@@ -1817,7 +1873,14 @@ wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
   // After the theme and before the terminal starts, as for the agent's.
   UpdateReviewHeader();
 
-  m_splitter->SplitVertically(m_mainPane, m_reviewPane);
+  // Half each. Not the default position (0): wx puts the sash where it was when
+  // the splitter was unsplit last, which was at the size of a page that had not
+  // been laid out yet.
+  m_splitterReviewBuddy->SplitVertically(
+      m_agentPanel, m_reviewBuddyPanel,
+      (m_splitterReviewBuddy->GetClientSize().x -
+       m_splitterReviewBuddy->GetSashSize()) /
+          2);
   m_reviewTerminal->EnsureStarted();
   // The reviewer is the active agent now; it may ask for a permission.
   FocusTerminal(m_reviewTerminal);
@@ -1835,9 +1898,7 @@ void SessionPage::CloseReviewBuddy() {
   if (m_reviewTerminal == nullptr) {
     return;
   }
-  if (m_splitter != nullptr) {
-    m_splitter->Unsplit(m_reviewPane);
-  }
+  m_splitterReviewBuddy->Unsplit(m_reviewBuddyPanel);
   DestroyReviewPane();
   // Only the agent's terminal counts again.
   UpdateProgramActivity();

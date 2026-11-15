@@ -33,6 +33,12 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     wxCommandEvent evtRename{wxEVT_MENU, XRCID("rename-selection")};
     wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(evtRename);
     return;
+  } else if (keyEvent.GetKeyCode() == WXK_F6 &&
+             keyEvent.GetModifiers() == wxMOD_NONE) {
+    // The terminal below the agent.
+    wxCommandEvent evtTerminal{wxEVT_MENU, XRCID("session-terminal")};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtTerminal);
+    return;
   } else if (keyEvent.GetKeyCode() == WXK_F5) {
     // Rename
     wxCommandEvent evtRefreshSession{wxEVT_MENU, wxID_REFRESH};

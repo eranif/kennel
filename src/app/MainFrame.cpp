@@ -398,6 +398,15 @@ void MainFrame::BuildMenuBar() {
   fileMenu->Append(XRCID("start-terminal"), _("New Terminal\tCtrl+E"),
                    _("Start GlyphT Terminal"));
   Bind(wxEVT_MENU, &MainFrame::OnNewTerminal, this, XRCID("start-terminal"));
+  // AcceleratorInterceptor handles the key in a terminal (it would get it
+  // otherwise).
+  fileMenu->Append(XRCID("session-terminal"), _("Session Terminal\tF6"),
+                   _("Open a terminal below the agent, on its machine and in "
+                     "its folder"));
+  Bind(wxEVT_MENU, &MainFrame::OnSessionTerminal, this,
+       XRCID("session-terminal"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnSessionTerminalUI, this,
+       XRCID("session-terminal"));
   fileMenu->Append(wxID_REFRESH, _("&Refresh Current Selection\tF5"),
                    _("Refresh the Current Selection"));
   Bind(wxEVT_MENU, &MainFrame::OnRefreshSession, this, wxID_REFRESH);
@@ -1365,6 +1374,22 @@ void MainFrame::CheckForUpdates(bool silent) {
               "Kennel", wxICON_WARNING | wxOK, this);
         }
       });
+}
+
+void MainFrame::OnSessionTerminal(wxCommandEvent &) {
+  CHECK_NOT_NULL_RETURN(m_mainView);
+  if (SessionPage *page =
+          m_mainView->GetSessionsBook()->GetActiveSessionPage()) {
+    page->ToggleTerminalPane();
+  }
+}
+
+void MainFrame::OnSessionTerminalUI(wxUpdateUIEvent &event) {
+  const SessionPage *page =
+      m_mainView != nullptr
+          ? m_mainView->GetSessionsBook()->GetActiveSessionPage()
+          : nullptr;
+  event.Enable(page != nullptr && page->CanToggleTerminalPane());
 }
 
 void MainFrame::OnRenameItemUI(wxUpdateUIEvent &event) {
