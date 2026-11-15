@@ -346,8 +346,6 @@ private:
   // The side views ask (they arrive on the EventNotifier):
   // The user chose a session in the file explorer or in the activity view.
   void OnShowSessionRequested(PageViewEvent &event);
-  // A session asks for a terminal on its host, in its folder.
-  void OnOpenTerminalRequested(PageViewEvent &event);
   // The user chose another folder for the side bar of a session: it is saved.
   void OnSideDirChanged(PageViewEvent &event);
   // A file or a folder of the file explorer was double clicked.

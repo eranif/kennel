@@ -11,6 +11,10 @@ tmux::Server Session::GetTmuxServer() const {
                                             : tmux::Server::kAgent;
 }
 
+wxString Session::GetTerminalTmuxName() const {
+  return IsTmuxSession() ? tmuxName + "-terminal" : wxString{};
+}
+
 Account Session::GetTmuxAccount(const std::optional<AgentDef> &agent,
                                 const wxString &defaultShell) const {
   // The kind of the session comes from GetTmuxServer() only, so that the server

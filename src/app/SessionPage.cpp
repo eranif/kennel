@@ -254,10 +254,10 @@ wxString JoinHeader(wxString head, wxString title, const wxString &dir) {
 } // namespace
 
 SessionPage::SessionPage(wxWindow *parent, std::optional<AgentDef> agent,
-                         Session session, bool resume)
+                         Session session, bool resume, SessionPage *owner)
     : SessionBasePage(parent), m_paths(AppManager::Get().Paths()),
       m_agent(std::move(agent)), m_session(std::move(session)),
-      m_resume(resume) {
+      m_resume(resume), m_owner(owner) {
   SetDefaultSessionName(m_session.name);
   InitStatus();
   Bind(wxEVT_TIMER, &SessionPage::OnNoticeTimer, this, m_noticeTimer.GetId());
@@ -285,23 +285,6 @@ SessionPage::SessionPage(wxWindow *parent, std::optional<AgentDef> agent,
   outer->Add(m_searchBar, wxSizerFlags(0).Expand());
   m_splitterReviewBuddy->Unsplit(m_reviewBuddyPanel);
   m_splitterMain->Unsplit(m_temrinalPanel);
-  // The page in the bottom pane (OnToolTerminal(), Clone()) has the name of
-  // this session, and the notebook goes by the name: what it says must not
-  // reach the notebook, or it would close or change this session. Its end
-  // closes the pane. These handlers do not call Skip(), so the events stop
-  // here.
-  for (const auto &type :
-       {wxEVT_SESSION_IDLE, wxEVT_SESSION_ACTIVE, wxEVT_SESSION_PROGRAM,
-        wxEVT_SESSION_CWD, wxEVT_SESSION_CHANGED}) {
-    m_temrinalPanel->Bind(type, [](wxCommandEvent &) {});
-  }
-  for (const auto &type :
-       {wxEVT_SESSION_EXITED, wxEVT_SESSION_CLOSE_REQUESTED}) {
-    m_temrinalPanel->Bind(type, [this](wxCommandEvent &) {
-      // Deferred: the page that sent it is destroyed.
-      CallAfter(&SessionPage::CloseTerminalPage);
-    });
-  }
   // A click on the border around a terminal focuses it too.
   m_agentPanel->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent &event) {
     event.Skip();
@@ -338,7 +321,7 @@ SessionPage::SessionPage(wxWindow *parent, std::optional<AgentDef> agent,
   }
 }
 
-SessionPage *SessionPage::Clone(wxWindow *parent) const {
+SessionPage *SessionPage::Clone(wxWindow *parent) {
   Session terminal;
   terminal.name = m_session.name;
   terminal.groupName = m_session.groupName;
@@ -359,9 +342,10 @@ SessionPage *SessionPage::Clone(wxWindow *parent) const {
   }
   if (m_session.IsTmuxSession()) {
     // Its own tmux session: the name of this one would attach to it.
-    terminal.tmuxName = m_session.tmuxName + "-terminal";
+    terminal.tmuxName = m_session.GetTerminalTmuxName();
   }
-  return new SessionPage(parent, std::nullopt, std::move(terminal));
+  return new SessionPage(parent, std::nullopt, std::move(terminal),
+                         /*resume=*/false, /*owner=*/this);
 }
 
 void SessionPage::InitStatus() {
@@ -525,8 +509,10 @@ void SessionPage::CreateTerminal() {
     const auto &shells = ::FindShells().shells;
     if (!m_session.loginShell.empty()) {
       // A restored terminal runs the shell it had, as long as it is still
-      // there.
+      // there. The terminal of the bottom pane runs the shell of its agent as
+      // it is (the machine of the agent is not always in the list).
       const bool found =
+          m_owner != nullptr ||
           std::any_of(shells.begin(), shells.end(), [this](const auto &shell) {
             return shell.second == m_session.loginShell;
           });
@@ -542,8 +528,11 @@ void SessionPage::CreateTerminal() {
     // For plain terminals, we use the following logic to determine the
     // terminal: Assume the default terminal. If we have multiple terminals,
     // prompt the user to pick one (the shell chosen last time, or else the
-    // default one, is selected in the dialog).
-    if (m_session.loginShell.empty() && shells.size() > 1) {
+    // default one, is selected in the dialog). Not for the terminal of the
+    // bottom pane: it is made without a question, with the default shell when
+    // its agent has none.
+    if (m_session.loginShell.empty() && shells.size() > 1 &&
+        m_owner == nullptr) {
       wxArrayString shell_names_arr;
       std::unordered_map<wxString, wxString> m;
       wxString selectedShellName;
@@ -880,7 +869,7 @@ void SessionPage::OnTmuxClose(wxCommandEvent &) {
   m_waitingForTmux = false;
   wxCommandEvent event{wxEVT_SESSION_CLOSE_REQUESTED};
   event.SetString(m_session.name);
-  GetParent()->GetEventHandler()->AddPendingEvent(event);
+  Notify(event);
 }
 
 void SessionPage::SendCommands(const std::vector<wxString> &commands) {
@@ -913,7 +902,7 @@ void SessionPage::DropTmux() {
   // The workspace is saved without it.
   wxCommandEvent event{wxEVT_SESSION_CHANGED};
   event.SetEventObject(this);
-  GetParent()->GetEventHandler()->AddPendingEvent(event);
+  Notify(event);
 }
 
 void SessionPage::SetNote(const wxString &text) {
@@ -932,6 +921,8 @@ void SessionPage::SetFocus() {
 void SessionPage::Restart() {
   KLOG_DEBUG() << "Restarting session '" << m_session.name << "'";
   CloseReviewBuddy();
+  // Only the agent's terminal restarts: the terminal of the bottom pane goes on
+  // (it is not the agent).
   if (m_terminal != nullptr) {
     m_terminal->Destroy(); // and its progress bar; the pane stays
     m_terminal = nullptr;
@@ -1091,7 +1082,7 @@ void SessionPage::SetProgramActivity(ProgramActivity activity) {
 void SessionPage::RefreshTabIcon() {
   wxCommandEvent e{wxEVT_SESSION_PROGRAM};
   e.SetEventObject(this);
-  GetParent()->GetEventHandler()->AddPendingEvent(e);
+  Notify(e);
 }
 
 TabBadge SessionPage::GetTabBadge() const {
@@ -1153,7 +1144,7 @@ void SessionPage::OnCwdChanged(wxTerminalEvent &evt) {
   // The list of the terminals shows the folder.
   wxCommandEvent e{wxEVT_SESSION_CWD};
   e.SetEventObject(this);
-  GetParent()->GetEventHandler()->AddPendingEvent(e);
+  Notify(e);
 }
 
 void SessionPage::OnTitleChanged(wxTerminalEvent &evt) {
@@ -1173,19 +1164,19 @@ void SessionPage::SetStatus(SessionStatus status) {
   case SessionStatus::Exited: {
     wxCommandEvent e{wxEVT_SESSION_EXITED};
     e.SetString(m_session.name);
-    GetParent()->GetEventHandler()->AddPendingEvent(e);
+    Notify(e);
     break;
   }
   case SessionStatus::Running: {
     wxCommandEvent e{wxEVT_SESSION_ACTIVE};
     e.SetString(m_session.name);
-    GetParent()->GetEventHandler()->AddPendingEvent(e);
+    Notify(e);
     break;
   }
   case SessionStatus::Idle: {
     wxCommandEvent e{wxEVT_SESSION_IDLE};
     e.SetString(m_session.name);
-    GetParent()->GetEventHandler()->AddPendingEvent(e);
+    Notify(e);
     break;
   }
   case SessionStatus::Detached:
@@ -1389,6 +1380,13 @@ void SessionPage::ToggleTerminalPane() {
 void SessionPage::SetTerminalPane(bool shown, bool focus) {
   if (m_terminalPage == nullptr) {
     m_terminalPage = Clone(m_temrinalPanel);
+    if (m_terminalPage->GetTerminal() == nullptr) {
+      // The terminal could not be made: no empty page in the pane.
+      m_terminalPage->Destroy();
+      m_terminalPage = nullptr;
+      SaveTerminalPane();
+      return;
+    }
     m_temrinalPanel->GetSizer()->Add(m_terminalPage, wxSizerFlags(1).Expand());
   }
   if (shown && !m_splitterMain->IsSplit()) {
@@ -1409,6 +1407,22 @@ void SessionPage::SetTerminalPane(bool shown, bool focus) {
   SaveTerminalPane();
 }
 
+void SessionPage::Notify(wxCommandEvent &event) {
+  // The notebook is the parent of a page, and goes by the name of the session.
+  // A page in a bottom pane (Clone()) has the name of its owner, and is no page
+  // of the notebook: what it says is not for the notebook. Only its end
+  // matters, to its owner.
+  if (m_owner != nullptr) {
+    const wxEventType type = event.GetEventType();
+    if (type == wxEVT_SESSION_EXITED || type == wxEVT_SESSION_CLOSE_REQUESTED) {
+      // Deferred: this page is destroyed by it.
+      m_owner->CallAfter(&SessionPage::CloseTerminalPage);
+    }
+    return;
+  }
+  GetParent()->GetEventHandler()->AddPendingEvent(event);
+}
+
 void SessionPage::SaveTerminalPane() {
   const bool has = m_terminalPage != nullptr;
   const bool shown = has && m_splitterMain->IsSplit();
@@ -1420,7 +1434,7 @@ void SessionPage::SaveTerminalPane() {
   // The workspace is saved with it.
   wxCommandEvent event{wxEVT_SESSION_CHANGED};
   event.SetEventObject(this);
-  GetParent()->GetEventHandler()->AddPendingEvent(event);
+  Notify(event);
 }
 
 void SessionPage::CloseTerminalPage() {

@@ -70,6 +70,11 @@ struct Session {
   // The tmux server that holds the session: the one of the agents, or the one
   // of the plain terminals.
   tmux::Server GetTmuxServer() const;
+  // The tmux session of the terminal in the bottom pane of this session
+  // (terminalPane): the name of the tmux session of the session plus
+  // "-terminal", on the tmux server of the terminals. Empty when the session
+  // does not run in tmux.
+  wxString GetTerminalTmuxName() const;
   // The machine where the tmux session of this session is: the host of its
   // agent (a terminal: its `remoteHost`), a WSL distribution (the login shell
   // of the agent, of the terminal, or `defaultShell` when it has none), or this
@@ -150,6 +155,10 @@ struct NewSessionRequest {
   wxString remoteUser;
   // The shell of a plain terminal. Empty: the default one.
   wxString loginShell;
+  // The terminal pane of a session that is restored (an archived one), see
+  // Session::terminalPane.
+  bool terminalPane{false};
+  bool terminalPaneShown{false};
 
   // Set for a one-shot job run; see Session::jobCommands/jobName.
   std::vector<wxString> jobCommands;

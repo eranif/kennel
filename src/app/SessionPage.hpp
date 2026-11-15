@@ -46,8 +46,10 @@ class SessionPage : public SessionBasePage, public SearchablePage {
 public:
   using StatusChangedFn = std::function<void(SessionStatus)>;
 
+  // `owner` is for Clone() only: the page that holds this one in its bottom
+  // pane.
   SessionPage(wxWindow *parent, std::optional<AgentDef> agent, Session session,
-              bool resume = false);
+              bool resume = false, SessionPage *owner = nullptr);
   ~SessionPage() override;
 
   // A new page, a child of `parent` (which owns it), with a terminal that runs
@@ -59,7 +61,7 @@ public:
   // terminal (and tmux) only: no agent is launched, also not by Restart(). The
   // clone is a plain terminal; the caller names it and keeps it (it is not in
   // the workspace).
-  SessionPage *Clone(wxWindow *parent) const;
+  SessionPage *Clone(wxWindow *parent);
 
   // The bottom pane with a terminal on the machine and in the folder of this
   // session (a Clone()), shown or hidden: the first time it creates the
@@ -305,6 +307,10 @@ private:
   // Keeps what the workspace saves of the pane (Session::terminalPane) in step
   // with the pane, and asks for the workspace to be saved when it changed.
   void SaveTerminalPane();
+  // Tells the notebook (the parent) about the session: the events of
+  // wxEVT_SESSION_*. A page in a bottom pane tells only its owner that it
+  // ended.
+  void Notify(wxCommandEvent &event);
   // The terminal of the bottom pane ended: destroys its page and closes the
   // pane.
   void CloseTerminalPage();
@@ -362,6 +368,10 @@ private:
   std::optional<AgentDef> m_agent{std::nullopt};
   Session m_session;
   bool m_resume = false;
+  // The page that holds this one in its bottom pane (Clone()); null for a page
+  // of the notebook. A page with an owner is not known to the notebook: see
+  // Notify().
+  SessionPage *m_owner{nullptr};
 
   enum class GitState { Unknown, Yes, No };
 

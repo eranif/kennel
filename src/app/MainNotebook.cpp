@@ -163,8 +163,6 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
                              this);
   EventNotifier::Get()->Bind(wxEVT_ACTIVITYVIEW_SESSION_SELECTED,
                              &MainNotebook::OnShowSessionRequested, this);
-  EventNotifier::Get()->Bind(wxEVT_SESSION_OPEN_TERMINAL,
-                             &MainNotebook::OnOpenTerminalRequested, this);
   EventNotifier::Get()->Bind(wxEVT_SESSION_SIDE_DIR_CHANGED,
                              &MainNotebook::OnSideDirChanged, this);
   EventNotifier::Get()->Bind(wxEVT_FILETREE_ACTIVATED,
@@ -216,8 +214,6 @@ MainNotebook::~MainNotebook() {
                                this);
   EventNotifier::Get()->Unbind(wxEVT_ACTIVITYVIEW_SESSION_SELECTED,
                                &MainNotebook::OnShowSessionRequested, this);
-  EventNotifier::Get()->Unbind(wxEVT_SESSION_OPEN_TERMINAL,
-                               &MainNotebook::OnOpenTerminalRequested, this);
   EventNotifier::Get()->Unbind(wxEVT_SESSION_SIDE_DIR_CHANGED,
                                &MainNotebook::OnSideDirChanged, this);
   EventNotifier::Get()->Unbind(wxEVT_FILETREE_ACTIVATED,
@@ -312,20 +308,33 @@ void MainNotebook::StopTmux(const Session &session) {
     return;
   }
   const Account account = target->account;
-  const tmux::Server server = target->server;
-  const wxString name = session.tmuxName;
-  // The name stays taken until the kill is done: a session made now with the
+  // The tmux session of the session, and that of the terminal in its bottom
+  // pane (a session of its own, on the server of the terminals).
+  std::vector<std::pair<tmux::Server, wxString>> doomed{
+      {target->server, session.tmuxName}};
+  if (session.terminalPane) {
+    doomed.emplace_back(tmux::Server::kTerminal, session.GetTerminalTmuxName());
+  }
+  // The names stay taken until the kill is done: a session made now with the
   // same names (UniqueTmuxName()) would attach to the one that is ending, or be
   // ended by this kill.
-  m_stoppingTmux.insert(name);
+  for (const auto &[server, name] : doomed) {
+    m_stoppingTmux.insert(name);
+  }
   // Blocks (ssh, wsl.exe): a thread of its own, nothing of the UI is used.
-  std::thread([this, alive = m_alive, account, server, name] {
-    if (const Status st = TmuxClient::KillSession(account, server, name);
-        !st.ok()) {
-      KLOG_WARN() << "Could not end the tmux session " << name << ": "
-                  << st.message();
+  std::thread([this, alive = m_alive, account, doomed] {
+    for (const auto &[server, name] : doomed) {
+      if (const Status st = TmuxClient::KillSession(account, server, name);
+          !st.ok()) {
+        KLOG_WARN() << "Could not end the tmux session " << name << ": "
+                    << st.message();
+      }
     }
-    CallAfterIfAlive(alive, [this, name] { m_stoppingTmux.erase(name); });
+    CallAfterIfAlive(alive, [this, doomed] {
+      for (const auto &[server, name] : doomed) {
+        m_stoppingTmux.erase(name);
+      }
+    });
   }).detach();
 }
 
@@ -397,22 +406,6 @@ void MainNotebook::OnShowSessionRequested(PageViewEvent &event) {
   if (page != nullptr && page != GetCurrentPage()) {
     ShowPage(page);
   }
-}
-
-void MainNotebook::OnOpenTerminalRequested(PageViewEvent &event) {
-  const Account &account = event.GetAccount();
-  const wxString &dir = account.m_rootDir;
-  // A terminal in a WSL distribution starts in the home folder: it goes to the
-  // folder of the session with a command. A terminal on a remote host starts in
-  // that folder itself (LaunchTerminal() gives it to the session).
-  std::vector<wxString> commands;
-  if (!dir.empty() && account.IsWSL()) {
-    wxString quoted = dir;
-    quoted.Replace("'", "'\\''");
-    commands.push_back("cd '" + quoted + "'");
-  }
-  LaunchTerminal(event.GetRef().name + " | " + _("Terminal"), dir, account,
-                 commands);
 }
 
 void MainNotebook::OnSideDirChanged(PageViewEvent &event) {
@@ -1711,21 +1704,30 @@ wxString MainNotebook::UniqueTmuxName(const wxString &base) const {
   // Two sessions can end up with the same name (the groups "a b" and "a-b"): a
   // second one would attach to the tmux session of the first. The sessions that
   // are archived keep their tmux session too.
-  auto inUse = [this](const wxString &name) {
+  // The name of the terminal in the bottom pane of a session
+  // (Session::GetTerminalTmuxName()) is taken too: it is "<name>-terminal".
+  auto isTaken = [this](const wxString &name) {
     if (m_stoppingTmux.count(name) != 0) {
       return true; // Being ended: see StopTmux()
     }
+    const auto holds = [&name](const Session &session) {
+      return session.tmuxName == name || session.GetTerminalTmuxName() == name;
+    };
     for (const SessionPage *page : GetSessions()) {
-      if (page->GetSession().tmuxName == name) {
+      if (holds(page->GetSession())) {
         return true;
       }
     }
     for (const ArchivedSession &archived : m_archived) {
-      if (archived.session.tmuxName == name) {
+      if (holds(archived.session)) {
         return true;
       }
     }
     return false;
+  };
+  // A name is also in use when its own terminal name would be taken.
+  const auto inUse = [&isTaken](const wxString &name) {
+    return isTaken(name) || isTaken(name + "-terminal");
   };
   wxString name = base;
   for (int n = 2; inUse(name); ++n) {
@@ -1760,6 +1762,8 @@ bool MainNotebook::LaunchSession(const NewSessionRequest &req,
   session.remoteUser = req.remoteUser;
   session.jobCommands = req.jobCommands;
   session.jobName = req.jobName;
+  session.terminalPane = req.terminalPane;
+  session.terminalPaneShown = req.terminalPaneShown;
   // A restored session attaches to the tmux session it had (it is kept, and the
   // name is reserved by the entry that is being restored). A new session runs
   // in tmux unless the user turned it off: the name is made once and kept. A
@@ -2331,6 +2335,10 @@ bool MainNotebook::RestoreArchived(size_t index) {
   req.groupName = archived.groupName;
   req.tmuxName =
       archived.tmuxName; // Attaches to the tmux session that was kept
+  // The terminal pane it had comes back too (its tmux session was kept with the
+  // session, and ends with it: StopTmux()).
+  req.terminalPane = archived.terminalPane;
+  req.terminalPaneShown = archived.terminalPaneShown;
   req.resume = true;
   for (int suffix = 1; IsNameExist(req.name, req.groupName); ++suffix) {
     req.name = wxString::Format("%s%d", archived.name, suffix);

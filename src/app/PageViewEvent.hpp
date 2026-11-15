@@ -67,12 +67,6 @@ private:
 //                                page that is showing.
 //   wxEVT_PAGES_TOOLBAR_STYLE:   the toolbars take the style of the theme
 //   again.
-// From a page, on the EventNotifier (the pages answer):
-//   wxEVT_SESSION_OPEN_TERMINAL: the session GetRef() asks for a terminal in
-//   its
-//                                place (the same host and folder):
-//                                GetAccount(), its start folder is the folder
-//                                to go to.
 // From the side bar (SideView), on the EventNotifier:
 //   wxEVT_SESSION_SIDE_DIR_CHANGED: the user chose another folder for the files
 //                                of the session GetRef():
@@ -90,7 +84,6 @@ wxDECLARE_EVENT(wxEVT_SESSION_PAGE_SHOWN, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_ACTIVITY, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGE_MOVED, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_PAGES_TOOLBAR_STYLE, wxCommandEvent);
-wxDECLARE_EVENT(wxEVT_SESSION_OPEN_TERMINAL, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_SIDE_DIR_CHANGED, PageViewEvent);
 
 // Sent on the EventNotifier with ProcessEvent() (so the answer is known when it
