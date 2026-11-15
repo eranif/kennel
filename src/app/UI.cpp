@@ -2200,7 +2200,7 @@ ArchiveDlgBase::ArchiveDlgBase(wxWindow* parent, wxWindowID id, const wxString& 
     
     boxSizer653->Add(boxSizer656, 1, wxEXPAND, WXC_FROM_DIP(5));
     
-    m_dvListCtrl = new wxDataViewListCtrl(m_panel652, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_panel652, wxSize(500,300)), wxDV_ROW_LINES|wxDV_SINGLE);
+    m_dvListCtrl = new wxDataViewListCtrl(m_panel652, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_panel652, wxSize(500,300)), wxDV_ROW_LINES|wxDV_MULTIPLE);
     
     boxSizer656->Add(m_dvListCtrl, 1, wxALL|wxEXPAND, WXC_FROM_DIP(5));
     

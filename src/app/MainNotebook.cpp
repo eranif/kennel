@@ -2438,19 +2438,42 @@ void MainNotebook::CheckArchivedTmux(ArchiveDlg &dlg) const {
 
 void MainNotebook::OnArchiveRestore(wxCommandEvent &e) {
   auto *dlg = dynamic_cast<ArchiveDlg *>(e.GetEventObject());
-  // The dialog stays open, to restore more than one session.
-  RestoreArchived(static_cast<size_t>(e.GetInt()));
-  if (dlg != nullptr) {
-    dlg->SetItems(m_archived);
+  CHECK_NOT_NULL_RETURN(dlg);
+  const std::vector<size_t> indices = dlg->GetSelectedIndices();
+  // From the last: a restored session leaves the list and moves the ones after
+  // it.
+  wxString failed;
+  for (auto it = indices.rbegin(); it != indices.rend(); ++it) {
+    const wxString name = m_archived[*it].session.name;
+    if (!RestoreArchived(*it)) {
+      failed << "\n" << name;
+    }
   }
+  if (!failed.empty()) {
+    // What could not be restored is still in the archive: the dialog stays open
+    // and shows it.
+    dlg->SetItems(m_archived);
+    wxMessageBox(_("These sessions could not be restored:") + failed, "Kennel",
+                 wxOK | wxICON_ERROR, dlg);
+    return;
+  }
+  if (indices.size() > 1) {
+    // More than one session was restored: the dialog is done.
+    dlg->EndModal(wxID_OK);
+    return;
+  }
+  // The dialog stays open, to restore more sessions.
+  dlg->SetItems(m_archived);
 }
 
 void MainNotebook::OnArchiveDelete(wxCommandEvent &e) {
   auto *dlg = dynamic_cast<ArchiveDlg *>(e.GetEventObject());
-  DeleteArchived(static_cast<size_t>(e.GetInt()));
-  if (dlg != nullptr) {
-    dlg->SetItems(m_archived);
+  CHECK_NOT_NULL_RETURN(dlg);
+  const std::vector<size_t> indices = dlg->GetSelectedIndices();
+  for (auto it = indices.rbegin(); it != indices.rend(); ++it) {
+    DeleteArchived(*it);
   }
+  dlg->SetItems(m_archived);
 }
 
 void MainNotebook::MoveSessionToGroup(const wxString &sessionName,

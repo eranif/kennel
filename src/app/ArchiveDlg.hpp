@@ -8,10 +8,10 @@
 #include <vector>
 #include <wx/event.h>
 
-// The user asked to restore / delete an archived session. GetInt() is the
-// index of the session in the list given to SetItems(). The dialog sends them
-// to itself; the one that shows it handles them (and gives the dialog the new
-// list with SetItems()).
+// The user asked to restore / delete the selected archived sessions (one or
+// more: GetSelectedIndices()). The dialog sends them to itself; the one that
+// shows it handles them (and gives the dialog the new list with SetItems(), or
+// closes it).
 wxDECLARE_EVENT(wxEVT_ARCHIVE_RESTORE, wxCommandEvent);
 wxDECLARE_EVENT(wxEVT_ARCHIVE_DELETE, wxCommandEvent);
 
@@ -21,6 +21,10 @@ class ArchiveDlg : public ArchiveDlgBase {
 public:
   explicit ArchiveDlg(wxWindow *parent);
   ~ArchiveDlg() override;
+
+  // The indices (in the list given to SetItems()) of the selected sessions,
+  // ascending.
+  std::vector<size_t> GetSelectedIndices() const;
 
   // Replaces the list.
   void SetItems(const std::vector<ArchivedSession> &items);
@@ -44,8 +48,7 @@ private:
   // The text of the tmux column for `session`: empty when it has no tmux
   // session.
   wxString TmuxText(const Session &session) const;
-  // The index (in m_items) of the selected row, or -1.
-  int SelectedIndex() const;
+  bool HasSelection() const { return m_dvListCtrl->HasSelection(); }
   void SendRequest(const wxEventTypeTag<wxCommandEvent> &type);
 
   void OnFilter(wxCommandEvent &event);

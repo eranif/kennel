@@ -1,6 +1,7 @@
 #include "ArchiveDlg.hpp"
 
 #include "DataViewUtils.hpp"
+#include <algorithm>
 #include <wx/msgdlg.h>
 #include <wx/wupdlock.h>
 
@@ -84,10 +85,10 @@ wxString ArchiveDlg::TmuxText(const Session &session) const {
 
 void ArchiveDlg::Populate() {
   wxWindowUpdateLocker locker{m_dvListCtrl};
-  // An answer from a machine arrives while the user is choosing: keep the row.
-  const int selected = SelectedIndex();
+  // An answer from a machine arrives while the user is choosing: keep the rows.
+  const std::vector<size_t> selected = GetSelectedIndices();
   m_dvListCtrl->DeleteAllItems();
-  int selectedRow = 0;
+  std::vector<int> selectedRows;
 
   const wxString filter = m_searchCtrl->GetValue().Lower();
   // The newest first.
@@ -108,8 +109,8 @@ void ArchiveDlg::Populate() {
     row.push_back(s.workingDir);
     row.push_back(item.archivedAt);
     row.push_back(TmuxText(s));
-    if (static_cast<int>(i) == selected) {
-      selectedRow = m_dvListCtrl->GetItemCount();
+    if (std::find(selected.begin(), selected.end(), i) != selected.end()) {
+      selectedRows.push_back(m_dvListCtrl->GetItemCount());
     }
     m_dvListCtrl->AppendItem(row, static_cast<wxUIntPtr>(i));
   }
@@ -119,29 +120,37 @@ void ArchiveDlg::Populate() {
     m_dvListCtrl->GetColumn(i)->SetWidth(wxCOL_WIDTH_AUTOSIZE);
   }
 
-  if (m_dvListCtrl->GetItemCount())
-    m_dvListCtrl->SelectRow(selectedRow);
+  if (selectedRows.empty() && m_dvListCtrl->GetItemCount() != 0) {
+    selectedRows.push_back(0);
+  }
+  for (const int row : selectedRows) {
+    m_dvListCtrl->SelectRow(row);
+  }
 
   dv::StylePageView(m_dvListCtrl);
   dv::AutoSizeColumns(m_dvListCtrl);
 }
 
-int ArchiveDlg::SelectedIndex() const {
-  const wxDataViewItem item = m_dvListCtrl->GetSelection();
-  if (!item.IsOk()) {
-    return -1;
+std::vector<size_t> ArchiveDlg::GetSelectedIndices() const {
+  wxDataViewItemArray items;
+  m_dvListCtrl->GetSelections(items);
+  std::vector<size_t> indices;
+  for (const wxDataViewItem &item : items) {
+    const auto index = static_cast<size_t>(m_dvListCtrl->GetItemData(item));
+    if (index < m_items.size()) {
+      indices.push_back(index);
+    }
   }
-  return static_cast<int>(m_dvListCtrl->GetItemData(item));
+  std::sort(indices.begin(), indices.end());
+  return indices;
 }
 
 void ArchiveDlg::SendRequest(const wxEventTypeTag<wxCommandEvent> &type) {
-  const int index = SelectedIndex();
-  if (index < 0) {
+  if (!HasSelection()) {
     return;
   }
   wxCommandEvent event{type};
   event.SetEventObject(this);
-  event.SetInt(index);
   GetEventHandler()->ProcessEvent(event);
 }
 
@@ -167,7 +176,7 @@ void ArchiveDlg::OnCharHook(wxKeyEvent &event) {
   } break;
   case WXK_RETURN:
   case WXK_NUMPAD_ENTER:
-    if (m_dvListCtrl->GetSelectedRow() != wxNOT_FOUND) {
+    if (HasSelection()) {
       CallAfter([this] {
         wxCommandEvent dummy;
         OnRestore(dummy);
@@ -186,22 +195,35 @@ void ArchiveDlg::OnRestore(wxCommandEvent &) {
 }
 
 void ArchiveDlg::OnDelete(wxCommandEvent &) {
-  const int index = SelectedIndex();
-  if (index < 0 || static_cast<size_t>(index) >= m_items.size()) {
+  const std::vector<size_t> indices = GetSelectedIndices();
+  if (indices.empty()) {
     return;
   }
-  const Session &session = m_items[index].session;
-  wxString question =
-      wxString::Format(_("Delete '%s' from the archive?"), session.name);
+  wxString question;
+  if (indices.size() == 1) {
+    question = wxString::Format(_("Delete '%s' from the archive?"),
+                                m_items[indices.front()].session.name);
+  } else {
+    question = wxString::Format(_("Delete %zu sessions from the archive?"),
+                                indices.size());
+  }
   // Deleting also ends the tmux session of the session (MainNotebook::
   // DeleteArchived()): say so unless it is known to be gone already.
-  const auto state = m_tmuxStates.find(session.tmuxName);
-  const bool isGone =
-      state != m_tmuxStates.end() && state->second == TmuxState::kGone;
-  if (session.IsTmuxSession() && !isGone) {
+  const bool stopsTmux =
+      std::any_of(indices.begin(), indices.end(), [this](size_t index) {
+        const Session &session = m_items[index].session;
+        const auto state = m_tmuxStates.find(session.tmuxName);
+        const bool isGone =
+            state != m_tmuxStates.end() && state->second == TmuxState::kGone;
+        return session.IsTmuxSession() && !isGone;
+      });
+  if (stopsTmux) {
     question << "\n\n"
-             << _("Its tmux session is stopped too: the agent in it that is "
-                  "still running is killed.");
+             << (indices.size() == 1
+                     ? _("Its tmux session is stopped too: the agent in it "
+                         "that is still running is killed.")
+                     : _("Their tmux sessions are stopped too: the agents in "
+                         "them that are still running are killed."));
   }
   const int answer = wxMessageBox(
       question, "Kennel", wxYES_NO | wxNO_DEFAULT | wxICON_QUESTION, this);
@@ -217,5 +239,5 @@ void ArchiveDlg::OnActivated(wxDataViewEvent &) {
 }
 
 void ArchiveDlg::OnButtonUI(wxUpdateUIEvent &event) {
-  event.Enable(SelectedIndex() >= 0);
+  event.Enable(HasSelection());
 }
