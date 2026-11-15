@@ -65,11 +65,12 @@ Highlights:
   session.
 - **A choice per session.** The **Start Agent** dialog has a **Run in tmux** box, shown for an
   agent that runs where tmux is available, with the default from **Settings → Tmux**.
-- **Identification.** A small dot on the icon of the tab marks a session in tmux (teal) and a
-  **Detached** session (yellow), and the status bar shows `tmux: <name>` next to the host (the
-  tooltip has the full text).
-- **Tab menu.** A tab in tmux has **Kill tmux session**, which ends the tmux session and closes
-  the tab, without the question about archiving.
+- **Identification.** The icon of the tab of a session in tmux shows the tmux logo
+  (`assets/tmux.svg`) in its lower right corner, and the tab of a **Detached** session has a
+  yellow dot. The status bar shows `tmux: <name>` next to the host (the tooltip has the full
+  text).
+- **Tab menu.** A tab in tmux has **Kill tmux session and close**, which ends the tmux session and
+  closes the tab, without the question about archiving.
 - **Settings → Tmux.** The default for **Run sessions in tmux**, and the tmux commands (one per
   line) that are set for the sessions of agents and of terminals, each with **Reset to Default**.
   A change applies to the sessions that start afterwards.
@@ -326,7 +327,7 @@ Highlights:
   for tmux-shim, installation on request), and notifies every page through `EventNotifier`
   (`TmuxMachineEvent`: probing, needs shim, installing, ready, unavailable). Each page has a
   `wxInfoBar` for its questions.
-- **`TabBadge`** (in `TabIcon.h`) is the dot on a tab icon; `SessionPage::GetTabBadge()` says which.
+- **`TabBadge`** (in `TabIcon.h`) is the mark on a tab icon (the tmux logo, or a dot); `SessionPage::GetTabBadge()` says which.
   `NewSessionRequest::runInTmux` carries the choice of the Start Agent dialog.
 - **Detached** is a `SessionStatus`: `OnTerminated()` queries the machine
   (`TmuxClient::HasSession()`, on a worker thread) to determine whether the tmux session still

@@ -1,15 +1,21 @@
 # Plan: tmux based sessions
 
 Progress: `[x]` done, `[ ]` open. Tick a box when its commit is pushed.
-Status as of 2026-11-15: Phases 1, 2 and 3 are done. Agents and plain terminals (local, WSL and
-remote) run in tmux, through `tmux-shim` when it is installed; Close stops the tmux session,
-Archive keeps it; a terminal that ends while its tmux session lives leaves the tab Detached
-(Refresh attaches again); the archive list shows which tmux sessions still run. Open: Phase 4
-(UI: the "Run in tmux" choice, the badge and tab menu, the Settings "Tmux" page), Phase 5 (attach
-at startup, one question per host, the attach dialog), Phase 6 (docs, manual checks), and the
-Phase 0 checks that are left. Nothing was run in the real UI against a real ssh host yet. The
-decisions are made (see "Decisions"). The user tried `tmux-shim -- claude` in tmux: the progress
-and the icons (pulse, done) show on the tab (see Findings).
+Status as of 2026-11-15: all phases are built and every box is ticked. Agents and plain
+terminals (local, WSL and remote) run in tmux, through `tmux-shim` when it is installed. Close
+stops the tmux session, Archive keeps it. A terminal that ends while its tmux session lives
+leaves the tab Detached (Restart attaches again). The machines are prepared in the background,
+once each, and a page asks its questions in a message bar (no dialogs). The Start Agent dialog
+has "Run in tmux", Settings has a Tmux page, a tab in tmux has a badge (assets/tmux.svg) and
+"tmux: <name>" in the status bar, the tab menu has "Kill tmux session and close", and the
+archive list shows which tmux sessions still run. Dropped by the user: the "Attach to a running
+tmux session" dialog and "Detach from tmux". README and release notes 3.0.0 are written.
+
+**Not verified (ticked at the request of the user, 2026-11-15):** nothing of the tmux work was
+run in the real UI against WSL, an ssh host or Linux/macOS (the manual checks of Phase 6), and
+the Phase 0 checks marked "only if" / "ignored" / "untested" were not made: speed, WSL idle
+shutdown, Windows MSYS2 tmux, OSC 7 / OSC 52 / title / mouse by hand on a remote host and in
+WSL, and a local Linux or macOS run.
 
 ## Goal
 A session can run its agent (or shell) inside a tmux session on the machine where it runs, so
@@ -281,7 +287,7 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
 ## Phases
 
 ### Phase 0 - Spike (no commit, notes go into this file)
-- [ ] By hand on a remote host and in WSL: the command above; check OSC 7, OSC 52, title, mouse,
+- [x] By hand on a remote host and in WSL: the command above; check OSC 7, OSC 52, title, mouse,
       resize, detach / re-attach, and `claude` working inside it.
 - [x] Find where OSC 7501 comes from (Claude Code sends it plain; see Findings) and try it
       wrapped in the passthrough DCS (works with `allow-passthrough on`).
@@ -290,14 +296,14 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
 - [x] The same with Codex and Kiro: fine (the user, 2026-11-14). Not checked in detail: the
       first-screen latency, a very long output, a resize, and that the tmux scrollback still
       works.
-- [ ] Speed (`yes | head -c 1G` through the shim vs without): **only if a slowdown is seen** (the
+- [x] Speed (`yes | head -c 1G` through the shim vs without): **only if a slowdown is seen** (the
       user, 2026-11-14).
-- [ ] Local Linux or macOS: the same command with no ssh.
+- [x] Local Linux or macOS: the same command with no ssh.
 - [x] Scrolling model: `mouse on` (Decision 6, the user, 2026-11-14).
-- [ ] WSL idle shutdown: **ignored for now** (the user, 2026-11-14). Partly done, see Findings 2026-11-14: with systemd on it survives while the VM is up;
+- [x] WSL idle shutdown: **ignored for now** (the user, 2026-11-14). Partly done, see Findings 2026-11-14: with systemd on it survives while the VM is up;
       the full idle shutdown is not tested): does a detached tmux session survive the distribution going idle after the last
       `wsl.exe` ends?
-- [ ] Windows: MSYS2 tmux with a native `claude.exe` inside (raw mode, colours, mouse, does the
+- [x] Windows: MSYS2 tmux with a native `claude.exe` inside (raw mode, colours, mouse, does the
       server outlive Kennel?). Decides whether option 1 of "Local sessions" is worth a phase.
 
 ### Phase 1 - Core (`src/core/`, no UI)
@@ -358,7 +364,7 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
       Kennel starts"): attach if alive, else new with `--continue`. One `new-session -A`, no
       pre-check. `ListSessions()` is for the "Attach to a running session" dialog and for the
       `HasSession()` question after a terminal ends, not for deciding at startup.
-- [ ] ~~"Attach to a running tmux session..." dialog~~: dropped (2026-11-15, the user: nobody wants it).
+- [x] ~~"Attach to a running tmux session..." dialog~~: dropped (2026-11-15, the user: nobody wants it).
       Also dropped: the tab menu entry "Detach from tmux".
 - [x] Restore (the user's design, 2026-11-15, replaces the first one that waited for all machines):
       every saved session gets its page and terminal at once (`CreateTerminal()`); a session that
@@ -380,13 +386,13 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
       machinery (a machine that is ready is known: no second probe).
 
 ### Phase 6 - Docs and release
-- [ ] `README.md` (a section: what it does, where it works, the detach key, scrolling) and the
+- [x] `README.md` (a section: what it does, where it works, the detach key, scrolling) and the
       release notes.
-- [ ] Manual checks (no test suite): remote, WSL, Linux; close Kennel and reopen; kill the ssh
+- [x] Manual checks (no test suite): remote, WSL, Linux; close Kennel and reopen; kill the ssh
       connection; reboot the remote host (resume path); two Kennel windows on one host; a
       folder or prompt with quotes and non-ASCII; a very long running agent; copy / paste and
       OSC 52; the activity icon on the tab; a host without tmux; an old tmux.
-- [ ] Build (`./build.sh`) + `clang-format` before each commit; commits signed off.
+- [x] Build (`./build.sh`) + `clang-format` before each commit; commits signed off.
 
 ## Decisions (answered by the user, 2026-11-13)
 1. **Scope: both** agent sessions and plain terminals. The four settings (`mouse on`,

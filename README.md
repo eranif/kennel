@@ -365,10 +365,11 @@ machine) do not use tmux.
   ssh again when it is restored, and attaches to its tmux session on that host.
 - **Starting a session.** The **Start Agent** dialog has a **Run in tmux** box, which is shown for
   an agent that runs where tmux is available and whose default is set in **Settings → Tmux**.
-- **Identification.** A small dot on the icon of the tab marks a session in tmux (teal) and a
-  **Detached** session (yellow). The status bar shows `tmux: <name>` next to the host.
-- **Tab menu.** The context menu of a tab in tmux has **Kill tmux session**, which ends the tmux
-  session and closes the tab.
+- **Identification.** The icon of the tab of a session in tmux shows the tmux logo in its lower
+  right corner, and the tab of a **Detached** session has a yellow dot. The status bar shows
+  `tmux: <name>` next to the host.
+- **Tab menu.** The context menu of a tab in tmux has **Kill tmux session and close**, which ends
+  the tmux session and closes the tab, without the question about archiving.
 - **Configuration.** The tmux session has no status line and follows the size of the Kennel
   terminal. The mouse wheel scrolls the history (`mouse on`). The tmux commands are set in
   **Settings → Tmux**.
