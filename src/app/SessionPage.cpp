@@ -1397,17 +1397,8 @@ void SessionPage::ToggleTerminalPane() {
 }
 
 void SessionPage::SetTerminalPane(bool shown, bool focus) {
-  if (m_terminalPage == nullptr) {
-    m_terminalPage = Clone(m_temrinalPanel);
-    if (m_terminalPage->GetTerminal() == nullptr) {
-      // The terminal could not be made: no empty page in the pane.
-      m_terminalPage->Destroy();
-      m_terminalPage = nullptr;
-      SaveTerminalPane();
-      return;
-    }
-    m_temrinalPanel->GetSizer()->Add(m_terminalPage, wxSizerFlags(1).Expand());
-  }
+  // The pane is shown first, and the terminal made after: it gets the size of
+  // the pane, not the one of an empty panel.
   if (shown && !m_splitterMain->IsSplit()) {
     // Half each (see StartReviewer(): the default position is a stale one).
     m_splitterMain->SplitHorizontally(
@@ -1418,10 +1409,42 @@ void SessionPage::SetTerminalPane(bool shown, bool focus) {
   } else if (!shown && m_splitterMain->IsSplit()) {
     m_splitterMain->Unsplit(m_temrinalPanel);
   }
+  if (m_terminalPage == nullptr) {
+    if (shown) {
+      // Deferred: the pane has its size once the window has laid it out.
+      CallAfter([this, focus] { CreateTerminalPage(focus); });
+    } else {
+      CreateTerminalPage(/*focus=*/false);
+    }
+    return;
+  }
   if (focus) {
     (shown ? static_cast<wxWindow *>(m_terminalPage)
            : static_cast<wxWindow *>(m_terminal))
         ->SetFocus();
+  }
+  SaveTerminalPane();
+}
+
+void SessionPage::CreateTerminalPage(bool focus) {
+  if (m_terminalPage != nullptr) {
+    return; // Asked twice before the first one ran
+  }
+  m_terminalPage = Clone(m_temrinalPanel);
+  if (m_terminalPage->GetTerminal() == nullptr) {
+    // The terminal could not be made: no empty page in the pane.
+    m_terminalPage->Destroy();
+    m_terminalPage = nullptr;
+    if (m_splitterMain->IsSplit()) {
+      m_splitterMain->Unsplit(m_temrinalPanel);
+    }
+    SaveTerminalPane();
+    return;
+  }
+  m_temrinalPanel->GetSizer()->Add(m_terminalPage, wxSizerFlags(1).Expand());
+  m_temrinalPanel->Layout();
+  if (focus && m_splitterMain->IsSplit()) {
+    m_terminalPage->SetFocus();
   }
   SaveTerminalPane();
 }
