@@ -327,6 +327,15 @@ SessionPage::SessionPage(wxWindow *parent, std::optional<AgentDef> agent,
   });
   CreateTerminal();
   StartProgram();
+  if (m_session.terminalPane) {
+    // A restored session has the terminal pane it had (in tmux, attached to its
+    // tmux session), shown or hidden as it was. After the page is in the book.
+    CallAfter([this] {
+      if (CanToggleTerminalPane()) {
+        SetTerminalPane(m_session.terminalPaneShown, /*focus=*/false);
+      }
+    });
+  }
 }
 
 SessionPage *SessionPage::Clone(wxWindow *parent) const {
@@ -1371,25 +1380,47 @@ void SessionPage::ToggleTerminalPane() {
   if (!CanToggleTerminalPane()) {
     return;
   }
-  if (m_terminalPage != nullptr && m_splitterMain->IsSplit()) {
-    // Shown: hide it. The terminal goes on running.
-    m_splitterMain->Unsplit(m_temrinalPanel);
-    if (m_terminal != nullptr) {
-      m_terminal->SetFocus();
-    }
-    return;
-  }
-  const bool isNew = m_terminalPage == nullptr;
-  if (isNew) {
+  // Shown: hide it (the terminal goes on running). Otherwise show it, and make
+  // the terminal first if there is none.
+  SetTerminalPane(m_terminalPage == nullptr || !m_splitterMain->IsSplit(),
+                  /*focus=*/true);
+}
+
+void SessionPage::SetTerminalPane(bool shown, bool focus) {
+  if (m_terminalPage == nullptr) {
     m_terminalPage = Clone(m_temrinalPanel);
     m_temrinalPanel->GetSizer()->Add(m_terminalPage, wxSizerFlags(1).Expand());
   }
-  // Half each (see StartReviewer(): the default position is a stale one).
-  m_splitterMain->SplitHorizontally(
-      m_splitterPageSession, m_temrinalPanel,
-      (m_splitterMain->GetClientSize().y - m_splitterMain->GetSashSize()) / 2);
-  m_temrinalPanel->Layout();
-  m_terminalPage->SetFocus();
+  if (shown && !m_splitterMain->IsSplit()) {
+    // Half each (see StartReviewer(): the default position is a stale one).
+    m_splitterMain->SplitHorizontally(
+        m_splitterPageSession, m_temrinalPanel,
+        (m_splitterMain->GetClientSize().y - m_splitterMain->GetSashSize()) /
+            2);
+    m_temrinalPanel->Layout();
+  } else if (!shown && m_splitterMain->IsSplit()) {
+    m_splitterMain->Unsplit(m_temrinalPanel);
+  }
+  if (focus) {
+    (shown ? static_cast<wxWindow *>(m_terminalPage)
+           : static_cast<wxWindow *>(m_terminal))
+        ->SetFocus();
+  }
+  SaveTerminalPane();
+}
+
+void SessionPage::SaveTerminalPane() {
+  const bool has = m_terminalPage != nullptr;
+  const bool shown = has && m_splitterMain->IsSplit();
+  if (m_session.terminalPane == has && m_session.terminalPaneShown == shown) {
+    return;
+  }
+  m_session.terminalPane = has;
+  m_session.terminalPaneShown = shown;
+  // The workspace is saved with it.
+  wxCommandEvent event{wxEVT_SESSION_CHANGED};
+  event.SetEventObject(this);
+  GetParent()->GetEventHandler()->AddPendingEvent(event);
 }
 
 void SessionPage::CloseTerminalPage() {
@@ -1402,6 +1433,7 @@ void SessionPage::CloseTerminalPage() {
   if (m_terminal != nullptr) {
     m_terminal->SetFocus();
   }
+  SaveTerminalPane();
 }
 
 void SessionPage::OnToolCopy(wxCommandEvent &) {

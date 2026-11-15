@@ -299,6 +299,12 @@ private:
   void OnToolRestart(wxCommandEvent &event);
   // ToggleTerminalPane().
   void OnToolTerminal(wxCommandEvent &event);
+  // Makes the terminal of the bottom pane if there is none, then shows or hides
+  // the pane. `focus` gives the focus to the terminal that is in front.
+  void SetTerminalPane(bool shown, bool focus);
+  // Keeps what the workspace saves of the pane (Session::terminalPane) in step
+  // with the pane, and asks for the workspace to be saved when it changed.
+  void SaveTerminalPane();
   // The terminal of the bottom pane ended: destroys its page and closes the
   // pane.
   void CloseTerminalPage();

@@ -38,6 +38,10 @@ json SessionToJson(const Session &s) {
   if (!s.tmuxName.empty()) {
     entry["tmuxName"] = ToUtf8(s.tmuxName);
   }
+  if (s.terminalPane) {
+    entry["terminalPane"] = true;
+    entry["terminalPaneShown"] = s.terminalPaneShown;
+  }
   return entry;
 }
 
@@ -103,6 +107,13 @@ Session ParseSession(const json &j) {
   s.tmuxName = GetStr(j, "tmuxName");     // An older file has none: no tmux
   s.remoteHost = GetStr(j, "remoteHost"); // Only a terminal on a remote host
   s.remoteUser = GetStr(j, "remoteUser");
+  if (auto it = j.find("terminalPane"); it != j.end() && it->is_boolean()) {
+    s.terminalPane = it->get<bool>();
+  }
+  if (auto it = j.find("terminalPaneShown");
+      it != j.end() && it->is_boolean()) {
+    s.terminalPaneShown = it->get<bool>();
+  }
   return s;
 }
 

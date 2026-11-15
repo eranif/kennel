@@ -37,6 +37,12 @@ struct Session {
   // agent says where it runs.
   wxString remoteHost;
   wxString remoteUser;
+  // The terminal in the bottom pane of an agent session (SessionPage::
+  // ToggleTerminalPane()): whether it has one, and whether the pane is shown.
+  // Saved, so that a restored session has the pane it had (in tmux, its
+  // terminal attaches to the tmux session that it had: "<tmuxName>-terminal").
+  bool terminalPane{false};
+  bool terminalPaneShown{false};
 
   // Transient, never persisted: set when this session is a one-shot job run.
   // When non-empty, SessionPage sends jobCommands as-is instead of building
