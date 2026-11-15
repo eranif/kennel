@@ -1104,6 +1104,10 @@ void MainFrame::OnSettings(wxCommandEvent &evt) {
     prefs.sideBarTabPosition = settingsDlg.GetSideBarTabPosition();
     prefs.tabOutlineColour = settingsDlg.GetTabOutlineColour();
     prefs.groupTabs = settingsDlg.GetGroupTabs();
+    // Used by the sessions that start from now on.
+    prefs.tmuxEnabled = settingsDlg.GetTmuxEnabled();
+    prefs.tmuxAgentSettings = settingsDlg.GetTmuxAgentSettings();
+    prefs.tmuxTerminalSettings = settingsDlg.GetTmuxTerminalSettings();
     ApplyAppTheme(prefs.appTheme);
     AppManager::Get().SavePrefs();
 

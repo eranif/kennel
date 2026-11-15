@@ -1,5 +1,6 @@
 #include "ArchiveDlg.hpp"
 
+#include "DataViewUtils.hpp"
 #include <wx/msgdlg.h>
 #include <wx/wupdlock.h>
 
@@ -120,6 +121,9 @@ void ArchiveDlg::Populate() {
 
   if (m_dvListCtrl->GetItemCount())
     m_dvListCtrl->SelectRow(selectedRow);
+
+  dv::StylePageView(m_dvListCtrl);
+  dv::AutoSizeColumns(m_dvListCtrl);
 }
 
 int ArchiveDlg::SelectedIndex() const {
@@ -186,10 +190,21 @@ void ArchiveDlg::OnDelete(wxCommandEvent &) {
   if (index < 0 || static_cast<size_t>(index) >= m_items.size()) {
     return;
   }
-  const int answer =
-      wxMessageBox(wxString::Format(_("Delete '%s' from the archive?"),
-                                    m_items[index].session.name),
-                   "Kennel", wxYES_NO | wxNO_DEFAULT | wxICON_QUESTION, this);
+  const Session &session = m_items[index].session;
+  wxString question =
+      wxString::Format(_("Delete '%s' from the archive?"), session.name);
+  // Deleting also ends the tmux session of the session (MainNotebook::
+  // DeleteArchived()): say so unless it is known to be gone already.
+  const auto state = m_tmuxStates.find(session.tmuxName);
+  const bool isGone =
+      state != m_tmuxStates.end() && state->second == TmuxState::kGone;
+  if (session.IsTmuxSession() && !isGone) {
+    question << "\n\n"
+             << _("Its tmux session is stopped too: the agent in it that is "
+                  "still running is killed.");
+  }
+  const int answer = wxMessageBox(
+      question, "Kennel", wxYES_NO | wxNO_DEFAULT | wxICON_QUESTION, this);
   if (answer == wxYES) {
     SendRequest(wxEVT_ARCHIVE_DELETE);
   }

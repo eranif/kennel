@@ -340,26 +340,26 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
       delete = kill the tmux session.
 
 ### Phase 4 - UI
-- [ ] A "Run in tmux" choice when a session is created (`StartAgentDialog`; if the dialog is in
+- [x] A "Run in tmux" choice when a session is created (`StartAgentDialog`; if the dialog is in
       `UI.wxcp`, change it through `wxcgen` per `CLAUDE.md`, check `git status` first), disabled
       and not shown for a Windows local session. Default **on** (a preference in `UiPrefs` / settings).
-- [ ] Mark tmux sessions: a small badge on the tab and "tmux: kennel-<group>-<session>" in the status bar
+- [x] Mark tmux sessions: a small badge on the tab and "tmux: kennel-<group>-<session>" in the status bar
       (`PublishStatus()`); the context menu of the tab: Detach, Kill tmux session. The badge also
       shows `SessionStatus::Detached` (Phase 3 sets it, but only the footer note shows it so far:
       nothing else reads it yet).
-- [ ] Settings dialog, a new **"Tmux"** page: tmux **on by default** (a checkbox), and **two editable lists of tmux commands**:
+- [x] Settings dialog, a new **"Tmux"** page: tmux **on by default** (a checkbox), and **two editable lists of tmux commands**:
       one for agent sessions (default: the four settings) and one for terminals (default in
       "Decisions", 1), with "Reset to default". The probe picks `all` / `on` for passthrough
       from the host's tmux version, so the stored text must not hard-code it (or the command is
       checked on the host and refused ones are reported).
 
 ### Phase 5 - Find sessions that are still running
-- [ ] On start, each restored tmux session runs the attach-or-create command (see "Lifecycle,
+- [x] On start, each restored tmux session runs the attach-or-create command (see "Lifecycle,
       Kennel starts"): attach if alive, else new with `--continue`. One `new-session -A`, no
       pre-check. `ListSessions()` is for the "Attach to a running session" dialog and for the
       `HasSession()` question after a terminal ends, not for deciding at startup.
-- [ ] "Attach to a running tmux session..." dialog: lists `kennel-*` sessions of a host that no
-      persisted session owns (for example after `workspace.json` was lost) and adopts one.
+- [ ] ~~"Attach to a running tmux session..." dialog~~: dropped (2026-11-15, the user: nobody wants it).
+      Also dropped: the tab menu entry "Detach from tmux".
 - [x] Restore (the user's design, 2026-11-15, replaces the first one that waited for all machines):
       every saved session gets its page and terminal at once (`CreateTerminal()`); a session that
       is not in tmux calls `StartProgram()` at once. A tmux session waits for its machine:

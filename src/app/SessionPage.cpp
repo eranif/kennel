@@ -337,7 +337,10 @@ void SessionPage::PublishStatus() {
   event.SetEventObject(this);
   event.SetString(m_statusText);
   event.SetReviewText(m_reviewText);
-  event.SetHost(m_host);
+  // A session in tmux shows the name of its tmux session next to the host.
+  event.SetHost(m_session.IsTmuxSession()
+                    ? m_host + " | tmux: " + m_session.tmuxName
+                    : m_host);
   event.SetSessionLabel(m_sessionLabel);
   event.SetIcon(m_sessionIcon);
   event.SetBusy(m_busy);
@@ -349,6 +352,9 @@ void SessionPage::PublishStatus() {
   tooltip << m_sessionLabel << wxT("\n") << m_host;
   if (!m_session.workingDir.empty()) {
     tooltip += ": " + m_session.workingDir;
+  }
+  if (m_session.IsTmuxSession()) {
+    tooltip << wxT("\n") << _("tmux session:") << " " << m_session.tmuxName;
   }
   event.SetTooltip(tooltip);
   // No handler here: it goes up to MainFrame.
@@ -896,7 +902,11 @@ void SessionPage::Restart() {
   }
   m_terminalActivity = ProgramActivity::None;
   UpdateProgramActivity();
+  const bool wasDetached = m_status == SessionStatus::Detached;
   m_status = SessionStatus::Starting;
+  if (wasDetached) {
+    RefreshTabIcon(); // The badge is not yellow any more
+  }
   ++m_endedCheck; // The answer of a question about the old terminal is stale
   m_resume = true;
   // The machine is asked again: tmux may have been installed, or the host may
@@ -1038,9 +1048,20 @@ void SessionPage::SetProgramActivity(ProgramActivity activity) {
     return;
   }
   m_programActivity = activity;
+  RefreshTabIcon();
+}
+
+void SessionPage::RefreshTabIcon() {
   wxCommandEvent e{wxEVT_SESSION_PROGRAM};
   e.SetEventObject(this);
   GetParent()->GetEventHandler()->AddPendingEvent(e);
+}
+
+TabBadge SessionPage::GetTabBadge() const {
+  if (m_status == SessionStatus::Detached) {
+    return TabBadge::kDetached;
+  }
+  return m_session.IsTmuxSession() ? TabBadge::kTmux : TabBadge::kNone;
 }
 
 void SessionPage::UpdateHeader(bool force) {
@@ -1130,6 +1151,9 @@ void SessionPage::SetStatus(SessionStatus status) {
     GetParent()->GetEventHandler()->AddPendingEvent(e);
     break;
   }
+  case SessionStatus::Detached:
+    RefreshTabIcon(); // The badge is yellow now
+    break;
   default:
     break;
   }

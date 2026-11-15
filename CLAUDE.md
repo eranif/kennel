@@ -28,6 +28,12 @@ read those for depth. This file covers the rules an agent must not violate.
     `Bind(wxEVT_CHOICE, ...)` in the constructor of the subclass) needs no change of
     the `.wxcp`.
   Everything else in `src/` is fair game to edit directly.
+- **ALL UI goes through wxCrafter.** A new dialog, panel, page or control is a window in
+  `src/app/UI.wxcp` (the `wxcrafter` skill: read its references, copy a sibling widget, run
+  `wxcgen`), with its logic in the generated "Inherited Class" (`wxcgen` writes the skeleton).
+  Never build a dialog or a page by hand in C++ (`new wxDialog`, `new wxChoice` and sizers in a
+  constructor), not even a small one. Only what cannot be designed (a custom drawn control, a
+  popup, the content of a list) is made in code.
 - **Never undo the user's changes to any wxCrafter file (`*.wxcp`), or to the files
   generated from them (`src/app/UI.hpp`, `src/app/UI.cpp`, and any other generated file).**
   Do not revert, restore, check out, stash, or overwrite them, even when they are

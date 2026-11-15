@@ -363,8 +363,15 @@ machine) do not use tmux.
   without tmux (see below).
 - **Terminals.** A plain terminal runs its shell in tmux. A terminal on a remote host logs in with
   ssh again when it is restored, and attaches to its tmux session on that host.
+- **Starting a session.** The **Start Agent** dialog has a **Run in tmux** box, which is shown for
+  an agent that runs where tmux is available and whose default is set in **Settings → Tmux**.
+- **Identification.** A small dot on the icon of the tab marks a session in tmux (teal) and a
+  **Detached** session (yellow). The status bar shows `tmux: <name>` next to the host.
+- **Tab menu.** The context menu of a tab in tmux has **Kill tmux session**, which ends the tmux
+  session and closes the tab.
 - **Configuration.** The tmux session has no status line and follows the size of the Kennel
-  terminal. The mouse wheel scrolls the history (`mouse on`).
+  terminal. The mouse wheel scrolls the history (`mouse on`). The tmux commands are set in
+  **Settings → Tmux**.
 
 **Requirements.** tmux **3.3 or newer** must be installed on the machine, using its package
 manager (for example `apt install tmux` or `brew install tmux`). Kennel does not install tmux.
@@ -627,11 +634,13 @@ stays as **Detached**.
   default is Medium on Windows and macOS, and Short on Linux.
 - **The main toolbar.** The buttons are grouped on rounded pills, with the shortcut of a button in
   its tooltip.
-- **tmux.** Sessions run in tmux unless this machine is Windows. The setting and the tmux commands
-  that Kennel sets for the sessions are in `~/.kennel/.persist.json`: `tmuxEnabled` (default
-  `true`), `tmuxAgentSettings` and `tmuxTerminalSettings` (one tmux command per line, by default
-  `set -g mouse on`, `setw -g mode-keys vi`, `set -g set-clipboard on`, and for agents
-  `set -g allow-passthrough all`). `allow-passthrough` is adapted to the version of tmux.
+- **tmux.** **Settings → Tmux** has the default for **Run sessions in tmux** (on by default; a
+  Windows shell on this machine never uses tmux) and two lists of tmux commands, one per line, that
+  are set when a session starts in tmux: one for agent sessions and one for terminals, each with
+  **Reset to Default**. The defaults are `set -g mouse on`, `setw -g mode-keys vi` and
+  `set -g set-clipboard on`, and for agents `set -g allow-passthrough all`
+  (`allow-passthrough` is adapted to the version of tmux). The values are stored in
+  `~/.kennel/.persist.json` (`tmuxEnabled`, `tmuxAgentSettings`, `tmuxTerminalSettings`).
 - **Terminal preferences.** Set the size of the scrollback buffer.
 - **Layout.** Show or hide the **Side Bar** and the **Activity** pane from the **View** menu.
   **Toggle All Views** (`Ctrl`+`M`) hides every pane except the pages. **View → Reset Kennel

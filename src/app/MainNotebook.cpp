@@ -64,7 +64,8 @@ wxString TitleOf(wxWindow *page) {
 
 wxBitmapBundle IconOf(wxWindow *page) {
   if (auto *session = dynamic_cast<SessionPage *>(page)) {
-    return TabIcon(SessionIconFor(session->GetSession()));
+    return TabIcon(SessionIconFor(session->GetSession()), false,
+                   session->GetTabBadge());
   }
   if (auto *file = dynamic_cast<FilePage *>(page)) {
     return TabIcon(
@@ -623,8 +624,9 @@ void MainNotebook::SetTabTitle(wxWindow *page, const wxString &title) {
 void MainNotebook::SetStatusIcon(SessionPage *page,
                                  const wxBitmapBundle &status) {
   if (const int index = m_book->FindPage(page); index != wxNOT_FOUND) {
-    m_book->SetPageBitmap(index,
-                          status.IsOk() ? TabIcon(status) : IconOf(page));
+    m_book->SetPageBitmap(
+        index, status.IsOk() ? TabIcon(status, false, page->GetTabBadge())
+                             : IconOf(page));
   }
 }
 
@@ -1766,7 +1768,7 @@ bool MainNotebook::LaunchSession(const NewSessionRequest &req,
   if (!req.tmuxName.empty()) {
     session.tmuxName = req.tmuxName;
   } else if (req.jobCommands.empty() &&
-             AppManager::Get().GetPrefs().tmuxEnabled) {
+             req.runInTmux.value_or(AppManager::Get().GetPrefs().tmuxEnabled)) {
     session.tmuxName =
         UniqueTmuxName(tmux::SessionNameFor(session.groupName, session.name));
   }

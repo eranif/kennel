@@ -136,6 +136,9 @@ struct NewSessionRequest {
   // keeps its tmux session on the machine); empty: a new name is made, if the
   // session runs in tmux (see MainNotebook::LaunchSession()).
   wxString tmuxName;
+  // The user's choice for a new session (the "Run in tmux" box of the Start
+  // Agent dialog). Nothing: the default of the settings (UiPrefs::tmuxEnabled).
+  std::optional<bool> runInTmux;
   // A plain terminal on a remote host, see Session::remoteHost.
   wxString remoteHost;
   wxString remoteUser;

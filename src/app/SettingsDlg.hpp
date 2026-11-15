@@ -44,6 +44,16 @@ public:
     return m_spinCtrlScrollBackLines->GetValue();
   }
 
+  // The "Tmux" page: whether new sessions run in tmux, and the tmux commands
+  // (one per line) that are set for the sessions of agents and of terminals.
+  bool GetTmuxEnabled() const { return m_checkBoxTmuxEnabled->IsChecked(); }
+  wxString GetTmuxAgentSettings() const {
+    return m_textCtrlTmuxAgentSettings->GetValue();
+  }
+  wxString GetTmuxTerminalSettings() const {
+    return m_textCtrlTmuxTerminalSettings->GetValue();
+  }
+
   static wxColour GetTabOutlineColourOf(const wxTerminalTheme &theme,
                                         const wxString &key);
   // The index of the "Follow terminal theme" choice of the application theme.
@@ -77,6 +87,11 @@ protected:
   void OnBrowseForShellWorkingDir(wxCommandEvent &event) override;
   void OnChoiceTheme(wxCommandEvent &event) override;
   void OnFontSelected(wxFontPickerEvent &event) override;
+
+  // Not in the generated dialog: bound in the constructor. They put the
+  // default tmux commands back in the text of the page.
+  void OnResetTmuxAgentSettings(wxCommandEvent &event);
+  void OnResetTmuxTerminalSettings(wxCommandEvent &event);
 
   // Tells the tab bars (the notebook and the side bar) to show a tab height.
   static void SendTabHeight(TabHeight height);

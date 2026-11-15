@@ -138,6 +138,24 @@ void MainNotebook::ShowSessionMenu(SessionPage *page, wxWindow *on) {
     menu.AppendSubMenu(moveMenu, _("Move To Group"));
     AppendGroupMenu(menu, currentGroupName);
   }
+  if (page->GetSession().IsTmuxSession()) {
+    menu.AppendSeparator();
+    menu.Append(XRCID("tmux-kill"), _("Kill tmux session"),
+                _("End the tmux session and close the tab"));
+    menu.Bind(
+        wxEVT_MENU,
+        [sessionName, currentGroupName, this](wxCommandEvent &) {
+          // Deferred: see RemovePage. No question about archiving: the tmux
+          // session is ended, so there is nothing to keep.
+          CallAfter([this, sessionName, currentGroupName] {
+            if (auto *current = FindSession(currentGroupName, sessionName)) {
+              StopTmux(current->GetSession());
+              CloseSession(currentGroupName, sessionName);
+            }
+          });
+        },
+        XRCID("tmux-kill"));
+  }
   on->PopupMenu(&menu);
 }
 

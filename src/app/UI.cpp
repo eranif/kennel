@@ -321,6 +321,16 @@ StartAgentDialogBase::StartAgentDialogBase(wxWindow *parent, wxWindowID id,
 
   flexGridSizer31->Add(m_checkBoxResume, 0, wxALL, WXC_FROM_DIP(5));
 
+  m_checkBoxRunInTmux =
+      new wxCheckBox(this, wxID_ANY, _("Run in tmux"), wxDefaultPosition,
+                     wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+  m_checkBoxRunInTmux->SetValue(true);
+  m_checkBoxRunInTmux->SetToolTip(
+      _("The agent keeps running when Kennel is closed, and Kennel attaches to "
+        "it again."));
+
+  flexGridSizer31->Add(m_checkBoxRunInTmux, 0, wxALL, WXC_FROM_DIP(5));
+
   wxStaticBoxSizer *staticBoxSizer510 = new wxStaticBoxSizer(
       new wxStaticBox(this, wxID_ANY, _("Working Directory:")), wxVERTICAL);
 
@@ -1746,6 +1756,84 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
   staticBoxSizer502->Add(m_checkBoxForNewVersionOnStartup, 0, wxALL,
                          WXC_FROM_DIP(5));
 
+  m_panelTmux =
+      new wxPanel(m_notebook352, wxID_ANY, wxDefaultPosition,
+                  wxDLG_UNIT(m_notebook352, wxSize(-1, -1)), wxTAB_TRAVERSAL);
+  m_notebook352->AddPage(m_panelTmux, _("Tmux"), false);
+
+  wxBoxSizer *boxSizerTmux = new wxBoxSizer(wxVERTICAL);
+  m_panelTmux->SetSizer(boxSizerTmux);
+
+  m_checkBoxTmuxEnabled = new wxCheckBox(
+      m_panelTmux, wxID_ANY, _("Run sessions in tmux"), wxDefaultPosition,
+      wxDLG_UNIT(m_panelTmux, wxSize(-1, -1)), 0);
+  m_checkBoxTmuxEnabled->SetValue(true);
+  m_checkBoxTmuxEnabled->SetToolTip(
+      _("The default for new sessions. A Windows shell on this machine never "
+        "uses tmux."));
+
+  boxSizerTmux->Add(m_checkBoxTmuxEnabled, 0, wxALL, WXC_FROM_DIP(5));
+
+  m_staticTextTmuxHelp = new wxStaticText(
+      m_panelTmux, wxID_ANY, _("TTmux Configuration Commands."),
+      wxDefaultPosition, wxDLG_UNIT(m_panelTmux, wxSize(-1, -1)), 0);
+
+  boxSizerTmux->Add(m_staticTextTmuxHelp, 0, wxALL, WXC_FROM_DIP(5));
+
+  m_notebook669 =
+      new wxNotebook(m_panelTmux, wxID_ANY, wxDefaultPosition,
+                     wxDLG_UNIT(m_panelTmux, wxSize(-1, -1)), wxBK_DEFAULT);
+  m_notebook669->SetName(wxT("m_notebook669"));
+
+  boxSizerTmux->Add(m_notebook669, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
+  m_panelAgents =
+      new wxPanel(m_notebook669, wxID_ANY, wxDefaultPosition,
+                  wxDLG_UNIT(m_notebook669, wxSize(-1, -1)), wxTAB_TRAVERSAL);
+  m_notebook669->AddPage(m_panelAgents, _("Agents"), true);
+
+  wxBoxSizer *boxSizer672 = new wxBoxSizer(wxVERTICAL);
+  m_panelAgents->SetSizer(boxSizer672);
+
+  m_textCtrlTmuxAgentSettings =
+      new wxTextCtrl(m_panelAgents, wxID_ANY, wxT(""), wxDefaultPosition,
+                     wxDLG_UNIT(m_panelAgents, wxSize(-1, 90)), wxTE_MULTILINE);
+
+  boxSizer672->Add(m_textCtrlTmuxAgentSettings, 1, wxALL | wxEXPAND,
+                   WXC_FROM_DIP(5));
+
+  m_buttonResetTmuxAgentSettings = new wxButton(
+      m_panelAgents, wxID_ANY, _("Reset to Default"), wxDefaultPosition,
+      wxDLG_UNIT(m_panelAgents, wxSize(-1, -1)), 0);
+  m_buttonResetTmuxAgentSettings->SetToolTip(_("Browse for Working Directory"));
+
+  boxSizer672->Add(m_buttonResetTmuxAgentSettings, 0, wxALL | wxALIGN_RIGHT,
+                   WXC_FROM_DIP(5));
+
+  m_panelTerminals =
+      new wxPanel(m_notebook669, wxID_ANY, wxDefaultPosition,
+                  wxDLG_UNIT(m_notebook669, wxSize(-1, -1)), wxTAB_TRAVERSAL);
+  m_notebook669->AddPage(m_panelTerminals, _("Terminals"), false);
+
+  wxBoxSizer *boxSizer673 = new wxBoxSizer(wxVERTICAL);
+  m_panelTerminals->SetSizer(boxSizer673);
+
+  m_textCtrlTmuxTerminalSettings = new wxTextCtrl(
+      m_panelTerminals, wxID_ANY, wxT(""), wxDefaultPosition,
+      wxDLG_UNIT(m_panelTerminals, wxSize(-1, -1)), wxTE_MULTILINE);
+
+  boxSizer673->Add(m_textCtrlTmuxTerminalSettings, 1, wxALL | wxEXPAND,
+                   WXC_FROM_DIP(5));
+
+  m_buttonResetTmuxTerminalSettings = new wxButton(
+      m_panelTerminals, wxID_ANY, _("Reset to Default"), wxDefaultPosition,
+      wxDLG_UNIT(m_panelTerminals, wxSize(-1, -1)), 0);
+  m_buttonResetTmuxTerminalSettings->SetToolTip(
+      _("Browse for Working Directory"));
+
+  boxSizer673->Add(m_buttonResetTmuxTerminalSettings, 0, wxALL | wxALIGN_RIGHT,
+                   WXC_FROM_DIP(5));
+
   m_stdBtnSizer347 = new wxStdDialogButtonSizer();
 
   boxSizer346->Add(m_stdBtnSizer347, 0, wxALL | wxALIGN_CENTER_HORIZONTAL,
@@ -1766,6 +1854,14 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
     wxPersistenceManager::Get().RegisterAndRestore(m_notebook352);
   } else {
     wxPersistenceManager::Get().Restore(m_notebook352);
+  }
+#endif
+
+#if wxVERSION_NUMBER >= 2900
+  if (!wxPersistenceManager::Get().Find(m_notebook669)) {
+    wxPersistenceManager::Get().RegisterAndRestore(m_notebook669);
+  } else {
+    wxPersistenceManager::Get().Restore(m_notebook669);
   }
 #endif
 

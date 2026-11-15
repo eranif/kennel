@@ -63,6 +63,16 @@ Highlights:
   host logs in with ssh again when it is restored, and attaches to its tmux session on the host.
   The terminal opened from the toolbar of a session behaves the same way, on the host of the
   session.
+- **A choice per session.** The **Start Agent** dialog has a **Run in tmux** box, shown for an
+  agent that runs where tmux is available, with the default from **Settings → Tmux**.
+- **Identification.** A small dot on the icon of the tab marks a session in tmux (teal) and a
+  **Detached** session (yellow), and the status bar shows `tmux: <name>` next to the host (the
+  tooltip has the full text).
+- **Tab menu.** A tab in tmux has **Kill tmux session**, which ends the tmux session and closes
+  the tab, without the question about archiving.
+- **Settings → Tmux.** The default for **Run sessions in tmux**, and the tmux commands (one per
+  line) that are set for the sessions of agents and of terminals, each with **Reset to Default**.
+  A change applies to the sessions that start afterwards.
 - **The archive list shows the tmux state.** **Archived Sessions** has a **tmux** column
   (*Running*, *Ended* or *Unknown*) for each archived session. The state is determined in the
   background, with one query for each machine.
@@ -316,6 +326,8 @@ Highlights:
   for tmux-shim, installation on request), and notifies every page through `EventNotifier`
   (`TmuxMachineEvent`: probing, needs shim, installing, ready, unavailable). Each page has a
   `wxInfoBar` for its questions.
+- **`TabBadge`** (in `TabIcon.h`) is the dot on a tab icon; `SessionPage::GetTabBadge()` says which.
+  `NewSessionRequest::runInTmux` carries the choice of the Start Agent dialog.
 - **Detached** is a `SessionStatus`: `OnTerminated()` queries the machine
   (`TmuxClient::HasSession()`, on a worker thread) to determine whether the tmux session still
   exists.
@@ -359,7 +371,7 @@ Highlights:
 - **Native Windows sessions are not run in tmux.** Use WSL or ssh for sessions that must outlive
   Kennel.
 - **The tmux setting and its commands** (`tmuxEnabled`, `tmuxAgentSettings`,
-  `tmuxTerminalSettings`) are stored in `~/.kennel/.persist.json`; there is no settings page for
-  them yet.
+  `tmuxTerminalSettings`) are edited in **Settings → Tmux** and stored in
+  `~/.kennel/.persist.json`.
 - **The pane layout:** the Output pane is hidden when Kennel starts, and a layout that was saved
   with it showing is restored with it hidden.

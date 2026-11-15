@@ -28,6 +28,9 @@ to work with the user.
   have no choice. Use a private non-static method, a method of the object, or a small
   class. If you are not sure that you have no choice, you have one. The existing ones are
   debt: do not add to them. See `CLAUDE.md`, "Hard rules".
+- **All UI goes through wxCrafter.** A new dialog or page is a window in `src/app/UI.wxcp`,
+  made with the `wxcrafter` skill and `wxcgen`: never hand-write one in C++. See `CLAUDE.md`,
+  "Hard rules".
 - **Just change the code.** No throwaway test programs or extra verification:
   make the change, build, and report what is not verified.
 - **Do not commit or push** until the user says so.

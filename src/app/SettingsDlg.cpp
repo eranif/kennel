@@ -5,6 +5,7 @@
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
 #include "core/Helpers.h"
+#include "core/TmuxCommands.h"
 #include "terminal_view.h"
 #include <wx/tokenzr.h>
 
@@ -191,6 +192,14 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
   m_checkBoxForNewVersionOnStartup->SetValue(prefs.checkForUpdatesOnStartup);
   m_spinCtrlScrollBackLines->SetValue(prefs.scrollbackLines);
   m_textCtrlShellWorkingDir->SetValue(prefs.terminalHomeDir);
+
+  m_checkBoxTmuxEnabled->SetValue(prefs.tmuxEnabled);
+  m_textCtrlTmuxAgentSettings->SetValue(prefs.tmuxAgentSettings);
+  m_textCtrlTmuxTerminalSettings->SetValue(prefs.tmuxTerminalSettings);
+  m_buttonResetTmuxAgentSettings->Bind(
+      wxEVT_BUTTON, &SettingsDlg::OnResetTmuxAgentSettings, this);
+  m_buttonResetTmuxTerminalSettings->Bind(
+      wxEVT_BUTTON, &SettingsDlg::OnResetTmuxTerminalSettings, this);
   GetSizer()->Fit(this);
   PositionDialog(this);
 }
@@ -231,6 +240,14 @@ void SettingsDlg::OnBrowseForShellWorkingDir(wxCommandEvent &event) {
   if (dlg.ShowModal() == wxID_OK) {
     m_textCtrlShellWorkingDir->ChangeValue(dlg.GetPath());
   }
+}
+
+void SettingsDlg::OnResetTmuxAgentSettings(wxCommandEvent &) {
+  m_textCtrlTmuxAgentSettings->SetValue(tmux::DefaultAgentSettings());
+}
+
+void SettingsDlg::OnResetTmuxTerminalSettings(wxCommandEvent &) {
+  m_textCtrlTmuxTerminalSettings->SetValue(tmux::DefaultTerminalSettings());
 }
 
 void SettingsDlg::OnTabPosition(wxCommandEvent &event) {

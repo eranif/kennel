@@ -110,6 +110,7 @@ protected:
   wxStaticText *m_staticText343;
   wxComboBox *m_comboBoxGroup;
   wxCheckBox *m_checkBoxResume;
+  wxCheckBox *m_checkBoxRunInTmux;
   wxCheckBox *m_checkBoxCustomWorkingDirectory;
   wxComboBox *m_comboBoxWorkingDir;
   wxButton *m_buttonBrowseWD;
@@ -133,6 +134,7 @@ public:
   wxStaticText *GetStaticText343() { return m_staticText343; }
   wxComboBox *GetComboBoxGroup() { return m_comboBoxGroup; }
   wxCheckBox *GetCheckBoxResume() { return m_checkBoxResume; }
+  wxCheckBox *GetCheckBoxRunInTmux() { return m_checkBoxRunInTmux; }
   wxCheckBox *GetCheckBoxCustomWorkingDirectory() {
     return m_checkBoxCustomWorkingDirectory;
   }
@@ -426,6 +428,16 @@ protected:
   wxCheckBox *m_checkBoxBlockCaret;
   wxCheckBox *m_checkBoxOptimizeDrawings;
   wxCheckBox *m_checkBoxForNewVersionOnStartup;
+  wxPanel *m_panelTmux;
+  wxCheckBox *m_checkBoxTmuxEnabled;
+  wxStaticText *m_staticTextTmuxHelp;
+  wxNotebook *m_notebook669;
+  wxPanel *m_panelAgents;
+  wxTextCtrl *m_textCtrlTmuxAgentSettings;
+  wxButton *m_buttonResetTmuxAgentSettings;
+  wxPanel *m_panelTerminals;
+  wxTextCtrl *m_textCtrlTmuxTerminalSettings;
+  wxButton *m_buttonResetTmuxTerminalSettings;
   wxStdDialogButtonSizer *m_stdBtnSizer347;
   wxButton *m_buttonOk;
   wxButton *m_buttonCancel;
@@ -473,6 +485,24 @@ public:
     return m_checkBoxForNewVersionOnStartup;
   }
   wxPanel *GetPanel361() { return m_panel361; }
+  wxCheckBox *GetCheckBoxTmuxEnabled() { return m_checkBoxTmuxEnabled; }
+  wxStaticText *GetStaticTextTmuxHelp() { return m_staticTextTmuxHelp; }
+  wxTextCtrl *GetTextCtrlTmuxAgentSettings() {
+    return m_textCtrlTmuxAgentSettings;
+  }
+  wxButton *GetButtonResetTmuxAgentSettings() {
+    return m_buttonResetTmuxAgentSettings;
+  }
+  wxPanel *GetPanelAgents() { return m_panelAgents; }
+  wxTextCtrl *GetTextCtrlTmuxTerminalSettings() {
+    return m_textCtrlTmuxTerminalSettings;
+  }
+  wxButton *GetButtonResetTmuxTerminalSettings() {
+    return m_buttonResetTmuxTerminalSettings;
+  }
+  wxPanel *GetPanelTerminals() { return m_panelTerminals; }
+  wxNotebook *GetNotebook669() { return m_notebook669; }
+  wxPanel *GetPanelTmux() { return m_panelTmux; }
   wxNotebook *GetNotebook352() { return m_notebook352; }
   wxPanel *GetPanel350() { return m_panel350; }
   SettingsDlgBase(wxWindow *parent, wxWindowID id = wxID_ANY,

@@ -39,6 +39,8 @@ protected:
 private:
   wxString m_lastGroupText; // The last group text that was allowed
   void PopulateClients();
+  // Shows the "Run in tmux" box when the selected agent runs where tmux can.
+  void UpdateTmuxChoice();
   // Fills the list of folders with the ones used before.
   void PopulateRecentDirs();
   wxString SelectedAgentId() const;

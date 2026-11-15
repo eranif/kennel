@@ -7,6 +7,7 @@
 #include "app/ReviewBuddyEvent.hpp"
 #include "app/SearchablePage.hpp"
 #include "app/SessionStatusEvent.hpp"
+#include "app/TabIcon.h"
 #include "app/TmuxMachines.hpp"
 #include "core/Account.h"
 #include "core/ActivityMonitor.h"
@@ -60,6 +61,8 @@ public:
   void AcknowledgeDone();
 
   SessionStatus Status() const { return m_status; }
+  // The dot on the tab of the session: it runs in tmux, or it is Detached.
+  TabBadge GetTabBadge() const;
   const Session &GetSession() const { return m_session; }
   Session &GetSession() { return m_session; }
   // The folder the shell is in now, or the one the session started in.
@@ -199,6 +202,9 @@ private:
   void OnAppSelectionChanged(wxTerminalEvent &event);
   // Tells MainView (wxEVT_SESSION_PROGRAM) when the activity changed.
   void SetProgramActivity(ProgramActivity activity);
+  // Tells MainView to draw the icon of the tab again (the badge changed): it is
+  // the event of the activity, which draws the icon.
+  void RefreshTabIcon();
   // Works out the activity of the page from the one of each terminal.
   void UpdateProgramActivity();
   // "Reviewer (Review Buddy) | Reviewing changes" (or "Waiting", while the

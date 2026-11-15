@@ -5,6 +5,7 @@
 #include "app/PageNames.h"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
+#include "core/TmuxClient.h"
 #include "core/UiPrefs.h"
 
 #include "core/Helpers.h"
@@ -35,6 +36,14 @@ StartAgentDialog::StartAgentDialog(wxWindow *parent)
   m_staticTextErrorMessage->SetLabel(existMessage);
   PopulateClients();
   PopulateRecentDirs();
+  // The default is the setting; the box is shown for an agent that can run in
+  // tmux, and follows the choice of the agent.
+  m_checkBoxRunInTmux->SetValue(AppManager::Get().GetPrefs().tmuxEnabled);
+  m_choiceClients->Bind(wxEVT_CHOICE, [this](wxCommandEvent &event) {
+    event.Skip();
+    UpdateTmuxChoice();
+  });
+  UpdateTmuxChoice();
   // Typing the name of the Terminals or Files container is not possible: the
   // text goes back to what it was.
   m_comboBoxGroup->Bind(wxEVT_TEXT, [this](wxCommandEvent &event) {
@@ -115,6 +124,7 @@ bool StartAgentDialog::SetSelectedClientName(const wxString &name) {
         static_cast<wxStringClientData *>(m_choiceClients->GetClientObject(i));
     if (data && data->GetData() == name) {
       m_choiceClients->SetSelection(static_cast<int>(i));
+      UpdateTmuxChoice();
       return true;
     }
   }
@@ -181,7 +191,30 @@ NewSessionRequest StartAgentDialog::GetRequest() const {
       .workingDir = MakeWorkingDir(),
       .resume = m_checkBoxResume->IsChecked(),
       .groupName = MakeGroupName(),
+      // The box is hidden when the agent runs where there is no tmux.
+      .runInTmux = m_checkBoxRunInTmux->IsShown()
+                       ? std::optional<bool>(m_checkBoxRunInTmux->IsChecked())
+                       : std::nullopt,
   };
+}
+
+void StartAgentDialog::UpdateTmuxChoice() {
+  // Whether the agent runs where tmux can: not for a Windows shell of this
+  // machine (see Session::GetTmuxAccount() and TmuxClient::IsAvailableFor()).
+  bool available = false;
+  if (const AgentDef *agent =
+          AppManager::Get().Adapters().FindAgent(SelectedAgentId())) {
+    Session session;
+    session.agentName = agent->name;
+    available = TmuxClient::IsAvailableFor(session.GetTmuxAccount(
+        *agent, AppManager::Get().GetPrefs().terminalLoginShell));
+  }
+  if (m_checkBoxRunInTmux->IsShown() == available) {
+    return;
+  }
+  m_checkBoxRunInTmux->Show(available);
+  GetSizer()->Fit(this);
+  Layout();
 }
 
 void StartAgentDialog::OnNameUpdated(wxCommandEvent &event) {
