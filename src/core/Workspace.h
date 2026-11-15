@@ -1,8 +1,14 @@
 #pragma once
 
+#include "core/Account.h"
+#include "core/TmuxCommands.h"
+
+#include <optional>
+#include <vector>
 #include <wx/string.h>
 
-#include <vector>
+class AdapterRegistry;
+struct AgentDef;
 
 // One persisted session (workspace.json -> sessions[]).
 struct Session {
@@ -42,10 +48,36 @@ struct Session {
   // The originating JobDef::name, for jobs.log attribution (a job run's
   // session name is "<jobName> #N", but the name alone isn't parsed back).
   wxString jobName;
+  // Whether this session is a one-shot job run (a scheduled job, or "Run Now"):
+  // a terminal tab that types the commands of the job (`jobCommands`) as they
+  // are, and not the launch command of an agent. The user did not start it by
+  // hand and Kennel owns its whole life: it is closed when the job ends, it is
+  // never saved (IsPersistent()), never archived, and never runs in tmux.
   inline bool IsJobRun() const { return !jobCommands.empty(); }
   // Whether the session is written to workspace.json: everything but one-shot
   // job runs (plain terminals are restored too).
   inline bool IsPersistent() const { return !IsJobRun(); }
+
+  // Whether the agent (or the terminal) of the session runs in a tmux session
+  // on its machine: it has a tmux name, and it is not a job run.
+  inline bool IsTmuxSession() const { return !tmuxName.empty() && !IsJobRun(); }
+  // The tmux server that holds the session: the one of the agents, or the one
+  // of the plain terminals.
+  tmux::Server GetTmuxServer() const;
+  // The machine where the tmux session of this session is: the host of its
+  // agent (a terminal: its `remoteHost`), a WSL distribution (the login shell
+  // of the agent, of the terminal, or `defaultShell` when it has none), or this
+  // machine. `agent` is the agent of an agent session (GetTmuxServer() says
+  // which kind it is: `agent` is not looked at for a plain terminal).
+  Account GetTmuxAccount(const std::optional<AgentDef> &agent,
+                         const wxString &defaultShell) const;
+  // Where the tmux session is, to ask or end it: nothing when the session is
+  // not a tmux session (IsTmuxSession()), when its agent is not in `agents` any
+  // more (a call on the terminal server of this machine would find nothing and
+  // still say that it worked), or when its machine has no tmux (this machine on
+  // Windows).
+  std::optional<tmux::Target> GetTmuxTarget(const AdapterRegistry &agents,
+                                            const wxString &defaultShell) const;
 };
 
 // Names a page of the main view by strings, never by pointer. A session:

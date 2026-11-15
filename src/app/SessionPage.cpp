@@ -252,10 +252,11 @@ wxString JoinHeader(wxString head, wxString title, const wxString &dir) {
 } // namespace
 
 SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
-                         Session session, bool resume)
+                         Session session, bool resume,
+                         std::optional<tmux::Version> tmuxVersion)
     : SessionBasePage(parent), m_paths(AppManager::Get().Paths()),
       m_agent(std::move(agent)), m_session(std::move(session)),
-      m_resume(resume) {
+      m_resume(resume), m_tmuxVersion(tmuxVersion) {
   SetDefaultSessionName(m_session.name);
   InitStatus();
   Bind(wxEVT_TIMER, &SessionPage::OnNoticeTimer, this, m_noticeTimer.GetId());
@@ -654,32 +655,6 @@ std::vector<wxTerminalViewCtrl *> SessionPage::GetTerminals() const {
   return terminals;
 }
 
-Account SessionPage::TmuxAccountOf(const std::optional<AgentDef> &agent,
-                                   const Session &session) {
-  if (agent && agent->IsRemote()) {
-    return Account::Remote(agent->remoteHost, agent->remoteUser);
-  }
-  if (!agent && !session.remoteHost.empty()) {
-    // A terminal on a remote host: a local shell that logs in with ssh.
-    return Account::Remote(session.remoteHost, session.remoteUser);
-  }
-  // The shell that runs on this machine, as CreateTerminal() chooses it: the
-  // agent's own, else the one of the terminal (the one it chose, else the
-  // default one).
-  wxString shell;
-  if (agent && !agent->loginShell.empty()) {
-    shell = agent->loginShell;
-  } else if (!agent && !session.loginShell.empty()) {
-    shell = session.loginShell;
-  } else {
-    shell = AppManager::Get().GetPrefs().terminalLoginShell;
-  }
-  if (const wxString distro = wsl::DistroOf(shell); !distro.empty()) {
-    return Account::WSL(distro);
-  }
-  return Account::LocalHost();
-}
-
 std::vector<wxString> SessionPage::ProgramCommands() const {
   if (m_session.IsJobRun()) {
     return m_session.jobCommands;
@@ -688,14 +663,15 @@ std::vector<wxString> SessionPage::ProgramCommands() const {
   // In tmux when the session was made to (the name is kept with it) and the
   // machine has said that it has tmux (see StartProgram()).
   std::optional<tmux::LaunchSpec> spec;
-  if (!m_session.tmuxName.empty() && m_tmuxVersion) {
+  if (m_session.IsTmuxSession() && m_tmuxVersion) {
     const auto &prefs = AppManager::Get().GetPrefs();
     spec = tmux::LaunchSpec{};
-    spec->server = m_agent ? tmux::Server::kAgent : tmux::Server::kTerminal;
+    spec->server = m_session.GetTmuxServer();
     spec->sessionName = m_session.tmuxName;
     spec->settings = tmux::AdaptToVersion(
-        tmux::ParseCommands(m_agent ? prefs.tmuxAgentSettings
-                                    : prefs.tmuxTerminalSettings),
+        tmux::ParseCommands(spec->server == tmux::Server::kAgent
+                                ? prefs.tmuxAgentSettings
+                                : prefs.tmuxTerminalSettings),
         *m_tmuxVersion);
   }
 
@@ -731,9 +707,16 @@ std::vector<wxString> SessionPage::ProgramCommands() const {
 
 void SessionPage::StartProgram() {
   CHECK_NOT_NULL_RETURN(m_terminal);
-  if (!m_session.tmuxName.empty() && !m_session.IsJobRun()) {
-    const Account account = TmuxAccountOf(m_agent, m_session);
+  if (m_session.IsTmuxSession()) {
+    const Account account = m_session.GetTmuxAccount(
+        m_agent, AppManager::Get().GetPrefs().terminalLoginShell);
     if (TmuxClient::IsAvailableFor(account)) {
+      if (m_tmuxVersion) {
+        // The machine was prepared before the terminal was made (the restore of
+        // the workspace): nothing to ask.
+        FinaliseTerminalCreate();
+        return;
+      }
       // The machine is asked without blocking the UI: OnTmuxPrepared() calls
       // FinaliseTerminalCreate() when it has answered.
       SetNote(
@@ -889,7 +872,7 @@ void SessionPage::OnTerminated(wxTerminalEvent &evt) {
   m_terminalActivity = ProgramActivity::None;
   UpdateProgramActivity();
   // Only a session that really runs in tmux can outlive its terminal.
-  if (m_tmuxVersion && !m_session.tmuxName.empty() && !m_session.IsJobRun()) {
+  if (m_tmuxVersion && m_session.IsTmuxSession()) {
     CheckTmuxSessionAfterTerminated();
     return;
   }
@@ -897,9 +880,9 @@ void SessionPage::OnTerminated(wxTerminalEvent &evt) {
 }
 
 void SessionPage::CheckTmuxSessionAfterTerminated() {
-  const Account account = TmuxAccountOf(m_agent, m_session);
-  const tmux::Server server =
-      m_agent ? tmux::Server::kAgent : tmux::Server::kTerminal;
+  const Account account = m_session.GetTmuxAccount(
+      m_agent, AppManager::Get().GetPrefs().terminalLoginShell);
+  const tmux::Server server = m_session.GetTmuxServer();
   const int generation = ++m_endedCheck;
   // Blocks (ssh, wsl.exe): a thread of its own, nothing of the page is used
   // until the answer is back on the UI thread.

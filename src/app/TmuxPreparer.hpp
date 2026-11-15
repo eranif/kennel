@@ -57,8 +57,12 @@ public:
   explicit TmuxPreparer(wxEvtHandler *handler);
   ~TmuxPreparer() override;
 
-  // Starts (a run that is going on is dropped).
-  void Start(const Account &account);
+  // Starts (a run that is going on is dropped). `restoring` > 0: it is the
+  // number of saved sessions that wait for this machine (TmuxStartup): the
+  // question about the shim then says so, and its choices are Download or
+  // removing those sessions (the answer "No" is kWithoutTmux; there is no
+  // Cancel).
+  void Start(const Account &account, int restoring = 0);
   // Drops the run that is going on: no event comes for it, also one that was
   // queued already (it has an older GetGeneration() than the current one).
   void Cancel();
@@ -80,6 +84,7 @@ private:
   wxEvtHandler *m_handler;
   AliveFlag m_alive{MakeAliveFlag()};
   Account m_account;
+  int m_restoring{0}; // See Start()
   tmux::Version m_version;
   Phase m_phase{Phase::kIdle};
   // Tells a run from the one before it: an answer of a thread that was started

@@ -44,8 +44,13 @@ class SessionPage : public SessionBasePage, public SearchablePage {
 public:
   using StatusChangedFn = std::function<void(SessionStatus)>;
 
+  // `tmuxVersion`: the machine of the session was prepared already
+  // (TmuxStartup, when the saved sessions are opened) and has tmux of this
+  // version: the session starts in it at once, without asking the machine
+  // again.
   SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
-              Session session, bool resume = false);
+              Session session, bool resume = false,
+              std::optional<tmux::Version> tmuxVersion = std::nullopt);
   ~SessionPage() override;
 
   // What the program in the agent's terminal reports with OSC 7501: "working"
@@ -66,13 +71,6 @@ public:
   // Where the files of the session are: this machine, the WSL distribution or
   // the remote host the program runs on, starting in the folder of the session.
   Account GetAccount() const;
-  // The machine a session runs in tmux on: where the agent runs, or where the
-  // shell of a plain terminal runs. `agent` is empty for a plain terminal. The
-  // same rules as CreateTerminal() for the shell (so a default shell that is a
-  // WSL distribution counts), and no page is needed (an archived session has
-  // none).
-  static Account TmuxAccountOf(const std::optional<AgentDef> &agent,
-                               const Session &session);
   inline bool IsPlainTerminal() const { return !m_agent.has_value(); }
   void Restart();
   // Types `commands` into the terminal, once what the session runs is started

@@ -5,6 +5,8 @@
 #include <vector>
 #include <wx/string.h>
 
+#include "core/Account.h"
+
 // The command lines that Kennel gives to tmux (see
 // .agents/planning/tmux-sessions/plan.md). Pure string work: nothing here runs
 // a program (TmuxClient does), so it needs no machine and no thread. GUI-free.
@@ -21,7 +23,14 @@ namespace tmux {
 enum class Server { kAgent, kTerminal };
 
 // The socket name (`-L`) of a server: "kennel" or "kennel-term".
-wxString SocketOf(Server server);
+wxString SocketName(Server server);
+
+// Where the tmux session of a Kennel session is: the machine, and the server on
+// it (Session::GetTmuxTarget()).
+struct Target {
+  Account account;
+  Server server{Server::kAgent};
+};
 
 struct Version {
   int major{0};

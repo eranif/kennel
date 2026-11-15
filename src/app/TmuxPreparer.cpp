@@ -16,9 +16,10 @@ TmuxPreparer::TmuxPreparer(wxEvtHandler *handler) : m_handler(handler) {
 
 TmuxPreparer::~TmuxPreparer() { m_alive->store(false); }
 
-void TmuxPreparer::Start(const Account &account) {
+void TmuxPreparer::Start(const Account &account, int restoring) {
   m_installer.reset(); // A run that is going on gets no more events
   m_account = account;
+  m_restoring = restoring;
   m_phase = Phase::kProbing;
   const int generation = ++m_generation;
   // Blocks (ssh, wsl.exe): not on the UI thread. The thread uses no member.
@@ -143,6 +144,34 @@ void TmuxPreparer::OnInstallDone(InstallEvent &event) {
 
 int TmuxPreparer::AskToInstallShim() const {
   const ToolDescription &tool = tmuxshim::Tool();
+  if (m_restoring > 0) {
+    // Saved sessions that run in tmux on the machine: without the shim they are
+    // not opened, and they are removed.
+    wxMessageDialog restoring(
+        wxTheApp->GetTopWindow(),
+        wxString::Format(_("Download %s?"), tool.name),
+        wxString::Format(_("Kennel requires to download %s"), tool.name),
+        wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
+    restoring.SetExtendedMessage(wxString::Format(
+        wxPLURAL("%d saved session runs in tmux on %s. %s %s is downloaded "
+                 "from GitHub into ~/.kennel/bin on that machine. It lets "
+                 "Kennel show what the agent is doing (working, done, "
+                 "waiting).\n\nIf you do not download it, the session is "
+                 "removed, and its tmux session on that machine is "
+                 "stopped.",
+                 "%d saved sessions run in tmux on %s. %s %s is downloaded "
+                 "from GitHub into ~/.kennel/bin on that machine. It lets "
+                 "Kennel show what the agent is doing (working, done, "
+                 "waiting).\n\nIf you do not download it, the sessions are "
+                 "removed, and their tmux sessions on that machine are "
+                 "stopped.",
+                 m_restoring),
+        m_restoring, m_account.GetDisplayName(), tool.name, tool.version));
+    restoring.SetYesNoLabels(
+        _("Download"),
+        wxPLURAL("Remove the session", "Remove the sessions", m_restoring));
+    return restoring.ShowModal();
+  }
   wxMessageDialog dialog(
       wxTheApp->GetTopWindow(),
       // The main instruction: short.

@@ -63,7 +63,7 @@ void ArchiveDlg::SetTmuxState(const wxString &name, TmuxState state) {
 }
 
 wxString ArchiveDlg::TmuxText(const Session &session) const {
-  if (session.tmuxName.empty()) {
+  if (!session.IsTmuxSession()) {
     return {};
   }
   const auto state = m_tmuxStates.find(session.tmuxName);

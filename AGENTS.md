@@ -16,6 +16,18 @@ to work with the user.
   asynchronous, a new state), grep the whole repo for its users and read them, and
   trace the startup path (restoring sessions) before saying it is done. See
   `CLAUDE.md`, "Build & verify".
+- **NEVER name a function `XxxOf(x)` or `XxxFor(x)`** (`DistroOf`, `TmuxTargetOf`,
+  `DefaultIconFor`). Say what it returns with a verb: `GetDistroNameFrom(shell)`,
+  `IsXxx()`, `GetXxx()`, `FindXxx()`. `For` only when it is absolutely needed (a wxWidgets
+  API). The old ones are debt: do not copy them. See `CLAUDE.md`, "Hard rules".
+- **A method on the object, NOT a global helper.** If it is about one of our types
+  (`Session`, `Account`, `AgentDef`, a page), it is a non-static method of that type:
+  `session.IsTmuxSession()`, `agent.GetDefaultIcon()`, not `DefaultIconFor(agent)` and not
+  a `static` somewhere else. A `static` method is the last resort.
+- **Do NOT use an anonymous namespace (or a file-level `static`) for helpers** unless you
+  have no choice. Use a private non-static method, a method of the object, or a small
+  class. If you are not sure that you have no choice, you have one. The existing ones are
+  debt: do not add to them. See `CLAUDE.md`, "Hard rules".
 - **Just change the code.** No throwaway test programs or extra verification:
   make the change, build, and report what is not verified.
 - **Do not commit or push** until the user says so.

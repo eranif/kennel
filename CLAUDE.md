@@ -40,6 +40,32 @@ read those for depth. This file covers the rules an agent must not violate.
 - **ALWAYS use wxWidgets events for notifications and callbacks.** Avoid `std::function`.
 - **Logging goes through `KLOG_DEBUG()/KLOG_INFO()/KLOG_WARN()/KLOG_ERROR()`**
   (`core/Logger.h`), never `wxLog*`. Output goes to `~/.kennel/logs/kennel.log`.
+- **NEVER name a function `XxxOf(...)` or `XxxFor(...)`.** Not `DistroOf`, `ClientKindOf`,
+  `TmuxTargetOf`, `DefaultIconFor`, `SessionNameFor`, `NodeOf`: the name never says what
+  comes back or what the argument is. Write a verb that says it: `GetDistroNameFrom(shell)`,
+  `GetClientKindFrom(executable)`, `IsXxx()` for a bool, `GetXxx()` for a value that is held
+  or worked out, `FindXxx()` for a lookup that can fail. `For` is allowed only when it is
+  absolutely needed, for example when a wxWidgets API we override or call has it
+  (`GetBitmapFor`). The existing `XxxOf` / `XxxFor` functions are debt, to be renamed: do not
+  copy them, and rename one when you touch the code around it.
+- **A method on the object, NOT a global helper.** If the question or the work is about one
+  of our types (`Session`, `Account`, `AgentDef`, a page), it is a **non-static
+  method of that type**: `session.IsTmuxSession()`, `session.GetTmuxTarget(...)`,
+  `agent.GetDefaultIcon()`, not `DefaultIconFor(agent)`, not a free function, not a `static`
+  of some other class. Before you write a free function or a `static` that takes such an
+  object as its main argument, put it on the object. A free function is only for something
+  that no type owns (and then it is named by the rule above). A `static` method is the last
+  resort, not the first.
+- **Do NOT put helpers in an anonymous namespace (or file-level `static`) unless you have
+  no choice.** It has become abuse: every `.cpp` collects private functions that nobody can
+  reuse, test or find. Use a **private non-static method** of the class (it can reach the
+  members, and its name is in the header), a method of the object it works on (see above),
+  or a small class of its own (see "Conventions", simple single-purpose classes). Not a
+  `static` private method either, unless it really needs no object. An anonymous namespace
+  is for what C++ forces into one: a constant or a type that only this file uses, a
+  `wxDEFINE_EVENT`-style registration, or a callback with a fixed C signature. If you are not
+  sure that you have no choice, you have one. The existing anonymous namespaces are debt, to
+  be cleaned up: do not add to them, and move a function out when you touch it.
 - When git-committing a change, make sure to sign-off the commit using git's "-s"
 - NEVER add a "Co-Authored-By:" line to the commit message.
 

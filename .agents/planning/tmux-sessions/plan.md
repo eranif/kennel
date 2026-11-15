@@ -360,8 +360,18 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
       `HasSession()` question after a terminal ends, not for deciding at startup.
 - [ ] "Attach to a running tmux session..." dialog: lists `kennel-*` sessions of a host that no
       persisted session owns (for example after `workspace.json` was lost) and adopts one.
-- [ ] Ssh failures at startup must not block the window: do the probing on worker threads and
-      show the tab as "Connecting".
+- [x] Restore (the user's design, 2026-11-15): before the first terminal starts, `TmuxStartup`
+      prepares each machine that holds saved tmux sessions, one after the other (probe, shim
+      check, one question per machine), and `MainNotebook::FinishRestore()` opens all the pages
+      when the last one has answered. **The whole restore waits on purpose**; the probe is on
+      worker threads, so the window is not blocked, and each probe ends after 30 s at the
+      latest (`TmuxClient`). Declined (the user does not want the shim): the sessions are
+      removed and their tmux sessions stopped. Not usable now (host down, no tmux, an old one,
+      no clear answer): not opened this run, kept saved (`m_unopened`, with their place in the
+      tab order and the recent list), and the user may remove them in the message.
+- [ ] Open question for later: a host that is down delays every tab by up to 30 s. A tab that
+      shows "Connecting" and opens when its own machine answers (a per-machine event, and the
+      sessions that need no machine at once) would fix it, but it is not what was asked for.
 
 ### Phase 6 - Docs and release
 - [ ] `README.md` (a section: what it does, where it works, the detach key, scrolling) and the

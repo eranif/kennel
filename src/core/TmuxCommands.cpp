@@ -37,12 +37,12 @@ std::string ExactTarget(const wxString &name) {
 }
 
 std::string SocketArguments(Server server) {
-  return "tmux -L " + ShellWord(Utf8(SocketOf(server)));
+  return "tmux -L " + ShellWord(Utf8(SocketName(server)));
 }
 
 } // namespace
 
-wxString SocketOf(Server server) {
+wxString SocketName(Server server) {
   return server == Server::kAgent ? "kennel" : "kennel-term";
 }
 

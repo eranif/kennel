@@ -254,6 +254,7 @@ add_library(
   src/core/JobScheduler.cpp
   src/core/JsonUtil.cpp
   src/core/FileLocation.cpp
+  src/core/Workspace.cpp
   src/core/WorkspaceStore.cpp
   src/core/UiPrefsStore.cpp
   src/core/UpdateChecker.cpp
@@ -352,6 +353,7 @@ set(KENNEL_APP_SOURCES
     src/app/FindResultsView.cpp
     src/app/OutputView.cpp
     src/app/TmuxPreparer.cpp
+    src/app/TmuxStartup.cpp
     src/app/GitCommitMessageDlg.cpp
     src/app/GitPanel.cpp
     src/app/FileActions.cpp
