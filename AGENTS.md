@@ -28,6 +28,7 @@ to work with the user.
   have no choice. Use a private non-static method, a method of the object, or a small
   class. If you are not sure that you have no choice, you have one. The existing ones are
   debt: do not add to them. See `CLAUDE.md`, "Hard rules".
+- Load the wxcrafter skill before editing any *.wxcp file or any file generated from one. Generated files carry the banner "Do not modify this file by hand!" and are overwritten on every run, so never edit them directly: change the .wxcp as the skill describes, then regenerate.
 - **All UI goes through wxCrafter.** A new dialog or page is a window in `src/app/UI.wxcp`,
   made with the `wxcrafter` skill and `wxcgen`: never hand-write one in C++. See `CLAUDE.md`,
   "Hard rules".
