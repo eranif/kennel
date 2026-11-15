@@ -7,7 +7,7 @@
 #include "app/ReviewBuddyEvent.hpp"
 #include "app/SearchablePage.hpp"
 #include "app/SessionStatusEvent.hpp"
-#include "app/TmuxPreparer.hpp"
+#include "app/TmuxMachines.hpp"
 #include "core/Account.h"
 #include "core/ActivityMonitor.h"
 #include "core/AppPaths.h"
@@ -21,6 +21,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <wx/infobar.h>
 #include <wx/timer.h>
 
 class wxTerminalViewCtrl;
@@ -44,13 +45,8 @@ class SessionPage : public SessionBasePage, public SearchablePage {
 public:
   using StatusChangedFn = std::function<void(SessionStatus)>;
 
-  // `tmuxVersion`: the machine of the session was prepared already
-  // (TmuxStartup, when the saved sessions are opened) and has tmux of this
-  // version: the session starts in it at once, without asking the machine
-  // again.
   SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
-              Session session, bool resume = false,
-              std::optional<tmux::Version> tmuxVersion = std::nullopt);
+              Session session, bool resume = false);
   ~SessionPage() override;
 
   // What the program in the agent's terminal reports with OSC 7501: "working"
@@ -154,9 +150,10 @@ private:
   // after it, unless the user cancelled the choice of the shell.
   void CreateTerminal();
   // Phase 2: starts what runs in the terminal. A session that runs in tmux
-  // asks the machine first (TmuxPreparer, without blocking the UI) and
-  // OnTmuxPrepared() goes on; the others go on at once. Both end in
-  // FinaliseTerminalCreate().
+  // needs its machine to be ready (TmuxMachines, on worker threads: one
+  // question for all the sessions of a machine): it asks with an event, and
+  // OnTmuxMachine() goes on when the machine has answered. The others go on at
+  // once. Both end in FinaliseTerminalCreate().
   void StartProgram();
   // Types the commands of the session into the terminal (ProgramCommands()).
   void FinaliseTerminalCreate();
@@ -164,16 +161,25 @@ private:
   // the commands of a job, or the attach of tmux for a terminal. Nothing for a
   // terminal without tmux.
   std::vector<wxString> ProgramCommands() const;
-  // The session starts without tmux: a new session loses its tmux name for
-  // good, a restored one keeps it (see StartWithoutTmux() in the .cpp).
-  void StartWithoutTmux();
   // The session is not in tmux (any more): forgets the name, saved at once.
   void DropTmux();
   // A text in the strip at the bottom of the terminal, in place of the header,
-  // until it is replaced or cleared (an empty text): "Connecting to ...", why
-  // tmux could not be used.
+  // until it is replaced or cleared (an empty text): "Connecting to ...".
   void SetNote(const wxString &text);
-  void OnTmuxPrepared(TmuxPreparedEvent &event);
+  // The machine that holds the tmux session of this session (a tmux session
+  // only).
+  Account GetTmuxMachine() const;
+  // What TmuxMachines says about a machine (every page gets it, and the one
+  // that waits for that machine goes on).
+  void OnTmuxMachine(TmuxMachineEvent &event);
+  // The message bar of the page (a question, or why the session can not start)
+  // with the buttons that the text needs: Download (tmux-shim) and Close
+  // session. It is a bar, not a dialog, so that every page can ask its own
+  // question at the same time.
+  void ShowInfo(const wxString &text, int icon, bool download, bool close);
+  void HideInfo();
+  void OnTmuxDownload(wxCommandEvent &event);
+  void OnTmuxClose(wxCommandEvent &event);
   // Everything both terminals need once they exist: theme, scrollback, links,
   // the context menu.
   void ConfigureTerminal(wxTerminalViewCtrl *terminal);
@@ -313,6 +319,8 @@ private:
     ID_COPY,
     ID_PASTE,
     ID_FIND,
+    ID_TMUX_DOWNLOAD,
+    ID_TMUX_CLOSE,
   };
   wxAuiToolBar *m_toolbar{nullptr};
   // The part of the page next to the toolbar: the terminals and the search bar.
@@ -356,10 +364,15 @@ private:
   AliveFlag m_alive{MakeAliveFlag()};
   std::unique_ptr<ActivityMonitor> m_monitor;
   SessionStatus m_status = SessionStatus::Starting;
-  // What tmux needs on the machine, before the session can start in tmux.
-  std::unique_ptr<TmuxPreparer> m_tmuxPreparer;
-  // The version of the tmux of the machine, once TmuxPreparer has said it is
-  // there: the session starts in tmux. Asked again at each Restart().
+  // The session waits for its machine (StartProgram()) to be ready.
+  bool m_waitingForTmux{false};
+  // The next question about the machine asks it again, also when it is known
+  // (Restart()): tmux may have been installed, or the host may be there now.
+  bool m_askMachineAgain{false};
+  // The message bar and what it has (see ShowInfo()).
+  wxInfoBar *m_infoBar{nullptr};
+  // The version of the tmux of the machine, once it is ready: the session
+  // starts in tmux. Asked again at each Restart().
   std::optional<tmux::Version> m_tmuxVersion;
   // What the strip at the bottom of the terminal says instead of the header,
   // see SetNote(). Ends at the next Restart().
@@ -384,6 +397,10 @@ private:
 wxDECLARE_EVENT(wxEVT_SESSION_IDLE, wxCommandEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_ACTIVE, wxCommandEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_EXITED, wxCommandEvent);
+// The user closed a session that could not start (its machine has no tmux, or
+// no tmux-shim): GetString() is its name. The notebook ends its tmux session
+// and closes the tab. Unlike an exit, which only closes the tab.
+wxDECLARE_EVENT(wxEVT_SESSION_CLOSE_REQUESTED, wxCommandEvent);
 // The folder of a page changed. The event object is the page.
 wxDECLARE_EVENT(wxEVT_SESSION_CWD, wxCommandEvent);
 // A field of the session that is saved in the workspace changed (its tmux

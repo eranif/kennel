@@ -360,18 +360,24 @@ tmux-shim [--wrap auto|tmux|screen|none] [--no-reply] [--] COMMAND [ARGS...]
       `HasSession()` question after a terminal ends, not for deciding at startup.
 - [ ] "Attach to a running tmux session..." dialog: lists `kennel-*` sessions of a host that no
       persisted session owns (for example after `workspace.json` was lost) and adopts one.
-- [x] Restore (the user's design, 2026-11-15): before the first terminal starts, `TmuxStartup`
-      prepares each machine that holds saved tmux sessions, one after the other (probe, shim
-      check, one question per machine), and `MainNotebook::FinishRestore()` opens all the pages
-      when the last one has answered. **The whole restore waits on purpose**; the probe is on
-      worker threads, so the window is not blocked, and each probe ends after 30 s at the
-      latest (`TmuxClient`). Declined (the user does not want the shim): the sessions are
-      removed and their tmux sessions stopped. Not usable now (host down, no tmux, an old one,
-      no clear answer): not opened this run, kept saved (`m_unopened`, with their place in the
-      tab order and the recent list), and the user may remove them in the message.
-- [ ] Open question for later: a host that is down delays every tab by up to 30 s. A tab that
-      shows "Connecting" and opens when its own machine answers (a per-machine event, and the
-      sessions that need no machine at once) would fix it, but it is not what was asked for.
+- [x] Restore (the user's design, 2026-11-15, replaces the first one that waited for all machines):
+      every saved session gets its page and terminal at once (`CreateTerminal()`); a session that
+      is not in tmux calls `StartProgram()` at once. A tmux session waits for its machine:
+      `RestoreSessions()` collects the machines (deduplicated by `Account::GetId()`) and
+      `TmuxMachines::Prepare()` starts a `TmuxPreparer` for each, on worker threads, all at the
+      same time. The page asks with `wxEVT_TMUX_MACHINE_PREPARE` (on `EventNotifier`) and gets
+      `wxEVT_TMUX_MACHINE` (account id + state: probing, needs shim, installing, ready,
+      unavailable); on "ready" it calls `FinaliseTerminalCreate()`. No dialogs: each page has a
+      `wxInfoBar` with its own buttons, so many pages can ask at the same time: "Download"
+      (tmux-shim; once per machine, every page of it follows) and "Close session" (the tab closes
+      and its tmux session is stopped). tmux missing or too old, or a machine that can not be
+      reached: the bar says why (Refresh tries again, which asks the machine again) and offers
+      "Close session". There is no "run without tmux" choice any more (the user's design: tell
+      the user and close the session). Nothing is removed or stopped without the user's click:
+      an exit only closes the tab; "Close session" also ends the tmux session. A shell that ends
+      before its machine is ready leaves the tab Detached (Refresh). A session on a machine
+      that is down stays saved, with its page. The new-session and Refresh paths use the same
+      machinery (a machine that is ready is known: no second probe).
 
 ### Phase 6 - Docs and release
 - [ ] `README.md` (a section: what it does, where it works, the detach key, scrolling) and the

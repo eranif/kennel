@@ -21,7 +21,7 @@
 #include "app/SettingsDlg.hpp"
 #include "app/TabIcon.h"
 #include "app/TabPadding.h"
-#include "app/TmuxStartup.hpp"
+#include "app/TmuxMachines.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/ClientAdapter.h"
@@ -105,7 +105,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
     : m_registry(&AppManager::Get().Adapters()),
       m_workspaceStore(&AppManager::Get().Workspace()),
       m_paths(AppManager::Get().Paths()),
-      m_archived(AppManager::Get().InitialWorkspace().archived) {
+      m_archived(AppManager::Get().InitialWorkspace().archived),
+      m_tmuxMachines(std::make_unique<TmuxMachines>()) {
   // A glass background shows through the tab bar (see below): the panel must
   // be transparent, and wx can only make it so before the window exists.
 #ifdef __WXMAC__
@@ -187,10 +188,11 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
   Bind(wxEVT_PAGE_SWITCHER_DONE, &MainNotebook::OnPageSwitcherDone, this);
   Bind(wxEVT_SESSION_ACTIVE, &MainNotebook::OnSessionActive, this);
   Bind(wxEVT_SESSION_EXITED, &MainNotebook::OnSessionExited, this);
+  Bind(wxEVT_SESSION_CLOSE_REQUESTED, &MainNotebook::OnSessionCloseRequested,
+       this);
   Bind(wxEVT_SESSION_PROGRAM, &MainNotebook::OnSessionProgram, this);
   Bind(wxEVT_SESSION_CWD, &MainNotebook::OnSessionCwd, this);
   Bind(wxEVT_SESSION_CHANGED, &MainNotebook::OnSessionChanged, this);
-  Bind(wxEVT_TMUX_STARTUP_DONE, &MainNotebook::OnTmuxStartupDone, this);
   Bind(wxEVT_IDLE, &MainNotebook::OnIdleEvent, this);
   // A FilePage handles its own save events first and then Skip()s them, so
   // they propagate up to wxTheApp, where the notebook does its part (activity
@@ -236,6 +238,8 @@ MainNotebook::~MainNotebook() {
   Unbind(wxEVT_SESSION_IDLE, &MainNotebook::OnSessionIdle, this);
   Unbind(wxEVT_SESSION_ACTIVE, &MainNotebook::OnSessionActive, this);
   Unbind(wxEVT_SESSION_EXITED, &MainNotebook::OnSessionExited, this);
+  Unbind(wxEVT_SESSION_CLOSE_REQUESTED, &MainNotebook::OnSessionCloseRequested,
+         this);
   Unbind(wxEVT_SESSION_PROGRAM, &MainNotebook::OnSessionProgram, this);
   Unbind(wxEVT_SESSION_CWD, &MainNotebook::OnSessionCwd, this);
   Unbind(wxEVT_SESSION_CHANGED, &MainNotebook::OnSessionChanged, this);
@@ -830,19 +834,6 @@ void MainNotebook::SyncWorkspaceToDisk() {
     }
     ws.sessions.push_back(std::move(session));
   }
-  // The sessions that are not opened: while the machines are asked
-  // (RestoreSessions()) all the saved ones, then the ones whose machine can not
-  // be used now. A quit or another change in between loses none.
-  ws.sessions.insert(ws.sessions.end(), m_unopened.begin(), m_unopened.end());
-  const auto isUnopened = [this](const SessionRef &ref) {
-    if (m_tmuxStartup && ref.groupName == kFilesGroupName) {
-      return true; // The saved files are not opened yet either
-    }
-    return std::any_of(
-        m_unopened.begin(), m_unopened.end(), [&ref](const Session &session) {
-          return session.groupName == ref.groupName && session.name == ref.name;
-        });
-  };
 
   for (auto *file : GetFiles()) {
     if (file->IsTransient() || file->IsUntitled()) {
@@ -854,19 +845,6 @@ void MainNotebook::SyncWorkspaceToDisk() {
   // The remote files that are still coming back from the last run.
   ws.files.insert(ws.files.end(), m_restoringFiles.begin(),
                   m_restoringFiles.end());
-  if (m_tmuxStartup) {
-    // The saved files that are not opened yet (RestoreSessions()).
-    for (const SessionFile &saved :
-         AppManager::Get().InitialWorkspace().files) {
-      const bool isOpen = std::any_of(
-          ws.files.begin(), ws.files.end(), [&saved](const SessionFile &file) {
-            return KeyOfFile(file) == KeyOfFile(saved);
-          });
-      if (!isOpen) {
-        ws.files.push_back(saved);
-      }
-    }
-  }
   // In the order of the last run (new files last): the remote files come back
   // in the order the fetches finish.
   {
@@ -884,8 +862,8 @@ void MainNotebook::SyncWorkspaceToDisk() {
                      });
   }
 
-  // The order of the tabs. A remote file that is still coming back, and a
-  // session that is not opened, keep the place they had.
+  // The order of the tabs. A remote file that is still coming back keeps the
+  // place it had.
   {
     std::vector<SessionRef> current;
     for (size_t i = 0; i < m_book->GetPageCount(); ++i) {
@@ -893,12 +871,11 @@ void MainNotebook::SyncWorkspaceToDisk() {
         current.push_back(*ref);
       }
     }
-    if (m_restoringFiles.empty() && m_unopened.empty() && !m_tmuxStartup) {
+    if (m_restoringFiles.empty()) {
       ws.tabOrder = current;
     } else {
-      const auto isPending = [this, &isUnopened](const SessionRef &ref) {
-        return isUnopened(ref) ||
-               std::any_of(m_restoringFiles.begin(), m_restoringFiles.end(),
+      const auto isPending = [this](const SessionRef &ref) {
+        return std::any_of(m_restoringFiles.begin(), m_restoringFiles.end(),
                            [&](const SessionFile &file) {
                              return ref.groupName == kFilesGroupName &&
                                     ref.name == KeyOfFile(file);
@@ -927,15 +904,6 @@ void MainNotebook::SyncWorkspaceToDisk() {
       ws.recentSessions.push_back(ref);
     } else if (auto *file = dynamic_cast<FilePage *>(page);
                file != nullptr && !file->IsUntitled()) {
-      ws.recentSessions.push_back(ref);
-    }
-  }
-  // The sessions that are not opened keep their recency.
-  for (const SessionRef &ref :
-       AppManager::Get().InitialWorkspace().recentSessions) {
-    if (isUnopened(ref) &&
-        std::find(ws.recentSessions.begin(), ws.recentSessions.end(), ref) ==
-            ws.recentSessions.end()) {
       ws.recentSessions.push_back(ref);
     }
   }
@@ -1066,9 +1034,7 @@ SessionPage *MainNotebook::AddSession(SessionPage *page) {
   return page;
 }
 
-SessionPage *
-MainNotebook::AddSessionPage(const Session &session, bool resume,
-                             std::optional<tmux::Version> tmuxVersion) {
+SessionPage *MainNotebook::AddSessionPage(const Session &session, bool resume) {
   std::optional<AgentDef> agent{std::nullopt};
   if (IsSessionGroupName(session.groupName) && !session.agentName.empty()) {
     auto &registry = AppManager::Get().Adapters();
@@ -1080,8 +1046,7 @@ MainNotebook::AddSessionPage(const Session &session, bool resume,
     agent = *pagent;
   }
 
-  auto *page =
-      new SessionPage(GetPageParent(), agent, session, resume, tmuxVersion);
+  auto *page = new SessionPage(GetPageParent(), agent, session, resume);
   if (page->Status() == SessionStatus::Starting) {
     // Could not start the session
     wxDELETE(page);
@@ -1758,11 +1723,6 @@ wxString MainNotebook::UniqueTmuxName(const wxString &base) const {
         return true;
       }
     }
-    for (const Session &unopened : m_unopened) {
-      if (unopened.tmuxName == name) {
-        return true;
-      }
-    }
     return false;
   };
   wxString name = base;
@@ -1827,106 +1787,36 @@ bool MainNotebook::LaunchSession(const NewSessionRequest &req,
 }
 
 void MainNotebook::RestoreSessions() {
+  wxWindowUpdateLocker locker{this};
   const auto &initial = AppManager::Get().InitialWorkspace();
   if (initial.sessions.empty() && initial.files.empty()) {
     return;
   }
 
-  // The machines that hold sessions in tmux, in the order of the sessions, with
-  // how many sessions wait for each.
-  std::vector<TmuxStartup::Request> requests;
+  // The machines that hold sessions in tmux, once each: they are prepared now,
+  // on worker threads, all at the same time, before the first page is made (a
+  // page asks for its machine too, and TmuxMachines asks each machine once, so
+  // this only starts the probes earlier). A page starts its program
+  // (StartProgram()) when its machine is ready; the others start at once.
+  std::set<wxString> machines;
   for (const Session &s : initial.sessions) {
-    const std::optional<tmux::Target> target =
-        s.GetTmuxTarget(AppManager::Get().Adapters(),
-                        AppManager::Get().GetPrefs().terminalLoginShell);
-    if (!target) {
-      continue; // Not a tmux session, or its machine has no tmux
-    }
-    auto it = std::find_if(requests.begin(), requests.end(),
-                           [&target](const TmuxStartup::Request &request) {
-                             return request.account.GetId() ==
-                                    target->account.GetId();
-                           });
-    if (it == requests.end()) {
-      requests.push_back({target->account, 1});
-    } else {
-      ++it->sessions;
+    if (const auto target =
+            s.GetTmuxTarget(AppManager::Get().Adapters(),
+                            AppManager::Get().GetPrefs().terminalLoginShell);
+        target && machines.insert(target->account.GetId()).second) {
+      m_tmuxMachines->Prepare(target->account);
     }
   }
-  if (requests.empty()) {
-    FinishRestore();
-    return;
-  }
 
-  // Before the first terminal starts, so that none has to wait for a machine,
-  // and a machine is asked once. Until the pages are there, the saved sessions
-  // are the ones that are not opened (SyncWorkspaceToDisk() keeps them).
-  m_unopened = initial.sessions;
-  m_tmuxStartup = std::make_unique<TmuxStartup>(this);
-  m_tmuxStartup->Start(requests);
-}
-
-void MainNotebook::OnTmuxStartupDone(wxCommandEvent &) { FinishRestore(); }
-
-void MainNotebook::FinishRestore() {
-  wxWindowUpdateLocker locker{this};
-  const auto &initial = AppManager::Get().InitialWorkspace();
-
-  // What the user did while the machines were asked (they can work: the window
-  // is there): the pages they made are theirs, the restore comes after them.
-  // Only when the machines were asked: with no wait nothing came before.
-  const bool userWorked = m_tmuxStartup && GetPageCount() > 0;
-  const std::vector<SessionRef> recentBefore =
-      m_tmuxStartup ? m_recent : std::vector<SessionRef>{};
-  m_unopened.clear(); // The ones that stay unopened are collected below
-
-  // What the machines said (nothing when no session runs in tmux).
-  std::vector<Session> unopened;
-  // For the message: the sessions of each machine that can not be used now.
-  std::map<wxString, std::pair<wxString, wxString>> unavailable;
   int restored = 0;
-  int removed = 0;
   for (const Session &s : initial.sessions) {
-    std::optional<tmux::Version> version;
-    if (m_tmuxStartup) {
-      if (const auto target = s.GetTmuxTarget(
-              AppManager::Get().Adapters(),
-              AppManager::Get().GetPrefs().terminalLoginShell)) {
-        const TmuxStartup::Machine *machine =
-            m_tmuxStartup->Find(target->account);
-        if (machine == nullptr ||
-            machine->result == TmuxStartup::Result::kUnavailable) {
-          // Not this time: the session stays saved.
-          unopened.push_back(s);
-          auto &entry = unavailable[target->account.GetDisplayName()];
-          entry.first = machine != nullptr ? machine->why : wxString();
-          entry.second += (entry.second.empty() ? "" : ", ") + s.name;
-          continue;
-        }
-        if (machine->result == TmuxStartup::Result::kDeclined) {
-          // The user does not want tmux-shim: the session is removed, and its
-          // tmux session is stopped (as Close does): nothing is left on the
-          // machine that no tab reaches, and a new session with the same name
-          // can not attach to it.
-          KLOG_INFO() << "Session '" << s.name << "' is removed: tmux-shim is "
-                      << "not wanted on " << target->account.GetDisplayName();
-          StopTmux(s);
-          ++removed;
-          continue;
-        }
-        version = machine->version;
-      }
-    }
-    auto *page = AddSessionPage(s, true, version);
+    auto *page = AddSessionPage(s, true);
     if (page) {
       page->GetTerminal()->EnsureStarted();
       ++restored;
     }
   }
-  m_unopened = std::move(unopened);
-  m_tmuxStartup.reset();
-  KLOG_INFO() << "Restored " << restored << " session(s), removed " << removed
-              << ", not opened " << m_unopened.size();
+  KLOG_INFO() << "Restored " << restored << " session(s)";
 
   // The files, in the background: the page used last is shown below.
   for (const SessionFile &file : initial.files) {
@@ -1940,61 +1830,27 @@ void MainNotebook::FinishRestore() {
 
   ApplyTabOrder();
 
-  // Bring back the recent order (after the pages the user used meanwhile) and
-  // show the page used last, unless the user has picked one already.
-  m_recent = recentBefore;
+  // Bring back the recent order and show the page used last.
+  m_recent.clear();
   wxWindow *lastUsed = nullptr;
   for (const SessionRef &r : initial.recentSessions) {
     if (auto *page = FindPage(r)) {
-      if (std::find(m_recent.begin(), m_recent.end(), r) == m_recent.end()) {
-        m_recent.push_back(r);
-      }
+      m_recent.push_back(r);
       if (lastUsed == nullptr) {
         lastUsed = page;
       }
     }
   }
-  if (!userWorked) {
-    if (lastUsed != nullptr) {
-      ShowPage(lastUsed);
-    } else {
-      SelectFallbackPage();
-    }
+  if (lastUsed != nullptr) {
+    ShowPage(lastUsed);
+  } else {
+    SelectFallbackPage();
   }
 
   // Anything that failed to restore into the UI (e.g. its agent no longer
   // exists) must not be written back: the UI is the only source of truth (but
-  // for the remote files that are still coming back, see m_restoringFiles, and
-  // the sessions of a machine that could not be used, see m_unopened).
+  // for the remote files that are still coming back, see m_restoringFiles).
   SyncWorkspaceToDisk();
-
-  if (!unavailable.empty()) {
-    wxString text = _("These sessions are not opened, because their machine "
-                      "can not be used now. They stay saved, and Kennel tries "
-                      "again at the next start.\n\nIf you remove them, their "
-                      "tmux sessions are stopped when the machine can be "
-                      "reached.");
-    for (const auto &[machine, entry] : unavailable) {
-      text << "\n\n" << machine;
-      if (!entry.first.empty()) {
-        text << ": " << entry.first;
-      }
-      text << "\n" << _("Sessions:") << " " << entry.second;
-    }
-    wxMessageDialog dialog(this, text, "Kennel",
-                           wxYES_NO | wxNO_DEFAULT | wxICON_WARNING);
-    dialog.SetYesNoLabels(_("Remove them"), _("Keep them"));
-    if (dialog.ShowModal() == wxID_YES) {
-      // For good: a host that is gone must not ask at every start. Their tmux
-      // sessions are stopped when the machine can be reached (it only logs
-      // when it can not), as Close does: nothing is left that no tab reaches.
-      for (const Session &session : m_unopened) {
-        StopTmux(session);
-      }
-      m_unopened.clear();
-      SyncWorkspaceToDisk();
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2159,16 +2015,7 @@ std::optional<SessionRef> MainNotebook::GetActivePageRef() const {
 
 bool MainNotebook::IsNameExist(const wxString &name,
                                const wxString &groupName) const {
-  if (FindSession(groupName, name) != nullptr) {
-    return true;
-  }
-  // A saved session that is not opened (the machines are being asked, or its
-  // machine can not be used now) has the name too: a new one would take its
-  // place when it is opened.
-  return std::any_of(
-      m_unopened.begin(), m_unopened.end(), [&](const Session &unopened) {
-        return unopened.groupName == groupName && unopened.name == name;
-      });
+  return FindSession(groupName, name) != nullptr;
 }
 
 size_t MainNotebook::SessionCount() const { return GetSessions().size(); }
@@ -2762,6 +2609,15 @@ void MainNotebook::OnSessionExited(wxCommandEvent &e) {
   // Deferred: removing the session (and its now-empty group, if any)
   // synchronously from inside this handler would destroy the page that is
   // sending the event.
+  CallAfter(&MainNotebook::CloseSessionByName, e.GetString());
+}
+
+void MainNotebook::OnSessionCloseRequested(wxCommandEvent &e) {
+  // Only the user's "Close session" gets here, not an exit: a tmux session is
+  // ended only when the user says so.
+  if (auto *page = FindSessionByName(e.GetString())) {
+    StopTmux(page->GetSession());
+  }
   CallAfter(&MainNotebook::CloseSessionByName, e.GetString());
 }
 

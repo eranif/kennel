@@ -353,7 +353,7 @@ set(KENNEL_APP_SOURCES
     src/app/FindResultsView.cpp
     src/app/OutputView.cpp
     src/app/TmuxPreparer.cpp
-    src/app/TmuxStartup.cpp
+    src/app/TmuxMachines.cpp
     src/app/GitCommitMessageDlg.cpp
     src/app/GitPanel.cpp
     src/app/FileActions.cpp

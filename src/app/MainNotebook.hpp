@@ -34,7 +34,7 @@ class ArchiveDlg;
 class FilePage;
 class GotoAnythingBar;
 class SessionPage;
-class TmuxStartup;
+class TmuxMachines;
 class WorkspaceStore;
 
 // Outcome of a background SFTP read, handed from the worker thread to the UI
@@ -111,10 +111,11 @@ public:
   // back a moment later (they are fetched in the background, so they are not in
   // the order of the recent pages yet: the page used last is only shown if it
   // is a session or a local file).
-  // Before the first terminal starts, the machines that hold saved sessions in
-  // tmux are prepared (TmuxStartup): the pages come when that is done. A
-  // machine whose tmux-shim the user does not want loses its sessions; one that
-  // can not be used now keeps them saved, unopened, for the next start.
+  // A saved session that runs in tmux has its page and terminal at once, like
+  // the others; its program starts when its machine is ready (TmuxMachines, one
+  // question for all the sessions of a machine, started here for all the
+  // machines at the same time). Each such page tells the user what is wrong
+  // with its machine in a message bar, and may be closed from there.
   void RestoreSessions();
 
   // ---- Theme and prefs ---------------------------------------------------
@@ -406,14 +407,7 @@ private:
   // Attaches an already-constructed SessionPage to the book.
   SessionPage *AddSession(SessionPage *page);
   // Creates and adds a terminal/agent page for an existing Session.
-  // `tmuxVersion`: its machine was prepared already (see SessionPage).
-  SessionPage *
-  AddSessionPage(const Session &session, bool resume,
-                 std::optional<tmux::Version> tmuxVersion = std::nullopt);
-  // The second half of RestoreSessions(), when the machines are prepared (or at
-  // once when no saved session runs in tmux).
-  void FinishRestore();
-  void OnTmuxStartupDone(wxCommandEvent &event);
+  SessionPage *AddSessionPage(const Session &session, bool resume);
   // Adds `page` to the book.
   void AddFilePage(FilePage *page);
   // Removes `page` and destroys it. If it was the active page, another one is
@@ -451,6 +445,9 @@ private:
   void OnArchiveDelete(wxCommandEvent &e);
   void OnSessionActive(wxCommandEvent &e);
   void OnSessionExited(wxCommandEvent &e);
+  // The user closed a session that could not start: its tmux session is ended
+  // and the tab closes (see wxEVT_SESSION_CLOSE_REQUESTED).
+  void OnSessionCloseRequested(wxCommandEvent &e);
   // A page started / stopped working, or is done (OSC 7501).
   void OnSessionProgram(wxCommandEvent &e);
   void OnSessionCwd(wxCommandEvent &e);
@@ -508,17 +505,11 @@ private:
   // The remote files of the last run that are being fetched again: they stay in
   // workspace.json until the fetch is over, so a quit in between loses none.
   std::vector<SessionFile> m_restoringFiles;
-  // Saved sessions that have no page: all of them while the machines are
-  // prepared (RestoreSessions()), then the ones whose machine can not be used
-  // now (FinishRestore()). They stay in workspace.json with their place in the
-  // tab order and the recent list, and their tmux names stay taken.
-  std::vector<Session> m_unopened;
-  // Prepares the machines of the saved sessions, see RestoreSessions(). Set
-  // from then until the pages are made. The saved files are not opened until
-  // then either: SyncWorkspaceToDisk() keeps them.
-  std::unique_ptr<TmuxStartup> m_tmuxStartup;
   // The archive (see ArchiveSession()); loaded from workspace.json.
   std::vector<ArchivedSession> m_archived;
+  // Knows the machines that sessions run in tmux on, and prepares each one once
+  // (the pages ask it with events).
+  std::unique_ptr<TmuxMachines> m_tmuxMachines;
   // The tmux sessions that are being ended on their machine (StopTmux()): their
   // names are not given to a new session until the kill is done.
   std::set<wxString> m_stoppingTmux;

@@ -31,6 +31,7 @@
 #include <wx/filefn.h>
 #include <wx/filename.h>
 #include <wx/frame.h>
+#include <wx/infobar.h>
 #include <wx/menu.h>
 #include <wx/splitter.h>
 #include <wx/timer.h>
@@ -49,6 +50,7 @@
 wxDEFINE_EVENT(wxEVT_SESSION_IDLE, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_ACTIVE, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_EXITED, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_SESSION_CLOSE_REQUESTED, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_PROGRAM, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_CWD, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_CHANGED, wxCommandEvent);
@@ -252,11 +254,10 @@ wxString JoinHeader(wxString head, wxString title, const wxString &dir) {
 } // namespace
 
 SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
-                         Session session, bool resume,
-                         std::optional<tmux::Version> tmuxVersion)
+                         Session session, bool resume)
     : SessionBasePage(parent), m_paths(AppManager::Get().Paths()),
       m_agent(std::move(agent)), m_session(std::move(session)),
-      m_resume(resume), m_tmuxVersion(tmuxVersion) {
+      m_resume(resume) {
   SetDefaultSessionName(m_session.name);
   InitStatus();
   Bind(wxEVT_TIMER, &SessionPage::OnNoticeTimer, this, m_noticeTimer.GetId());
@@ -274,6 +275,12 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
   m_body = new wxBoxSizer(wxVERTICAL);
   SetSizer(outer); // Replaces (and deletes) the vertical sizer of the base
   outer->Add(m_toolbar, wxSizerFlags(0).Expand());
+  // Hidden until there is something to say (ShowInfo()).
+  m_infoBar = new wxInfoBar(this);
+  outer->Add(m_infoBar, wxSizerFlags(0).Expand());
+  m_infoBar->Bind(wxEVT_BUTTON, &SessionPage::OnTmuxDownload, this,
+                  ID_TMUX_DOWNLOAD);
+  m_infoBar->Bind(wxEVT_BUTTON, &SessionPage::OnTmuxClose, this, ID_TMUX_CLOSE);
   outer->Add(m_body, wxSizerFlags(1).Expand());
   // Below the terminals: CreateTerminal() puts the splitter before it.
   m_searchBar = new SearchBar(this, SearchBar::Kind::kFindOnly);
@@ -281,7 +288,8 @@ SessionPage::SessionPage(wxBookCtrlBase *parent, std::optional<AgentDef> agent,
   m_body->Add(m_searchBar, wxSizerFlags(0).Expand());
   Bind(wxEVT_SEARCHBAR_FIND, &SessionPage::OnSearchBarFind, this);
   Bind(wxEVT_SEARCHBAR_CLOSE, &SessionPage::OnSearchBarClose, this);
-  Bind(wxEVT_TMUX_PREPARED, &SessionPage::OnTmuxPrepared, this);
+  EventNotifier::Get()->Bind(wxEVT_TMUX_MACHINE, &SessionPage::OnTmuxMachine,
+                             this);
   Bind(wxEVT_REVIEW_BUDDY_CLOSE, [this](ReviewBuddyEvent &event) {
     // The buddy that asked may be closed already, and a new one started.
     if (m_review && m_review->LoopId() == event.GetString()) {
@@ -390,6 +398,8 @@ void SessionPage::ClearNotice() {
 
 SessionPage::~SessionPage() {
   m_alive->store(false);
+  EventNotifier::Get()->Unbind(wxEVT_TMUX_MACHINE, &SessionPage::OnTmuxMachine,
+                               this);
   // The review folder is deleted with the ReviewBuddy: do it after the
   // reviewer's pane is asked to go, not as a member destroyed before it. No
   // notice, focus or unsplit here: the page is being torn down.
@@ -705,31 +715,126 @@ std::vector<wxString> SessionPage::ProgramCommands() const {
   return commands; // Nothing for a terminal of this machine: it is its shell
 }
 
+Account SessionPage::GetTmuxMachine() const {
+  return m_session.GetTmuxAccount(
+      m_agent, AppManager::Get().GetPrefs().terminalLoginShell);
+}
+
 void SessionPage::StartProgram() {
   CHECK_NOT_NULL_RETURN(m_terminal);
   if (m_session.IsTmuxSession()) {
-    const Account account = m_session.GetTmuxAccount(
-        m_agent, AppManager::Get().GetPrefs().terminalLoginShell);
-    if (TmuxClient::IsAvailableFor(account)) {
-      if (m_tmuxVersion) {
-        // The machine was prepared before the terminal was made (the restore of
-        // the workspace): nothing to ask.
-        FinaliseTerminalCreate();
-        return;
-      }
-      // The machine is asked without blocking the UI: OnTmuxPrepared() calls
-      // FinaliseTerminalCreate() when it has answered.
+    const Account machine = GetTmuxMachine();
+    if (TmuxClient::IsAvailableFor(machine)) {
+      // The machine is asked on a worker thread, once for all the sessions that
+      // need it (TmuxMachines): OnTmuxMachine() calls FinaliseTerminalCreate()
+      // when it is ready. Until then, the terminal is there and nothing is
+      // typed into it.
+      m_waitingForTmux = true;
       SetNote(
-          wxString::Format(_("Connecting to %s..."), account.GetDisplayName()));
-      if (!m_tmuxPreparer) {
-        m_tmuxPreparer = std::make_unique<TmuxPreparer>(this);
-      }
-      m_tmuxPreparer->Start(account);
+          wxString::Format(_("Connecting to %s..."), machine.GetDisplayName()));
+      TmuxMachineEvent request(wxEVT_TMUX_MACHINE_PREPARE);
+      request.SetAccount(machine);
+      request.SetForced(m_askMachineAgain);
+      m_askMachineAgain = false;
+      EventNotifier::Get()->ProcessEvent(request);
       return;
     }
     DropTmux(); // No tmux on this machine (Windows)
   }
   FinaliseTerminalCreate();
+}
+
+void SessionPage::OnTmuxMachine(TmuxMachineEvent &event) {
+  // Every page gets it: the next listener too.
+  event.Skip();
+  if (!m_waitingForTmux ||
+      event.GetAccount().GetId() != GetTmuxMachine().GetId()) {
+    return;
+  }
+  const wxString where = event.GetAccount().GetDisplayName();
+  switch (event.GetState()) {
+  case TmuxMachineEvent::State::kProbing:
+    HideInfo();
+    SetNote(wxString::Format(_("Connecting to %s..."), where));
+    return;
+  case TmuxMachineEvent::State::kNeedsShim: {
+    // A question: this page shows it, with its own button (every session of the
+    // machine does, and one answer is enough).
+    SetNote({});
+    ShowInfo(wxString::Format(
+                 _("%s %s is not installed on %s. It lets Kennel show what the "
+                   "agent is doing (working, done, waiting). Download it, or "
+                   "close this session."),
+                 tmuxshim::Tool().name, tmuxshim::Tool().version, where),
+             wxICON_QUESTION, /*download=*/true, /*close=*/true);
+    return;
+  }
+  case TmuxMachineEvent::State::kInstalling:
+    SetNote({});
+    ShowInfo(wxString::Format(_("Downloading %s to %s..."),
+                              tmuxshim::Tool().name, where),
+             wxICON_INFORMATION, /*download=*/false, /*close=*/true);
+    return;
+  case TmuxMachineEvent::State::kReady:
+    m_waitingForTmux = false;
+    m_tmuxVersion = event.GetVersion();
+    HideInfo();
+    SetNote({});
+    FinaliseTerminalCreate();
+    return;
+  case TmuxMachineEvent::State::kUnavailable:
+    // Nothing is typed: a session that is in tmux already must not get a second
+    // one because the machine could not be asked. The user may try again
+    // (Refresh), or close the session.
+    m_waitingForTmux = false;
+    KLOG_WARN() << "tmux for '" << m_session.name << "': " << event.GetString();
+    SetNote({});
+    ShowInfo(event.GetString() + " " +
+                 _("Use Refresh to try again, or close this session."),
+             wxICON_WARNING, /*download=*/false, /*close=*/true);
+    return;
+  }
+}
+
+void SessionPage::ShowInfo(const wxString &text, int icon, bool download,
+                           bool close) {
+  // The bar is asked which buttons it has: it asserts when a button that it
+  // does not have is removed.
+  const auto setButton = [this](int id, const wxString &label, bool wanted) {
+    const bool has = m_infoBar->HasButtonId(id);
+    if (wanted && !has) {
+      m_infoBar->AddButton(id, label);
+    } else if (!wanted && has) {
+      m_infoBar->RemoveButton(id);
+    }
+  };
+  setButton(ID_TMUX_DOWNLOAD, _("Download"), download);
+  setButton(ID_TMUX_CLOSE, _("Close session"), close);
+  m_infoBar->ShowMessage(text, icon);
+}
+
+void SessionPage::HideInfo() {
+  if (m_infoBar->IsShown()) {
+    m_infoBar->Dismiss();
+  }
+}
+
+void SessionPage::OnTmuxDownload(wxCommandEvent &) {
+  // The machine downloads it once; it says "installing" to every page that
+  // waits for it, and "ready" when it is done. The bar changes then, not in
+  // the handler of its own button.
+  TmuxMachineEvent request(wxEVT_TMUX_MACHINE_INSTALL_SHIM);
+  request.SetAccount(GetTmuxMachine());
+  EventNotifier::Get()->ProcessEvent(request);
+}
+
+void SessionPage::OnTmuxClose(wxCommandEvent &) {
+  // The user closes the session: the notebook ends its tmux session on the
+  // machine and closes the tab (an exit does not stop the tmux session).
+  m_waitingForTmux = false;
+  wxCommandEvent event{wxEVT_SESSION_CLOSE_REQUESTED};
+  event.SetString(m_session.name);
+  GetParent()->GetEventHandler()->AddPendingEvent(event);
 }
 
 void SessionPage::SendCommands(const std::vector<wxString> &commands) {
@@ -765,69 +870,12 @@ void SessionPage::DropTmux() {
   GetParent()->GetEventHandler()->AddPendingEvent(event);
 }
 
-void SessionPage::StartWithoutTmux() {
-  // A new session loses tmux for good. A restored one (or one that is
-  // restarted) keeps its tmux name: its tmux session may be alive on the
-  // machine, and the next start attaches to it.
-  if (!m_resume) {
-    DropTmux();
-  }
-  FinaliseTerminalCreate();
-}
-
 void SessionPage::SetNote(const wxString &text) {
   // The strip at the bottom of the terminal is the header of the session (see
   // UpdateHeader()): while there is a note, it shows the note, and the header
   // comes back when the note ends.
   m_note = text;
   UpdateHeader(true);
-}
-
-void SessionPage::OnTmuxPrepared(TmuxPreparedEvent &event) {
-  // The answer of a run that was dropped (Restart() while it was queued).
-  if (!m_tmuxPreparer || event.GetInt() != m_tmuxPreparer->GetGeneration()) {
-    return;
-  }
-  SetNote({}); // "Connecting to ..." is over
-  switch (event.GetOutcome()) {
-  case TmuxPreparedEvent::Outcome::kReady:
-    m_tmuxVersion = event.GetVersion();
-    FinaliseTerminalCreate();
-    return;
-  case TmuxPreparedEvent::Outcome::kUnsupported: {
-    KLOG_WARN() << "tmux for '" << m_session.name << "': " << event.GetString();
-    const AliveFlag alive = m_alive;
-    const int generation = event.GetInt();
-    wxMessageDialog dialog(
-        this, event.GetString() + "\n\n" + _("Start the session without tmux?"),
-        _("tmux is not available"), wxYES_NO | wxYES_DEFAULT | wxICON_QUESTION);
-    const int answer = dialog.ShowModal();
-    if (!alive->load() || !m_tmuxPreparer ||
-        generation != m_tmuxPreparer->GetGeneration()) {
-      return; // The page was closed, or restarted, while the dialog was open
-    }
-    if (answer == wxID_YES) {
-      StartWithoutTmux();
-      return;
-    }
-    SetNote(event.GetString() + " " + _("Use Refresh to try again."));
-    return;
-  }
-  case TmuxPreparedEvent::Outcome::kWithoutTmux:
-    StartWithoutTmux();
-    return;
-  case TmuxPreparedEvent::Outcome::kCancelled:
-    // The user does not want this session: the page closes (the exit of a
-    // session closes its tab).
-    SetStatus(SessionStatus::Exited);
-    return;
-  case TmuxPreparedEvent::Outcome::kFailed:
-    // Nothing is typed: a session that is in tmux already must not get a second
-    // one because the machine could not be asked.
-    KLOG_WARN() << "tmux for '" << m_session.name << "': " << event.GetString();
-    SetNote(event.GetString() + " " + _("Use Refresh to try again."));
-    return;
-  }
 }
 
 void SessionPage::SetFocus() {
@@ -852,15 +900,15 @@ void SessionPage::Restart() {
   ++m_endedCheck; // The answer of a question about the old terminal is stale
   m_resume = true;
   // The machine is asked again: tmux may have been installed, or the host may
-  // be there now.
+  // be there now. An answer that comes for the old terminal is not waited for.
   m_tmuxVersion.reset();
+  m_waitingForTmux = false;
+  m_askMachineAgain = true;
+  HideInfo();
   m_note.clear();
   // The commands that wait stay: the new terminal types them once its program
   // is started (the user asked for them).
   m_programStarted = false;
-  if (m_tmuxPreparer) {
-    m_tmuxPreparer->Cancel(); // An answer that is queued already is dropped
-  }
   CallAfter([this] {
     CreateTerminal();
     StartProgram();
@@ -872,16 +920,24 @@ void SessionPage::OnTerminated(wxTerminalEvent &evt) {
   m_terminalActivity = ProgramActivity::None;
   UpdateProgramActivity();
   // Only a session that really runs in tmux can outlive its terminal.
-  if (m_tmuxVersion && m_session.IsTmuxSession()) {
-    CheckTmuxSessionAfterTerminated();
+  if (m_session.IsTmuxSession()) {
+    if (m_tmuxVersion) {
+      CheckTmuxSessionAfterTerminated();
+      return;
+    }
+    // The shell ended before the machine was ready (or before it said what is
+    // wrong with it): the tmux session, if there is one, is not ours to end,
+    // and the tab must not go. Refresh tries again.
+    m_waitingForTmux = false;
+    SetStatus(SessionStatus::Detached);
+    SetNote(_("The terminal ended. Use Refresh to start the session again."));
     return;
   }
   SetStatus(SessionStatus::Exited);
 }
 
 void SessionPage::CheckTmuxSessionAfterTerminated() {
-  const Account account = m_session.GetTmuxAccount(
-      m_agent, AppManager::Get().GetPrefs().terminalLoginShell);
+  const Account account = GetTmuxMachine();
   const tmux::Server server = m_session.GetTmuxServer();
   const int generation = ++m_endedCheck;
   // Blocks (ssh, wsl.exe): a thread of its own, nothing of the page is used
