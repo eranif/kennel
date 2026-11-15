@@ -40,6 +40,22 @@ public:
   }
 
 private:
+  // Puts `colour` over the pixel (x, y) of `image`: `cover` (0 to 1) says how
+  // much of the pixel it takes.
+  static void BlendPixel(wxImage &image, int x, int y, const wxColour &colour,
+                         double cover) {
+    const double under = image.GetAlpha(x, y) / 255.0 * (1.0 - cover);
+    const double alpha = cover + under;
+    const auto mix = [&](unsigned char above, unsigned char below) {
+      return static_cast<unsigned char>(
+          std::lround((above * cover + below * under) / alpha));
+    };
+    image.SetRGB(x, y, mix(colour.Red(), image.GetRed(x, y)),
+                 mix(colour.Green(), image.GetGreen(x, y)),
+                 mix(colour.Blue(), image.GetBlue(x, y)));
+    image.SetAlpha(x, y, static_cast<unsigned char>(std::lround(alpha * 255)));
+  }
+
   // Draws the overlay (about two thirds of the icon) in the lower right corner
   // of `bitmap`, over what is there.
   wxBitmap DrawOverlay(const wxBitmap &bitmap) {
@@ -66,17 +82,10 @@ private:
         if (cover <= 0.0) {
           continue;
         }
-        const double under = image.GetAlpha(dx, dy) / 255.0 * (1.0 - cover);
-        const double alpha = cover + under;
-        const auto mix = [&](unsigned char above, unsigned char below) {
-          return static_cast<unsigned char>(
-              std::lround((above * cover + below * under) / alpha));
-        };
-        image.SetRGB(dx, dy, mix(over.GetRed(x, y), image.GetRed(dx, dy)),
-                     mix(over.GetGreen(x, y), image.GetGreen(dx, dy)),
-                     mix(over.GetBlue(x, y), image.GetBlue(dx, dy)));
-        image.SetAlpha(dx, dy,
-                       static_cast<unsigned char>(std::lround(alpha * 255)));
+        BlendPixel(image, dx, dy,
+                   wxColour(over.GetRed(x, y), over.GetGreen(x, y),
+                            over.GetBlue(x, y)),
+                   cover);
       }
     }
     return wxBitmap(image);
@@ -102,17 +111,7 @@ private:
         if (cover <= 0.0) {
           continue;
         }
-        const double under = image.GetAlpha(x, y) / 255.0 * (1.0 - cover);
-        const double alpha = cover + under;
-        const auto mix = [&](unsigned char over, unsigned char below) {
-          return static_cast<unsigned char>(
-              std::lround((over * cover + below * under) / alpha));
-        };
-        image.SetRGB(x, y, mix(m_dot.Red(), image.GetRed(x, y)),
-                     mix(m_dot.Green(), image.GetGreen(x, y)),
-                     mix(m_dot.Blue(), image.GetBlue(x, y)));
-        image.SetAlpha(x, y,
-                       static_cast<unsigned char>(std::lround(alpha * 255)));
+        BlendPixel(image, x, y, m_dot, cover);
       }
     }
     return wxBitmap(image);

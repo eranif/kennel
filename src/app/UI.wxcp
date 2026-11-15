@@ -17979,7 +17979,7 @@
                                     {
                                       "type": "multi-string",
                                       "m_label": "Label:",
-                                      "m_value": "TTmux Configuration Commands."
+                                      "m_value": "Tmux Configuration Commands."
                                     },
                                     {
                                       "type": "string",
@@ -18400,7 +18400,7 @@
                                                 {
                                                   "type": "multi-string",
                                                   "m_label": "Tooltip:",
-                                                  "m_value": "Browse for Working Directory"
+                                                  "m_value": "Put the default tmux commands back"
                                                 },
                                                 {
                                                   "type": "colour",
@@ -18805,7 +18805,7 @@
                                                 {
                                                   "type": "multi-string",
                                                   "m_label": "Tooltip:",
-                                                  "m_value": "Browse for Working Directory"
+                                                  "m_value": "Put the default tmux commands back"
                                                 },
                                                 {
                                                   "type": "colour",

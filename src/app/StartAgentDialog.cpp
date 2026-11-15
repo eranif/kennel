@@ -213,7 +213,8 @@ void StartAgentDialog::UpdateTmuxChoice() {
     return;
   }
   m_checkBoxRunInTmux->Show(available);
-  GetSizer()->Fit(this);
+  // The minimum size follows the box; a size that the user chose is kept.
+  GetSizer()->SetSizeHints(this);
   Layout();
 }
 

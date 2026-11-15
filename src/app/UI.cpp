@@ -1775,7 +1775,7 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
   boxSizerTmux->Add(m_checkBoxTmuxEnabled, 0, wxALL, WXC_FROM_DIP(5));
 
   m_staticTextTmuxHelp = new wxStaticText(
-      m_panelTmux, wxID_ANY, _("TTmux Configuration Commands."),
+      m_panelTmux, wxID_ANY, _("Tmux Configuration Commands."),
       wxDefaultPosition, wxDLG_UNIT(m_panelTmux, wxSize(-1, -1)), 0);
 
   boxSizerTmux->Add(m_staticTextTmuxHelp, 0, wxALL, WXC_FROM_DIP(5));
@@ -1805,7 +1805,8 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
   m_buttonResetTmuxAgentSettings = new wxButton(
       m_panelAgents, wxID_ANY, _("Reset to Default"), wxDefaultPosition,
       wxDLG_UNIT(m_panelAgents, wxSize(-1, -1)), 0);
-  m_buttonResetTmuxAgentSettings->SetToolTip(_("Browse for Working Directory"));
+  m_buttonResetTmuxAgentSettings->SetToolTip(
+      _("Put the default tmux commands back"));
 
   boxSizer672->Add(m_buttonResetTmuxAgentSettings, 0, wxALL | wxALIGN_RIGHT,
                    WXC_FROM_DIP(5));
@@ -1829,7 +1830,7 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
       m_panelTerminals, wxID_ANY, _("Reset to Default"), wxDefaultPosition,
       wxDLG_UNIT(m_panelTerminals, wxSize(-1, -1)), 0);
   m_buttonResetTmuxTerminalSettings->SetToolTip(
-      _("Browse for Working Directory"));
+      _("Put the default tmux commands back"));
 
   boxSizer673->Add(m_buttonResetTmuxTerminalSettings, 0, wxALL | wxALIGN_RIGHT,
                    WXC_FROM_DIP(5));

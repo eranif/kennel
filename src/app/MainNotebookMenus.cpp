@@ -140,7 +140,7 @@ void MainNotebook::ShowSessionMenu(SessionPage *page, wxWindow *on) {
   }
   if (page->GetSession().IsTmuxSession()) {
     menu.AppendSeparator();
-    menu.Append(XRCID("tmux-kill"), _("Kill tmux session"),
+    menu.Append(XRCID("tmux-kill"), _("Kill tmux session and close"),
                 _("End the tmux session and close the tab"));
     menu.Bind(
         wxEVT_MENU,
