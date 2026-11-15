@@ -697,6 +697,10 @@ std::vector<wxTerminalViewCtrl *> SessionPage::GetTerminals() const {
   if (m_reviewTerminal != nullptr) {
     terminals.push_back(m_reviewTerminal);
   }
+
+  if (m_terminalPage && m_terminalPage->GetTerminal()) {
+    terminals.push_back(m_terminalPage->GetTerminal());
+  }
   return terminals;
 }
 
@@ -1092,6 +1096,12 @@ TabBadge SessionPage::GetTabBadge() const {
   return m_session.IsTmuxSession() ? TabBadge::kTmux : TabBadge::kNone;
 }
 
+void SessionPage::UpdateHeaderColours(wxTerminalViewCtrl *ctrl) {
+  if (ctrl == nullptr)
+    return;
+  ReviewBuddyHeader::SetText(ctrl, ctrl->GetFooterText(), true);
+}
+
 void SessionPage::UpdateHeader(bool force) {
   if (m_terminal == nullptr) {
     return;
@@ -1267,10 +1277,19 @@ void SessionPage::ApplyTheme(const wxTerminalTheme &theme) {
   for (auto *terminal : GetTerminals()) {
     terminal->SetTheme(theme);
   }
-  UpdateHeader(/*force=*/true); // The colour depends on the background.
-  UpdateReviewHeader(/*force=*/true);
+  auto terminals = GetTerminals();
+  for (auto *terminal : terminals)
+    UpdateHeaderColours(terminal);
+
   // The border around each terminal has the theme's background.
-  for (wxPanel *pane : {m_agentPanel, m_reviewBuddyPanel, m_temrinalPanel}) {
+  for (wxWindow *pane : {
+           static_cast<wxWindow *>(m_agentPanel),
+           static_cast<wxWindow *>(m_reviewBuddyPanel),
+           static_cast<wxWindow *>(m_temrinalPanel),
+           static_cast<wxWindow *>(m_splitterMain),
+           static_cast<wxWindow *>(m_splitterPageSession),
+           static_cast<wxWindow *>(m_splitterReviewBuddy),
+       }) {
     pane->SetBackgroundColour(theme.bg);
     pane->Refresh();
   }

@@ -129,7 +129,8 @@ FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
   m_listId = ++s_lastRequestId;
   EventNotifier::Get()->Bind(wxEVT_FILETREE_LISTED, &FileTreeCtrl::OnListed,
                              this);
-
+  EventNotifier::Get()->Bind(wxEVT_APP_PREFS_CHANGED,
+                             &FileTreeCtrl::OnPrefsChanged, this);
   // Once the control is on the screen. A remote host waits for
   // ConnectAsync().
   if (!m_account.IsRemote()) {
@@ -140,6 +141,8 @@ FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
 FileTreeCtrl::~FileTreeCtrl() {
   EventNotifier::Get()->Unbind(wxEVT_FILETREE_LISTED, &FileTreeCtrl::OnListed,
                                this);
+  EventNotifier::Get()->Unbind(wxEVT_APP_PREFS_CHANGED,
+                               &FileTreeCtrl::OnPrefsChanged, this);
   // What is queued is not wanted any more: the thread is told to end, and ends
   // after the folder that it is listing now.
   {
@@ -329,6 +332,12 @@ wxDataViewItem FileTreeCtrl::FindOnWay(const wxString &dir) const {
     node = NodeOf(item);
   }
   return node != nullptr ? item : wxDataViewItem();
+}
+
+void FileTreeCtrl::OnPrefsChanged(wxCommandEvent &event) {
+  event.Skip();
+  dv::StylePageView(m_tree);
+  dv::AutoSizeColumns(m_tree);
 }
 
 void FileTreeCtrl::OnListed(FileTreeConnectedEvent &event) {

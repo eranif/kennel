@@ -49,18 +49,17 @@ void ReviewBuddyHeader::SetText(wxTerminalViewCtrl *terminal,
   if (terminal == nullptr) {
     return;
   }
+
   // On a dark background the text is yellow on a darker strip; otherwise the
   // strip has the colours of the theme.
-  const wxColour &bg = terminal->GetTheme().bg;
-  const bool dark =
-      (bg.Red() * 299 + bg.Green() * 587 + bg.Blue() * 114) / 1000 < 128;
-  const wxColour fg = dark ? wxColour(0xE6, 0xC8, 0x4C) : wxNullColour;
-  const wxColour stripBg = dark ? bg.ChangeLightness(60) : wxNullColour;
+  const auto &theme = terminal->GetTheme();
+  const wxColour &bg = theme.bg;
+  const wxColour fg = theme.bg.ChangeLightness(theme.IsDark() ? 150 : 50);
 
   // Not again for the same text: the strip is laid out each time.
   // The strip is at the bottom of the terminal (a footer of the terminal).
   if (force || !terminal->HasFooter() || terminal->GetFooterText() != text) {
-    terminal->AddFooter(text, fg, stripBg);
+    terminal->AddFooter(text, fg, bg);
   }
 }
 

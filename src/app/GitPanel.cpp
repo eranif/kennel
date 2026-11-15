@@ -54,7 +54,7 @@ struct StatusLook {
   const char *icon;
 };
 
-StatusLook LookOf(char letter) {
+StatusLook GetStatusLookFromChar(char letter) {
   switch (letter) {
   case 'M':
     return {_("Modified"), "git-modified"};
@@ -239,12 +239,6 @@ void GitPanel::OnRefresh(wxCommandEvent &event) {
   Activate();
 }
 
-void GitPanel::AutoSizeColumns() {
-  for (unsigned int i = 0; i < m_list->GetColumnCount(); ++i) {
-    m_list->GetColumn(i)->SetWidth(wxCOL_WIDTH_AUTOSIZE);
-  }
-}
-
 void GitPanel::Refill() {
   wxWindowUpdateLocker locker{m_list};
   m_list->DeleteAllItems();
@@ -256,7 +250,8 @@ void GitPanel::Refill() {
         {IconText(wxEmptyString), IconText(m_message.BeforeFirst('\n'))});
     m_rows.emplace_back();
     Layout();
-    AutoSizeColumns();
+    dv::AutoSizeColumns(m_list);
+    dv::StylePageView(m_list);
     return;
   }
 
@@ -288,7 +283,7 @@ void GitPanel::Refill() {
   // The files that are in the index, then those of the work tree.
   for (const GitChange &change : status.changes) {
     if (change.IsStaged()) {
-      const StatusLook look = LookOf(change.index);
+      const StatusLook look = GetStatusLookFromChar(change.index);
       add(look.word + " " + _("(staged)"), look.icon, change, true);
     }
   }
@@ -298,7 +293,7 @@ void GitPanel::Refill() {
     } else if (change.untracked) {
       add(_("Untracked"), "git-untracked", change, false);
     } else if (change.IsUnstaged()) {
-      const StatusLook look = LookOf(change.worktree);
+      const StatusLook look = GetStatusLookFromChar(change.worktree);
       add(look.word, look.icon, change, false);
     }
   }
@@ -307,7 +302,8 @@ void GitPanel::Refill() {
     m_rows.emplace_back();
   }
   Layout();
-  AutoSizeColumns();
+  dv::AutoSizeColumns(m_list);
+  dv::StylePageView(m_list);
 }
 
 const GitPanel::Row *GitPanel::RowOf(const wxDataViewItem &item) const {

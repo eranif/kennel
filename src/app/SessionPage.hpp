@@ -232,6 +232,9 @@ private:
   // main agent addresses the comments) in the header of the review buddy's
   // terminal. `force` shows it again when the text did not change.
   void UpdateReviewHeader(bool force = false);
+
+  void UpdateHeaderColours(wxTerminalViewCtrl *ctrl);
+
   // ---- Status (shown in the status bar of the main window) --------------
   // Works out where the agent runs and the session label.
   void InitStatus();

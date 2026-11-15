@@ -130,8 +130,6 @@ private:
 
   // Fills the label and the table from the last answer.
   void Refill();
-  // Makes the columns as wide as their content.
-  void AutoSizeColumns();
 
   Account m_account;
   bool m_hasFolder{false};

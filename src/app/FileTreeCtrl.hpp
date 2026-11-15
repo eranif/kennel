@@ -185,6 +185,7 @@ private:
   wxDataViewItem FindOnWay(const wxString &dir) const;
   // wxEVT_FILETREE_LISTED, on the EventNotifier.
   void OnListed(FileTreeConnectedEvent &event);
+  void OnPrefsChanged(wxCommandEvent &event);
 
   void OnExpanding(wxDataViewEvent &event);
   void OnSelectionChanged(wxDataViewEvent &event);
