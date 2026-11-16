@@ -742,7 +742,7 @@ void SessionPage::StartProgram() {
       EventNotifier::Get()->ProcessEvent(request);
       return;
     }
-    DropTmux(); // No tmux on this machine (Windows)
+    DropTmux(); // This machine runs its sessions without tmux
   }
   FinaliseTerminalCreate();
 }

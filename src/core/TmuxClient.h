@@ -41,9 +41,9 @@ struct TmuxProbe {
 // `brew` installed. GUI-free.
 class TmuxClient {
 public:
-  // Whether a session of `account` can run in tmux at all: a remote host, a WSL
-  // distribution, or this machine unless it runs Windows (no tmux for its
-  // shells). It does not ask the machine (Probe() does).
+  // Whether a session of `account` can run in tmux at all: a remote host or a
+  // WSL distribution. This machine never runs a session in tmux. It does not
+  // ask the machine (Probe() does).
   static bool IsAvailableFor(const Account &account);
 
   // Whether tmux is there, and which version.

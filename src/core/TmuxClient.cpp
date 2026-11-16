@@ -133,10 +133,7 @@ Status TmuxClient::KillSession(const Account &account, tmux::Server server,
 }
 
 bool TmuxClient::IsAvailableFor(const Account &account) {
-#ifdef __WXMSW__
+  // This machine runs its sessions without tmux: it is often not installed
+  // (macOS), and a shell that Kennel starts itself needs no tmux to survive.
   return !account.IsLocalHost();
-#else
-  (void)account;
-  return true;
-#endif
 }
