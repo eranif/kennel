@@ -127,7 +127,12 @@ set(WITH_ZLIB
     ON
     CACHE BOOL "" FORCE)
 
+# libssh 0.11.5 passes C code with backslashes to check_c_source_compiles(); CMake
+# 4.2+ warns (CMP0219) because it will keep them as they are. libssh is written for the
+# old behaviour: keep it for libssh only (a no-op in a CMake that does not know it).
+set(CMAKE_POLICY_DEFAULT_CMP0219 OLD)
 FetchContent_MakeAvailable(libssh)
+unset(CMAKE_POLICY_DEFAULT_CMP0219)
 set(BUILD_SHARED_LIBS ${_KENNEL_SAVED_BUILD_SHARED_LIBS})
 
 # ---------------------------------------------------------------------------
@@ -715,6 +720,20 @@ add_custom_command(
 if(WIN32)
   set(_INSTALLER_DIR "${CMAKE_BINARY_DIR}/installer")
   # libcrypto/zlib1/winpthread are runtime dependencies of the static libssh.
+  # The name of libcrypto changes with the OpenSSL version (libcrypto-3-x64.dll,
+  # libcrypto-4-x64.dll, ...) and with the architecture: take what MSYS2 has.
+  file(GLOB _LIBCRYPTO_DLLS "${MSYS2_BASE}/${MSYSTEM}/bin/libcrypto-*.dll")
+  if(NOT _LIBCRYPTO_DLLS)
+    message(
+      FATAL_ERROR
+        "libcrypto-*.dll not found in ${MSYS2_BASE}/${MSYSTEM}/bin (install the OpenSSL package of MSYS2)"
+    )
+  endif()
+  set(_LIBCRYPTO_NAMES "")
+  foreach(_dll ${_LIBCRYPTO_DLLS})
+    get_filename_component(_name "${_dll}" NAME)
+    list(APPEND _LIBCRYPTO_NAMES "${_name}")
+  endforeach()
   list(
     APPEND
     SYSTEM_DLLS
@@ -722,7 +741,7 @@ if(WIN32)
     libomp.dll
     glew32.dll
     libunwind.dll
-    libcrypto-3-x64.dll
+    ${_LIBCRYPTO_NAMES}
     zlib1.dll
     libwinpthread-1.dll)
 

@@ -36,7 +36,9 @@ open $HOME/devl/kennel/.build-release/kennel.app
 ### Prerequisites
 
 1. Install **MSYS2** from <https://www.msys2.org/>
-2. Open the MSYS2 terminal and run the following command to install build dependencies:
+2. Open the MSYS2 **CLANG64** terminal. `./build.sh` installs the packages below for you
+   (`pacman -S --needed`; it does not update the ones already installed: run `pacman -Syu`
+   for that, and set `KENNEL_SKIP_PACMAN=1` to skip the step). To install them by hand:
 
 ```bash
 pacman -Sy git                                  \
@@ -50,6 +52,7 @@ pacman -Sy git                                  \
            mingw-w64-clang-x86_64-ntldd         \
            mingw-w64-clang-x86_64-zlib          \
            mingw-w64-clang-x86_64-openssl       \
+           mingw-w64-clang-x86_64-glew          \
            unzip
 ```
 

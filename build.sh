@@ -20,6 +20,40 @@ WX_VERSION=${WX_VERSION:-v3.3.4}
 
 INFO "Building Kennel"
 
+# Windows (MSYS2): installs the packages the build needs, and the DLLs that the
+# installer ships (SYSTEM_DLLS in CMakeLists.txt), unless they are installed
+# already. It does not update the ones that are installed: run `pacman -Syu` for
+# that. Set KENNEL_SKIP_PACMAN=1 to skip this step.
+function install_msys2_packages() {
+  [[ "${OS_NAME}" == *MINGW* ]] || return 0
+  if [ "${KENNEL_SKIP_PACMAN}" = "1" ]; then
+    INFO "Skipping the installation of the MSYS2 packages"
+    return 0
+  fi
+  if ! command -v pacman >/dev/null 2>&1; then
+    WARN "pacman not found: not installing the MSYS2 packages"
+    return 0
+  fi
+
+  # MINGW_PACKAGE_PREFIX is set by the MSYS2 shell, e.g. mingw-w64-clang-x86_64
+  local prefix=${MINGW_PACKAGE_PREFIX:-mingw-w64-clang-x86_64}
+  local packages=(git unzip)
+  local name
+  for name in toolchain python cmake libffi jq libxml2 llvm-openmp ntldd zlib openssl glew; do
+    packages+=("${prefix}-${name}")
+  done
+
+  INFO "Installing the MSYS2 packages: ${packages[*]}"
+  # --needed warns once for every package that is installed already: hide those
+  # lines, and keep the exit status of pacman (grep exits 1 with nothing to show).
+  pacman -S --needed --noconfirm "${packages[@]}" 2>&1 |
+    { grep -v ' is up to date -- skipping$' || true; }
+  if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+    ERROR "Failed to install the MSYS2 packages"
+    exit 1
+  fi
+}
+
 function check_prerequistes() {
   INFO "Checking build prerequisites"
   local missing=0
@@ -299,6 +333,7 @@ function build() {
 }
 
 function package() {
+  install_msys2_packages
   build
   if [[ "${OS_NAME}" == *MINGW* ]]; then
     cd ${BUILD_DIR}
@@ -359,5 +394,6 @@ package)
   ;;
 esac
 
+install_msys2_packages
 check_prerequistes
 build
