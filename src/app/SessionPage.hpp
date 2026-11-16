@@ -68,7 +68,7 @@ public:
   // terminal and shows the pane, then it hides it (the terminal goes on
   // running) and shows it again. The end of the terminal closes the pane and
   // forgets the terminal. Only an agent has it (CanToggleTerminalPane()); it is
-  // the Terminal button of the toolbar, and the F6 key.
+  // the Terminal button of the toolbar, and the Ctrl+` key.
   bool CanToggleTerminalPane() const;
   void ToggleTerminalPane();
 

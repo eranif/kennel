@@ -40,9 +40,6 @@ public:
   void ShowSideTab(SideView::Tab tab);
   // The results of Find in Files (the "Find in Files" tab).
   FindResultsView *GetFindInFiles() const;
-  // Hides the side bar, leaving only the main view; shows it again when it is
-  // hidden.
-  void ToggleAllPanes();
 
   const std::vector<LoadedTheme> &Themes() const {
     return ThemeManager::Get().Themes();

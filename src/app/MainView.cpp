@@ -202,11 +202,6 @@ FindResultsView *MainView::GetFindInFiles() const {
   return m_sideView->GetFindInFiles();
 }
 
-void MainView::ToggleAllPanes() {
-  // The side bar is the only pane next to the main view.
-  ShowSideBar(!IsSideBarShown());
-}
-
 void MainView::ApplySideBarDefaultWidth() {
   // A dock keeps the size it got when it was created (and a new dock is at most
   // 30% of the window wide), so BestSize() cannot change it any more. A minimum

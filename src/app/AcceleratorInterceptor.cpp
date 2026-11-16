@@ -1,6 +1,7 @@
 #include "app/AcceleratorInterceptor.h"
 #include "app/MainFrame.h"
 #include "app/ReviewBuddyMenu.hpp"
+#include "app/SessionPage.hpp"
 #include "wx/app.h"
 #include "wx/xrc/xmlres.h"
 
@@ -14,6 +15,12 @@ AcceleratorInterceptor::AcceleratorInterceptor(wxWindow *win) : m_ctrl{win} {
 
 AcceleratorInterceptor::~AcceleratorInterceptor() {}
 
+bool AcceleratorInterceptor::CanToggleSessionTerminal() const {
+  const SessionPage *page =
+      GetMainFrame()->GetMainView()->GetSessionsBook()->GetActiveSessionPage();
+  return page != nullptr && page->CanToggleTerminalPane();
+}
+
 void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
   // Ctrl+Tab / Ctrl+Shift+Tab opens the page switcher.
   if (keyEvent.GetKeyCode() == WXK_TAB &&
@@ -23,21 +30,18 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     GetMainFrame()->GetEventHandler()->AddPendingEvent(evtSwitch);
     return;
   } else if (keyEvent.GetKeyCode() == '`' &&
-             keyEvent.GetModifiers() == wxMOD_CONTROL) {
-    // Toggle the side bar. The terminal would get it otherwise.
-    wxCommandEvent evtOutput{wxEVT_MENU, XRCID("show-sidebar")};
-    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtOutput);
+             keyEvent.GetModifiers() == wxMOD_CONTROL &&
+             CanToggleSessionTerminal()) {
+    // The terminal below the agent. The terminal would get it otherwise. Only
+    // where there is such a terminal to toggle (the page of an agent, or its
+    // bottom terminal): in a plain terminal or a job the program gets the key.
+    wxCommandEvent evtTerminal{wxEVT_MENU, XRCID("session-terminal")};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtTerminal);
     return;
   } else if (keyEvent.GetKeyCode() == WXK_F2) {
     // Rename
     wxCommandEvent evtRename{wxEVT_MENU, XRCID("rename-selection")};
     wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(evtRename);
-    return;
-  } else if (keyEvent.GetKeyCode() == WXK_F6 &&
-             keyEvent.GetModifiers() == wxMOD_NONE) {
-    // The terminal below the agent.
-    wxCommandEvent evtTerminal{wxEVT_MENU, XRCID("session-terminal")};
-    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtTerminal);
     return;
   } else if (keyEvent.GetKeyCode() == WXK_F5) {
     // Rename
@@ -84,9 +88,10 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     return;
   } else if (keyEvent.GetUnicodeKey() == 'M' &&
              keyEvent.GetModifiers() == wxMOD_RAW_CONTROL) {
-    // Toggle All Views. The terminal would get it otherwise (Ctrl+M is Enter).
-    wxCommandEvent evtToggleViews{wxEVT_MENU, XRCID("toggle-all-views")};
-    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtToggleViews);
+    // Toggle the side bar. The terminal would get it otherwise (Ctrl+M is
+    // Enter).
+    wxCommandEvent evtSideBar{wxEVT_MENU, XRCID("show-sidebar")};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtSideBar);
     return;
   } else if (keyEvent.GetUnicodeKey() == 'N' &&
              keyEvent.GetModifiers() == wxMOD_CONTROL) {

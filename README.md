@@ -574,11 +574,11 @@ dialog.
 | New File | `Ctrl` + `N` |
 | Open File | `Ctrl` + `Shift` + `O` |
 | Find in Files | `Ctrl` + `Shift` + `F` |
-| Toggle the Side Bar | `Ctrl` + `` ` `` (`Control` + `` ` `` on macOS) |
+| Toggle the Side Bar | `Ctrl` + `M` (the physical `Ctrl` key, also on macOS) |
+| Session Terminal (a terminal below the agent) | `Ctrl` + `` ` `` (`Control` + `` ` `` on macOS) |
 | Archived Sessions | `Ctrl` + `Shift` + `A` |
 | Start Review Buddy | `Ctrl` + `Shift` + `R` |
 | Goto Anything | `Ctrl` + `Shift` + `P` |
-| Toggle All Views | `Ctrl` + `M` (the physical `Ctrl` key, also on macOS) |
 | Switch to the Next Page | `Ctrl` + `Tab` (the physical `Ctrl` key, also on macOS) |
 | Switch to the Previous Page | `Ctrl` + `Shift` + `Tab` (the physical `Ctrl` key, also on macOS) |
 | Restart (Refresh) the Current Session | `F5` |
@@ -647,10 +647,9 @@ stays as **Detached**.
   (`allow-passthrough` is adapted to the version of tmux). The values are stored in
   `~/.kennel/.persist.json` (`tmuxEnabled`, `tmuxAgentSettings`, `tmuxTerminalSettings`).
 - **Terminal preferences.** Set the size of the scrollback buffer.
-- **Layout.** **View → Toggle SideBar** (`Ctrl`+`` ` ``) shows or hides the Side Bar, and **View →
-  SideBar Position** puts it on the left or on the right. **Toggle All
-  Views** (`Ctrl`+`M`) hides the Side Bar, leaving only the pages. **View → Reset Kennel
-  Layout** restores the default layout.
+- **Layout.** **View → Toggle SideBar** (`Ctrl`+`M`) shows or hides the Side Bar, leaving only
+  the pages, and **View → SideBar Position** puts it on the left or on the right. **View → Reset
+  Kennel Layout** restores the default layout.
 - **Remote hosts.** Manage reusable SSH hosts in **Settings → Manage Remote Hosts...**.
 - **Update checks.** Use **Settings → Check for Updates...** to look for a newer version.
 - **Plain terminals.** Open a terminal without an agent with **File → New Terminal**

@@ -8,6 +8,7 @@
 #include "app/ReviewBuddy.hpp"
 #include "app/ReviewBuddyHeader.hpp"
 #include "app/SearchBar.hpp"
+#include "app/TerminalManager.hpp"
 #include "core/AdapterRegistry.h"
 #include "core/AppManager.h"
 #include "core/ClientAdapter.h"
@@ -140,28 +141,6 @@ bool LooksLikeTextFile(const wxString &path) {
     return false;
   }
   return std::memchr(head, 0, static_cast<size_t>(n)) == nullptr;
-}
-
-std::optional<wxTerminalViewCtrl::EnvironmentList>
-BuildEnvironment(const std::map<wxString, wxString> &overrides) {
-  if (overrides.empty()) {
-    return std::nullopt;
-  }
-
-  wxEnvVariableHashMap env;
-  wxGetEnvMap(&env);
-  for (const auto &[key, value] : overrides) {
-    env[key] = value;
-  }
-
-  wxTerminalViewCtrl::EnvironmentList list;
-  list.reserve(env.size());
-  for (const auto &entry : env) {
-    wxString line;
-    line << entry.first << "=" << entry.second;
-    list.push_back(line.ToStdString(wxConvUTF8));
-  }
-  return list;
 }
 
 // A file or a folder of this machine, which a click on a path can open.
@@ -489,9 +468,9 @@ void SessionPage::CreateTerminal() {
   // Phase 1 of starting a session (the caller then calls StartProgram()):
   // creates the terminal and starts its shell. The page has a terminal after
   // it, unless the user cancelled the choice of the shell.
-  std::optional<wxTerminalViewCtrl::EnvironmentList> env{std::nullopt};
+  std::map<wxString, wxString> env;
   if (m_agent) {
-    env = BuildEnvironment(m_agent->env);
+    env = m_agent->env;
   }
 
   std::optional<wxString> cwd;
@@ -580,7 +559,7 @@ void SessionPage::CreateTerminal() {
     if (!m_agent->remoteHost.empty()) {
       KLOG_DEBUG() << "Launching remote session: " << m_session.name;
       cwd.reset();
-      env.reset();
+      env.clear();
     } else {
       if (!m_session.workingDir.empty()) {
         wxFileName::Mkdir(m_session.workingDir, wxS_DIR_DEFAULT,
@@ -595,12 +574,11 @@ void SessionPage::CreateTerminal() {
       [this]() { SetStatus(SessionStatus::Running); },
       [this]() { SetStatus(SessionStatus::Idle); });
 
-  shellCommand.Replace(
-      "%WORKING_DIRECTORY%",
-      (m_session.workingDir.empty() ? "~" : m_session.workingDir));
-
-  KLOG_DEBUG() << "Running shell: " << shellCommand;
-  m_terminal = new wxTerminalViewCtrl(m_agentPanel, shellCommand, env, cwd);
+  m_terminal = TerminalManager::Get().CreateTerminal(
+      m_agentPanel, {.shellCommand = shellCommand,
+                     .workingDir = m_session.workingDir,
+                     .cwd = cwd,
+                     .env = env});
   AddToPane(m_agentPanel, m_terminal);
   m_acceleratorInterceptor =
       std::make_unique<AcceleratorInterceptor>(m_terminal);
@@ -669,24 +647,10 @@ void SessionPage::AddToPane(wxPanel *pane, wxTerminalViewCtrl *terminal) {
 }
 
 void SessionPage::ConfigureTerminal(wxTerminalViewCtrl *terminal) {
-  const auto &prefs = AppManager::Get().GetPrefs();
-  terminal->EnableSafeDrawing(!prefs.terminalOptimizedDrawing);
-  if (auto theme = ThemeManager::Get().ActiveTheme()) {
-    terminal->SetTheme(*theme);
-  }
-  terminal->SetBufferSize(prefs.scrollbackLines);
   terminal->Bind(wxEVT_TERMINAL_TEXT_LINK, &SessionPage::OnTerminalLink, this);
   // Bound after the terminal's own handler, so it runs first; it does not call
   // Skip(), which keeps the terminal's Copy / Paste / Clear menu from showing.
   terminal->Bind(wxEVT_CONTEXT_MENU, &SessionPage::OnTerminalContextMenu, this);
-  // The terminal takes the focus when the mouse goes down in it (it does so
-  // on release too), so the one the user clicks is the one that gets the keys.
-  terminal->Bind(wxEVT_LEFT_DOWN, [terminal](wxMouseEvent &event) {
-    event.Skip();
-    if (!terminal->HasFocus()) {
-      terminal->SetFocus();
-    }
-  });
 }
 
 std::vector<wxTerminalViewCtrl *> SessionPage::GetTerminals() const {
@@ -1331,7 +1295,7 @@ void SessionPage::CreateToolBar() {
     toolbar::AddTool(m_toolbar, ID_TERMINAL, _("Terminal"),
                      bmps.Get("terminal", false),
                      _("Open a terminal in the folder and on the host of this "
-                       "session (F6)"));
+                       "session (Ctrl+`)"));
   }
   m_toolbar->AddSeparator();
   toolbar::AddTool(m_toolbar, ID_COPY, _("Copy"), bmps.Get("copy", false),
@@ -1926,8 +1890,6 @@ wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
   if (!reviewer.loginShell.empty()) {
     shellCommand = reviewer.loginShell;
   }
-  // A WSL agent's directory is a Linux path: the shell command takes it.
-  shellCommand.Replace("%WORKING_DIRECTORY%", reviewerDir);
   std::optional<wxString> cwd;
   if (!reviewer.IsRemote() && !reviewer.IsWSL() &&
       !m_session.workingDir.empty()) {
@@ -1937,8 +1899,12 @@ wxTerminalViewCtrl *SessionPage::StartReviewer(const AgentDef &reviewer,
   // As for the agent's own terminal (CreateTerminal), the environment is the
   // one of the local process: the shell, or the ssh client for a remote agent.
   // BuildCommandLine() exports the same variables on the remote side.
-  m_reviewTerminal = new wxTerminalViewCtrl(
-      m_reviewBuddyPanel, shellCommand, BuildEnvironment(reviewer.env), cwd);
+  // A WSL agent's directory is a Linux path: the shell command takes it.
+  m_reviewTerminal = TerminalManager::Get().CreateTerminal(
+      m_reviewBuddyPanel, {.shellCommand = shellCommand,
+                           .workingDir = reviewerDir,
+                           .cwd = cwd,
+                           .env = reviewer.env});
   AddToPane(m_reviewBuddyPanel, m_reviewTerminal);
   m_reviewAcceleratorInterceptor =
       std::make_unique<AcceleratorInterceptor>(m_reviewTerminal);

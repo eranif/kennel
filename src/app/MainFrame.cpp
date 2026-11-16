@@ -397,9 +397,10 @@ void MainFrame::BuildMenuBar() {
   fileMenu->Append(XRCID("start-terminal"), _("New Terminal\tCtrl+E"),
                    _("Start GlyphT Terminal"));
   Bind(wxEVT_MENU, &MainFrame::OnNewTerminal, this, XRCID("start-terminal"));
-  // AcceleratorInterceptor handles the key in a terminal (it would get it
-  // otherwise).
-  fileMenu->Append(XRCID("session-terminal"), _("Session Terminal\tF6"),
+  // The physical Ctrl key, also on macOS (Cmd+` switches the windows of the
+  // system). AcceleratorInterceptor handles the key in a terminal (it would
+  // get it otherwise).
+  fileMenu->Append(XRCID("session-terminal"), _("Session Terminal\tRawCtrl+`"),
                    _("Open a terminal below the agent, on its machine and in "
                      "its folder"));
   Bind(wxEVT_MENU, &MainFrame::OnSessionTerminal, this,
@@ -541,17 +542,11 @@ void MainFrame::BuildSearchMenu(wxMenuBar *menuBar) {
 
 void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
   auto *viewMenu = new wxMenu();
-  // The physical Ctrl key, also on macOS (Cmd+` switches the windows of the
-  // system). AcceleratorInterceptor handles the key (a terminal would get it
-  // otherwise).
-  viewMenu->AppendCheckItem(XRCID("show-sidebar"),
-                            _("Toggle SideBar\tRawCtrl+`"),
-                            _("Show or hide the side bar"));
   // The physical Ctrl key, also on macOS. AcceleratorInterceptor handles the
-  // key (a terminal would get it otherwise); the text after the tab shows it.
-  viewMenu->Append(XRCID("toggle-all-views"), _("Toggle All Views\tRawCtrl+M"),
-                   _("Hide all the views except for the main view, or show "
-                     "them again"));
+  // key (a terminal would get it otherwise).
+  viewMenu->AppendCheckItem(XRCID("show-sidebar"),
+                            _("Toggle SideBar\tRawCtrl+M"),
+                            _("Show or hide the side bar"));
   viewMenu->AppendSeparator();
   // Which side of the window the side bar is on (see MainView).
   auto *positionMenu = new wxMenu();
@@ -565,9 +560,6 @@ void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
   Bind(wxEVT_MENU, &MainFrame::OnToggleSideBar, this, XRCID("show-sidebar"));
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnToggleSideBarUI, this,
        XRCID("show-sidebar"));
-  Bind(
-      wxEVT_MENU, [this](wxCommandEvent &) { m_mainView->ToggleAllPanes(); },
-      XRCID("toggle-all-views"));
   // What the close button of the tab of an agent session does (the choice of
   // the "Do not ask again" box of the question it asks).
   auto *closeMenu = new wxMenu();
