@@ -1,7 +1,10 @@
 #pragma once
 
+#include "UI.hpp"
+#include "app/AcceleratorInterceptor.h"
 #include "app/FileEvent.hpp"
 #include "app/PageViewEvent.hpp"
+#include "app/TerminalManager.hpp"
 #include "core/Account.h"
 #include "core/GitDriver.h"
 #include "core/GitEvent.h"
@@ -11,12 +14,10 @@
 #include <memory>
 #include <optional>
 #include <vector>
-#include <wx/panel.h>
 
 class wxAuiToolBar;
 class wxDataViewEvent;
-class wxDataViewListCtrl;
-class wxStaticText;
+class wxTerminalEvent;
 
 // Sent on the EventNotifier when the user asks for the diff of a file:
 // GetPath() is the file (in the notation of GetAccount()), GetInt() is 1 for
@@ -29,10 +30,6 @@ wxDECLARE_EVENT(wxEVT_GITVIEW_SHOW_DIFF, FileEvent);
 // the log of all of it), GetInt() is 0 for the log and 1 for the blame,
 // GetString() is the text.
 wxDECLARE_EVENT(wxEVT_GITVIEW_SHOW_TEXT, FileEvent);
-
-// Sent on the EventNotifier to run a command line in the terminal "Git":
-// GetPath() is the folder to start it in, GetString() is the command line.
-wxDECLARE_EVENT(wxEVT_GITVIEW_RUN_IN_TERMINAL, FileEvent);
 
 // Sent on the EventNotifier when the user chose another folder for the git
 // view: GetPath() is the folder (in the notation of GetAccount()). The event
@@ -52,16 +49,17 @@ wxDECLARE_EVENT(wxEVT_GITVIEW_CHANGE_FOLDER, FileEvent);
 //
 // A file that has changes in the index and in the work tree has two rows. A
 // double click shows the diff of the row (wxEVT_GITVIEW_SHOW_DIFF); the context
-// menu has the actions of the files.
+// menu has the actions of the files. The commands that may ask for a password
+// (push, pull) run in a terminal in a pane below the list, which is hidden
+// until the first one (the layout is GitPanelBase, in UI.wxcp).
 //
 // A panel knows nothing of the sessions: SideView makes one for each place and
 // shows the right one. It has one GitDriver (the kind comes from the Account;
 // it starts with the first Activate()), listens on the EventNotifier to the
 // answers of its own driver, and sends the file to open
-// (wxEVT_FILETREE_ACTIVATED), the texts to show and the commands for the
-// terminal on the EventNotifier. An account without a working folder has no
-// driver.
-class GitPanel : public wxPanel {
+// (wxEVT_FILETREE_ACTIVATED) and the texts to show on the EventNotifier. An
+// account without a working folder has no driver.
+class GitPanel : public GitPanelBase {
 public:
   GitPanel(wxWindow *parent, const Account &account);
   ~GitPanel() override;
@@ -124,9 +122,22 @@ private:
   void ShowLog(const Row *row);
   void ShowBlame(const Row &row);
   void Commit();
-  // Runs `git <command>` (push, pull) in the terminal of the account, where
-  // git can ask for a password.
+  // Runs `git <command>` (push, pull) in the terminal of the pane below the
+  // list, where git can ask for a password. The pane is shown first, and the
+  // terminal is made after that, so that it has the size of the pane.
   void RunInTerminal(const wxString &command);
+  // How the terminal of the account starts: a shell of this machine, or the
+  // shell of the WSL distribution. Nothing when there is no shell for it (the
+  // user is told).
+  std::optional<TerminalOptions> GetTerminalOptions() const;
+  // Makes the terminal in the pane and starts it (on a remote host it logs in
+  // first). Does nothing when there is one.
+  void CreateTerminal();
+  // The shell of the terminal ended: the pane is hidden and the terminal gone,
+  // the next command makes a new one.
+  void CloseTerminal();
+  void OnTerminalTerminated(wxTerminalEvent &event);
+  void OnThemeApplied(wxCommandEvent &event);
 
   // Fills the label and the table from the last answer.
   void Refill();
@@ -141,8 +152,9 @@ private:
   wxString m_message;
 
   wxAuiToolBar *m_toolbar{nullptr};
-  wxStaticText *m_branch{nullptr};
-  wxDataViewListCtrl *m_list{nullptr};
+  // In the pane below the list; null until the first command.
+  wxTerminalViewCtrl *m_terminal{nullptr};
+  std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor;
   // The rows of the table.
   std::vector<Row> m_rows;
   // How many rows of the log to ask for.

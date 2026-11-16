@@ -769,4 +769,26 @@ public:
     virtual ~FindInFilesDlgBase();
 };
 
+
+class GitPanelBase : public wxPanel
+{
+protected:
+    wxStaticText* m_branch;
+    wxSplitterWindow* m_splitterGit;
+    wxPanel* m_panelGitList;
+    wxDataViewListCtrl* m_list;
+    wxPanel* m_panelGitTerminal;
+
+protected:
+
+public:
+    wxStaticText* GetBranch() { return m_branch; }
+    wxDataViewListCtrl* GetList() { return m_list; }
+    wxPanel* GetPanelGitList() { return m_panelGitList; }
+    wxPanel* GetPanelGitTerminal() { return m_panelGitTerminal; }
+    wxSplitterWindow* GetSplitterGit() { return m_splitterGit; }
+    GitPanelBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxTAB_TRAVERSAL);
+    virtual ~GitPanelBase();
+};
+
 #endif

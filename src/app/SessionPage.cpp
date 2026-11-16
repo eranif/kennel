@@ -467,7 +467,7 @@ void SessionPage::CreateTerminal() {
   m_programStarted = false; // Of the terminal that this creates
   // Phase 1 of starting a session (the caller then calls StartProgram()):
   // creates the terminal and starts its shell. The page has a terminal after
-  // it, unless the user cancelled the choice of the shell.
+  // it.
   std::map<wxString, wxString> env;
   if (m_agent) {
     env = m_agent->env;
@@ -504,51 +504,9 @@ void SessionPage::CreateTerminal() {
       }
     }
 
-    // For plain terminals, we use the following logic to determine the
-    // terminal: Assume the default terminal. If we have multiple terminals,
-    // prompt the user to pick one (the shell chosen last time, or else the
-    // default one, is selected in the dialog). Not for the terminal of the
-    // bottom pane: it is made without a question, with the default shell when
-    // its agent has none.
-    if (m_session.loginShell.empty() && shells.size() > 1 &&
-        m_owner == nullptr) {
-      wxArrayString shell_names_arr;
-      std::unordered_map<wxString, wxString> m;
-      wxString selectedShellName;
-      // The one chosen last time, as long as it is still there; otherwise the
-      // default shell.
-      const bool lastIsThere = std::any_of(
-          shells.begin(), shells.end(), [&prefs](const auto &shell) {
-            return shell.second == prefs.lastTerminalShell;
-          });
-      const wxString &preferred =
-          lastIsThere ? prefs.lastTerminalShell : prefs.terminalLoginShell;
-      for (const auto &[shell_name, shell_cmd] : shells) {
-        if (shell_cmd == preferred) {
-          selectedShellName = shell_name;
-        }
-        shell_names_arr.push_back(shell_name);
-        m.insert({shell_name, shell_cmd});
-      }
-
-      int selection = shell_names_arr.Index(selectedShellName);
-      wxString selectionShell = ::wxGetSingleChoice(
-          _("Choose a Login Shell:"), "Kennel", shell_names_arr, selection);
-      if (selectionShell.empty()) {
-        return; // user cancelled
-      }
-      shellCommand = m[selectionShell];
-      // Only a shell the user picked is kept: the default follows the prefs.
-      m_session.loginShell = shellCommand;
-      // Offered first next time.
-      auto &mutablePrefs = AppManager::Get().GetPrefs();
-      if (mutablePrefs.lastTerminalShell != shellCommand) {
-        mutablePrefs.lastTerminalShell = shellCommand;
-        if (::Status st = AppManager::Get().SavePrefs(); !st.ok()) {
-          KLOG_WARN() << "Could not save the terminal shell: " << st.message();
-        }
-      }
-    }
+    // No shell (a terminal that was not given one, or whose shell is gone): the
+    // default one. The user is asked before the terminal is made, see
+    // MainNotebook::StartTerminal().
   }
 
   if (m_agent) {

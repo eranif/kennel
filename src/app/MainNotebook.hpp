@@ -77,13 +77,6 @@ public:
   // Adds `dir` to the folders the Start Agent dialog offers.
   void RememberWorkingDir(const wxString &dir);
 
-  // Shows a terminal named `name` that runs on `account`, and types `commands`
-  // in it. A terminal with that name is used again. `workingDir` is where a
-  // terminal of this machine starts.
-  bool LaunchTerminal(const wxString &name, const wxString &workingDir,
-                      const Account &account,
-                      const std::vector<wxString> &commands);
-
   // Shows the Start Agent dialog, then launches on OK. `agentName` preselects
   // an agent (empty -> first defined agent); `groupName` pre-sets the group
   // field (empty -> dialog default, "Default").
@@ -92,6 +85,9 @@ public:
 
   // Shows a plain terminal.
   void StartTerminal();
+  // Asks which shell a new plain terminal runs (only where the machine has
+  // several). An empty string is the default shell, no value is a cancel.
+  std::optional<wxString> AskLoginShell();
   // Moves the tabs to `direction` and remembers it in the preferences.
   void SetTabPosition(wxDirection direction);
   // Shows `height` on the tab bars (this one and the side bar's) and remembers
@@ -352,7 +348,6 @@ private:
   void OnFileTreeActivated(FileEvent &event);
   void OnShowDiff(FileEvent &event);
   void OnShowGitText(FileEvent &event);
-  void OnGitTerminal(FileEvent &event);
   // Shows the text of `event` (GetString()) in a read-only page of the file
   // GetPath() with `suffix` added.
   void ShowReadOnlyText(const FileEvent &event, const wxString &suffix);

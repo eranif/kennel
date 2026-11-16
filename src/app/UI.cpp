@@ -2431,3 +2431,52 @@ FindInFilesDlgBase::~FindInFilesDlgBase()
     m_buttonOK->Unbind(wxEVT_UPDATE_UI, &FindInFilesDlgBase::OnOkUI, this);
     
 }
+
+GitPanelBase::GitPanelBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
+    : wxPanel(parent, id, pos, size, style)
+{
+    if ( !bBitmapLoaded ) {
+        // We need to initialise the default bitmap handler
+        wxXmlResource::Get()->AddHandler(new wxBitmapXmlHandler);
+        wxCrafterFiTVkcInitBitmapResources();
+        bBitmapLoaded = true;
+    }
+    
+    wxBoxSizer* boxSizerGit = new wxBoxSizer(wxVERTICAL);
+    this->SetSizer(boxSizerGit);
+    
+    m_branch = new wxStaticText(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), 0);
+    
+    boxSizerGit->Add(m_branch, 0, wxALL|wxEXPAND, WXC_FROM_DIP(5));
+    
+    m_splitterGit = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1,-1)), wxSP_LIVE_UPDATE|wxSP_NO_XP_THEME|wxSP_3DSASH);
+    m_splitterGit->SetSashGravity(0.5);
+    m_splitterGit->SetMinimumPaneSize(100);
+    
+    boxSizerGit->Add(m_splitterGit, 1, wxEXPAND, WXC_FROM_DIP(5));
+    
+    m_panelGitList = new wxPanel(m_splitterGit, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_splitterGit, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    
+    wxBoxSizer* boxSizerGitList = new wxBoxSizer(wxVERTICAL);
+    m_panelGitList->SetSizer(boxSizerGitList);
+    
+    m_list = new wxDataViewListCtrl(m_panelGitList, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_panelGitList, wxSize(-1,-1)), wxDV_ROW_LINES|wxDV_MULTIPLE);
+    
+    boxSizerGitList->Add(m_list, 1, wxEXPAND, WXC_FROM_DIP(5));
+    
+    m_panelGitTerminal = new wxPanel(m_splitterGit, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_splitterGit, wxSize(-1,-1)), wxTAB_TRAVERSAL);
+    m_splitterGit->SplitHorizontally(m_panelGitList, m_panelGitTerminal, 0);
+    
+    wxBoxSizer* boxSizerGitTerminal = new wxBoxSizer(wxVERTICAL);
+    m_panelGitTerminal->SetSizer(boxSizerGitTerminal);
+    
+    SetName(wxT("GitPanelBase"));
+    SetSize(wxDLG_UNIT(this, wxSize(-1,-1)));
+    if (GetSizer()) {
+         GetSizer()->Fit(this);
+    }
+}
+
+GitPanelBase::~GitPanelBase()
+{
+}

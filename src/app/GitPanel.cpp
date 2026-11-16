@@ -1,17 +1,22 @@
 #include "app/GitPanel.hpp"
 
+#include "ThemeManager.h"
 #include "app/DataViewUtils.hpp"
 #include "app/FileBrowserDlg.hpp"
 #include "app/FileTreeCtrl.hpp"
 #include "app/GitCommitMessageDlg.hpp"
 #include "app/ToolBarUtils.h"
 #include "core/AppManager.h"
+#include "core/ClientAdapter.h"
 #include "core/EventNotifier.hpp"
 #include "core/GitDriverLocal.h"
 #include "core/GitDriverSSH.h"
 #include "core/GitDriverWSL.h"
+#include "core/Helpers.h"
 #include "core/Logger.h"
 #include "core/WslPath.h"
+#include "terminal_event.h"
+#include "terminal_view.h"
 #include <wx/app.h>
 #include <wx/aui/auibar.h>
 #include <wx/button.h>
@@ -119,11 +124,11 @@ wxString QuoteForShell(const wxString &path) {
 
 wxDEFINE_EVENT(wxEVT_GITVIEW_SHOW_DIFF, FileEvent);
 wxDEFINE_EVENT(wxEVT_GITVIEW_SHOW_TEXT, FileEvent);
-wxDEFINE_EVENT(wxEVT_GITVIEW_RUN_IN_TERMINAL, FileEvent);
 wxDEFINE_EVENT(wxEVT_GITVIEW_CHANGE_FOLDER, FileEvent);
 
 GitPanel::GitPanel(wxWindow *parent, const Account &account)
-    : wxPanel(parent), m_account(account), m_hasFolder(HasFolder(account)) {
+    : GitPanelBase(parent), m_account(account),
+      m_hasFolder(HasFolder(account)) {
   m_message = m_hasFolder ? _("Loading...") : _("No working folder");
   m_toolbar = new wxAuiToolBar(this);
   toolbar::AddTool(m_toolbar, kIdRefresh, _("Refresh"),
@@ -153,19 +158,14 @@ GitPanel::GitPanel(wxWindow *parent, const Account &account)
   m_toolbar->Realize();
   toolbar::ApplyStyle(m_toolbar);
 
-  m_branch = new wxStaticText(this, wxID_ANY, wxEmptyString);
-  m_list =
-      new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                             wxDV_MULTIPLE | wxDV_ROW_LINES);
+  // The toolbar is the first thing of the panel; the rest is GitPanelBase.
+  GetSizer()->Insert(0, m_toolbar, wxSizerFlags(0).Expand());
+
   dv::StylePageView(m_list);
   m_list->AppendIconTextColumn(_("Status"), wxDATAVIEW_CELL_INERT, 130);
   m_list->AppendIconTextColumn(_("Path"), wxDATAVIEW_CELL_INERT, 300);
-
-  auto *sizer = new wxBoxSizer(wxVERTICAL);
-  sizer->Add(m_toolbar, wxSizerFlags(0).Expand());
-  sizer->Add(m_branch, wxSizerFlags(0).Expand().Border(wxALL, FromDIP(5)));
-  sizer->Add(m_list, wxSizerFlags(1).Expand());
-  SetSizer(sizer);
+  // The terminal pane is hidden until a command runs in it.
+  m_splitterGit->Unsplit(m_panelGitTerminal);
 
   m_toolbar->Bind(wxEVT_TOOL, &GitPanel::OnRefresh, this, kIdRefresh);
   for (const int id : {kIdAdd, kIdCommit, kIdPush, kIdPull, kIdRepoLog,
@@ -179,6 +179,7 @@ GitPanel::GitPanel(wxWindow *parent, const Account &account)
   notifier->Bind(wxEVT_GIT_STATUS, &GitPanel::OnGitStatus, this);
   notifier->Bind(wxEVT_GIT_DIFF, &GitPanel::OnGitDiff, this);
   notifier->Bind(wxEVT_GIT_COMMAND, &GitPanel::OnGitCommand, this);
+  notifier->Bind(wxEVT_THEME_APPLIED, &GitPanel::OnThemeApplied, this);
   Refill();
 }
 
@@ -187,6 +188,7 @@ GitPanel::~GitPanel() {
   notifier->Unbind(wxEVT_GIT_STATUS, &GitPanel::OnGitStatus, this);
   notifier->Unbind(wxEVT_GIT_DIFF, &GitPanel::OnGitDiff, this);
   notifier->Unbind(wxEVT_GIT_COMMAND, &GitPanel::OnGitCommand, this);
+  notifier->Unbind(wxEVT_THEME_APPLIED, &GitPanel::OnThemeApplied, this);
 }
 
 // The driver ends by waiting for the git that runs, which can take seconds (an
@@ -596,18 +598,107 @@ void GitPanel::RunInTerminal(const wxString &command) {
   if (m_status.root.empty()) {
     return;
   }
-  // The terminal of the account runs it (the git of a WSL distribution or of a
-  // remote host asks for its passwords there). Only the terminal knows when it
-  // is done: nothing is refreshed here.
+  // The terminal runs it (the git of a WSL distribution or of a remote host
+  // asks for its passwords there). Only the terminal knows when it is done:
+  // nothing is refreshed here.
   const wxString &root = m_status.root;
-  FileEvent run{wxEVT_GITVIEW_RUN_IN_TERMINAL};
-  run.SetEventObject(this);
-  run.SetPath(root);
-  run.SetAccount(m_account);
-  run.SetString(m_account.IsLocalHost()
-                    ? "git -C " + QuoteForShell(root) + " " + command
-                    : "cd " + QuoteForShell(root) + " && git " + command);
-  EventNotifier::Get()->AddPendingEvent(run);
+  const wxString line =
+      m_account.IsLocalHost()
+          ? "git -C " + QuoteForShell(root) + " " + command
+          : "cd " + QuoteForShell(root) + " && git " + command;
+  // The pane is shown first, and the terminal made after that: it gets the size
+  // of the pane.
+  if (!m_splitterGit->IsSplit()) {
+    // Half each (the default position is a stale one, see SessionPage).
+    m_splitterGit->SplitHorizontally(
+        m_panelGitList, m_panelGitTerminal,
+        (m_splitterGit->GetClientSize().y - m_splitterGit->GetSashSize()) / 2);
+  }
+  CallAfter([this, line] {
+    CreateTerminal();
+    if (m_terminal != nullptr) {
+      m_terminal->SendCommand(line);
+    }
+  });
+}
+
+std::optional<TerminalOptions> GitPanel::GetTerminalOptions() const {
+  TerminalOptions options;
+  options.shellCommand = AppManager::Get().GetPrefs().terminalLoginShell;
+  options.workingDir = m_status.root;
+  if (m_account.IsWSL()) {
+    // The shell of the distribution, as the list of terminals has it.
+    options.shellCommand.clear();
+    for (const auto &[name, command] : ::FindShells().shells) {
+      if (wsl::DistroOf(command) == m_account.m_name) {
+        options.shellCommand = command;
+        break;
+      }
+    }
+    if (options.shellCommand.empty()) {
+      KLOG_WARN() << "No shell for the WSL distribution " << m_account.m_name;
+      wxMessageBox(wxString::Format(_("No shell found for '%s'"),
+                                    m_account.GetDisplayName()),
+                   "Kennel", wxOK | wxICON_ERROR);
+      return std::nullopt;
+    }
+  } else if (m_account.IsLocalHost()) {
+    options.cwd = m_status.root;
+  }
+  // A remote host: the shell of this machine, which logs in first
+  // (CreateTerminal()).
+  return options;
+}
+
+void GitPanel::CreateTerminal() {
+  if (m_terminal != nullptr) {
+    return;
+  }
+  const std::optional<TerminalOptions> options = GetTerminalOptions();
+  if (!options) {
+    m_splitterGit->Unsplit(m_panelGitTerminal);
+    return;
+  }
+  m_terminal =
+      TerminalManager::Get().CreateTerminal(m_panelGitTerminal, *options);
+  m_panelGitTerminal->GetSizer()->Add(m_terminal, wxSizerFlags(1).Expand());
+  m_panelGitTerminal->Layout();
+  m_acceleratorInterceptor =
+      std::make_unique<AcceleratorInterceptor>(m_terminal);
+  m_terminal->Bind(wxEVT_TERMINAL_TERMINATED, &GitPanel::OnTerminalTerminated,
+                   this);
+  m_terminal->EnsureStarted();
+  if (m_account.IsRemote()) {
+    m_terminal->SendCommand(
+        SshLoginCommand(m_account.m_name, m_account.m_user));
+  }
+}
+
+void GitPanel::CloseTerminal() {
+  if (m_splitterGit->IsSplit()) {
+    m_splitterGit->Unsplit(m_panelGitTerminal);
+  }
+  if (m_terminal != nullptr) {
+    m_terminal->Destroy();
+    m_terminal = nullptr;
+  }
+  m_acceleratorInterceptor.reset();
+}
+
+void GitPanel::OnTerminalTerminated(wxTerminalEvent &event) {
+  event.Skip();
+  // Deferred: the terminal is destroyed by it.
+  CallAfter(&GitPanel::CloseTerminal);
+}
+
+void GitPanel::OnThemeApplied(wxCommandEvent &event) {
+  event.Skip();
+  if (m_terminal == nullptr) {
+    return;
+  }
+  if (const auto theme = ThemeManager::Get().ActiveTheme()) {
+    m_terminal->SetTheme(*theme);
+  }
 }
 
 void GitPanel::OnGitCommand(GitEvent &event) {

@@ -39,6 +39,7 @@
 #include <algorithm>
 #include <optional>
 #include <thread>
+#include <wx/choicdlg.h>
 #include <wx/dir.h>
 #include <wx/fontdlg.h>
 #include <wx/menu.h>
@@ -171,8 +172,6 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
                              this);
   EventNotifier::Get()->Bind(wxEVT_GITVIEW_SHOW_TEXT,
                              &MainNotebook::OnShowGitText, this);
-  EventNotifier::Get()->Bind(wxEVT_GITVIEW_RUN_IN_TERMINAL,
-                             &MainNotebook::OnGitTerminal, this);
   EventNotifier::Get()->Bind(wxEVT_APP_PREFS_CHANGED,
                              &MainNotebook::OnAppPrefsSaved, this);
   EventNotifier::Get()->Bind(wxEVT_APP_TAB_HEIGHT, &MainNotebook::OnTabHeight,
@@ -222,8 +221,6 @@ MainNotebook::~MainNotebook() {
                                &MainNotebook::OnShowDiff, this);
   EventNotifier::Get()->Unbind(wxEVT_GITVIEW_SHOW_TEXT,
                                &MainNotebook::OnShowGitText, this);
-  EventNotifier::Get()->Unbind(wxEVT_GITVIEW_RUN_IN_TERMINAL,
-                               &MainNotebook::OnGitTerminal, this);
   EventNotifier::Get()->Unbind(wxEVT_APP_PREFS_CHANGED,
                                &MainNotebook::OnAppPrefsSaved, this);
   EventNotifier::Get()->Unbind(wxEVT_APP_TAB_HEIGHT, &MainNotebook::OnTabHeight,
@@ -1481,85 +1478,6 @@ void MainNotebook::CloseAllFiles() {
 // Launching sessions
 // ---------------------------------------------------------------------------
 
-// The git view asks to run a command (GetString()) in the terminal of the
-// account (GetAccount()) in the folder GetPath().
-void MainNotebook::OnGitTerminal(FileEvent &event) {
-  const Account &account = event.GetAccount();
-  const wxString where = account.IsLocalHost() ? wxString(_("Local"))
-                         : account.IsWSL()     ? account.m_name
-                                               : account.GetDisplayName();
-  LaunchTerminal("Git (" + where + ")", event.GetPath(), account,
-                 {event.GetString()});
-}
-
-// Like LaunchSession(), for a terminal that runs on `account`: a shell of the
-// distribution for WSL, a shell that logs in to the host with ssh for a remote
-// host (and, with tmux, in tmux there). The commands are typed in the terminal
-// after that (SessionPage::SendCommands()). A terminal with
-// this name is used again, and shown.
-bool MainNotebook::LaunchTerminal(const wxString &name,
-                                  const wxString &workingDir,
-                                  const Account &account,
-                                  const std::vector<wxString> &commands) {
-  wxWindowUpdateLocker locker{this};
-  if (SessionPage *page = FindSession(kTerminalsGroupName, name)) {
-    if (page->GetTerminal() != nullptr) {
-      // A terminal on a remote host that is open already goes to the folder.
-      if (account.IsRemote() && !workingDir.empty()) {
-        page->SendCommands({ChangeDirCommand(workingDir)});
-      }
-      page->SendCommands(commands);
-      ShowPage(page);
-      return true;
-    }
-  }
-
-  NewSessionRequest request{
-      .name = name,
-      .agentName = _("Terminals"), // Fake name
-      .groupName = kTerminalsGroupName,
-      .plainTerminal = true,
-  };
-  request.loginShell = AppManager::Get().GetPrefs().terminalLoginShell;
-  if (account.IsWSL()) {
-    // The shell of the distribution, as the terminals list it.
-    request.loginShell.clear();
-    for (const auto &[shellName, shellCommand] : ::FindShells().shells) {
-      if (wsl::DistroOf(shellCommand) == account.m_name) {
-        request.loginShell = shellCommand;
-        break;
-      }
-    }
-    if (request.loginShell.empty()) {
-      KLOG_WARN() << "No shell for the WSL distribution " << account.m_name;
-      wxMessageBox(wxString::Format(_("No shell found for '%s'"),
-                                    account.GetDisplayName()),
-                   "Kennel", wxOK | wxICON_ERROR, this);
-      return false;
-    }
-  } else if (account.IsRemote()) {
-    // A shell of this machine that logs in to the host: the session knows the
-    // host, so that it logs in again when it is restored, and runs in tmux on
-    // the host. The folder is a folder of the host.
-    request.remoteHost = account.m_name;
-    request.remoteUser = account.m_user;
-    request.workingDir = workingDir;
-  } else {
-    request.workingDir = workingDir;
-  }
-
-  if (!LaunchSession(request, /*selectAfterLaunch=*/true)) {
-    return false;
-  }
-  SessionPage *page = FindSession(kTerminalsGroupName, name);
-  if (page == nullptr || page->GetTerminal() == nullptr) {
-    return false;
-  }
-  // After what the session runs (the login to the host, tmux).
-  page->SendCommands(commands);
-  return true;
-}
-
 void MainNotebook::SetTabPosition(wxDirection direction) {
   auto &prefs = AppManager::Get().GetPrefs();
   if (prefs.tabPosition == direction) {
@@ -1587,7 +1505,63 @@ void MainNotebook::SetTabHeight(TabHeight height) {
   EventNotifier::Get()->ProcessEvent(event);
 }
 
+std::optional<wxString> MainNotebook::AskLoginShell() {
+  // The default shell, unless the machine has several: then the user picks one
+  // (the shell chosen last time, or else the default one, is selected). An
+  // empty string is the default shell; no value is a cancelled choice.
+  auto &prefs = AppManager::Get().GetPrefs();
+  const auto &shells = ::FindShells().shells;
+  if (shells.size() <= 1) {
+    return wxString{};
+  }
+
+  wxArrayString names;
+  wxString selectedName;
+  // The one chosen last time, as long as it is still there; otherwise the
+  // default shell.
+  const bool lastIsThere =
+      std::any_of(shells.begin(), shells.end(), [&prefs](const auto &shell) {
+        return shell.second == prefs.lastTerminalShell;
+      });
+  const wxString &preferred =
+      lastIsThere ? prefs.lastTerminalShell : prefs.terminalLoginShell;
+  for (const auto &[name, command] : shells) {
+    if (command == preferred) {
+      selectedName = name;
+    }
+    names.push_back(name);
+  }
+
+  const wxString chosen =
+      ::wxGetSingleChoice(_("Choose a Login Shell:"), "Kennel", names,
+                          names.Index(selectedName), this);
+  if (chosen.empty()) {
+    return std::nullopt;
+  }
+
+  wxString command;
+  for (const auto &shell : shells) {
+    if (shell.first == chosen) {
+      command = shell.second;
+      break;
+    }
+  }
+  // Offered first next time.
+  if (prefs.lastTerminalShell != command) {
+    prefs.lastTerminalShell = command;
+    if (::Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+      KLOG_WARN() << "Could not save the terminal shell: " << st.message();
+    }
+  }
+  return command;
+}
+
 void MainNotebook::StartTerminal() {
+  // The shell first: nothing is made if the user cancels.
+  const std::optional<wxString> shell = AskLoginShell();
+  if (!shell) {
+    return;
+  }
   // Restored terminals keep their names: skip the ones that are taken.
   static int terminalId{0};
   wxString name;
@@ -1601,6 +1575,7 @@ void MainNotebook::StartTerminal() {
       .workingDir = prefs.terminalHomeDir,
       .groupName = kTerminalsGroupName,
       .plainTerminal = true,
+      .loginShell = *shell,
   };
   LaunchSession(request);
 }
