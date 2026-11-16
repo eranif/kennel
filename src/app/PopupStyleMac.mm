@@ -3,6 +3,8 @@
 
 #include "app/PopupStyle.hpp"
 
+#include <wx/menuitem.h>
+#include <wx/osx/private.h>
 #include <wx/window.h>
 
 // The blur behind a glass background. It takes no mouse clicks: they go to
@@ -99,5 +101,19 @@ bool SetGlassBackground(wxWindow *window) {
   [view addSubview:glass positioned:NSWindowBelow relativeTo:nil];
   [glass release]; // The view keeps it
   return true;
+}
+
+void SetMacMenuKeyEquivalent(wxMenuItem *item, wchar_t key, bool rawCtrl) {
+  if (item == nullptr || item->GetPeer() == nullptr) {
+    return;
+  }
+  NSMenuItem *native = (NSMenuItem *)item->GetPeer()->GetHMenuItem();
+  if (native == nil) {
+    return;
+  }
+  const unichar ch = static_cast<unichar>(key);
+  [native setKeyEquivalent:[NSString stringWithCharacters:&ch length:1]];
+  [native setKeyEquivalentModifierMask:rawCtrl ? NSEventModifierFlagControl
+                                               : NSEventModifierFlagCommand];
 }
 #endif

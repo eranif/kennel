@@ -397,12 +397,24 @@ void MainFrame::BuildMenuBar() {
   fileMenu->Append(XRCID("start-terminal"), _("New Terminal\tCtrl+E"),
                    _("Start GlyphT Terminal"));
   Bind(wxEVT_MENU, &MainFrame::OnNewTerminal, this, XRCID("start-terminal"));
+
   // The physical Ctrl key, also on macOS (Cmd+` switches the windows of the
   // system). AcceleratorInterceptor handles the key in a terminal (it would
   // get it otherwise).
-  fileMenu->Append(XRCID("session-terminal"), _("Session Terminal\tRawCtrl+`"),
+#ifdef __WXMAC__
+  // wx cannot parse '§' in the label (only ASCII keys), so the label only
+  // shows the shortcut and the key is set on the native menu item.
+  wxMenuItem *sessionTerminalItem = fileMenu->Append(
+      XRCID("session-terminal"), _("Session Terminal\tRawCtrl+§"),
+      _("Open a terminal below the agent, on its machine and in "
+        "its folder"));
+  SetMacMenuKeyEquivalent(sessionTerminalItem, wxT('§'), true);
+#else
+  fileMenu->Append(XRCID("session-terminal"), _("Session Terminal\tCtrl+`"),
                    _("Open a terminal below the agent, on its machine and in "
                      "its folder"));
+#endif
+
   Bind(wxEVT_MENU, &MainFrame::OnSessionTerminal, this,
        XRCID("session-terminal"));
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnSessionTerminalUI, this,

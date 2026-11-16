@@ -29,3 +29,13 @@ void StylePopupWindow(wxWindow *popup, double radius = kDefaultPopupRadius);
 // and later): top level windows only, with the acrylic system backdrop. Other
 // platforms: not supported.
 bool SetGlassBackground(wxWindow *window);
+
+#ifdef __WXOSX__
+class wxMenuItem;
+
+// macOS: sets the shortcut of `item` on its native menu item. Use it for a key
+// that wx cannot parse in the menu label (a non-ASCII key such as '§'). The
+// modifier is the Control key when `rawCtrl` is true, else the Command key.
+// wx clears it again if the label of the item changes (SetItemLabel()).
+void SetMacMenuKeyEquivalent(wxMenuItem *item, wchar_t key, bool rawCtrl);
+#endif
