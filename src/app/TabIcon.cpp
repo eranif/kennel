@@ -11,32 +11,42 @@ namespace {
 class TabIconImpl : public wxBitmapBundleImpl {
 public:
   static constexpr int kTabIconDip = 16;
+  // The strip on the left of the icon: its width, and the room between it and
+  // the icon.
+  static constexpr int kStripDip = 2;
+  static constexpr int kStripGapDip = 2;
 
   // `dot`: the colour of a dot in the lower right corner, or not ok for none.
-  // `strip`: the colour of a strip along the bottom of the icon, or not ok for
-  // none.
+  // `strip`: the colour of a strip on the left of the icon, or not ok for none.
+  // The strip makes the bitmap wider: the icon keeps its size.
   TabIconImpl(const wxBitmapBundle &source, const wxColour &dot,
               const wxColour &strip)
       : m_source(source), m_dot(dot), m_strip(strip) {}
 
-  wxSize GetDefaultSize() const override {
-    return wxSize(kTabIconDip, kTabIconDip);
-  }
+  wxSize GetDefaultSize() const override { return GetSizeAtScale(1.0); }
 
   wxSize GetPreferredBitmapSizeAtScale(double scale) const override {
-    const int size = wxRound(kTabIconDip * scale);
-    return wxSize(size, size);
+    return GetSizeAtScale(scale);
   }
 
   wxBitmap GetBitmap(const wxSize &size) override {
-    const wxBitmap bitmap = m_source.GetBitmap(size);
     if (m_strip.IsOk()) {
-      return DrawStrip(bitmap);
+      return DrawStrip(size);
     }
+    const wxBitmap bitmap = m_source.GetBitmap(size);
     return m_dot.IsOk() ? DrawDot(bitmap) : bitmap;
   }
 
 private:
+  // The size of the bitmap at `scale`: the icon, and the strip on its left when
+  // there is one.
+  wxSize GetSizeAtScale(double scale) const {
+    const int side = wxRound(kTabIconDip * scale);
+    const int strip =
+        m_strip.IsOk() ? wxRound((kStripDip + kStripGapDip) * scale) : 0;
+    return wxSize(side + strip, side);
+  }
+
   // Puts `colour` over the pixel (x, y) of `image`: `cover` (0 to 1) says how
   // much of the pixel it takes.
   static void BlendPixel(wxImage &image, int x, int y, const wxColour &colour,
@@ -53,31 +63,37 @@ private:
     image.SetAlpha(x, y, static_cast<unsigned char>(std::lround(alpha * 255)));
   }
 
-  // Draws a strip with round ends (and smooth edges) along the bottom of
-  // `bitmap`, over the lowest rows of the icon: 2 DIP high, as wide as the icon
-  // without a margin of 1 DIP on each side.
-  wxBitmap DrawStrip(const wxBitmap &bitmap) {
-    wxImage image = bitmap.ConvertToImage();
-    if (!image.IsOk()) {
-      return bitmap;
+  // A bitmap of `size`: a vertical strip with round ends (and smooth edges) on
+  // the left, kStripDip wide and as high as the icon without a margin of 1 DIP
+  // at each end, then the icon on the right, as high as the bitmap.
+  wxBitmap DrawStrip(const wxSize &size) {
+    const double dip = static_cast<double>(size.GetHeight()) / kTabIconDip;
+    const int stripRoom = wxRound((kStripDip + kStripGapDip) * dip);
+    const int side =
+        std::max(1, std::min(size.GetHeight(), size.GetWidth() - stripRoom));
+    wxImage image(size);
+    image.InitAlpha();
+    std::fill_n(image.GetAlpha(), size.GetWidth() * size.GetHeight(), 0);
+    const wxImage icon =
+        m_source.GetBitmap(wxSize(side, side)).ConvertToImage();
+    if (icon.IsOk()) {
+      image.Paste(icon, size.GetWidth() - icon.GetWidth(),
+                  (size.GetHeight() - icon.GetHeight()) / 2,
+                  wxIMAGE_ALPHA_BLEND_COMPOSE);
     }
-    if (!image.HasAlpha()) {
-      image.InitAlpha();
-    }
-    const double dip = static_cast<double>(image.GetWidth()) / kTabIconDip;
-    const double radius = std::max(0.5, dip); // Half the height
-    const double cy = image.GetHeight() - radius;
+    const double radius = std::max(0.5, kStripDip * dip / 2); // Half the width
+    const double cx = radius;
     // The ends of the line in the middle of the strip.
-    const double left = dip + radius;
-    const double right = image.GetWidth() - dip - radius;
-    for (int y = 0; y < image.GetHeight(); ++y) {
-      for (int x = 0; x < image.GetWidth(); ++x) {
+    const double top = dip + radius;
+    const double bottom = size.GetHeight() - dip - radius;
+    for (int y = 0; y < size.GetHeight(); ++y) {
+      for (int x = 0; x < stripRoom && x < size.GetWidth(); ++x) {
         const double px = x + 0.5;
         const double py = y + 0.5;
-        const double nearest = std::clamp(px, left, right);
+        const double nearest = std::clamp(py, top, bottom);
         // How much of the pixel is inside the strip
         const double cover = std::clamp(
-            radius + 0.5 - std::hypot(px - nearest, py - cy), 0.0, 1.0);
+            radius + 0.5 - std::hypot(px - cx, py - nearest), 0.0, 1.0);
         if (cover <= 0.0) {
           continue;
         }
