@@ -43,6 +43,15 @@ function install_msys2_packages() {
     packages+=("${prefix}-${name}")
   done
 
+  # The marker holds the list that was installed: it is checked before pacman is
+  # run, and a changed list (a package was added above) installs again. Delete
+  # the file to install again by hand (distclean does).
+  local marker="${BUILD_DIR}/.msys2-packages"
+  if [ -f "${marker}" ] && [ "$(cat "${marker}")" = "${packages[*]}" ]; then
+    INFO "The MSYS2 packages were installed already (${marker})"
+    return 0
+  fi
+
   INFO "Installing the MSYS2 packages: ${packages[*]}"
   # --needed warns once for every package that is installed already: hide those
   # lines, and keep the exit status of pacman (grep exits 1 with nothing to show).
@@ -52,6 +61,8 @@ function install_msys2_packages() {
     ERROR "Failed to install the MSYS2 packages"
     exit 1
   fi
+  mkdir -p "${BUILD_DIR}"
+  echo "${packages[*]}" > "${marker}"
 }
 
 function check_prerequistes() {
