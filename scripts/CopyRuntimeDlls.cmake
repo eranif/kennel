@@ -33,14 +33,13 @@ if(NOT _result EQUAL 0)
   message(FATAL_ERROR "ntldd failed (${_result}) for ${EXE}")
 endif()
 
-
 # The names of the DLLs that ntldd lists, wherever it found them: it looks in the
 # folder of the program first, so a DLL that is copied already is listed there.
 string(REGEX REPLACE "\r?\n" ";" _lines "${_output}")
 set(_dlls "")
 foreach(_line ${_lines})
   # "<tab>libz-1.dll => C:\msys64\clang64\bin\libz-1.dll (0x...)"
-  if(_line MATCHES "([^ \t]+\.[Dd][Ll][Ll]) *=>")
+  if(_line MATCHES "([^ \t]+[.][Dd][Ll][Ll]) *=>")
     # The ones of Windows have no copy in MSYS2 and are skipped
     if(EXISTS "${MSYS2_BIN}/${CMAKE_MATCH_1}")
       list(APPEND _dlls "${MSYS2_BIN}/${CMAKE_MATCH_1}")

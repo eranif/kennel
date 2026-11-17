@@ -38,6 +38,9 @@ public:
   // Remote file: shows `text`. `editable` false shows it read-only (used when
   // the bytes could not be decoded losslessly, so saving would corrupt them).
   void LoadRemote(const wxString &text, bool editable = true);
+  // A reload of a remote file that did not give a text (the read failed): the
+  // state of the editor that was kept for it is dropped, not put back.
+  void CancelReload();
   // Shows `text` read-only, as a text that is not a file (a git diff): the
   // page is not kept in the session, and Reload() does nothing. `path` of the
   // page only names it (its extension decides the language).
@@ -145,8 +148,8 @@ private:
   void OnBookmarkTool(wxCommandEvent &event);
   // The user toggled Show Line Numbers or Highlight Word on the toolbar.
   void OnEditorOptionToggled(wxCommandEvent &event);
-  // An editor option changed (on any page, or in the Edit menu): the tool of
-  // the line numbers follows it.
+  // An editor option changed (on any page, or in the Edit menu): the tools of
+  // the line numbers and of the highlighted word follow it.
   void OnEditorOptionsChanged(wxCommandEvent &event);
   // The search bar sends these to its parent, this page.
   void OnSearchBarFind(wxCommandEvent &event);

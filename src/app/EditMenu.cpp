@@ -94,7 +94,7 @@ void EditMenu::OnIdle(wxIdleEvent &event) {
   m_inBar = wanted;
 }
 
-std::optional<EditMenu::Action> EditMenu::ActionOf(int id) {
+std::optional<EditMenu::Action> EditMenu::FindActionFromId(int id) {
   if (id == XRCID("edit-close-editor")) {
     return Action::kClose;
   }
@@ -210,13 +210,13 @@ void EditMenu::Do(Action action) {
 }
 
 void EditMenu::OnAction(wxCommandEvent &event) {
-  if (auto action = ActionOf(event.GetId())) {
+  if (auto action = FindActionFromId(event.GetId())) {
     Do(*action);
   }
 }
 
 void EditMenu::OnActionUI(wxUpdateUIEvent &event) {
-  const auto action = ActionOf(event.GetId());
+  const auto action = FindActionFromId(event.GetId());
   event.Enable(action.has_value() && CanDo(*action));
 }
 

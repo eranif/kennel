@@ -634,25 +634,17 @@ void Editor::GotoLine(int line, int column, int length) {
   m_ctrl->VerticalCentreCaret();
 }
 
-void Editor::InitBookmarks(wxStyledTextCtrl *ctrl,
-                           const wxTerminalTheme &theme) {
-  ctrl->SetMarginMask(kBookmarkMargin, 1 << kBookmarkMarker);
-  ctrl->SetMarginWidth(kBookmarkMargin, ctrl->FromDIP(14));
-  ctrl->MarkerDefine(kBookmarkMarker, wxSTC_MARK_BOOKMARK);
-  ctrl->MarkerSetForeground(kBookmarkMarker, theme.bg);
-  ctrl->MarkerSetBackground(kBookmarkMarker, IsDarkColour(theme.bg)
-                                                 ? theme.brightMagenta
-                                                 : theme.magenta);
+void Editor::InitBookmarks() {
+  m_ctrl->SetMarginMask(kBookmarkMargin, 1 << kBookmarkMarker);
+  m_ctrl->SetMarginWidth(kBookmarkMargin, m_ctrl->FromDIP(14));
+  m_ctrl->MarkerDefine(kBookmarkMarker, wxSTC_MARK_BOOKMARK);
+  m_ctrl->MarkerSetForeground(kBookmarkMarker, m_theme.bg);
+  m_ctrl->MarkerSetBackground(kBookmarkMarker, IsDarkColour(m_theme.bg)
+                                                   ? m_theme.brightMagenta
+                                                   : m_theme.magenta);
 }
 
 void Editor::UpdateLineNumberMargin(wxStyledTextCtrl *ctrl) {
-  // The line numbers and the line after them are off when the user turned them
-  // off.
-  if (!AppManager::Get().GetPrefs().showLineNumbers) {
-    ctrl->SetMarginWidth(kLineNumberMargin, 0);
-    ctrl->SetMarginWidth(kSeparatorMargin, 0);
-    return;
-  }
   ctrl->SetMarginWidth(kSeparatorMargin, 1);
   // Wide enough for the largest line number, with a minimum so the margin does
   // not jitter while a small file is edited.
@@ -724,11 +716,20 @@ void Editor::SetBookmarks(const std::vector<int> &lines) {
   }
 }
 
+void Editor::UpdateLineNumbers() {
+  if (AppManager::Get().GetPrefs().showLineNumbers) {
+    UpdateLineNumberMargin(m_ctrl);
+  } else {
+    m_ctrl->SetMarginWidth(kLineNumberMargin, 0);
+    m_ctrl->SetMarginWidth(kSeparatorMargin, 0);
+  }
+}
+
 void Editor::OnModified(wxStyledTextEvent &event) {
   event.Skip();
   // Only a change in the number of lines can change the margin width.
   if (event.GetLinesAdded() != 0) {
-    UpdateLineNumberMargin(m_ctrl);
+    UpdateLineNumbers();
   }
 }
 
@@ -866,8 +867,8 @@ void Editor::ApplyOptions(wxStyledTextCtrl *ctrl) {
 void Editor::OnOptionsChanged(wxCommandEvent &event) {
   event.Skip();
   ApplyOptions(m_ctrl);
-  UpdateLineNumberMargin(m_ctrl); // Show Line Numbers
-  m_wordsDirty = true;            // Highlight Word
+  UpdateLineNumbers(); // Show Line Numbers
+  m_wordsDirty = true; // Highlight Word
   // Show the highlights again, or take them off.
   ClearBraceHighlight();
   DoBraceMatching();
@@ -924,16 +925,15 @@ void Editor::DoBraceMatching() {
   m_ctrl->SetHighlightGuide(indentCol);
 }
 
-void Editor::InitWordHighlight(wxStyledTextCtrl *ctrl,
-                               const wxTerminalTheme &theme) {
+void Editor::InitWordHighlight() {
   // A box under the text, in a colour that shows on a dark and a light theme.
-  ctrl->IndicatorSetStyle(kWordIndicator, wxSTC_INDIC_STRAIGHTBOX);
-  ctrl->IndicatorSetForeground(kWordIndicator, IsDarkColour(theme.bg)
-                                                   ? theme.brightYellow
-                                                   : theme.yellow);
-  ctrl->IndicatorSetAlpha(kWordIndicator, 70);
-  ctrl->IndicatorSetOutlineAlpha(kWordIndicator, 0);
-  ctrl->IndicatorSetUnder(kWordIndicator, true);
+  m_ctrl->IndicatorSetStyle(kWordIndicator, wxSTC_INDIC_STRAIGHTBOX);
+  m_ctrl->IndicatorSetForeground(kWordIndicator, IsDarkColour(m_theme.bg)
+                                                     ? m_theme.brightYellow
+                                                     : m_theme.yellow);
+  m_ctrl->IndicatorSetAlpha(kWordIndicator, 70);
+  m_ctrl->IndicatorSetOutlineAlpha(kWordIndicator, 0);
+  m_ctrl->IndicatorSetUnder(kWordIndicator, true);
 }
 
 void Editor::OnIdle(wxIdleEvent &event) {

@@ -1385,8 +1385,11 @@ void MainFrame::OnSessionTerminalUI(wxUpdateUIEvent &event) {
 }
 
 void MainFrame::OnRenameItemUI(wxUpdateUIEvent &event) {
-  bool enable =
-      m_mainView != nullptr && !m_mainView->GetSessionsBook()->IsEmpty();
+  // Not while a file is showing: F2 is Next Bookmark of the Edit menu then (and
+  // a file has no session to rename).
+  const bool enable =
+      m_mainView != nullptr && !m_mainView->GetSessionsBook()->IsEmpty() &&
+      m_mainView->GetSessionsBook()->GetActiveFilePage() == nullptr;
   event.Enable(enable);
 }
 

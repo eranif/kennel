@@ -1156,14 +1156,21 @@ void MainNotebook::OpenRemoteFile(const RemoteHostDetails &remoteHost,
   }).detach();
 }
 
-void MainNotebook::ReloadRemoteFile(const RemoteHostDetails &remoteHost,
+bool MainNotebook::ReloadRemoteFile(const RemoteHostDetails &remoteHost,
                                     const wxString &path) {
   const wxString key = FileEvent::MakeKey(path, remoteHost);
   if (m_fetchingRemote.count(key) != 0) {
-    return; // Already being fetched.
+    return false; // Already being fetched.
   }
   m_reloadingRemote.insert(key);
   OpenRemoteFile(remoteHost, path, {});
+  return true;
+}
+
+void MainNotebook::CancelReload(const wxString &key) {
+  if (FilePage *page = FindFile(key)) {
+    page->CancelReload();
+  }
 }
 
 bool MainNotebook::IsRestoringFile(const wxString &key) const {
@@ -1201,6 +1208,9 @@ void MainNotebook::OnRemoteFileRead(const RemoteReadResult &result) {
     if (taken) {
       SyncWorkspaceSoon(); // The file is not back: drop it from the workspace
     }
+    if (reload) {
+      CancelReload(fetchKey);
+    }
     if (!restoring) {
       ::wxMessageBox(result.error, "Kennel", wxICON_WARNING | wxOK, this);
     }
@@ -1211,6 +1221,9 @@ void MainNotebook::OnRemoteFileRead(const RemoteReadResult &result) {
   if (result.content.find('\0') != std::string::npos) {
     if (taken) {
       SyncWorkspaceSoon();
+    }
+    if (reload) {
+      CancelReload(fetchKey);
     }
     if (restoring) {
       KLOG_WARN() << path << " is a binary file; not restored";

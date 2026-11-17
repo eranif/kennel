@@ -141,12 +141,6 @@ void FilePage::OnEditorOptionsChanged(wxCommandEvent &event) {
   const auto &prefs = AppManager::Get().GetPrefs();
   m_toolbar->ToggleTool(ID_LINE_NUMBERS, prefs.showLineNumbers);
   m_toolbar->ToggleTool(ID_HIGHLIGHT_WORD, prefs.highlightWord);
-  toolbar::AddTool(m_toolbar, ID_HIGHLIGHT_WORD, _("Highlight Word"),
-                   AppManager::Get().GetBitmaps().Get("highlight-word", false),
-                   _("Highlight the other places of the selected word"),
-                   wxITEM_CHECK);
-  m_toolbar->ToggleTool(ID_HIGHLIGHT_WORD,
-                        AppManager::Get().GetPrefs().highlightWord);
   m_toolbar->Refresh();
 }
 
@@ -212,6 +206,13 @@ void FilePage::LoadRemote(const wxString &text, bool editable) {
   m_editor->SetEditable(editable);
   m_searchBar->EnableReplace(CanReplace());
   m_reloadState.reset(); // Of a reload: the bookmarks, the caret, the view
+}
+
+void FilePage::CancelReload() {
+  if (m_reloadState) {
+    m_reloadState->Discard();
+    m_reloadState.reset();
+  }
 }
 
 void FilePage::LoadUntitled() {
@@ -528,9 +529,13 @@ void FilePage::Reload() {
 
   if (IsRemote()) {
     // Read on a worker thread by MainView, which then replaces the text
-    // (LoadRemote()): the state is put back then.
-    m_reloadState = std::make_unique<EditorState>(*m_editor);
-    GetMainView()->GetSessionsBook()->ReloadRemoteFile(m_remoteHost, m_path);
+    // (LoadRemote()): the state is put back then. A state that is still here
+    // is of a reload that did not give a text: it is dropped, not put back.
+    CancelReload();
+    if (GetMainView()->GetSessionsBook()->ReloadRemoteFile(m_remoteHost,
+                                                           m_path)) {
+      m_reloadState = std::make_unique<EditorState>(*m_editor);
+    }
     return;
   }
 

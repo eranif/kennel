@@ -54,7 +54,8 @@ private:
     kPreviousBookmark,
     kClearBookmarks
   };
-  static std::optional<Action> ActionOf(int id);
+  // The action of the item with `id`; none for another item.
+  static std::optional<Action> FindActionFromId(int id);
   bool CanDo(Action action) const;
   void Do(Action action);
 

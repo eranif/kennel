@@ -15,6 +15,9 @@ EditorState::EditorState(Editor &editor) : m_editor{editor} {
 }
 
 EditorState::~EditorState() {
+  if (m_discarded) {
+    return;
+  }
   wxStyledTextCtrl *ctrl = m_editor.GetCtrl();
   m_editor.SetBookmarks(m_bookmarks);
 
@@ -22,8 +25,10 @@ EditorState::~EditorState() {
   const int line = std::clamp(m_caretLine, 0, ctrl->GetLineCount() - 1);
   const int start = ctrl->PositionFromLine(line);
   const int end = ctrl->GetLineEndPosition(line);
-  ctrl->SetEmptySelection(
-      std::min(ctrl->PositionRelative(start, m_caretColumn), end));
+  // The column is cut to the line first: PositionRelative() gives 0 (the start
+  // of the file) when it goes past the end of the text.
+  const int column = std::min(m_caretColumn, ctrl->CountCharacters(start, end));
+  ctrl->SetEmptySelection(ctrl->PositionRelative(start, column));
   ctrl->ChooseCaretX();
 
   // After the caret: moving it may scroll.

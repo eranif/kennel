@@ -27,6 +27,10 @@ public:
   // Puts the captured state back.
   ~EditorState();
 
+  // The state is not put back when the object goes away (a reload that gave no
+  // text).
+  void Discard() { m_discarded = true; }
+
   EditorState(const EditorState &) = delete;
   EditorState &operator=(const EditorState &) = delete;
 
@@ -36,4 +40,5 @@ private:
   int m_caretLine{0};
   int m_caretColumn{0}; // In characters from the start of the line
   int m_firstLine{0};
+  bool m_discarded{false};
 };

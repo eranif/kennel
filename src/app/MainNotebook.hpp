@@ -224,8 +224,9 @@ public:
                       bool restoring = false);
 
   // Fetches `path` again from `remoteHost` and replaces the text of its open
-  // page with it, edits included. The caller has asked the user already.
-  void ReloadRemoteFile(const RemoteHostDetails &remoteHost,
+  // page with it, edits included. The caller has asked the user already. False
+  // if the file is being fetched already (nothing is started).
+  bool ReloadRemoteFile(const RemoteHostDetails &remoteHost,
                         const wxString &path);
 
   void CloseFileByKey(const wxString &key);
@@ -472,6 +473,9 @@ private:
   // the preferences say whether it has the folder.
   void ApplyFileTabLabels();
   void OnRemoteFileRead(const RemoteReadResult &result);
+  // A reload of a remote file did not give a text (a failed read, a binary
+  // file): its page drops the state it kept for the text that did not come.
+  void CancelReload(const wxString &key);
   // Takes the file out of m_restoringFiles. Whether it was there.
   bool TakeRestoringFile(const wxString &key);
   bool IsRestoringFile(const wxString &key) const;

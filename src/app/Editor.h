@@ -148,21 +148,24 @@ private:
 
   void InitEditor() {
     InitEditor(m_ctrl, m_lang, m_theme);
-    InitBookmarks(m_ctrl, m_theme);
-    InitWordHighlight(m_ctrl, m_theme);
+    InitBookmarks();
+    InitWordHighlight();
+    UpdateLineNumbers();
   }
-  // The look of the mark of the highlighted word, in the colours of `theme`.
-  static void InitWordHighlight(wxStyledTextCtrl *ctrl,
-                                const wxTerminalTheme &theme);
+  // The look of the mark of the highlighted word, in the colours of the theme.
+  void InitWordHighlight();
   // Marks, with an indicator, the other places of the selected word in the
   // lines that are shown (Highlight Word): the same text, the case counts. Done
   // when the application is idle after the selection, the text or the scroll
   // changed, so that typing and scrolling stay fast.
   void OnIdle(wxIdleEvent &event);
   void HighlightWords();
-  // The margin and the mark of the bookmarks, in the colours of `theme`.
-  static void InitBookmarks(wxStyledTextCtrl *ctrl,
-                            const wxTerminalTheme &theme);
+  // The margin and the mark of the bookmarks, in the colours of the theme.
+  void InitBookmarks();
+  // Shows the line numbers, or hides them when Show Line Numbers is off. Only a
+  // file editor has that option: the other editors (the commit message) always
+  // show them (see the static UpdateLineNumberMargin()).
+  void UpdateLineNumbers();
 
   static void AddProperty(wxStyledTextCtrl *ctrl, int style, const wxColour &bg,
                           const wxColour &fg);
