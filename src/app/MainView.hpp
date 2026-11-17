@@ -54,6 +54,12 @@ private:
 
   void OnMainPanelChildFocus(wxChildFocusEvent &event);
   void OnFileExplorerPanelChildFocus(wxChildFocusEvent &event);
+  // Redraws the panes (the active one changed) on the next pass of the event
+  // loop, once for all the calls before it. Not at once: a focus change can
+  // come while wxAuiManager::Update() runs (a pane is laid out, the window
+  // becomes the key window), and a nested Update() frees the parts of the
+  // layout that the running one still uses.
+  void ScheduleAuiUpdate();
 
   // Gives the side bar its default width (kSidePaneWidthPercent of the window).
   void ApplySideBarDefaultWidth();
@@ -67,6 +73,8 @@ private:
 
   SideView *m_sideView{nullptr};
   bool m_layoutRestored{false};
+  // An update of the panes is scheduled (ScheduleAuiUpdate()).
+  bool m_auiUpdatePending{false};
   // The AUI perspective of the panes as they are created (see ResetLayout()).
   wxString m_defaultLayout;
 };

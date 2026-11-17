@@ -359,14 +359,27 @@ bool MainView::MakeActive(wxWindow *win) {
 
 void MainView::OnMainPanelChildFocus(wxChildFocusEvent &event) {
   event.Skip();
-  if (MakeActive(m_mainPanel))
-    m_auimgr->Update();
+  if (MakeActive(m_mainPanel)) {
+    ScheduleAuiUpdate();
+  }
 }
 
 void MainView::OnFileExplorerPanelChildFocus(wxChildFocusEvent &event) {
   event.Skip();
-  if (MakeActive(m_panelSideView))
+  if (MakeActive(m_panelSideView)) {
+    ScheduleAuiUpdate();
+  }
+}
+
+void MainView::ScheduleAuiUpdate() {
+  if (m_auiUpdatePending) {
+    return;
+  }
+  m_auiUpdatePending = true;
+  CallAfter([this] {
+    m_auiUpdatePending = false;
     m_auimgr->Update();
+  });
 }
 
 void MainView::OnAppPrefsSaved(wxCommandEvent &event) {
