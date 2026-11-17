@@ -172,8 +172,6 @@ void MainFrame::CreateStatusFields() {
   int styles[kFieldCount];
   std::fill(std::begin(styles), std::end(styles), wxSB_FLAT);
   GetStatusBar()->SetStatusStyles(kFieldCount, styles);
-  m_baseText = wxString::Format("%s %s", kAppName, kAppVersion);
-  SetStatusText(m_baseText, kFieldText);
 
   wxStatusBar *bar = GetStatusBar();
   m_sessionIcon = new wxStaticBitmap(bar, wxID_ANY, wxBitmapBundle());
