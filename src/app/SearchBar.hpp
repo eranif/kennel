@@ -51,6 +51,8 @@ public:
   // Gives the focus to the find text and selects it. A non-empty `text`
   // replaces the text first (no event is sent for it).
   void Activate(const wxString &text);
+  // Replaces the find text, without an event and without the focus.
+  void SetText(const wxString &text);
   wxString GetText() const;
   wxString GetReplaceText() const;
   // kWholeWord and kMatchCase, as the checkboxes are.

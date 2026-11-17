@@ -339,6 +339,7 @@ set(KENNEL_APP_SOURCES
     src/app/JobDlg.cpp
     src/app/JobLogViewer.cpp
     src/app/Editor.cpp
+    src/app/EditorState.cpp
     src/app/EditMenu.cpp
     src/app/ReviewBuddyMenu.cpp
     src/app/SettingsDlg.cpp
@@ -487,48 +488,15 @@ else()
   add_executable(kennel ${KENNEL_APP_SOURCES})
 endif()
 
-# Non-bundle platforms: stage the assets next to the executable so a freshly
-# built binary finds them when run in-tree (ShippedAssetsDir() checks here).
+# Non-bundle platforms: stage the license next to the executable. The assets are
+# staged by the kennel_assets target below.
 if(NOT APPLE)
-  # Copy assets (SVGs and themes only, not LICENSE)
-  file(GLOB KENNEL_ASSET_FILES_ONLY "${CMAKE_SOURCE_DIR}/assets/*.svg")
-  file(GLOB KENNEL_ASSET_TOML_FILES_ONLY
-       "${CMAKE_SOURCE_DIR}/assets/themes/*.toml")
   add_custom_command(
     TARGET kennel
     POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-            "$<TARGET_FILE_DIR:kennel>/assets"
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-            "$<TARGET_FILE_DIR:kennel>/assets/themes"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_ASSET_FILES_ONLY}
-            "$<TARGET_FILE_DIR:kennel>/assets"
-    COMMAND
-      ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_ASSET_TOML_FILES_ONLY}
-      "$<TARGET_FILE_DIR:kennel>/assets/themes"
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-            "$<TARGET_FILE_DIR:kennel>/assets/mime/dark"
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-            "$<TARGET_FILE_DIR:kennel>/assets/mime/light"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_MIME_DARK_FILES}
-            "$<TARGET_FILE_DIR:kennel>/assets/mime/dark"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_MIME_LIGHT_FILES}
-            "$<TARGET_FILE_DIR:kennel>/assets/mime/light"
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-            "$<TARGET_FILE_DIR:kennel>/assets/dark"
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-            "$<TARGET_FILE_DIR:kennel>/assets/light"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_ICON_DARK_FILES}
-            "$<TARGET_FILE_DIR:kennel>/assets/dark"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_ICON_LIGHT_FILES}
-            "$<TARGET_FILE_DIR:kennel>/assets/light"
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-            "$<TARGET_FILE_DIR:kennel>/assets/fonts"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KENNEL_FONT_FILES}
-            "$<TARGET_FILE_DIR:kennel>/assets/fonts"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/LICENSE"
             "$<TARGET_FILE_DIR:kennel>/LICENSE"
-    COMMENT "Staging assets and license next to the kennel executable"
+    COMMENT "Staging the license next to the kennel executable"
     VERBATIM)
 
   # Windows: copy wxWidgets DLLs next to the executable
@@ -685,9 +653,7 @@ if(UNIX AND NOT APPLE)
     # Copy kennel binary
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:kennel>"
             "${_INSTALL_BIN_DIR}/"
-    # Copy assets
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/assets"
-            "${_INSTALL_SHARE_DIR}/"
+    # The assets are copied by the kennel_assets target
     # Copy LICENSE
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/LICENSE"
             "${CMAKE_BINARY_DIR}/install/share/kennel/"
@@ -696,6 +662,32 @@ if(UNIX AND NOT APPLE)
     COMMAND patchelf --set-rpath "\$ORIGIN/../lib" "${_INSTALL_BIN_DIR}/kennel"
     COMMENT "Setting up self-contained Linux install directory with rpath"
     VERBATIM)
+endif()
+
+# ---------------------------------------------------------------------------
+# Assets: copied on every build, not only when kennel.exe is linked. A changed
+# icon or theme does not touch the executable, so a step after its link would
+# leave the old file in place; and the folder is copied as it is, so a new file
+# needs no new configure. (macOS bundles them as resources of the executable.)
+# ---------------------------------------------------------------------------
+if(NOT APPLE)
+  set(_ASSET_DESTINATIONS "$<TARGET_FILE_DIR:kennel>/assets")
+  if(WIN32)
+    list(APPEND _ASSET_DESTINATIONS "${CMAKE_BINARY_DIR}/installer/assets")
+  elseif(UNIX)
+    list(APPEND _ASSET_DESTINATIONS
+         "${CMAKE_BINARY_DIR}/install/share/kennel/assets")
+  endif()
+  add_custom_target(kennel_assets ALL COMMENT "Copying the assets")
+  add_dependencies(kennel_assets kennel)
+  foreach(_destination ${_ASSET_DESTINATIONS})
+    add_custom_command(
+      TARGET kennel_assets
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/assets"
+              "${_destination}"
+      VERBATIM)
+  endforeach()
 endif()
 
 # ---------------------------------------------------------------------------
@@ -738,9 +730,7 @@ if(WIN32)
     # Copy LICENSE
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/LICENSE"
             "${_INSTALLER_DIR}/"
-    # Copy all assets (themes and icons)
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/assets"
-            "${_INSTALLER_DIR}/assets"
+    # The assets (themes and icons) are copied by the kennel_assets target
     COMMENT
       "Setting up installer directory with dependencies in build tree for InnoSetup"
     VERBATIM)

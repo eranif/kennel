@@ -2,6 +2,7 @@
 
 #include "terminal_theme.h"
 #include <optional>
+#include <vector>
 #include <wx/panel.h>
 #include <wx/stc/stc.h>
 
@@ -53,6 +54,21 @@ public:
   void SetTheme(const wxTerminalTheme &theme);
   // Wraps the long lines, or lets them run off to the right.
   void SetWrapLines(bool wrap);
+
+  // Bookmarks: a marked line shows a mark in the margin at the left of the line
+  // numbers. They are not kept when the file is closed.
+  // Marks the line of the caret, or takes the mark off.
+  void ToggleBookmark();
+  // Moves the caret to the start of the next (or previous) marked line, from
+  // the line of the caret, and wraps around. False if no line is marked.
+  bool GotoBookmark(bool forward);
+  void ClearBookmarks();
+  bool HasBookmarks() const;
+  // The marked lines (from 0), first to last.
+  std::vector<int> GetBookmarks() const;
+  // Replaces the bookmarks with these lines; a line that does not exist is
+  // dropped.
+  void SetBookmarks(const std::vector<int> &lines);
 
   wxStyledTextCtrl *GetCtrl() { return m_ctrl; }
   bool IsEditable() const { return m_ctrl->IsEditable(); }
@@ -119,7 +135,19 @@ public:
                          const wxTerminalTheme &theme);
 
 private:
-  void InitEditor() { InitEditor(m_ctrl, m_lang, m_theme); }
+  // The margins of the editor, left to right, and the marker of the bookmarks.
+  static constexpr int kBookmarkMargin = 0;
+  static constexpr int kLineNumberMargin = 1;
+  static constexpr int kSeparatorMargin = 2;
+  static constexpr int kBookmarkMarker = 1; // 25 and up are for folding
+
+  void InitEditor() {
+    InitEditor(m_ctrl, m_lang, m_theme);
+    InitBookmarks(m_ctrl, m_theme);
+  }
+  // The margin and the mark of the bookmarks, in the colours of `theme`.
+  static void InitBookmarks(wxStyledTextCtrl *ctrl,
+                            const wxTerminalTheme &theme);
 
   static void AddProperty(wxStyledTextCtrl *ctrl, int style, const wxColour &bg,
                           const wxColour &fg);

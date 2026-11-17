@@ -14,7 +14,10 @@ class wxMenuBar;
 //   Reload File
 //   Undo, Redo
 //   Copy, Paste, Select All, Delete Line, Duplicate Line
-//   [x] Wrap Lines, [x] Highlight Braces, [x] Highlight Indent Lines
+//   Bookmarks: Toggle Bookmark (Ctrl+F2), Next Bookmark (F2),
+//              Previous Bookmark (Shift+F2), Clear All (Ctrl+Shift+F2)
+//   [x] Wrap Lines, [x] Show Line Numbers, [x] Highlight Braces,
+//   [x] Highlight Indent Lines
 //
 // The menu is in the menu bar only while a file is showing, so its keys
 // (Ctrl+W, Ctrl+R, Ctrl+Z, Ctrl+C, Ctrl+D...) are free for a terminal the rest
@@ -44,7 +47,11 @@ private:
     kPaste,
     kSelectAll,
     kDeleteLine,
-    kDuplicateLine
+    kDuplicateLine,
+    kToggleBookmark,
+    kNextBookmark,
+    kPreviousBookmark,
+    kClearBookmarks
   };
   static std::optional<Action> ActionOf(int id);
   bool CanDo(Action action) const;

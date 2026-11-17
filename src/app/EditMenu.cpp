@@ -40,21 +40,36 @@ void EditMenu::AddTo(wxMenuBar *menuBar) {
   menu->Append(XRCID("edit-select-all"), _("Select All\tCtrl+A"));
   menu->Append(XRCID("edit-delete-line"), _("Delete Line\tCtrl+L"));
   menu->Append(XRCID("edit-duplicate-line"), _("Duplicate Line\tCtrl+D"));
+
+  // "RawCtrl" is the Ctrl key on every system (not Command on macOS).
+  menu->AppendSeparator();
+  auto *bookmarks = new wxMenu();
+  bookmarks->Append(XRCID("edit-bookmark-toggle"),
+                    _("Toggle Bookmark\tRawCtrl+F2"));
+  bookmarks->Append(XRCID("edit-bookmark-next"), _("Next Bookmark\tF2"));
+  bookmarks->Append(XRCID("edit-bookmark-previous"),
+                    _("Previous Bookmark\tShift+F2"));
+  bookmarks->Append(XRCID("edit-bookmark-clear"),
+                    _("Clear All\tRawCtrl+Shift+F2"));
+  menu->AppendSubMenu(bookmarks, _("Bookmarks"));
+
   for (const char *name :
        {"edit-close-editor", "edit-reload-file", "edit-undo", "edit-redo",
         "edit-copy", "edit-paste", "edit-select-all", "edit-delete-line",
-        "edit-duplicate-line"}) {
+        "edit-duplicate-line", "edit-bookmark-toggle", "edit-bookmark-next",
+        "edit-bookmark-previous", "edit-bookmark-clear"}) {
     m_frame->Bind(wxEVT_MENU, &EditMenu::OnAction, this, XRCID(name));
     m_frame->Bind(wxEVT_UPDATE_UI, &EditMenu::OnActionUI, this, XRCID(name));
   }
 
   menu->AppendSeparator();
   menu->AppendCheckItem(XRCID("edit-wrap-lines"), _("Wrap Lines"));
+  menu->AppendCheckItem(XRCID("edit-line-numbers"), _("Show Line Numbers"));
   menu->AppendCheckItem(XRCID("edit-highlight-braces"), _("Highlight Braces"));
   menu->AppendCheckItem(XRCID("edit-highlight-indent"),
                         _("Highlight Indent Lines"));
-  for (const char *name :
-       {"edit-wrap-lines", "edit-highlight-braces", "edit-highlight-indent"}) {
+  for (const char *name : {"edit-wrap-lines", "edit-line-numbers",
+                           "edit-highlight-braces", "edit-highlight-indent"}) {
     m_frame->Bind(wxEVT_MENU, &EditMenu::OnOption, this, XRCID(name));
     m_frame->Bind(wxEVT_UPDATE_UI, &EditMenu::OnOptionUI, this, XRCID(name));
   }
@@ -104,6 +119,18 @@ std::optional<EditMenu::Action> EditMenu::ActionOf(int id) {
   }
   if (id == XRCID("edit-duplicate-line")) {
     return Action::kDuplicateLine;
+  }
+  if (id == XRCID("edit-bookmark-toggle")) {
+    return Action::kToggleBookmark;
+  }
+  if (id == XRCID("edit-bookmark-next")) {
+    return Action::kNextBookmark;
+  }
+  if (id == XRCID("edit-bookmark-previous")) {
+    return Action::kPreviousBookmark;
+  }
+  if (id == XRCID("edit-bookmark-clear")) {
+    return Action::kClearBookmarks;
   }
   return std::nullopt;
 }
@@ -165,6 +192,18 @@ void EditMenu::Do(Action action) {
   case Action::kDuplicateLine:
     file->DuplicateLine();
     break;
+  case Action::kToggleBookmark:
+    file->ToggleBookmark();
+    break;
+  case Action::kNextBookmark:
+    file->GotoBookmark(/*forward=*/true);
+    break;
+  case Action::kPreviousBookmark:
+    file->GotoBookmark(/*forward=*/false);
+    break;
+  case Action::kClearBookmarks:
+    file->ClearBookmarks();
+    break;
   }
 }
 
@@ -188,7 +227,9 @@ void EditMenu::OnOption(wxCommandEvent &event) {
     EventNotifier::Get()->AddPendingEvent(
         wxCommandEvent(wxEVT_WRAP_LINES_CHANGED));
   } else {
-    if (id == XRCID("edit-highlight-braces")) {
+    if (id == XRCID("edit-line-numbers")) {
+      prefs.showLineNumbers = !prefs.showLineNumbers;
+    } else if (id == XRCID("edit-highlight-braces")) {
       prefs.highlightBraces = !prefs.highlightBraces;
     } else {
       prefs.highlightIndentLines = !prefs.highlightIndentLines;
@@ -206,6 +247,8 @@ void EditMenu::OnOptionUI(wxUpdateUIEvent &event) {
   const int id = event.GetId();
   if (id == XRCID("edit-wrap-lines")) {
     event.Check(prefs.wrapLines);
+  } else if (id == XRCID("edit-line-numbers")) {
+    event.Check(prefs.showLineNumbers);
   } else if (id == XRCID("edit-highlight-braces")) {
     event.Check(prefs.highlightBraces);
   } else {

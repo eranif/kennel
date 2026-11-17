@@ -2,6 +2,7 @@
 
 #include "app/AcceleratorInterceptor.h"
 #include "app/Editor.h"
+#include "app/EditorState.hpp"
 #include "app/FileEvent.hpp"
 #include "app/FileViewState.hpp"
 #include "app/SearchablePage.hpp"
@@ -124,12 +125,28 @@ public:
   bool CanFind() const override { return true; }
   void ShowFind() override;
   bool CanFindNext() const override { return true; }
+  // With text selected this looks for that text: it goes in the search bar,
+  // which is shown if it is hidden, and the match is the next (or previous) one
+  // from the selection.
   void FindNext(bool forward) override;
   wxString GetFindWhat() const override;
   SearchTarget GetSearchTarget() const override;
   bool CanReplace() const { return m_editor->IsEditable(); }
 
+  // ---- Bookmarks (the Bookmarks menu of Edit and the toolbar) -----------
+  // On the line of the caret.
+  void ToggleBookmark();
+  // From the line of the caret, wrapping around; says so when there is none.
+  void GotoBookmark(bool forward);
+  void ClearBookmarks();
+
 private:
+  // The tools of the bookmarks and of the line numbers on the toolbar.
+  void OnBookmarkTool(wxCommandEvent &event);
+  void OnLineNumbersToggled(wxCommandEvent &event);
+  // An editor option changed (on any page, or in the Edit menu): the tool of
+  // the line numbers follows it.
+  void OnEditorOptionsChanged(wxCommandEvent &event);
   // The search bar sends these to its parent, this page.
   void OnSearchBarFind(wxCommandEvent &event);
   void OnSearchBarReplace(wxCommandEvent &event);
@@ -178,6 +195,9 @@ private:
   // as long as the thread runs: the destructor joins it.
   std::thread m_saveThread;
   Editor *m_editor{nullptr};
+  // The state of the editor before a reload of a remote file, until the text
+  // arrives (LoadRemote()) and it is put back.
+  std::unique_ptr<EditorState> m_reloadState;
   wxAuiToolBar *m_toolbar{nullptr};
   SearchBar *m_searchBar{nullptr}; // Hidden until Find
   wxString m_findText;             // What the last search looked for

@@ -172,6 +172,8 @@ void SearchBar::Activate(const wxString &text) {
   m_find->SelectAll();
 }
 
+void SearchBar::SetText(const wxString &text) { m_find->ChangeValue(text); }
+
 wxString SearchBar::GetText() const { return m_find->GetValue(); }
 
 wxString SearchBar::GetReplaceText() const {

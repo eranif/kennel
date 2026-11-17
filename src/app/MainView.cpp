@@ -300,6 +300,12 @@ void MainView::LoadBitmaps() {
   bmps.Load("wrap.svg");
   bmps.AddAlias("wrap.svg", "wrap");
 
+  for (const char *name : {"line-numbers", "bookmark-toggle", "bookmark-next",
+                           "bookmark-previous", "bookmark-clear"}) {
+    bmps.Load(wxString(name) + ".svg");
+    bmps.AddAlias(wxString(name) + ".svg", name);
+  }
+
   bmps.Load("close.svg");
   bmps.AddAlias("close.svg", "close");
 

@@ -27,6 +27,11 @@ const int ID_SAVER = wxWindow::NewControlId();
 const int ID_RELOAD = wxWindow::NewControlId();
 const int ID_CLOSE = wxWindow::NewControlId();
 const int ID_WRAP = wxWindow::NewControlId();
+const int ID_LINE_NUMBERS = wxWindow::NewControlId();
+const int ID_BOOKMARK_TOGGLE = wxWindow::NewControlId();
+const int ID_BOOKMARK_NEXT = wxWindow::NewControlId();
+const int ID_BOOKMARK_PREVIOUS = wxWindow::NewControlId();
+const int ID_BOOKMARK_CLEAR = wxWindow::NewControlId();
 } // namespace
 
 FilePage::FilePage(wxWindow *parent, const wxString &path,
@@ -49,9 +54,35 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
                    AppManager::Get().GetBitmaps().Get("wrap", false),
                    _("Wrap the long lines of the file"), wxITEM_CHECK);
   m_toolbar->ToggleTool(ID_WRAP, AppManager::Get().GetPrefs().wrapLines);
+  toolbar::AddTool(m_toolbar, ID_LINE_NUMBERS, _("Show Line Numbers"),
+                   AppManager::Get().GetBitmaps().Get("line-numbers", false),
+                   _("Show the line numbers"), wxITEM_CHECK);
+  m_toolbar->ToggleTool(ID_LINE_NUMBERS,
+                        AppManager::Get().GetPrefs().showLineNumbers);
+  // The bookmarks, as a group (the same as the Bookmarks menu of Edit)
+  m_toolbar->AddSeparator();
+  auto &bitmaps = AppManager::Get().GetBitmaps();
+  toolbar::AddTool(m_toolbar, ID_BOOKMARK_TOGGLE, _("Toggle Bookmark"),
+                   bitmaps.Get("bookmark-toggle", false),
+                   _("Toggle Bookmark") + "\nCtrl+F2");
+  toolbar::AddTool(m_toolbar, ID_BOOKMARK_NEXT, _("Next Bookmark"),
+                   bitmaps.Get("bookmark-next", false),
+                   _("Next Bookmark") + "\nF2");
+  toolbar::AddTool(m_toolbar, ID_BOOKMARK_PREVIOUS, _("Previous Bookmark"),
+                   bitmaps.Get("bookmark-previous", false),
+                   _("Previous Bookmark") + "\nShift+F2");
+  toolbar::AddTool(m_toolbar, ID_BOOKMARK_CLEAR, _("Clear All Bookmarks"),
+                   bitmaps.Get("bookmark-clear", false),
+                   _("Clear All Bookmarks") + "\nCtrl+Shift+F2");
   m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnSave, this, ID_SAVER);
   m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnReload, this, ID_RELOAD);
   m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnWrapToggled, this, ID_WRAP);
+  m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnLineNumbersToggled, this,
+                  ID_LINE_NUMBERS);
+  for (const int id : {ID_BOOKMARK_TOGGLE, ID_BOOKMARK_NEXT,
+                       ID_BOOKMARK_PREVIOUS, ID_BOOKMARK_CLEAR}) {
+    m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnBookmarkTool, this, id);
+  }
   m_toolbar->Bind(wxEVT_UPDATE_UI, &FilePage::OnSaveUI, this, ID_SAVER);
   m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnClose, this, ID_CLOSE);
   m_toolbar->Realize();
@@ -80,9 +111,56 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
   Bind(wxEVT_SEARCHBAR_REPLACE_ALL, &FilePage::OnSearchBarReplaceAll, this);
   EventNotifier::Get()->Bind(wxEVT_WRAP_LINES_CHANGED,
                              &FilePage::OnWrapLinesChanged, this);
+  EventNotifier::Get()->Bind(wxEVT_EDITOR_OPTIONS_CHANGED,
+                             &FilePage::OnEditorOptionsChanged, this);
 }
 
 void FilePage::ApplyToolBarStyle() { toolbar::ApplyStyle(m_toolbar); }
+
+void FilePage::OnLineNumbersToggled(wxCommandEvent &) {
+  auto &prefs = AppManager::Get().GetPrefs();
+  prefs.showLineNumbers = m_toolbar->GetToolToggled(ID_LINE_NUMBERS);
+  if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
+    KLOG_WARN() << "Could not save the line numbers setting: " << st.message();
+  }
+  // Every editor follows, this one too (see OnEditorOptionsChanged()).
+  EventNotifier::Get()->AddPendingEvent(
+      wxCommandEvent(wxEVT_EDITOR_OPTIONS_CHANGED));
+}
+
+void FilePage::OnEditorOptionsChanged(wxCommandEvent &event) {
+  event.Skip();
+  // The Show Line Numbers of the Edit menu changes the tool too.
+  m_toolbar->ToggleTool(ID_LINE_NUMBERS,
+                        AppManager::Get().GetPrefs().showLineNumbers);
+  m_toolbar->Refresh();
+}
+
+void FilePage::OnBookmarkTool(wxCommandEvent &event) {
+  const int id = event.GetId();
+  if (id == ID_BOOKMARK_TOGGLE) {
+    ToggleBookmark();
+  } else if (id == ID_BOOKMARK_NEXT) {
+    GotoBookmark(/*forward=*/true);
+  } else if (id == ID_BOOKMARK_PREVIOUS) {
+    GotoBookmark(/*forward=*/false);
+  } else if (id == ID_BOOKMARK_CLEAR) {
+    ClearBookmarks();
+  }
+  FocusEditor();
+}
+
+void FilePage::ToggleBookmark() { m_editor->ToggleBookmark(); }
+
+void FilePage::GotoBookmark(bool forward) {
+  if (m_editor->GotoBookmark(forward)) {
+    GetMainFrame()->ClearActivityText();
+  } else {
+    GetMainFrame()->SetActivityText(_("There are no bookmarks"));
+  }
+}
+
+void FilePage::ClearBookmarks() { m_editor->ClearBookmarks(); }
 
 void FilePage::OnWrapToggled(wxCommandEvent &) {
   auto &prefs = AppManager::Get().GetPrefs();
@@ -106,6 +184,8 @@ void FilePage::OnWrapLinesChanged(wxCommandEvent &event) {
 FilePage::~FilePage() {
   EventNotifier::Get()->Unbind(wxEVT_WRAP_LINES_CHANGED,
                                &FilePage::OnWrapLinesChanged, this);
+  EventNotifier::Get()->Unbind(wxEVT_EDITOR_OPTIONS_CHANGED,
+                               &FilePage::OnEditorOptionsChanged, this);
   if (m_saveThread.joinable()) {
     m_saveThread.join();
   }
@@ -117,6 +197,7 @@ void FilePage::LoadRemote(const wxString &text, bool editable) {
   m_editor->SetText(text);
   m_editor->SetEditable(editable);
   m_searchBar->EnableReplace(CanReplace());
+  m_reloadState.reset(); // Of a reload: the bookmarks, the caret, the view
 }
 
 void FilePage::LoadUntitled() {
@@ -432,12 +513,19 @@ void FilePage::Reload() {
   }
 
   if (IsRemote()) {
-    // Read on a worker thread by MainView, which then replaces the text.
+    // Read on a worker thread by MainView, which then replaces the text
+    // (LoadRemote()): the state is put back then.
+    m_reloadState = std::make_unique<EditorState>(*m_editor);
     GetMainView()->GetSessionsBook()->ReloadRemoteFile(m_remoteHost, m_path);
     return;
   }
 
-  if (!LoadLocal()) {
+  bool loaded = false;
+  {
+    EditorState state{*m_editor}; // Put back when the file is loaded
+    loaded = LoadLocal();
+  }
+  if (!loaded) {
     ::wxMessageBox(wxString::Format(_("Could not open %s"), m_path), "Kennel",
                    wxOK | wxICON_ERROR, this);
   }
@@ -549,7 +637,23 @@ bool FilePage::FindIn(bool forward, bool incremental) {
 }
 
 void FilePage::FindNext(bool forward) {
-  if (m_findText.empty()) {
+  const wxString selected = GetFindWhat();
+  if (!selected.empty()) {
+    // Text is selected: that is what to look for. The search bar shows (the
+    // focus stays in the editor, for the next F3) and has that text; then it
+    // is the same search as for any other text, from the selection.
+    if (!m_searchBar->IsShown()) {
+      m_searchBar->SetOptions(m_findOptions);
+      m_searchBar->EnableReplace(CanReplace());
+      m_searchBar->Show();
+      Layout();
+    }
+    const bool caseMatters = (m_findOptions & SearchBar::kMatchCase) != 0;
+    if (!selected.IsSameAs(m_findText, caseMatters)) {
+      m_findText = selected;
+      m_searchBar->SetText(selected);
+    }
+  } else if (m_findText.empty()) {
     ShowFind();
     return;
   }

@@ -402,8 +402,8 @@ void FindResultsView::ApplyTheme() {
   // The text is styled by hand (see Styled), not by a lexer.
   m_text->SetLexer(wxSTC_LEX_CONTAINER);
   // No line numbers: the lines of the file are in the text itself.
-  m_text->SetMarginWidth(0, 0);
-  m_text->SetMarginWidth(1, 0);
+  m_text->SetMarginWidth(1, 0); // The numbers
+  m_text->SetMarginWidth(2, 0); // The line after them
   m_text->SetWrapMode(wxSTC_WRAP_NONE);
 
   // Nothing is selected, and there is no caret: the line of the caret is what

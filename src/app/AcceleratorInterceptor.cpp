@@ -21,7 +21,37 @@ bool AcceleratorInterceptor::CanToggleSessionTerminal() const {
   return page != nullptr && page->CanToggleTerminalPane();
 }
 
+wxString
+AcceleratorInterceptor::GetBookmarkMenuName(const wxKeyEvent &keyEvent) const {
+  if (keyEvent.GetKeyCode() != WXK_F2 ||
+      GetMainFrame()->GetMainView()->GetSessionsBook()->GetActiveFilePage() ==
+          nullptr) {
+    return wxEmptyString;
+  }
+  switch (keyEvent.GetModifiers()) {
+  case wxMOD_NONE:
+    return "edit-bookmark-next";
+  case wxMOD_SHIFT:
+    return "edit-bookmark-previous";
+  case wxMOD_RAW_CONTROL:
+    return "edit-bookmark-toggle";
+  case wxMOD_RAW_CONTROL | wxMOD_SHIFT:
+    return "edit-bookmark-clear";
+  default:
+    return wxEmptyString;
+  }
+}
+
 void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
+  if (const wxString bookmark = GetBookmarkMenuName(keyEvent);
+      !bookmark.empty()) {
+    // The bookmarks of a file: F2 renames a session only where there is no
+    // file.
+    wxCommandEvent evtBookmark{wxEVT_MENU, XRCID(bookmark)};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtBookmark);
+    return;
+  }
+
   // Ctrl+Tab / Ctrl+Shift+Tab opens the page switcher.
   if (keyEvent.GetKeyCode() == WXK_TAB &&
       (keyEvent.GetModifiers() & ~wxMOD_SHIFT) == wxMOD_RAW_CONTROL) {

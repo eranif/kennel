@@ -100,14 +100,20 @@ void Editor::InitEditor(wxStyledTextCtrl *ctrl, EditorLang lang,
     ctrl->StyleSetFont(i, theme.font);
   }
 
-  // Line numbers in margin 0, followed by a one-pixel separator line (margin 1)
-  // between them and the text; margin 2 is unused.
+  // The bookmarks in margin 0 (no width: only an Editor has them, see
+  // InitBookmarks()), the line numbers in margin 1, followed by a one-pixel
+  // separator line (margin 2) between them and the text.
   AddProperty(ctrl, wxSTC_STYLE_LINENUMBER, theme.bg, LineNumberColour(theme));
-  ctrl->SetMarginType(0, wxSTC_MARGIN_NUMBER);
-  ctrl->SetMarginType(1, wxSTC_MARGIN_COLOUR);
-  ctrl->SetMarginBackground(1, theme.brightBlack);
-  ctrl->SetMarginWidth(1, 1);
-  ctrl->SetMarginWidth(2, 0);
+  ctrl->SetMarginType(kBookmarkMargin, wxSTC_MARGIN_SYMBOL);
+  ctrl->SetMarginWidth(kBookmarkMargin, 0);
+  ctrl->SetMarginMask(kBookmarkMargin, 0);
+  ctrl->SetMarginType(kLineNumberMargin, wxSTC_MARGIN_NUMBER);
+  // No marker in the other margins: a margin shows the markers of its mask (by
+  // default all but the folding ones), and a bookmark must be in its own.
+  ctrl->SetMarginMask(kLineNumberMargin, 0);
+  ctrl->SetMarginMask(kSeparatorMargin, 0);
+  ctrl->SetMarginType(kSeparatorMargin, wxSTC_MARGIN_COLOUR);
+  ctrl->SetMarginBackground(kSeparatorMargin, theme.brightBlack);
   ctrl->SetMarginLeft(4);
   ctrl->SetMarginRight(4); // Breathing room between the line and the text.
   UpdateLineNumberMargin(ctrl);
@@ -627,14 +633,94 @@ void Editor::GotoLine(int line, int column, int length) {
   m_ctrl->VerticalCentreCaret();
 }
 
+void Editor::InitBookmarks(wxStyledTextCtrl *ctrl,
+                           const wxTerminalTheme &theme) {
+  ctrl->SetMarginMask(kBookmarkMargin, 1 << kBookmarkMarker);
+  ctrl->SetMarginWidth(kBookmarkMargin, ctrl->FromDIP(14));
+  ctrl->MarkerDefine(kBookmarkMarker, wxSTC_MARK_BOOKMARK);
+  ctrl->MarkerSetForeground(kBookmarkMarker, theme.bg);
+  ctrl->MarkerSetBackground(kBookmarkMarker, IsDarkColour(theme.bg)
+                                                 ? theme.brightMagenta
+                                                 : theme.magenta);
+}
+
 void Editor::UpdateLineNumberMargin(wxStyledTextCtrl *ctrl) {
+  // The line numbers and the line after them are off when the user turned them
+  // off.
+  if (!AppManager::Get().GetPrefs().showLineNumbers) {
+    ctrl->SetMarginWidth(kLineNumberMargin, 0);
+    ctrl->SetMarginWidth(kSeparatorMargin, 0);
+    return;
+  }
+  ctrl->SetMarginWidth(kSeparatorMargin, 1);
   // Wide enough for the largest line number, with a minimum so the margin does
   // not jitter while a small file is edited.
   const int digits = std::max<int>(
       3, static_cast<int>(std::to_string(ctrl->GetLineCount()).length()));
-  ctrl->SetMarginWidth(0,
+  ctrl->SetMarginWidth(kLineNumberMargin,
                        ctrl->TextWidth(wxSTC_STYLE_LINENUMBER,
                                        wxString(wxUniChar('9'), digits + 1)));
+}
+
+void Editor::ToggleBookmark() {
+  const int line = m_ctrl->LineFromPosition(m_ctrl->GetCurrentPos());
+  if (m_ctrl->MarkerGet(line) & (1 << kBookmarkMarker)) {
+    m_ctrl->MarkerDelete(line, kBookmarkMarker);
+  } else {
+    m_ctrl->MarkerAdd(line, kBookmarkMarker);
+  }
+}
+
+bool Editor::GotoBookmark(bool forward) {
+  const int mask = 1 << kBookmarkMarker;
+  const int lines = m_ctrl->GetLineCount();
+  const int line = m_ctrl->LineFromPosition(m_ctrl->GetCurrentPos());
+  int found = wxNOT_FOUND;
+  if (forward) {
+    found = m_ctrl->MarkerNext(line + 1, mask);
+    if (found == wxNOT_FOUND) {
+      found = m_ctrl->MarkerNext(0, mask); // Wrap around
+    }
+  } else {
+    found = line > 0 ? m_ctrl->MarkerPrevious(line - 1, mask) : wxNOT_FOUND;
+    if (found == wxNOT_FOUND) {
+      found = m_ctrl->MarkerPrevious(lines - 1, mask); // Wrap around
+    }
+  }
+  if (found == wxNOT_FOUND) {
+    return false;
+  }
+  m_ctrl->EnsureVisible(found); // Unfold it
+  m_ctrl->GotoLine(found);
+  m_ctrl->ChooseCaretX();
+  m_ctrl->VerticalCentreCaret();
+  return true;
+}
+
+void Editor::ClearBookmarks() { m_ctrl->MarkerDeleteAll(kBookmarkMarker); }
+
+bool Editor::HasBookmarks() const {
+  return m_ctrl->MarkerNext(0, 1 << kBookmarkMarker) != wxNOT_FOUND;
+}
+
+std::vector<int> Editor::GetBookmarks() const {
+  std::vector<int> lines;
+  const int mask = 1 << kBookmarkMarker;
+  for (int line = m_ctrl->MarkerNext(0, mask); line != wxNOT_FOUND;
+       line = m_ctrl->MarkerNext(line + 1, mask)) {
+    lines.push_back(line);
+  }
+  return lines;
+}
+
+void Editor::SetBookmarks(const std::vector<int> &lines) {
+  ClearBookmarks();
+  const int count = m_ctrl->GetLineCount();
+  for (const int line : lines) {
+    if (line >= 0 && line < count) {
+      m_ctrl->MarkerAdd(line, kBookmarkMarker);
+    }
+  }
 }
 
 void Editor::OnModified(wxStyledTextEvent &event) {
@@ -776,6 +862,7 @@ void Editor::ApplyOptions(wxStyledTextCtrl *ctrl) {
 void Editor::OnOptionsChanged(wxCommandEvent &event) {
   event.Skip();
   ApplyOptions(m_ctrl);
+  UpdateLineNumberMargin(m_ctrl); // Show Line Numbers
   // Show the highlights again, or take them off.
   ClearBraceHighlight();
   DoBraceMatching();
