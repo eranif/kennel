@@ -18,6 +18,9 @@ public:
   wxFont GetSelectedFont() const { return m_fontPicker->GetSelectedFont(); }
   bool GetUseBlockCursor() const { return m_checkBoxBlockCaret->IsChecked(); }
   bool GetGroupTabs() const { return m_checkBoxGroupTabs->IsChecked(); }
+  bool GetFileTabShowsFolder() const {
+    return m_checkBoxFileTabShowsFolder->IsChecked();
+  }
   wxDirection GetTabPosition() const;
   TabHeight GetTabHeight() const;
   wxDirection GetSideBarTabPosition() const;

@@ -54,6 +54,7 @@ json ToJson(const UiPrefs &p) {
       {"blockCursor", p.blockCursor},
       {"wrapLines", p.wrapLines},
       {"groupTabs", p.groupTabs},
+      {"fileTabShowsFolder", p.fileTabShowsFolder},
       {"gitSignoff", p.gitSignoff},
       {"highlightBraces", p.highlightBraces},
       {"highlightIndentLines", p.highlightIndentLines},
@@ -135,6 +136,8 @@ void ParsePrefs(const json &root, UiPrefs &p) {
   p.blockCursor = GetBool(root, "blockCursor", p.blockCursor);
   p.wrapLines = GetBool(root, "wrapLines", p.wrapLines);
   p.groupTabs = GetBool(root, "groupTabs", p.groupTabs);
+  p.fileTabShowsFolder =
+      GetBool(root, "fileTabShowsFolder", p.fileTabShowsFolder);
   p.gitSignoff = GetBool(root, "gitSignoff", p.gitSignoff);
   p.highlightBraces = GetBool(root, "highlightBraces", p.highlightBraces);
   p.highlightIndentLines =

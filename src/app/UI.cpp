@@ -45,8 +45,8 @@ static void wxCrafterFiTVkcInitBitmapResources()
         else wxFileSystem::AddHandler(new wxMemoryFSHandlerBase);
     }
 
-    XRC_ADD_FILE(wxT("XRC_resource/UI.cpp$C__msys64_home_eran_devl_kennel_src_app_UI_app_bitmaps.xrc"), xml_res_file_0, xml_res_size_0, wxT("text/xml"));
-    wxXmlResource::Get()->Load(wxT("memory:XRC_resource/UI.cpp$C__msys64_home_eran_devl_kennel_src_app_UI_app_bitmaps.xrc"));
+    XRC_ADD_FILE(wxT("XRC_resource/UI.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"), xml_res_file_0, xml_res_size_0, wxT("text/xml"));
+    wxXmlResource::Get()->Load(wxT("memory:XRC_resource/UI.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"));
 }
 
 
@@ -1266,6 +1266,13 @@ SettingsDlgBase::SettingsDlgBase(wxWindow* parent, wxWindowID id, const wxString
     m_checkBoxGroupTabs->SetValue(false);
     
     flexGridSizer602->Add(m_checkBoxGroupTabs, 0, wxALL, WXC_FROM_DIP(5));
+    
+    flexGridSizer602->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
+    
+    m_checkBoxFileTabShowsFolder = new wxCheckBox(m_panel353, wxID_ANY, _("Show the folder name in file tabs"), wxDefaultPosition, wxDLG_UNIT(m_panel353, wxSize(-1,-1)), 0);
+    m_checkBoxFileTabShowsFolder->SetValue(false);
+    
+    flexGridSizer602->Add(m_checkBoxFileTabShowsFolder, 0, wxALL, WXC_FROM_DIP(5));
     
     wxStaticBoxSizer* staticBoxSizer569 = new wxStaticBoxSizer( new wxStaticBox(m_panel353, wxID_ANY, _("Theme:")), wxVERTICAL);
     

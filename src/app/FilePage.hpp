@@ -51,7 +51,12 @@ public:
   wxString GetKey() const { return FileEvent::MakeKey(m_path, m_remoteHost); }
   const wxString &GetPath() const { return m_path; }
   const RemoteHostDetails &GetRemoteHostDetails() const { return m_remoteHost; }
+  // The folder and the name: "c/file.cpp" for a/b/c/file.cpp.
   wxString GetDisplayName() const;
+  // The text of the tab of the page: the name of the file, or the folder and
+  // the name (GetDisplayName()) when the preferences say so
+  // (UiPrefs::fileTabShowsFolder).
+  wxString GetTabLabel() const;
   // The folder of the file: a path for a local file, "host:path" for a remote
   // one.
   wxString GetFolder() const;

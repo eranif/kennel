@@ -468,6 +468,9 @@ private:
   void GroupPage(wxWindow *page);
   // Makes the tab groups, or takes them away, as the preferences say.
   void ApplyTabGrouping();
+  // Gives the tabs of the files their text again (FilePage::GetTabLabel()):
+  // the preferences say whether it has the folder.
+  void ApplyFileTabLabels();
   void OnRemoteFileRead(const RemoteReadResult &result);
   // Takes the file out of m_restoringFiles. Whether it was there.
   bool TakeRestoringFile(const wxString &key);

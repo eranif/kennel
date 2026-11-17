@@ -185,6 +185,7 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
     }
   }
   m_checkBoxGroupTabs->SetValue(prefs.groupTabs);
+  m_checkBoxFileTabShowsFolder->SetValue(prefs.fileTabShowsFolder);
   m_choiceTabOutlineColour->Append(GetTabOutlineColoursArray());
   m_choiceTabOutlineColour->SetStringSelection(prefs.tabOutlineColour);
 

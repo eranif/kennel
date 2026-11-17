@@ -410,6 +410,7 @@ protected:
     wxChoice* m_choiceTabHeight;
     wxCheckBox* m_checkBoxCloseButtonOnTab;
     wxCheckBox* m_checkBoxGroupTabs;
+    wxCheckBox* m_checkBoxFileTabShowsFolder;
     wxChoice* m_choiceAppTheme;
     wxPanel* m_panel361;
     wxStaticText* m_staticText365;
@@ -458,6 +459,7 @@ public:
     wxChoice* GetChoiceTabHeight() { return m_choiceTabHeight; }
     wxCheckBox* GetCheckBoxCloseButtonOnTab() { return m_checkBoxCloseButtonOnTab; }
     wxCheckBox* GetCheckBoxGroupTabs() { return m_checkBoxGroupTabs; }
+    wxCheckBox* GetCheckBoxFileTabShowsFolder() { return m_checkBoxFileTabShowsFolder; }
     wxChoice* GetChoiceAppTheme() { return m_choiceAppTheme; }
     wxPanel* GetPanel353() { return m_panel353; }
     wxStaticText* GetStaticText365() { return m_staticText365; }

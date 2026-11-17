@@ -132,7 +132,6 @@ void FilePage::LoadText(const wxString &text) {
 }
 
 wxString FilePage::GetDisplayName() const {
-  // The folder and the name: "c/file.cpp" for a/b/c/file.cpp.
   wxString folder;
   wxString name;
   if (IsRemote()) {
@@ -150,6 +149,15 @@ wxString FilePage::GetDisplayName() const {
     return m_path;
   }
   return folder.empty() ? name : folder + "/" + name;
+}
+
+wxString FilePage::GetTabLabel() const {
+  if (AppManager::Get().GetPrefs().fileTabShowsFolder) {
+    return GetDisplayName();
+  }
+  const wxString name =
+      IsRemote() ? m_path.AfterLast('/') : wxFileName(m_path).GetFullName();
+  return name.empty() ? m_path : name;
 }
 
 Account FilePage::GetAccount() const {

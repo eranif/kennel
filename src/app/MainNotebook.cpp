@@ -53,12 +53,12 @@
 #include <wx/xrc/xmlres.h>
 
 namespace {
-wxString TitleOf(wxWindow *page) {
+wxString GetTabTitleFrom(wxWindow *page) {
   if (auto *session = dynamic_cast<SessionPage *>(page)) {
     return session->GetSession().name;
   }
   if (auto *file = dynamic_cast<FilePage *>(page)) {
-    return file->GetDisplayName();
+    return file->GetTabLabel();
   }
   return wxString{};
 }
@@ -517,7 +517,7 @@ void MainNotebook::ShowReadOnlyText(const FileEvent &event,
 // ---------------------------------------------------------------------------
 
 void MainNotebook::AddTab(wxWindow *page) {
-  const wxString title = TitleOf(page);
+  const wxString title = GetTabTitleFrom(page);
   m_book->AddPage(page, title, /*select=*/false);
   if (const int index = m_book->FindPage(page); index != wxNOT_FOUND) {
     m_book->SetPageBitmap(index, IconOf(page));
@@ -1286,7 +1286,7 @@ void MainNotebook::OnFilePathChanged(FileEvent &e) {
   for (auto *file : GetFiles()) {
     if (file == e.GetEventObject()) {
       if (const int index = m_book->FindPage(file); index != wxNOT_FOUND) {
-        m_book->SetPageText(index, file->GetDisplayName());
+        m_book->SetPageText(index, file->GetTabLabel());
         m_book->SetPageToolTip(index, file->GetPath());
         m_book->SetPageBitmap(index, IconOf(file));
       }
@@ -1877,6 +1877,7 @@ void MainNotebook::ApplyPrefs() {
   font.SetNativeFontInfo(prefs.terminalFontDesc);
   ApplyFont(font);
   ApplyOptimizedDrawing();
+  ApplyFileTabLabels();
 
   // The theme of the application may have changed.
   ApplyToolBarStyles();
@@ -1884,6 +1885,14 @@ void MainNotebook::ApplyPrefs() {
   for (auto *page : GetSessions()) {
     for (auto *terminal : page->GetTerminals()) {
       terminal->SetBufferSize(prefs.scrollbackLines);
+    }
+  }
+}
+
+void MainNotebook::ApplyFileTabLabels() {
+  for (auto *file : GetFiles()) {
+    if (const int index = m_book->FindPage(file); index != wxNOT_FOUND) {
+      m_book->SetPageText(index, file->GetTabLabel());
     }
   }
 }
