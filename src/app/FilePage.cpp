@@ -25,9 +25,9 @@ wxDEFINE_EVENT(wxEVT_WRAP_LINES_CHANGED, wxCommandEvent);
 namespace {
 const int ID_SAVER = wxWindow::NewControlId();
 const int ID_RELOAD = wxWindow::NewControlId();
-const int ID_CLOSE = wxWindow::NewControlId();
 const int ID_WRAP = wxWindow::NewControlId();
 const int ID_LINE_NUMBERS = wxWindow::NewControlId();
+const int ID_HIGHLIGHT_WORD = wxWindow::NewControlId();
 const int ID_BOOKMARK_TOGGLE = wxWindow::NewControlId();
 const int ID_BOOKMARK_NEXT = wxWindow::NewControlId();
 const int ID_BOOKMARK_PREVIOUS = wxWindow::NewControlId();
@@ -40,10 +40,6 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
     : wxPanel(parent), m_path{path}, m_remoteHost{remoteHost} {
   m_toolbar = new wxAuiToolBar(this);
   AppManager::Get().GetBitmaps().Get("save", false);
-  toolbar::AddTool(m_toolbar, ID_CLOSE, _("Close"),
-                   AppManager::Get().GetBitmaps().Get("close", false),
-                   _("Close The Current File"));
-  m_toolbar->AddSeparator();
   toolbar::AddTool(m_toolbar, ID_SAVER, _("Save"),
                    AppManager::Get().GetBitmaps().Get("save", false),
                    _("Save File Modifications"));
@@ -59,6 +55,12 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
                    _("Show the line numbers"), wxITEM_CHECK);
   m_toolbar->ToggleTool(ID_LINE_NUMBERS,
                         AppManager::Get().GetPrefs().showLineNumbers);
+  toolbar::AddTool(m_toolbar, ID_HIGHLIGHT_WORD, _("Highlight Word"),
+                   AppManager::Get().GetBitmaps().Get("highlight-word", false),
+                   _("Highlight the other places of the selected word"),
+                   wxITEM_CHECK);
+  m_toolbar->ToggleTool(ID_HIGHLIGHT_WORD,
+                        AppManager::Get().GetPrefs().highlightWord);
   // The bookmarks, as a group (the same as the Bookmarks menu of Edit)
   m_toolbar->AddSeparator();
   auto &bitmaps = AppManager::Get().GetBitmaps();
@@ -77,14 +79,14 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
   m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnSave, this, ID_SAVER);
   m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnReload, this, ID_RELOAD);
   m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnWrapToggled, this, ID_WRAP);
-  m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnLineNumbersToggled, this,
-                  ID_LINE_NUMBERS);
+  for (const int id : {ID_LINE_NUMBERS, ID_HIGHLIGHT_WORD}) {
+    m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnEditorOptionToggled, this, id);
+  }
   for (const int id : {ID_BOOKMARK_TOGGLE, ID_BOOKMARK_NEXT,
                        ID_BOOKMARK_PREVIOUS, ID_BOOKMARK_CLEAR}) {
     m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnBookmarkTool, this, id);
   }
   m_toolbar->Bind(wxEVT_UPDATE_UI, &FilePage::OnSaveUI, this, ID_SAVER);
-  m_toolbar->Bind(wxEVT_TOOL, &FilePage::OnClose, this, ID_CLOSE);
   m_toolbar->Realize();
   toolbar::ApplyStyle(m_toolbar); // As the toolbar of a session page
 
@@ -117,11 +119,16 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
 
 void FilePage::ApplyToolBarStyle() { toolbar::ApplyStyle(m_toolbar); }
 
-void FilePage::OnLineNumbersToggled(wxCommandEvent &) {
+void FilePage::OnEditorOptionToggled(wxCommandEvent &event) {
   auto &prefs = AppManager::Get().GetPrefs();
-  prefs.showLineNumbers = m_toolbar->GetToolToggled(ID_LINE_NUMBERS);
+  const bool on = m_toolbar->GetToolToggled(event.GetId());
+  if (event.GetId() == ID_LINE_NUMBERS) {
+    prefs.showLineNumbers = on;
+  } else {
+    prefs.highlightWord = on;
+  }
   if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
-    KLOG_WARN() << "Could not save the line numbers setting: " << st.message();
+    KLOG_WARN() << "Could not save the editor option: " << st.message();
   }
   // Every editor follows, this one too (see OnEditorOptionsChanged()).
   EventNotifier::Get()->AddPendingEvent(
@@ -130,9 +137,16 @@ void FilePage::OnLineNumbersToggled(wxCommandEvent &) {
 
 void FilePage::OnEditorOptionsChanged(wxCommandEvent &event) {
   event.Skip();
-  // The Show Line Numbers of the Edit menu changes the tool too.
-  m_toolbar->ToggleTool(ID_LINE_NUMBERS,
-                        AppManager::Get().GetPrefs().showLineNumbers);
+  // The items of the Edit menu change the tools too.
+  const auto &prefs = AppManager::Get().GetPrefs();
+  m_toolbar->ToggleTool(ID_LINE_NUMBERS, prefs.showLineNumbers);
+  m_toolbar->ToggleTool(ID_HIGHLIGHT_WORD, prefs.highlightWord);
+  toolbar::AddTool(m_toolbar, ID_HIGHLIGHT_WORD, _("Highlight Word"),
+                   AppManager::Get().GetBitmaps().Get("highlight-word", false),
+                   _("Highlight the other places of the selected word"),
+                   wxITEM_CHECK);
+  m_toolbar->ToggleTool(ID_HIGHLIGHT_WORD,
+                        AppManager::Get().GetPrefs().highlightWord);
   m_toolbar->Refresh();
 }
 
@@ -529,12 +543,6 @@ void FilePage::Reload() {
     ::wxMessageBox(wxString::Format(_("Could not open %s"), m_path), "Kennel",
                    wxOK | wxICON_ERROR, this);
   }
-}
-
-void FilePage::OnClose(wxCommandEvent &event) {
-  wxUnusedVar(event);
-  GetMainView()->GetSessionsBook()->CallAfter(&MainNotebook::CloseFileByKey,
-                                              GetKey());
 }
 
 // ---------------------------------------------------------------------------

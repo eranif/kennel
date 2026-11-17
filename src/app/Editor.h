@@ -140,11 +140,26 @@ private:
   static constexpr int kLineNumberMargin = 1;
   static constexpr int kSeparatorMargin = 2;
   static constexpr int kBookmarkMarker = 1; // 25 and up are for folding
+  // The indicator of the highlighted word (0 to 7 are for the lexers).
+  static constexpr int kWordIndicator = 9;
+  // A longer selection is not a word; the most places marked in one pass.
+  static constexpr size_t kMaxHighlightedWord = 256;
+  static constexpr int kMaxHighlights = 2000;
 
   void InitEditor() {
     InitEditor(m_ctrl, m_lang, m_theme);
     InitBookmarks(m_ctrl, m_theme);
+    InitWordHighlight(m_ctrl, m_theme);
   }
+  // The look of the mark of the highlighted word, in the colours of `theme`.
+  static void InitWordHighlight(wxStyledTextCtrl *ctrl,
+                                const wxTerminalTheme &theme);
+  // Marks, with an indicator, the other places of the selected word in the
+  // lines that are shown (Highlight Word): the same text, the case counts. Done
+  // when the application is idle after the selection, the text or the scroll
+  // changed, so that typing and scrolling stay fast.
+  void OnIdle(wxIdleEvent &event);
+  void HighlightWords();
   // The margin and the mark of the bookmarks, in the colours of `theme`.
   static void InitBookmarks(wxStyledTextCtrl *ctrl,
                             const wxTerminalTheme &theme);
@@ -208,4 +223,5 @@ private:
   std::optional<wxString> m_filepath{std::nullopt};
   long m_lastUpdatePosition{wxNOT_FOUND};
   bool m_hasBraceHighlight{false}; // A good or a bad one is shown
+  bool m_wordsDirty{false};        // HighlightWords() has to run
 };

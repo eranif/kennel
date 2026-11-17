@@ -57,6 +57,7 @@ struct UiPrefs {
   bool highlightBraces{false}; // Highlight the brace at the caret and its pair
   bool highlightIndentLines{false}; // Highlight the indent line of the block
   bool showLineNumbers{true};       // The line numbers of the file editor
+  bool highlightWord{true}; // Mark the other places of the selected word
   bool terminalOptimizedDrawing{false}; // Enable optimized drawing?
   // The theme of the application: "system", "dark", "light", or "terminal" (it
   // looks like the terminal theme). It was always dark before it could be

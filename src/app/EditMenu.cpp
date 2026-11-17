@@ -65,11 +65,13 @@ void EditMenu::AddTo(wxMenuBar *menuBar) {
   menu->AppendSeparator();
   menu->AppendCheckItem(XRCID("edit-wrap-lines"), _("Wrap Lines"));
   menu->AppendCheckItem(XRCID("edit-line-numbers"), _("Show Line Numbers"));
+  menu->AppendCheckItem(XRCID("edit-highlight-word"), _("Highlight Word"));
   menu->AppendCheckItem(XRCID("edit-highlight-braces"), _("Highlight Braces"));
   menu->AppendCheckItem(XRCID("edit-highlight-indent"),
                         _("Highlight Indent Lines"));
-  for (const char *name : {"edit-wrap-lines", "edit-line-numbers",
-                           "edit-highlight-braces", "edit-highlight-indent"}) {
+  for (const char *name :
+       {"edit-wrap-lines", "edit-line-numbers", "edit-highlight-word",
+        "edit-highlight-braces", "edit-highlight-indent"}) {
     m_frame->Bind(wxEVT_MENU, &EditMenu::OnOption, this, XRCID(name));
     m_frame->Bind(wxEVT_UPDATE_UI, &EditMenu::OnOptionUI, this, XRCID(name));
   }
@@ -227,7 +229,9 @@ void EditMenu::OnOption(wxCommandEvent &event) {
     EventNotifier::Get()->AddPendingEvent(
         wxCommandEvent(wxEVT_WRAP_LINES_CHANGED));
   } else {
-    if (id == XRCID("edit-line-numbers")) {
+    if (id == XRCID("edit-highlight-word")) {
+      prefs.highlightWord = !prefs.highlightWord;
+    } else if (id == XRCID("edit-line-numbers")) {
       prefs.showLineNumbers = !prefs.showLineNumbers;
     } else if (id == XRCID("edit-highlight-braces")) {
       prefs.highlightBraces = !prefs.highlightBraces;
@@ -247,6 +251,8 @@ void EditMenu::OnOptionUI(wxUpdateUIEvent &event) {
   const int id = event.GetId();
   if (id == XRCID("edit-wrap-lines")) {
     event.Check(prefs.wrapLines);
+  } else if (id == XRCID("edit-highlight-word")) {
+    event.Check(prefs.highlightWord);
   } else if (id == XRCID("edit-line-numbers")) {
     event.Check(prefs.showLineNumbers);
   } else if (id == XRCID("edit-highlight-braces")) {

@@ -16,7 +16,8 @@ class wxMenuBar;
 //   Copy, Paste, Select All, Delete Line, Duplicate Line
 //   Bookmarks: Toggle Bookmark (Ctrl+F2), Next Bookmark (F2),
 //              Previous Bookmark (Shift+F2), Clear All (Ctrl+Shift+F2)
-//   [x] Wrap Lines, [x] Show Line Numbers, [x] Highlight Braces,
+//   [x] Wrap Lines, [x] Show Line Numbers, [x] Highlight Word,
+//   [x] Highlight Braces,
 //   [x] Highlight Indent Lines
 //
 // The menu is in the menu bar only while a file is showing, so its keys

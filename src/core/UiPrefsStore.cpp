@@ -59,6 +59,7 @@ json ToJson(const UiPrefs &p) {
       {"highlightBraces", p.highlightBraces},
       {"highlightIndentLines", p.highlightIndentLines},
       {"showLineNumbers", p.showLineNumbers},
+      {"highlightWord", p.highlightWord},
       {"terminalLoginShell", ToUtf8(p.terminalLoginShell)},
       {"terminalHomeDir", ToUtf8(p.terminalHomeDir)},
       {"findPattern", ToUtf8(p.findPattern)},
@@ -144,6 +145,7 @@ void ParsePrefs(const json &root, UiPrefs &p) {
   p.highlightIndentLines =
       GetBool(root, "highlightIndentLines", p.highlightIndentLines);
   p.showLineNumbers = GetBool(root, "showLineNumbers", p.showLineNumbers);
+  p.highlightWord = GetBool(root, "highlightWord", p.highlightWord);
   p.checkForUpdatesOnStartup =
       GetBool(root, "checkForUpdatesOnStartup", p.checkForUpdatesOnStartup);
   p.closeReviewBuddyOnDismiss =

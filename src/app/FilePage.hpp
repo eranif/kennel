@@ -141,9 +141,10 @@ public:
   void ClearBookmarks();
 
 private:
-  // The tools of the bookmarks and of the line numbers on the toolbar.
+  // The tools of the bookmarks and of the editor options on the toolbar.
   void OnBookmarkTool(wxCommandEvent &event);
-  void OnLineNumbersToggled(wxCommandEvent &event);
+  // The user toggled Show Line Numbers or Highlight Word on the toolbar.
+  void OnEditorOptionToggled(wxCommandEvent &event);
   // An editor option changed (on any page, or in the Edit menu): the tool of
   // the line numbers follows it.
   void OnEditorOptionsChanged(wxCommandEvent &event);
@@ -166,7 +167,6 @@ private:
   void SendSaved();
   void OnSave(wxCommandEvent &event);
   void OnSaveUI(wxUpdateUIEvent &event);
-  void OnClose(wxCommandEvent &event);
   void OnReload(wxCommandEvent &event);
   // The user toggled Wrap Lines on the toolbar of this page.
   void OnWrapToggled(wxCommandEvent &event);

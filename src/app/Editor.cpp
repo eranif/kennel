@@ -70,6 +70,7 @@ Editor::Editor(wxWindow *parent, EditorLang lang, const wxTerminalTheme &theme)
   Layout();
   m_ctrl->Bind(wxEVT_STC_MODIFIED, &Editor::OnModified, this);
   m_ctrl->Bind(wxEVT_STC_UPDATEUI, &Editor::OnUpdateUI, this);
+  m_ctrl->Bind(wxEVT_IDLE, &Editor::OnIdle, this);
   EventNotifier::Get()->Bind(wxEVT_EDITOR_OPTIONS_CHANGED,
                              &Editor::OnOptionsChanged, this);
   InitEditor();
@@ -733,6 +734,9 @@ void Editor::OnModified(wxStyledTextEvent &event) {
 
 void Editor::OnUpdateUI(wxStyledTextEvent &event) {
   event.Skip();
+  // The selection, the text or the lines that are shown changed: the words are
+  // marked again when the application is idle (see OnIdle()).
+  m_wordsDirty = true;
   auto currentPos = m_ctrl->GetCurrentPos();
   if (m_lastUpdatePosition != currentPos) {
     m_lastUpdatePosition = currentPos;
@@ -863,6 +867,7 @@ void Editor::OnOptionsChanged(wxCommandEvent &event) {
   event.Skip();
   ApplyOptions(m_ctrl);
   UpdateLineNumberMargin(m_ctrl); // Show Line Numbers
+  m_wordsDirty = true;            // Highlight Word
   // Show the highlights again, or take them off.
   ClearBraceHighlight();
   DoBraceMatching();
@@ -917,4 +922,69 @@ void Editor::DoBraceMatching() {
     m_ctrl->BraceBadLight(pos);
   }
   m_ctrl->SetHighlightGuide(indentCol);
+}
+
+void Editor::InitWordHighlight(wxStyledTextCtrl *ctrl,
+                               const wxTerminalTheme &theme) {
+  // A box under the text, in a colour that shows on a dark and a light theme.
+  ctrl->IndicatorSetStyle(kWordIndicator, wxSTC_INDIC_STRAIGHTBOX);
+  ctrl->IndicatorSetForeground(kWordIndicator, IsDarkColour(theme.bg)
+                                                   ? theme.brightYellow
+                                                   : theme.yellow);
+  ctrl->IndicatorSetAlpha(kWordIndicator, 70);
+  ctrl->IndicatorSetOutlineAlpha(kWordIndicator, 0);
+  ctrl->IndicatorSetUnder(kWordIndicator, true);
+}
+
+void Editor::OnIdle(wxIdleEvent &event) {
+  event.Skip();
+  if (m_wordsDirty) {
+    m_wordsDirty = false;
+    HighlightWords();
+  }
+}
+
+void Editor::HighlightWords() {
+  m_ctrl->SetIndicatorCurrent(kWordIndicator);
+  m_ctrl->IndicatorClearRange(0, m_ctrl->GetLength());
+  if (!AppManager::Get().GetPrefs().highlightWord) {
+    return;
+  }
+
+  // The selected text is what to look for: in one line, and not only spaces.
+  // The match is exact (the case counts).
+  const wxString word = m_ctrl->GetSelectedText();
+  if (word.empty() || word.length() > kMaxHighlightedWord ||
+      word.find_first_of("\r\n") != wxString::npos ||
+      word.find_first_not_of(" \t") == wxString::npos) {
+    return;
+  }
+  const wxScopedCharBuffer utf8 = word.utf8_str();
+  const int length = static_cast<int>(utf8.length());
+  const int selectionStart = m_ctrl->GetSelectionStart();
+
+  // Only the lines that are shown: the others are done when they scroll in.
+  const int firstLine =
+      m_ctrl->DocLineFromVisible(m_ctrl->GetFirstVisibleLine());
+  const int lastLine =
+      std::min(m_ctrl->DocLineFromVisible(m_ctrl->GetFirstVisibleLine() +
+                                          m_ctrl->LinesOnScreen()),
+               m_ctrl->GetLineCount() - 1);
+  const int end = m_ctrl->GetLineEndPosition(lastLine);
+
+  m_ctrl->SetSearchFlags(wxSTC_FIND_MATCHCASE);
+  int from = m_ctrl->PositionFromLine(firstLine);
+  for (int count = 0; count < kMaxHighlights && from < end; ++count) {
+    m_ctrl->SetTargetStart(from);
+    m_ctrl->SetTargetEnd(end);
+    const int found = m_ctrl->SearchInTarget(word);
+    if (found == wxNOT_FOUND) {
+      break;
+    }
+    // The selection itself keeps the look of a selection
+    if (found != selectionStart) {
+      m_ctrl->IndicatorFillRange(found, length);
+    }
+    from = found + length;
+  }
 }
