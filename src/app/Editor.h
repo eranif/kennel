@@ -150,10 +150,15 @@ private:
     InitEditor(m_ctrl, m_lang, m_theme);
     InitBookmarks();
     InitWordHighlight();
+    InitMultipleCarets();
     UpdateLineNumbers();
   }
   // The look of the mark of the highlighted word, in the colours of the theme.
   void InitWordHighlight();
+  // Turns on editing with many carets and selections: Ctrl+click adds a caret,
+  // Ctrl+drag a selection, Alt+Shift+arrows (or Alt+Shift+drag) a rectangular
+  // one. What is typed, deleted or pasted goes to every one of them.
+  void InitMultipleCarets();
   // Marks, with an indicator, the other places of the selected word in the
   // lines that are shown (Highlight Word): the same text, the case counts. Done
   // when the application is idle after the selection, the text or the scroll

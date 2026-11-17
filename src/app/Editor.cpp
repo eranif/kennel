@@ -182,6 +182,10 @@ void Editor::InitEditor(wxStyledTextCtrl *ctrl, EditorLang lang,
   ctrl->CmdKeyAssign(wxSTC_KEY_RIGHT, wxSTC_KEYMOD_META,
                      wxSTC_CMD_WORDPARTRIGHT);
 #endif
+
+  ctrl->SetMultiPaste(1);
+  ctrl->SetMultipleSelection(true);
+
   switch (lang) {
   case EditorLang::kText:
     InitTextStyle(ctrl, theme);
@@ -925,6 +929,18 @@ void Editor::DoBraceMatching() {
   m_ctrl->SetHighlightGuide(indentCol);
 }
 
+void Editor::InitMultipleCarets() {
+  m_ctrl->SetMultipleSelection(true);
+  m_ctrl->SetAdditionalSelectionTyping(true);
+  m_ctrl->SetMultiPaste(wxSTC_MULTIPASTE_EACH);
+  m_ctrl->SetVirtualSpaceOptions(wxSTC_VS_RECTANGULARSELECTION);
+  // The other carets are drawn like the main one, and blink with it.
+  m_ctrl->SetAdditionalCaretsVisible(true);
+  m_ctrl->SetAdditionalCaretsBlink(true);
+  m_ctrl->SetAdditionalCaretForeground(m_theme.fg);
+  m_ctrl->SetAdditionalSelAlpha(wxSTC_ALPHA_NOALPHA);
+}
+
 void Editor::InitWordHighlight() {
   // A box under the text, in a colour that shows on a dark and a light theme.
   m_ctrl->IndicatorSetStyle(kWordIndicator, wxSTC_INDIC_STRAIGHTBOX);
@@ -952,7 +968,11 @@ void Editor::HighlightWords() {
   }
 
   // The selected text is what to look for: in one line, and not only spaces.
+  // Not with many selections (the text of all of them is one string then).
   // The match is exact (the case counts).
+  if (m_ctrl->GetSelections() != 1) {
+    return;
+  }
   const wxString word = m_ctrl->GetSelectedText();
   if (word.empty() || word.length() > kMaxHighlightedWord ||
       word.find_first_of("\r\n") != wxString::npos ||
