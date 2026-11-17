@@ -53,8 +53,8 @@ void ReviewBuddyHeader::SetText(wxTerminalViewCtrl *terminal,
   // On a dark background the text is yellow on a darker strip; otherwise the
   // strip has the colours of the theme.
   const auto &theme = terminal->GetTheme();
-  const wxColour &bg = theme.bg;
-  const wxColour fg = theme.bg.ChangeLightness(theme.IsDark() ? 150 : 50);
+  const wxColour &bg = theme.IsDark() ? theme.black : theme.yellow;
+  const wxColour &fg = theme.IsDark() ? theme.yellow : theme.black;
 
   // Not again for the same text: the strip is laid out each time.
   // The strip is at the bottom of the terminal (a footer of the terminal).

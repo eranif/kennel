@@ -298,6 +298,23 @@ SessionPage::SessionPage(wxWindow *parent, std::optional<AgentDef> agent,
       }
     });
   }
+
+  // Bind paint event for the splitters.
+  for (auto *splitrer : {m_splitterMain, m_splitterReviewBuddy}) {
+    splitrer->Bind(wxEVT_PAINT, [splitrer, this](wxPaintEvent &) {
+      wxAutoBufferedPaintDC dc{splitrer};
+      const auto &bgColour = m_terminal->GetTheme().bg;
+      dc.SetPen(bgColour);
+      dc.SetBrush(bgColour);
+      dc.DrawRectangle(GetClientRect());
+    });
+
+    splitrer->Bind(wxEVT_SPLITTER_SASH_POS_CHANGED,
+                   [this](wxSplitterEvent &event) {
+                     event.Skip();
+                     static_cast<wxWindow *>(event.GetEventObject())->Refresh();
+                   });
+  }
 }
 
 SessionPage *SessionPage::Clone(wxWindow *parent) {
