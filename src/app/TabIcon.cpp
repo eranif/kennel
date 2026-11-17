@@ -1,9 +1,6 @@
 #include "app/TabIcon.h"
 
-#include "app/AssetBootstrap.h"
-
 #include <wx/bmpbndl.h>
-#include <wx/filename.h>
 #include <wx/image.h>
 
 #include <algorithm>
@@ -16,11 +13,11 @@ public:
   static constexpr int kTabIconDip = 16;
 
   // `dot`: the colour of a dot in the lower right corner, or not ok for none.
-  // `overlay`: a picture for the lower right corner, or not ok for none (it
-  // comes first).
+  // `strip`: the colour of a strip along the bottom of the icon, or not ok for
+  // none.
   TabIconImpl(const wxBitmapBundle &source, const wxColour &dot,
-              const wxBitmapBundle &overlay)
-      : m_source(source), m_dot(dot), m_overlay(overlay) {}
+              const wxColour &strip)
+      : m_source(source), m_dot(dot), m_strip(strip) {}
 
   wxSize GetDefaultSize() const override {
     return wxSize(kTabIconDip, kTabIconDip);
@@ -33,8 +30,8 @@ public:
 
   wxBitmap GetBitmap(const wxSize &size) override {
     const wxBitmap bitmap = m_source.GetBitmap(size);
-    if (m_overlay.IsOk()) {
-      return DrawOverlay(bitmap);
+    if (m_strip.IsOk()) {
+      return DrawStrip(bitmap);
     }
     return m_dot.IsOk() ? DrawDot(bitmap) : bitmap;
   }
@@ -56,36 +53,35 @@ private:
     image.SetAlpha(x, y, static_cast<unsigned char>(std::lround(alpha * 255)));
   }
 
-  // Draws the overlay (about two thirds of the icon) in the lower right corner
-  // of `bitmap`, over what is there.
-  wxBitmap DrawOverlay(const wxBitmap &bitmap) {
+  // Draws a strip with round ends (and smooth edges) along the bottom of
+  // `bitmap`, over the lowest rows of the icon: 2 DIP high, as wide as the icon
+  // without a margin of 1 DIP on each side.
+  wxBitmap DrawStrip(const wxBitmap &bitmap) {
     wxImage image = bitmap.ConvertToImage();
-    const int side = std::max(1, image.GetWidth() * 10 / kTabIconDip);
-    wxImage over = m_overlay.GetBitmap(wxSize(side, side)).ConvertToImage();
-    if (!image.IsOk() || !over.IsOk()) {
+    if (!image.IsOk()) {
       return bitmap;
     }
     if (!image.HasAlpha()) {
       image.InitAlpha();
     }
-    const int left = image.GetWidth() - over.GetWidth();
-    const int top = image.GetHeight() - over.GetHeight();
-    for (int y = 0; y < over.GetHeight(); ++y) {
-      for (int x = 0; x < over.GetWidth(); ++x) {
-        const int dx = left + x;
-        const int dy = top + y;
-        if (dx < 0 || dy < 0) {
-          continue;
-        }
-        const double cover =
-            over.HasAlpha() ? over.GetAlpha(x, y) / 255.0 : 1.0;
+    const double dip = static_cast<double>(image.GetWidth()) / kTabIconDip;
+    const double radius = std::max(0.5, dip); // Half the height
+    const double cy = image.GetHeight() - radius;
+    // The ends of the line in the middle of the strip.
+    const double left = dip + radius;
+    const double right = image.GetWidth() - dip - radius;
+    for (int y = 0; y < image.GetHeight(); ++y) {
+      for (int x = 0; x < image.GetWidth(); ++x) {
+        const double px = x + 0.5;
+        const double py = y + 0.5;
+        const double nearest = std::clamp(px, left, right);
+        // How much of the pixel is inside the strip
+        const double cover = std::clamp(
+            radius + 0.5 - std::hypot(px - nearest, py - cy), 0.0, 1.0);
         if (cover <= 0.0) {
           continue;
         }
-        BlendPixel(image, dx, dy,
-                   wxColour(over.GetRed(x, y), over.GetGreen(x, y),
-                            over.GetBlue(x, y)),
-                   cover);
+        BlendPixel(image, x, y, m_strip, cover);
       }
     }
     return wxBitmap(image);
@@ -119,7 +115,7 @@ private:
 
   wxBitmapBundle m_source;
   wxColour m_dot;
-  wxBitmapBundle m_overlay;
+  wxColour m_strip;
 };
 } // namespace
 
@@ -128,24 +124,14 @@ wxBitmapBundle TabIcon(const wxBitmapBundle &source, bool modified,
   if (!source.IsOk()) {
     return wxBitmapBundle{};
   }
-  // The picture of tmux (assets/tmux.svg) marks a session in tmux. Looked for
-  // once; without the file, the dot is drawn instead.
-  static const wxBitmapBundle tmuxIcon = [] {
-    const wxString path = ResolveIconPath("tmux.svg");
-    return !path.empty() && wxFileName::FileExists(path)
-               ? wxBitmapBundle::FromSVGFile(path, wxSize(24, 24))
-               : wxBitmapBundle{};
-  }();
-
-  wxColour dot; // None
-  wxBitmapBundle overlay;
+  wxColour dot;   // None
+  wxColour strip; // None
   if (modified) {
     dot = wxColour(0xF0, 0x8A, 0x1C); // Orange
   } else if (badge == TabBadge::kTmux) {
-    overlay = tmuxIcon;
-    dot = wxColour(0x2E, 0x9D, 0x8F); // Teal, when there is no picture
+    strip = wxColour(0x3F, 0xB9, 0x50); // Green
   } else if (badge == TabBadge::kDetached) {
     dot = wxColour(0xE6, 0xB8, 0x00); // Yellow
   }
-  return wxBitmapBundle::FromImpl(new TabIconImpl(source, dot, overlay));
+  return wxBitmapBundle::FromImpl(new TabIconImpl(source, dot, strip));
 }

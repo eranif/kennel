@@ -7,9 +7,9 @@
 // so the icon is sharp when the display is scaled. An empty bundle gives an
 // empty bundle. Used by every tab bar, so that their icons have the same size.
 //
-// A small mark in the lower right corner of the icon of a session that runs in
-// tmux: the picture of tmux (assets/tmux.svg) while it runs in tmux, a yellow
-// dot when the tab is Detached (see SessionStatus::Detached).
+// The mark of a session that runs in tmux: a green strip along the bottom of
+// the icon while it runs in tmux (the icon stays visible), a yellow dot in the
+// lower right corner when the tab is Detached (see SessionStatus::Detached).
 enum class TabBadge { kNone, kTmux, kDetached };
 
 // With `modified`, an orange dot is drawn in the lower right corner (a file
