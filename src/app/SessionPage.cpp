@@ -298,12 +298,12 @@ SessionPage::SessionPage(wxWindow *parent, std::optional<AgentDef> agent,
       }
     });
   }
-
+#ifndef __WXMAC__
   // Bind paint event for the splitters.
   for (auto *splitrer : {m_splitterMain, m_splitterReviewBuddy}) {
     splitrer->Bind(wxEVT_PAINT, [splitrer, this](wxPaintEvent &) {
       wxAutoBufferedPaintDC dc{splitrer};
-      const auto &bgColour = m_terminal->GetTheme().bg;
+      const auto bgColour = wxSystemSettings::GetColour(wxSYS_COLOUR_BTNSHADOW);
       dc.SetPen(bgColour);
       dc.SetBrush(bgColour);
       dc.DrawRectangle(GetClientRect());
@@ -314,6 +314,7 @@ SessionPage::SessionPage(wxWindow *parent, std::optional<AgentDef> agent,
                      event.Skip();
                      static_cast<wxWindow *>(event.GetEventObject())->Refresh();
                    });
+#endif
   }
 }
 
