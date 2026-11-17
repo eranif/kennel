@@ -160,9 +160,9 @@ private:
   // one. What is typed, deleted or pasted goes to every one of them.
   void InitMultipleCarets();
   // Marks, with an indicator, the other places of the selected word in the
-  // lines that are shown (Highlight Word): the same text, the case counts. Done
-  // when the application is idle after the selection, the text or the scroll
-  // changed, so that typing and scrolling stay fast.
+  // lines that are shown (Highlight Word): the same text, as a whole word, the
+  // case counts. Done when the application is idle after the selection, the
+  // text or the scroll changed, so that typing and scrolling stay fast.
   void OnIdle(wxIdleEvent &event);
   void HighlightWords();
   // The margin and the mark of the bookmarks, in the colours of the theme.

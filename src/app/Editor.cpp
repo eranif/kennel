@@ -969,7 +969,8 @@ void Editor::HighlightWords() {
 
   // The selected text is what to look for: in one line, and not only spaces.
   // Not with many selections (the text of all of them is one string then).
-  // The match is exact (the case counts).
+  // The match is exact (the case counts) and a whole word: "and" is not found
+  // in "Command".
   if (m_ctrl->GetSelections() != 1) {
     return;
   }
@@ -992,7 +993,7 @@ void Editor::HighlightWords() {
                m_ctrl->GetLineCount() - 1);
   const int end = m_ctrl->GetLineEndPosition(lastLine);
 
-  m_ctrl->SetSearchFlags(wxSTC_FIND_MATCHCASE);
+  m_ctrl->SetSearchFlags(wxSTC_FIND_MATCHCASE | wxSTC_FIND_WHOLEWORD);
   int from = m_ctrl->PositionFromLine(firstLine);
   for (int count = 0; count < kMaxHighlights && from < end; ++count) {
     m_ctrl->SetTargetStart(from);
