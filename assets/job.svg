@@ -11,8 +11,9 @@
   <circle cx="8" cy="8.9" r="7.1" fill="#3b82f6" />
   <!-- Face -->
   <circle cx="8" cy="8.9" r="5.4" fill="#0f172a" />
-  <!-- Hand -->
-  <line x1="8" y1="8.9" x2="8" y2="4.6" stroke="#3b82f6" stroke-width="1.3" stroke-linecap="round" />
+  <!-- Hands at ten past ten: the hour hand at 10, the minute hand at 2 -->
+  <line x1="8" y1="8.9" x2="5.49" y2="7.45" stroke="#3b82f6" stroke-width="1.3" stroke-linecap="round" />
+  <line x1="8" y1="8.9" x2="11.29" y2="7" stroke="#3b82f6" stroke-width="1.3" stroke-linecap="round" />
   <!-- Center pin -->
   <circle cx="8" cy="8.9" r="0.9" fill="#3b82f6" />
   <!-- Play badge -->
