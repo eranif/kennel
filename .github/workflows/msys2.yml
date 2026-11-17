@@ -47,7 +47,7 @@ jobs:
           install: >-
             git unzip
           # The packages of BUILDING.md. glew and llvm-openmp are DLLs that the
-          # installer needs (see SYSTEM_DLLS in CMakeLists.txt).
+          # installer needs (scripts/CopyRuntimeDlls.cmake lists them with ntldd).
           pacboy: >-
             toolchain:p cmake:p make:p python:p libffi:p jq:p libxml2:p llvm-openmp:p ntldd:p zlib:p openssl:p glew:p
       - name: Checkout

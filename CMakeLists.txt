@@ -715,36 +715,10 @@ add_custom_command(
 # ---------------------------------------------------------------------------
 # Windows: Setup installer directory structure (in build tree for InnoSetup)
 # This creates .build-*/installer/ with bin/, assets/, and all necessary files
-# Automatically resolves and copies DLL dependencies using cygcheck
+# Copies the DLLs of MSYS2 that kennel.exe needs (listed by ntldd)
 # ---------------------------------------------------------------------------
 if(WIN32)
   set(_INSTALLER_DIR "${CMAKE_BINARY_DIR}/installer")
-  # libcrypto/zlib1/winpthread are runtime dependencies of the static libssh.
-  # The name of libcrypto changes with the OpenSSL version (libcrypto-3-x64.dll,
-  # libcrypto-4-x64.dll, ...) and with the architecture: take what MSYS2 has.
-  file(GLOB _LIBCRYPTO_DLLS "${MSYS2_BASE}/${MSYSTEM}/bin/libcrypto-*.dll")
-  if(NOT _LIBCRYPTO_DLLS)
-    message(
-      FATAL_ERROR
-        "libcrypto-*.dll not found in ${MSYS2_BASE}/${MSYSTEM}/bin (install the OpenSSL package of MSYS2)"
-    )
-  endif()
-  set(_LIBCRYPTO_NAMES "")
-  foreach(_dll ${_LIBCRYPTO_DLLS})
-    get_filename_component(_name "${_dll}" NAME)
-    list(APPEND _LIBCRYPTO_NAMES "${_name}")
-  endforeach()
-  list(
-    APPEND
-    SYSTEM_DLLS
-    libc++.dll
-    libomp.dll
-    glew32.dll
-    libunwind.dll
-    ${_LIBCRYPTO_NAMES}
-    zlib1.dll
-    libwinpthread-1.dll)
-
   add_custom_command(
     TARGET kennel
     POST_BUILD
@@ -771,16 +745,17 @@ if(WIN32)
       "Setting up installer directory with dependencies in build tree for InnoSetup"
     VERBATIM)
 
-  foreach(DLL ${SYSTEM_DLLS})
-    add_custom_command(
-      TARGET kennel
-      POST_BUILD
-      # Copy wxWidgets DLL
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-              "${MSYS2_BASE}/${MSYSTEM}/bin/${DLL}" "${_INSTALLER_DIR}/bin/"
-      COMMENT "Copying Runtime DLL: ${MSYS2_BASE}/${MSYSTEM}/bin/${DLL}"
-      VERBATIM)
-  endforeach()
+  # The DLLs of MSYS2 that kennel.exe needs (libc++, libcrypto, libz, ...): the
+  # list is made by ntldd, so a renamed DLL or a new dependency needs no change.
+  add_custom_command(
+    TARGET kennel
+    POST_BUILD
+    COMMAND
+      ${CMAKE_COMMAND} -DEXE=${_INSTALLER_DIR}/bin/kennel.exe
+      -DMSYS2_BIN=${MSYS2_BASE}/${MSYSTEM}/bin -DDEST=${_INSTALLER_DIR}/bin -P
+      "${CMAKE_SOURCE_DIR}/scripts/CopyRuntimeDlls.cmake"
+    COMMENT "Copying the runtime DLLs of MSYS2 next to kennel.exe"
+    VERBATIM)
 
   set(INSTALLER_SOURCE_DIR "${CMAKE_BINARY_DIR}/installer")
 
