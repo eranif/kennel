@@ -131,7 +131,8 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
       this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
       wxAUI_NB_CLOSE_ON_ACTIVE_TAB | wxAUI_NB_TAB_MOVE |
           wxAUI_NB_MIDDLE_CLICK_CLOSE | wxAUI_NB_CLOSE_ON_ALL_TABS |
-          wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_RIGHT | wxBORDER_NONE,
+          wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_TAB_FIXED_WIDTH | wxAUI_NB_RIGHT |
+          wxBORDER_NONE,
       wxS("GlyphBook"), /*transparentTabBar=*/glass);
   m_book->SetTabPaddingY(TabPaddingOf(AppManager::Get().GetPrefs().tabHeight));
 
