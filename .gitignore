@@ -81,4 +81,6 @@ Testing/
 
 # Claude Code local settings
 .claude/settings.local.json
+# Skills installed on this machine (wxcgen --install-skill-local)
+.claude/skills/
 .kiro/
