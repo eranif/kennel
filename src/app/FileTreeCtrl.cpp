@@ -41,6 +41,7 @@ const int kIdNewFile = wxWindow::NewControlId();
 const int kIdDelete = wxWindow::NewControlId();
 const int kIdOpen = wxWindow::NewControlId();
 const int kIdShowInFileManager = wxWindow::NewControlId();
+constexpr int kTreeIndent = 16;
 
 // Puts `text` on the clipboard.
 void CopyText(const wxString &text) {
@@ -110,8 +111,9 @@ FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
       m_provider(CreateFileProvider(account)) {
   m_tree =
       new wxDataViewTreeCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                             wxDV_NO_HEADER | wxDV_MULTIPLE | wxDV_ROW_LINES);
+                             wxDV_NO_HEADER | wxDV_MULTIPLE);
   dv::StylePageView(m_tree);
+  m_tree->SetIndent(m_tree->FromDIP(kTreeIndent));
 
   // The names are not to be edited.
   m_tree->GetColumn(0)->GetRenderer()->SetMode(wxDATAVIEW_CELL_INERT);
