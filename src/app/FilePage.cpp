@@ -64,7 +64,8 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
   // The bookmarks, as a group (the same as the Bookmarks menu of Edit)
   m_toolbar->AddSeparator();
   auto &bitmaps = AppManager::Get().GetBitmaps();
-  toolbar::AddTool(m_toolbar, ID_BOOKMARK_TOGGLE, _("Toggle Bookmark"),
+  toolbar::AddTool(m_toolbar, ID_BOOKMARK_TOGGLE,
+                   _("Toggle Bookmark\tRawCtrl+F2"),
                    bitmaps.Get("bookmark-toggle", false),
                    _("Toggle Bookmark") + "\nCtrl+F2");
   toolbar::AddTool(m_toolbar, ID_BOOKMARK_NEXT, _("Next Bookmark"),

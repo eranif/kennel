@@ -45,12 +45,12 @@ void EditMenu::AddTo(wxMenuBar *menuBar) {
   menu->AppendSeparator();
   auto *bookmarks = new wxMenu();
   bookmarks->Append(XRCID("edit-bookmark-toggle"),
-                    _("Toggle Bookmark\tRawCtrl+F2"));
+                    _("Toggle Bookmark\tCtrl+F2"));
   bookmarks->Append(XRCID("edit-bookmark-next"), _("Next Bookmark\tF2"));
   bookmarks->Append(XRCID("edit-bookmark-previous"),
                     _("Previous Bookmark\tShift+F2"));
   bookmarks->Append(XRCID("edit-bookmark-clear"),
-                    _("Clear All\tRawCtrl+Shift+F2"));
+                    _("Clear All\tCtrl+Shift+F2"));
   menu->AppendSubMenu(bookmarks, _("Bookmarks"));
 
   for (const char *name :
