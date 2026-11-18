@@ -314,8 +314,8 @@ SessionPage::SessionPage(wxWindow *parent, std::optional<AgentDef> agent,
                      event.Skip();
                      static_cast<wxWindow *>(event.GetEventObject())->Refresh();
                    });
-#endif
   }
+#endif
 }
 
 SessionPage *SessionPage::Clone(wxWindow *parent) {
