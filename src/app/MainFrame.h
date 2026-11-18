@@ -67,6 +67,12 @@ public:
 
   bool IsWindowActive(const SessionPage *win) const;
 
+  // The status bar shows only the first line of the help of a menu item or a
+  // tool: the help of a tool has its shortcut on a second line (for the
+  // tooltip), and a status bar field draws one line. The tool bars of the
+  // pages give their help to this frame too (their top level window).
+  void DoGiveHelp(const wxString &text, bool show) override;
+
 private:
   // Builds the menu bar: File -> Exit, Launch -> one item per adapter, and
   // View -> Theme -> [themes] + Change terminal font. Launch items reuse the

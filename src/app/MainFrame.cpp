@@ -134,6 +134,15 @@ MainFrame::MainFrame()
   m_startupTimer.StartOnce(500);
 }
 
+void MainFrame::DoGiveHelp(const wxString &text, bool show) {
+  wxString firstLine = text.BeforeFirst('\n');
+  // A text with Windows line ends ("\r\n") keeps the "\r" before the "\n".
+  if (firstLine.EndsWith("\r")) {
+    firstLine.RemoveLast();
+  }
+  wxFrame::DoGiveHelp(firstLine, show);
+}
+
 void MainFrame::OnStartupTimer(wxTimerEvent &event) {
   wxUnusedVar(event);
   FinaliseStartup();
