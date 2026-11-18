@@ -109,9 +109,13 @@ struct FileTreeCtrl::Node : public wxClientData {
 FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
     : wxPanel(parent), m_account(account),
       m_provider(CreateFileProvider(account)) {
-  m_tree =
-      new wxDataViewTreeCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                             wxDV_NO_HEADER | wxDV_MULTIPLE);
+  long treeStyle = wxDV_NO_HEADER | wxDV_MULTIPLE;
+#ifdef __WXMAC__
+  treeStyle |= wxDV_ROW_LINES;
+#endif
+
+  m_tree = new wxDataViewTreeCtrl(this, wxID_ANY, wxDefaultPosition,
+                                  wxDefaultSize, treeStyle);
   dv::StylePageView(m_tree);
   m_tree->SetIndent(m_tree->FromDIP(kTreeIndent));
 

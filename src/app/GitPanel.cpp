@@ -129,6 +129,10 @@ wxDEFINE_EVENT(wxEVT_GITVIEW_CHANGE_FOLDER, FileEvent);
 GitPanel::GitPanel(wxWindow *parent, const Account &account)
     : GitPanelBase(parent), m_account(account),
       m_hasFolder(HasFolder(account)) {
+#ifdef __WXMAC__
+  m_list->SetWindowStyleFlag(m_list->GetWindowStyleFlag() | wxDV_ROW_LINES);
+#endif
+
   m_message = m_hasFolder ? _("Loading...") : _("No working folder");
   m_toolbar = new wxAuiToolBar(this);
   toolbar::AddTool(m_toolbar, kIdRefresh, _("Refresh"),
