@@ -10,6 +10,7 @@
 
 #include "core/Helpers.h"
 #include <wx/clntdata.h>
+#include <wx/filename.h>
 #include <wx/stdpaths.h>
 #include <wx/textdlg.h>
 #include <wx/utils.h>
@@ -100,7 +101,7 @@ void StartAgentDialog::PopulateRecentDirs() {
 }
 
 wxString StartAgentDialog::GetCustomWorkingDir() const {
-  if (!m_checkBoxCustomWorkingDirectory->IsChecked()) {
+  if (!UsingCustomWorkingDir()) {
     return wxString{};
   }
   wxString dir = m_comboBoxWorkingDir->GetValue();
@@ -156,10 +157,25 @@ wxString StartAgentDialog::MakeGroupName() const {
   return groupName;
 }
 
+bool StartAgentDialog::UsingCustomWorkingDir() const {
+  return m_checkBoxUseCustomDir->IsChecked();
+}
+
 wxString StartAgentDialog::MakeWorkingDir() const {
-  if (m_checkBoxCustomWorkingDirectory->IsChecked()) {
+  if (UsingCustomWorkingDir()) {
     // If user requested a custom working directory, use it.
-    return m_comboBoxWorkingDir->GetValue();
+    wxString dir = GetCustomWorkingDir();
+    wxString name = m_textCtrlName->GetValue();
+    name.Trim().Trim(false);
+    if (m_checkBoxSessionFolder->IsChecked() && !dir.empty() && !name.empty()) {
+      // A folder of the session name in it: /tmp + "my-session" is
+      // /tmp/my-session.
+      if (!dir.EndsWith("/") && !dir.EndsWith("\\")) {
+        dir << GetAgentPathSeparator();
+      }
+      dir << NormaliseFilename(name);
+    }
+    return dir;
   }
 
   if (SelectedAgentId().empty())
@@ -270,12 +286,28 @@ void StartAgentDialog::OnBrowseWD(wxCommandEvent &event) {
   }
 }
 
-void StartAgentDialog::OnBrowseWdUI(wxUpdateUIEvent &event) {
-  auto agentName = SelectedAgentId();
-  const AgentDef *agent = AppManager::Get().Adapters().FindAgent(agentName);
-  event.Enable(agent && m_checkBoxCustomWorkingDirectory->IsChecked());
+void StartAgentDialog::OnWorkingDirPreviewUI(wxUpdateUIEvent &event) {
+  wxUnusedVar(event);
+  const wxString dir = MakeWorkingDir();
+  wxString preview = wxString::Format(_("Working directory: %s"), dir);
+  // Only when it changed: this runs whenever the dialog is idle.
+  if (m_staticTextPreviewDir->GetLabel() != preview) {
+    // The text, not a label: a '&' in a path is no mnemonic.
+    m_staticTextPreviewDir->SetLabelText(preview);
+    // A long path is cut: the tooltip has all of it.
+    m_staticTextPreviewDir->SetToolTip(preview);
+  }
 }
 
-void StartAgentDialog::OnUseCustomWdUI(wxUpdateUIEvent &event) {
-  event.Enable(m_checkBoxCustomWorkingDirectory->IsChecked());
+wxString StartAgentDialog::GetAgentPathSeparator() const {
+  const AgentDef *agent =
+      AppManager::Get().Adapters().FindAgent(SelectedAgentId());
+  if (agent != nullptr && (agent->IsRemote() || agent->IsWSL())) {
+    return "/";
+  }
+  return wxString(wxFileName::GetPathSeparator());
+}
+
+void StartAgentDialog::OnUseCustomWorkingDirUI(wxUpdateUIEvent &event) {
+  event.Enable(m_checkBoxUseCustomDir->IsChecked());
 }

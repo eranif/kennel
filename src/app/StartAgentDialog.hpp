@@ -28,13 +28,17 @@ public:
   void SetSessionName(const wxString &name);
 
 protected:
-  void OnUseCustomWdUI(wxUpdateUIEvent &event) override;
+  void OnUseCustomWorkingDirUI(wxUpdateUIEvent &event) override;
   void OnNameUpdated(wxCommandEvent &event) override;
   void OnBrowseWD(wxCommandEvent &event) override;
-  void OnBrowseWdUI(wxUpdateUIEvent &event) override;
   void OnOkUI(wxUpdateUIEvent &event) override;
+  // Shows the folder the agent starts in (MakeWorkingDir()), as it is now.
+  void OnWorkingDirPreviewUI(wxUpdateUIEvent &event) override;
+  // The folder the agent starts in: the one the user chose (with a folder of
+  // the session name in it, when asked), or the default folder of the session.
   wxString MakeWorkingDir() const;
   wxString MakeGroupName() const;
+  bool UsingCustomWorkingDir() const;
 
 private:
   wxString m_lastGroupText; // The last group text that was allowed
@@ -44,4 +48,7 @@ private:
   // Fills the list of folders with the ones used before.
   void PopulateRecentDirs();
   wxString SelectedAgentId() const;
+  // The separator of the folders of the machine the selected agent runs on:
+  // '/' for a remote host or WSL, the one of this machine otherwise.
+  wxString GetAgentPathSeparator() const;
 };
