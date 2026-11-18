@@ -291,7 +291,7 @@ void StartAgentDialog::OnWorkingDirPreviewUI(wxUpdateUIEvent &event) {
   const wxString dir = MakeWorkingDir();
   wxString preview = wxString::Format(_("Working directory: %s"), dir);
   // Only when it changed: this runs whenever the dialog is idle.
-  if (m_staticTextPreviewDir->GetLabel() != preview) {
+  if (m_staticTextPreviewDir->GetLabelText() != preview) {
     // The text, not a label: a '&' in a path is no mnemonic.
     m_staticTextPreviewDir->SetLabelText(preview);
     // A long path is cut: the tooltip has all of it.
