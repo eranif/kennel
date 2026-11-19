@@ -38,6 +38,14 @@ wxString ChangeDirCommand(const wxString &dir);
 // The command that logs in to `host` over ssh in a terminal (a shell on this
 // machine): `ssh -o ServerAliveInterval=10 [user@]host`. `user` empty: the ssh
 // default.
+//
+// Not on Windows: the shell of this machine then resets the terminal when ssh
+// ends (`; printf ...`, a soft reset, DECSTR, and bracketed paste off). A
+// connection that drops (or `~.`) gives the program on the host (tmux) no
+// chance to undo its modes: the mouse would stay tracked (its reports are
+// typed at the prompt), the cursor hidden, the alternate screen shown. The
+// soft reset keeps the text of the screen and the scrollback. The shells of
+// Windows (PowerShell, cmd) have no `printf`.
 wxString SshLoginCommand(const wxString &host, const wxString &user);
 
 // Builds the list of commands to send to the terminal to launch a session.
