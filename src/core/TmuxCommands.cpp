@@ -78,15 +78,13 @@ std::optional<Version> ParseVersion(const wxString &output) {
 }
 
 wxString DefaultAgentSettings() {
-  return "set -g mouse on\n"
-         "setw -g mode-keys vi\n"
+  return "setw -g mode-keys vi\n"
          "set -g set-clipboard on\n"
          "set -g allow-passthrough all";
 }
 
 wxString DefaultTerminalSettings() {
-  return "set -g mouse on\n"
-         "setw -g mode-keys vi\n"
+  return "setw -g mode-keys vi\n"
          "set -g set-clipboard on";
 }
 
