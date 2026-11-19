@@ -363,6 +363,8 @@ set(KENNEL_APP_SOURCES
     src/app/TmuxMachines.cpp
     src/app/GitCommitMessageDlg.cpp
     src/app/GitPanel.cpp
+    src/app/GitTerminals.cpp
+    src/app/OutputView.cpp
     src/app/FileActions.cpp
     src/app/TabIcon.cpp
     src/app/ActivityView.cpp

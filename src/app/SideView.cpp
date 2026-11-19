@@ -4,7 +4,6 @@
 #include "ThemeManager.h"
 #include "app/ActivityView.hpp"
 #include "app/AuiBookLayout.hpp"
-#include "app/FindResultsView.hpp"
 #include "app/GitPanel.hpp"
 #include "app/PageNames.h"
 #include "app/SettingsDlg.hpp"
@@ -37,9 +36,6 @@ SideView::SideView(wxWindow *parent) : SideViewBase(parent) {
   }
   m_activity = new ActivityView(GetPanelActivity());
   GetPanelActivity()->GetSizer()->Add(m_activity, wxSizerFlags(1).Expand());
-  m_findInFiles = new FindResultsView(GetPanelFindInFiles());
-  GetPanelFindInFiles()->GetSizer()->Add(m_findInFiles,
-                                         wxSizerFlags(1).Expand());
 
   auto *notifier = EventNotifier::Get();
   notifier->Bind(wxEVT_SESSION_PAGE_ADDED, &SideView::OnSessionPageAdded, this);
@@ -163,8 +159,6 @@ wxWindow *SideView::GetTabPage(Tab tab) const {
     return m_bookPageGit;
   case Tab::kActivity:
     return m_bookPageActivity;
-  case Tab::kFindInFiles:
-    return m_bookPageFindInFiles;
   }
   return nullptr;
 }
@@ -216,7 +210,6 @@ void SideView::ApplyToolBarStyle() {
   for (auto &[key, context] : m_contexts) {
     context.git->ApplyToolBarStyle();
   }
-  m_findInFiles->ApplyToolBarStyle();
 }
 
 // ---------------------------------------------------------------------------
@@ -372,6 +365,8 @@ void SideView::ShowContext(Context &context) {
       m_gitBook->SetSelection(page);
     }
   }
+  // The Git tab of the Output View shows the terminal of this panel.
+  context.git->NotifyShown();
   // Shows what the panel has now, and the answer comes later.
   context.git->Activate();
   if (context.account.IsRemote() && !context.connectStarted) {

@@ -1,10 +1,8 @@
 #pragma once
 
 #include "UI.hpp"
-#include "app/AcceleratorInterceptor.h"
 #include "app/FileEvent.hpp"
 #include "app/PageViewEvent.hpp"
-#include "app/TerminalManager.hpp"
 #include "core/Account.h"
 #include "core/GitDriver.h"
 #include "core/GitEvent.h"
@@ -17,7 +15,6 @@
 
 class wxAuiToolBar;
 class wxDataViewEvent;
-class wxTerminalEvent;
 
 // Sent on the EventNotifier when the user asks for the diff of a file:
 // GetPath() is the file (in the notation of GetAccount()), GetInt() is 1 for
@@ -37,6 +34,22 @@ wxDECLARE_EVENT(wxEVT_GITVIEW_SHOW_TEXT, FileEvent);
 // the pointer only. The host decides what moves (see SideView).
 wxDECLARE_EVENT(wxEVT_GITVIEW_CHANGE_FOLDER, FileEvent);
 
+// The terminals of the git panels are not in the panels: they are in the
+// Git tab of the Output View (OutputView, GitTerminals). A panel tells it
+// what it needs with these events, sent on the EventNotifier. GetInt() is the
+// id of the panel (GitPanel::GetPanelId()): the pane finds the terminal of the
+// panel by it.
+//
+// Run a git command in the terminal of the panel (it is made the first time,
+// and the pane is shown): GetAccount() is the account of the panel, GetPath()
+// the root of its repository, GetString() the command line.
+wxDECLARE_EVENT(wxEVT_GITVIEW_RUN_IN_TERMINAL, FileEvent);
+// The panel is the one that shows: the pane shows its terminal (or that it has
+// none).
+wxDECLARE_EVENT(wxEVT_GITVIEW_SHOWN, FileEvent);
+// The panel is gone: the pane deletes its terminal.
+wxDECLARE_EVENT(wxEVT_GITVIEW_CLOSED, FileEvent);
+
 // The git changes of one place: the repository of an Account (this machine, a
 // WSL distribution or a remote host) and its working folder.
 //
@@ -50,8 +63,9 @@ wxDECLARE_EVENT(wxEVT_GITVIEW_CHANGE_FOLDER, FileEvent);
 // A file that has changes in the index and in the work tree has two rows. A
 // double click shows the diff of the row (wxEVT_GITVIEW_SHOW_DIFF); the context
 // menu has the actions of the files. The commands that may ask for a password
-// (push, pull) run in a terminal in a pane below the list, which is hidden
-// until the first one (the layout is GitPanelBase, in UI.wxcp).
+// (push, pull) run in a terminal of the panel, in the Git tab of the Output
+// View at the bottom of the window (see wxEVT_GITVIEW_RUN_IN_TERMINAL). The
+// layout is GitPanelBase, in UI.wxcp.
 //
 // A panel knows nothing of the sessions: SideView makes one for each place and
 // shows the right one. It has one GitDriver (the kind comes from the Account;
@@ -65,6 +79,11 @@ public:
   ~GitPanel() override;
 
   const Account &GetAccount() const { return m_account; }
+  // The id that the events of the panel carry: unique for the run.
+  int GetPanelId() const { return m_panelId; }
+  // The panel is the one that shows: tells the Output View
+  // (wxEVT_GITVIEW_SHOWN).
+  void NotifyShown();
 
   // Reads the status of the repository (the answer comes later). Call it when
   // the panel is shown, and when the files may have changed.
@@ -122,26 +141,17 @@ private:
   void ShowLog(const Row *row);
   void ShowBlame(const Row &row);
   void Commit();
-  // Runs `git <command>` (push, pull) in the terminal of the pane below the
-  // list, where git can ask for a password. The pane is shown first, and the
-  // terminal is made after that, so that it has the size of the pane.
+  // Runs `git <command>` (push, pull) in the terminal of the panel, where git
+  // can ask for a password (wxEVT_GITVIEW_RUN_IN_TERMINAL).
   void RunInTerminal(const wxString &command);
-  // How the terminal of the account starts: a shell of this machine, or the
-  // shell of the WSL distribution. Nothing when there is no shell for it (the
-  // user is told).
-  std::optional<TerminalOptions> GetTerminalOptions() const;
-  // Makes the terminal in the pane and starts it (on a remote host it logs in
-  // first). Does nothing when there is one.
-  void CreateTerminal();
-  // The shell of the terminal ended: the pane is hidden and the terminal gone,
-  // the next command makes a new one.
-  void CloseTerminal();
-  void OnTerminalTerminated(wxTerminalEvent &event);
-  void OnThemeApplied(wxCommandEvent &event);
 
   // Fills the label and the table from the last answer.
   void Refill();
 
+  // The last id given to a panel (see GetPanelId()).
+  inline static int s_lastPanelId{0};
+
+  const int m_panelId{++s_lastPanelId};
   Account m_account;
   bool m_hasFolder{false};
   // Null until the first Activate(), and for an account with no folder.
@@ -152,9 +162,6 @@ private:
   wxString m_message;
 
   wxAuiToolBar *m_toolbar{nullptr};
-  // In the pane below the list; null until the first command.
-  wxTerminalViewCtrl *m_terminal{nullptr};
-  std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor;
   // The rows of the table.
   std::vector<Row> m_rows;
   // How many rows of the log to ask for.

@@ -5,6 +5,7 @@
 #include "app/AssetBootstrap.h"
 #include "app/FileTreeCtrl.hpp"
 #include "app/FindResultsView.hpp"
+#include "app/GitPanel.hpp"
 #include "app/SettingsDlg.hpp"
 #include "app/SideView.hpp"
 #include "app/TabIcon.h"
@@ -25,10 +26,11 @@ namespace {
 // The width the side bar starts with when there is no saved layout: a quarter
 // of the window.
 constexpr int kSidePaneWidthPercent = 25;
-// The name of the pane of the side bar (see MainViewBase). The side bar has all
-// the views as tabs: the file explorer, git, the activity and the results of
-// Find in Files.
+// The name of the pane of the side bar (see MainViewBase). The side bar has
+// the views as tabs: the file explorer, git and the activity.
 const wxString kSidePane = "SideView";
+// The name of the pane of the Output View (see MainViewBase).
+const wxString kOutputViewPane = "OutputView";
 // The panes that an older version had: a layout that has them was saved by it,
 // and is not applied (see RestoreLayout()).
 const wxString kRemovedPanes[] = {"Activity", "Output"};
@@ -57,19 +59,29 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
   LoadBitmaps();
 
   m_sideView = new SideView(m_panelSideView);
+  m_outputView = new OutputView(m_panelOutputView);
+  m_panelOutputView->GetSizer()->Add(m_outputView, wxSizerFlags(1).Expand());
   m_panelSideView->GetSizer()->Add(m_sideView, wxSizerFlags(1).Expand());
 
   // The side bar has no caption to drag it by: it stays docked, left or right.
   m_auimgr->GetPane(kSidePane).Floatable(false);
+  // The Output View shows when something writes to it (a git command).
+  m_auimgr->GetPane(kOutputViewPane).Hide();
+  m_auimgr->Update();
   m_defaultLayout = m_auimgr->SavePerspective();
 
   // The theme changed: the toolbars take its style.
   Bind(wxEVT_PAGES_TOOLBAR_STYLE, &MainView::OnToolBarStyle, this);
+  // The close button of a pane (the manager sends it to this window).
+  Bind(wxEVT_AUI_PANE_CLOSE, &MainView::OnPaneClose, this);
   // What the user double clicks in the file explorer.
   Bind(wxEVT_FILETREE_ACTIVATED, &MainView::OnFileTreeActivated, this);
 
   EventNotifier::Get()->Bind(wxEVT_APP_PREFS_CHANGED,
                              &MainView::OnAppPrefsSaved, this);
+  // A git command runs in the Output View: it shows (OutputView runs it).
+  EventNotifier::Get()->Bind(wxEVT_GITVIEW_RUN_IN_TERMINAL,
+                             &MainView::OnGitViewRunInTerminal, this);
   // Finalise frame construction.
   FinaliseConstruction();
 }
@@ -77,6 +89,8 @@ MainView::MainView(wxWindow *parent) : MainViewBase(parent) {
 MainView::~MainView() {
   EventNotifier::Get()->Unbind(wxEVT_APP_PREFS_CHANGED,
                                &MainView::OnAppPrefsSaved, this);
+  EventNotifier::Get()->Unbind(wxEVT_GITVIEW_RUN_IN_TERMINAL,
+                               &MainView::OnGitViewRunInTerminal, this);
 }
 
 void MainView::BindFocusChildEvent(wxWindow *win, ChildFocusEvent handlerFn) {
@@ -95,6 +109,9 @@ void MainView::FinaliseConstruction() {
   BindFocusChildEvent(m_panelSideView,
                       &MainView::OnFileExplorerPanelChildFocus);
   BindFocusChildEvent(m_mainPanel, &MainView::OnMainPanelChildFocus);
+  // The terminals come later: wxEVT_CHILD_FOCUS goes up to the pane from them.
+  BindFocusChildEvent(m_panelOutputView,
+                      &MainView::OnOutputViewPanelChildFocus);
   ApplyPrefs();
 }
 
@@ -105,6 +122,7 @@ void MainView::FinaliseConstruction() {
 void MainView::OnToolBarStyle(wxCommandEvent &event) {
   event.Skip(); // The main toolbar of the frame follows too
   m_sideView->ApplyToolBarStyle();
+  m_outputView->ApplyToolBarStyle();
 }
 
 void MainView::OnFileTreeActivated(FileEvent &event) {
@@ -193,13 +211,79 @@ void MainView::ShowSideBar(bool show) {
   m_auimgr->Update();
 }
 
+bool MainView::IsOutputViewShown() const {
+  return m_auimgr->GetPane(kOutputViewPane).IsShown();
+}
+
+void MainView::ShowOutputView(bool show) {
+  wxAuiPaneInfo &pane = m_auimgr->GetPane(kOutputViewPane);
+  if (!pane.IsOk() || pane.IsShown() == show) {
+    return;
+  }
+  if (!show) {
+    // The keys must not go to a hidden terminal: the page that shows gets
+    // them.
+    wxWindow *focus = wxWindow::FindFocus();
+    const bool hadFocus =
+        focus != nullptr &&
+        (focus == m_panelOutputView || m_panelOutputView->IsDescendant(focus));
+    KeepOutputViewSize(pane);
+    pane.Hide();
+    m_auimgr->Update();
+    if (hadFocus) {
+      if (wxWindow *page = m_sessionsBook->GetCurrentPage()) {
+        page->SetFocus();
+      }
+    }
+    return;
+  }
+  pane.Show();
+  if (!pane.IsDocked() || pane.best_size.y <= 0) {
+    m_auimgr->Update();
+    return;
+  }
+  // A hidden pane has no dock: a new one is made, as high as BestSize() but at
+  // most 30% of the window. A minimum size makes the dock that high; it is
+  // dropped again so that the user can make the pane smaller.
+  const wxSize minSize = pane.min_size;
+  pane.MinSize(-1, pane.best_size.y);
+  m_auimgr->Update();
+  m_auimgr->GetPane(kOutputViewPane).MinSize(minSize);
+  m_auimgr->Update();
+}
+
+void MainView::KeepOutputViewSize(wxAuiPaneInfo &pane) {
+  // Not floating: a floating pane keeps its size itself.
+  if (pane.IsShown() && pane.IsDocked() && pane.window != nullptr) {
+    pane.BestSize(pane.window->GetSize());
+  }
+}
+
+void MainView::OnPaneClose(wxAuiManagerEvent &event) {
+  event.Skip(); // The manager hides it
+  if (wxAuiPaneInfo *pane = event.GetPane();
+      pane != nullptr && pane->name == kOutputViewPane) {
+    KeepOutputViewSize(*pane);
+  }
+}
+
+void MainView::OnGitViewRunInTerminal(FileEvent &event) {
+  event.Skip(); // OutputView runs it
+  ShowOutputView(true);
+}
+
 void MainView::ShowSideTab(SideView::Tab tab) {
   ShowSideBar(true);
   m_sideView->SelectTab(tab);
 }
 
 FindResultsView *MainView::GetFindInFiles() const {
-  return m_sideView->GetFindInFiles();
+  return m_outputView->GetFindInFiles();
+}
+
+void MainView::ShowOutputTab(OutputView::Tab tab) {
+  ShowOutputView(true);
+  m_outputView->SelectTab(tab);
 }
 
 void MainView::ApplySideBarDefaultWidth() {
@@ -378,6 +462,13 @@ void MainView::OnFileExplorerPanelChildFocus(wxChildFocusEvent &event) {
   }
 }
 
+void MainView::OnOutputViewPanelChildFocus(wxChildFocusEvent &event) {
+  event.Skip();
+  if (MakeActive(m_panelOutputView)) {
+    ScheduleAuiUpdate();
+  }
+}
+
 void MainView::ScheduleAuiUpdate() {
   if (m_auiUpdatePending) {
     return;
@@ -395,4 +486,7 @@ void MainView::OnAppPrefsSaved(wxCommandEvent &event) {
   ApplyPrefs();
 }
 
-void MainView::ApplyPrefs() { m_sideView->ApplyPrefs(); }
+void MainView::ApplyPrefs() {
+  m_sideView->ApplyPrefs();
+  m_outputView->ApplyPrefs();
+}

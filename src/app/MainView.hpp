@@ -2,13 +2,15 @@
 
 #include "UI.hpp"
 #include "app/FileEvent.hpp"
+#include "app/OutputView.hpp"
 #include "app/SideView.hpp"
 #include "app/ThemeManager.h"
 
 class FindResultsView;
 
 // The main window's content: the side bar (a notebook with the file explorer,
-// git, the activity and the results of Find in Files) and its layout. The pages
+// git and the activity), the Output View at the bottom (the git terminals and
+// the results of Find in Files) and their layout. The pages
 // are in the notebook (MainNotebook), which this class does not know. The side
 // views listen on the EventNotifier to what happens to the sessions and files,
 // and send what the user asks to it themselves; this class only hosts them and
@@ -38,8 +40,16 @@ public:
   void ShowSideBar(bool show);
   // Shows the side bar with the tab `tab` in front.
   void ShowSideTab(SideView::Tab tab);
-  // The results of Find in Files (the "Find in Files" tab).
+  // The "Output View" pane (OutputView): at the bottom of the window, as wide
+  // as all of it. Its close button hides it; something that writes to it (a
+  // git command, wxEVT_GITVIEW_RUN_IN_TERMINAL) shows it again. Hidden at
+  // first.
+  bool IsOutputViewShown() const;
+  void ShowOutputView(bool show);
+  // The results of Find in Files (the "Find in Files" tab of the Output View).
   FindResultsView *GetFindInFiles() const;
+  // Shows the Output View with the tab `tab` in front.
+  void ShowOutputTab(OutputView::Tab tab);
 
   const std::vector<LoadedTheme> &Themes() const {
     return ThemeManager::Get().Themes();
@@ -54,6 +64,15 @@ private:
 
   void OnMainPanelChildFocus(wxChildFocusEvent &event);
   void OnFileExplorerPanelChildFocus(wxChildFocusEvent &event);
+  void OnOutputViewPanelChildFocus(wxChildFocusEvent &event);
+  // A git command is about to run in the Output View: it shows.
+  void OnGitViewRunInTerminal(FileEvent &event);
+  // The Output View is about to hide: its height is kept in its BestSize(),
+  // for ShowOutputView() (a pane that shows again gets a new dock, made from
+  // BestSize()).
+  void KeepOutputViewSize(wxAuiPaneInfo &pane);
+  // The close button of a pane.
+  void OnPaneClose(wxAuiManagerEvent &event);
   // Redraws the panes (the active one changed) on the next pass of the event
   // loop, once for all the calls before it. Not at once: a focus change can
   // come while wxAuiManager::Update() runs (a pane is laid out, the window
@@ -72,6 +91,8 @@ private:
   void ApplyPrefs();
 
   SideView *m_sideView{nullptr};
+  // The content of the Output View pane.
+  OutputView *m_outputView{nullptr};
   bool m_layoutRestored{false};
   // An update of the panes is scheduled (ScheduleAuiUpdate()).
   bool m_auiUpdatePending{false};

@@ -169,6 +169,9 @@ private:
   void RunGotoItem(const GotoItem &item);
   void OnToggleSideBar(wxCommandEvent &e);
   void OnToggleSideBarUI(wxUpdateUIEvent &e);
+  // View > Output View: the pane of the outputs at the bottom.
+  void OnToggleOutputView(wxCommandEvent &e);
+  void OnToggleOutputViewUI(wxUpdateUIEvent &e);
   void OnSideBarPosition(wxCommandEvent &e);
   void OnSideBarPositionUI(wxUpdateUIEvent &e);
 

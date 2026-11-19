@@ -566,6 +566,14 @@ void MainFrame::BuildViewMenu(wxMenuBar *menuBar) {
   viewMenu->AppendCheckItem(XRCID("show-sidebar"),
                             _("Toggle SideBar\tRawCtrl+M"),
                             _("Show or hide the side bar"));
+  // The pane at the bottom with the outputs (its close button hides it).
+  // AcceleratorInterceptor handles F1 (a terminal would get it otherwise).
+  viewMenu->AppendCheckItem(XRCID("show-output-view"), _("Output View\tF1"),
+                            _("Show or hide the Output View"));
+  Bind(wxEVT_MENU, &MainFrame::OnToggleOutputView, this,
+       XRCID("show-output-view"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnToggleOutputViewUI, this,
+       XRCID("show-output-view"));
   viewMenu->AppendSeparator();
   // Which side of the window the side bar is on (see MainView).
   auto *positionMenu = new wxMenu();
@@ -993,6 +1001,14 @@ void MainFrame::OnToggleSideBarUI(wxUpdateUIEvent &e) {
   e.Check(m_mainView->IsSideBarShown());
 }
 
+void MainFrame::OnToggleOutputView(wxCommandEvent &) {
+  m_mainView->ShowOutputView(!m_mainView->IsOutputViewShown());
+}
+
+void MainFrame::OnToggleOutputViewUI(wxUpdateUIEvent &e) {
+  e.Check(m_mainView->IsOutputViewShown());
+}
+
 void MainFrame::OnSideBarPosition(wxCommandEvent &e) {
   m_mainView->SetSideBarPosition(e.GetId() == XRCID("sidebar-left") ? wxLEFT
                                                                     : wxRIGHT);
@@ -1300,7 +1316,7 @@ void MainFrame::OnFindInFiles(wxCommandEvent &) {
   if (Status st = AppManager::Get().SavePrefs(); !st.ok()) {
     KLOG_WARN() << "Could not save the preferences: " << st.message();
   }
-  m_mainView->ShowSideTab(SideView::Tab::kFindInFiles);
+  m_mainView->ShowOutputTab(OutputView::Tab::kFindInFiles);
   if (const Status started = results->Search(account, query); !started.ok()) {
     wxMessageBox(started.message(), _("Find in Files"), wxOK | wxICON_ERROR,
                  this);

@@ -117,7 +117,7 @@ The screenshots and the tour are made with the scripts in [`media/`](media/AGENT
   as **Detached** and can be attached again with **Restart**. Problems with tmux are reported in
   a message bar on the tab, not in a dialog. See [Sessions in tmux](#sessions-in-tmux).
 - **Find in Files** (`Ctrl`/`Cmd`+`Shift`+`F`) for this machine, WSL and SSH hosts, with the
-  matches in the new **Output** pane (`Ctrl`+`` ` ``). A remote search streams its matches while it
+  matches in the new **Output View** (`F1`). A remote search streams its matches while it
   runs. ripgrep is installed on the target machine after confirmation.
 - **A new main toolbar** with grouped buttons, an **Archive** button, and the shortcut of each
   button in its tooltip.
@@ -243,13 +243,19 @@ right), or to turn **Group Tabs by Session Group** on or off.
 
 ## The Side Bar
 
-The Side Bar is on the right, a quarter of the window wide at first, and has four tabs: **File
-Explorer**, **Git**, **Activity** and **Find in Files**. Drag a tab to change the order, or drag it
+The Side Bar is on the right, a quarter of the window wide at first, and has three tabs: **File
+Explorer**, **Git** and **Activity**. Drag a tab to change the order, or drag it
 to an edge of the Side Bar to split the Side Bar in two. Kennel keeps the order and the split
 between runs. The File Explorer and Git tabs show the
 location of the page you are working in: a folder on this machine, in a WSL distribution or on a
 remote host, and they **change when you change page**. The Activity tab lists the sessions that
-are working, done or blocked, and the Find in Files tab shows the results of a search. A **terminal** has its own views, which follow the folder its shell is in.
+are working, done or blocked. A **terminal** has its own views, which follow the folder its shell is in.
+
+The **Output View** is a pane at the bottom of the window, as wide as all of it (`F1`, or
+**View → Output View**). It has two tabs: **Git**, the terminal where **Push** and **Pull** of the
+Git tab run (the one of the location that the Side Bar shows), and **Find in Files**, the results
+of a search. Its close button hides it, and Kennel keeps its height; a git command or a search
+shows it again.
 
 ### File Explorer
 
@@ -270,7 +276,7 @@ type icon for each file. A double-click opens the **diff** in a read-only page.
 | **Reset** / **Reset Repo** | Restores the selected files, or the whole repository, after confirmation. |
 | **Commit** | Opens a message dialog with **Amend** and **Signoff** options. |
 | **Log** / **Blame** | Shows the log of the repository, or the blame of the selected file, in an editor. |
-| **Push** / **Pull** | Runs in a terminal named `Git (<place>)`, so git can ask for credentials. |
+| **Push** / **Pull** | Runs in a terminal in the **Git** tab of the Output View, so git can ask for credentials. |
 | **Folder** | Shows the git status of another folder. |
 
 By default, the Side Bar shows the working folder of the session. To use another folder,
@@ -476,8 +482,8 @@ searches a folder of **this machine, of a WSL distribution or of a host that is 
   starts with the text that is selected in the page that is showing, and with the **closest
   workspace** as the folder: the working folder of a session (or the folder of its file explorer)
   that holds the file, on the same machine. The last choices are remembered.
-- **The results** are in the **Output** pane (`Ctrl`+`` ` ``, `Control`+`` ` `` on macOS; **View →
-  Output**), on a **Find in Files** tab: the first line says what was searched and where, the
+- **The results** are in the **Output View** (`F1`; **View → Output View**), on a
+  **Find in Files** tab: the first line says what was searched and where, the
   matches are grouped by file with the line number and the matched text in color, and the last
   line counts the matches (a search stops at 5000). **Stop** ends a search, **Clear** empties the
   pane. A new search replaces the results. A remote search streams its matches while it runs, and
@@ -575,6 +581,7 @@ dialog.
 | Open File | `Ctrl` + `Shift` + `O` |
 | Find in Files | `Ctrl` + `Shift` + `F` |
 | Toggle the Side Bar | `Ctrl` + `M` (the physical `Ctrl` key, also on macOS) |
+| Show or hide the Output View | `F1` |
 | Session Terminal (a terminal below the agent) | `Ctrl` + `` ` `` (`Control` + `` ` `` on macOS) |
 | Archived Sessions | `Ctrl` + `Shift` + `A` |
 | Start Review Buddy | `Ctrl` + `Shift` + `R` |

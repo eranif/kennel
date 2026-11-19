@@ -245,7 +245,7 @@ std::vector<wxString> BuildJobCommandLine(const AgentDef &agent,
 wxString SshLoginCommand(const wxString &host, const wxString &user) {
   wxString command = wxString::Format("ssh -o ServerAliveInterval=10 %s",
                                       user.empty() ? host : user + "@" + host);
-#ifndef __WINDOWS__
+#ifndef __WXMSW__
   command << R"(; printf '\033[!p\033[?2004l')";
 #endif
   return command;

@@ -1,13 +1,11 @@
 #include "app/GitPanel.hpp"
 
-#include "ThemeManager.h"
 #include "app/DataViewUtils.hpp"
 #include "app/FileBrowserDlg.hpp"
 #include "app/FileTreeCtrl.hpp"
 #include "app/GitCommitMessageDlg.hpp"
 #include "app/ToolBarUtils.h"
 #include "core/AppManager.h"
-#include "core/ClientAdapter.h"
 #include "core/EventNotifier.hpp"
 #include "core/GitDriverLocal.h"
 #include "core/GitDriverSSH.h"
@@ -15,8 +13,6 @@
 #include "core/Helpers.h"
 #include "core/Logger.h"
 #include "core/WslPath.h"
-#include "terminal_event.h"
-#include "terminal_view.h"
 #include <wx/app.h>
 #include <wx/aui/auibar.h>
 #include <wx/button.h>
@@ -125,6 +121,9 @@ wxString QuoteForShell(const wxString &path) {
 wxDEFINE_EVENT(wxEVT_GITVIEW_SHOW_DIFF, FileEvent);
 wxDEFINE_EVENT(wxEVT_GITVIEW_SHOW_TEXT, FileEvent);
 wxDEFINE_EVENT(wxEVT_GITVIEW_CHANGE_FOLDER, FileEvent);
+wxDEFINE_EVENT(wxEVT_GITVIEW_RUN_IN_TERMINAL, FileEvent);
+wxDEFINE_EVENT(wxEVT_GITVIEW_SHOWN, FileEvent);
+wxDEFINE_EVENT(wxEVT_GITVIEW_CLOSED, FileEvent);
 
 GitPanel::GitPanel(wxWindow *parent, const Account &account)
     : GitPanelBase(parent), m_account(account),
@@ -168,8 +167,6 @@ GitPanel::GitPanel(wxWindow *parent, const Account &account)
   dv::StylePageView(m_list);
   m_list->AppendIconTextColumn(_("Status"), wxDATAVIEW_CELL_INERT, 130);
   m_list->AppendIconTextColumn(_("Path"), wxDATAVIEW_CELL_INERT, 300);
-  // The terminal pane is hidden until a command runs in it.
-  m_splitterGit->Unsplit(m_panelGitTerminal);
 
   m_toolbar->Bind(wxEVT_TOOL, &GitPanel::OnRefresh, this, kIdRefresh);
   for (const int id : {kIdAdd, kIdCommit, kIdPush, kIdPull, kIdRepoLog,
@@ -183,7 +180,6 @@ GitPanel::GitPanel(wxWindow *parent, const Account &account)
   notifier->Bind(wxEVT_GIT_STATUS, &GitPanel::OnGitStatus, this);
   notifier->Bind(wxEVT_GIT_DIFF, &GitPanel::OnGitDiff, this);
   notifier->Bind(wxEVT_GIT_COMMAND, &GitPanel::OnGitCommand, this);
-  notifier->Bind(wxEVT_THEME_APPLIED, &GitPanel::OnThemeApplied, this);
   Refill();
 }
 
@@ -192,7 +188,11 @@ GitPanel::~GitPanel() {
   notifier->Unbind(wxEVT_GIT_STATUS, &GitPanel::OnGitStatus, this);
   notifier->Unbind(wxEVT_GIT_DIFF, &GitPanel::OnGitDiff, this);
   notifier->Unbind(wxEVT_GIT_COMMAND, &GitPanel::OnGitCommand, this);
-  notifier->Unbind(wxEVT_THEME_APPLIED, &GitPanel::OnThemeApplied, this);
+  // Its terminal goes with it. Sent, not posted: the id must not wait for a
+  // panel that is gone.
+  FileEvent closed{wxEVT_GITVIEW_CLOSED};
+  closed.SetInt(m_panelId);
+  notifier->ProcessEvent(closed);
 }
 
 // The driver ends by waiting for the git that runs, which can take seconds (an
@@ -610,99 +610,18 @@ void GitPanel::RunInTerminal(const wxString &command) {
       m_account.IsLocalHost()
           ? "git -C " + QuoteForShell(root) + " " + command
           : "cd " + QuoteForShell(root) + " && git " + command;
-  // The pane is shown first, and the terminal made after that: it gets the size
-  // of the pane.
-  if (!m_splitterGit->IsSplit()) {
-    // Half each (the default position is a stale one, see SessionPage).
-    m_splitterGit->SplitHorizontally(
-        m_panelGitList, m_panelGitTerminal,
-        (m_splitterGit->GetClientSize().y - m_splitterGit->GetSashSize()) / 2);
-  }
-  CallAfter([this, line] {
-    CreateTerminal();
-    if (m_terminal != nullptr) {
-      m_terminal->SendCommand(line);
-    }
-  });
+  FileEvent run{wxEVT_GITVIEW_RUN_IN_TERMINAL};
+  run.SetInt(m_panelId);
+  run.SetAccount(m_account);
+  run.SetPath(root);
+  run.SetString(line);
+  EventNotifier::Get()->AddPendingEvent(run);
 }
 
-std::optional<TerminalOptions> GitPanel::GetTerminalOptions() const {
-  TerminalOptions options;
-  options.shellCommand = AppManager::Get().GetPrefs().terminalLoginShell;
-  options.workingDir = m_status.root;
-  if (m_account.IsWSL()) {
-    // The shell of the distribution, as the list of terminals has it.
-    options.shellCommand.clear();
-    for (const auto &[name, command] : ::FindShells().shells) {
-      if (wsl::DistroOf(command) == m_account.m_name) {
-        options.shellCommand = command;
-        break;
-      }
-    }
-    if (options.shellCommand.empty()) {
-      KLOG_WARN() << "No shell for the WSL distribution " << m_account.m_name;
-      wxMessageBox(wxString::Format(_("No shell found for '%s'"),
-                                    m_account.GetDisplayName()),
-                   "Kennel", wxOK | wxICON_ERROR);
-      return std::nullopt;
-    }
-  } else if (m_account.IsLocalHost()) {
-    options.cwd = m_status.root;
-  }
-  // A remote host: the shell of this machine, which logs in first
-  // (CreateTerminal()).
-  return options;
-}
-
-void GitPanel::CreateTerminal() {
-  if (m_terminal != nullptr) {
-    return;
-  }
-  const std::optional<TerminalOptions> options = GetTerminalOptions();
-  if (!options) {
-    m_splitterGit->Unsplit(m_panelGitTerminal);
-    return;
-  }
-  m_terminal =
-      TerminalManager::Get().CreateTerminal(m_panelGitTerminal, *options);
-  m_panelGitTerminal->GetSizer()->Add(m_terminal, wxSizerFlags(1).Expand());
-  m_panelGitTerminal->Layout();
-  m_acceleratorInterceptor =
-      std::make_unique<AcceleratorInterceptor>(m_terminal);
-  m_terminal->Bind(wxEVT_TERMINAL_TERMINATED, &GitPanel::OnTerminalTerminated,
-                   this);
-  m_terminal->EnsureStarted();
-  if (m_account.IsRemote()) {
-    m_terminal->SendCommand(
-        SshLoginCommand(m_account.m_name, m_account.m_user));
-  }
-}
-
-void GitPanel::CloseTerminal() {
-  if (m_splitterGit->IsSplit()) {
-    m_splitterGit->Unsplit(m_panelGitTerminal);
-  }
-  if (m_terminal != nullptr) {
-    m_terminal->Destroy();
-    m_terminal = nullptr;
-  }
-  m_acceleratorInterceptor.reset();
-}
-
-void GitPanel::OnTerminalTerminated(wxTerminalEvent &event) {
-  event.Skip();
-  // Deferred: the terminal is destroyed by it.
-  CallAfter(&GitPanel::CloseTerminal);
-}
-
-void GitPanel::OnThemeApplied(wxCommandEvent &event) {
-  event.Skip();
-  if (m_terminal == nullptr) {
-    return;
-  }
-  if (const auto theme = ThemeManager::Get().ActiveTheme()) {
-    m_terminal->SetTheme(*theme);
-  }
+void GitPanel::NotifyShown() {
+  FileEvent shown{wxEVT_GITVIEW_SHOWN};
+  shown.SetInt(m_panelId);
+  EventNotifier::Get()->AddPendingEvent(shown);
 }
 
 void GitPanel::OnGitCommand(GitEvent &event) {

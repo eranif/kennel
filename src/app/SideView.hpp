@@ -15,14 +15,13 @@
 #include <vector>
 
 class ActivityView;
-class FindResultsView;
 class GitDriver;
 class GitPanel;
 class wxSimplebook;
 
 // The content of the side bar: a notebook (a wxAuiNotebook with the tab art of
-// the application, GlyphTabArt) with the file explorer, the git view, the
-// activity view and the results of Find in Files. MainView hosts it and knows
+// the application, GlyphTabArt) with the file explorer, the git view and the
+// activity view. MainView hosts it and knows
 // nothing of the book; the tabs are only reached through the functions below.
 //
 // Both tabs show the files of one place, the "context": an Account (this
@@ -45,7 +44,7 @@ public:
   explicit SideView(wxWindow *parent);
   ~SideView() override;
 
-  enum class Tab { kFileExplorer, kGit, kActivity, kFindInFiles };
+  enum class Tab { kFileExplorer, kGit, kActivity };
   // Shows the tab.
   void SelectTab(Tab tab);
   // The layout of the tabs (their order, the tab controls that the user split
@@ -55,8 +54,6 @@ public:
   void LoadLayout(const wxString &layout);
   // The tabs as they were made: in their order, not split.
   void ResetLayout();
-  // The results of Find in Files (a tab of the side bar).
-  FindResultsView *GetFindInFiles() const { return m_findInFiles; }
 
   // Takes the theme, the outline colour of the tabs, their height and their
   // position from the prefs (call it when they change; a change of the theme
@@ -140,7 +137,6 @@ private:
   // The layout of the tabs as they are made (see ResetLayout()).
   wxString m_defaultBookLayout;
   ActivityView *m_activity{nullptr};
-  FindResultsView *m_findInFiles{nullptr};
   // By KeyOf(). A node never moves: the pages keep pointers to it.
   std::map<wxString, Context> m_contexts;
   // Close All Files is running (see OnCloseAllFilesStarted()).

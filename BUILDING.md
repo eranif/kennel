@@ -100,7 +100,8 @@ Kennel is layered:
 
 1. **UI layer** (`src/app/`) — wxWidgets. `MainFrame` hosts the window, menu, and
    toolbar; `MainView` owns the pages (one tab each), the side bar
-   (`SideView`: the file explorer, git, activity and find results tabs) and the terminal area;
+   (`SideView`: the file explorer, git and activity tabs), the Output View at the bottom
+   (`OutputView`: the git terminals and the find results tabs) and the terminal area;
    `SessionPage` is a `wxPanel` that embeds a `wxTerminalViewCtrl` and launches the
    agent's child process.
 2. **Core layer** (`src/core/`) — GUI-free business logic: paths, config, the agent

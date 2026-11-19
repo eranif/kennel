@@ -73,6 +73,12 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     wxCommandEvent evtRename{wxEVT_MENU, XRCID("rename-selection")};
     wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(evtRename);
     return;
+  } else if (keyEvent.GetKeyCode() == WXK_F1 &&
+             keyEvent.GetModifiers() == wxMOD_NONE) {
+    // Show or hide the Output View, also from a terminal.
+    wxCommandEvent evtOutputView{wxEVT_MENU, XRCID("show-output-view")};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtOutputView);
+    return;
   } else if (keyEvent.GetKeyCode() == WXK_F5) {
     // Rename
     wxCommandEvent evtRefreshSession{wxEVT_MENU, wxID_REFRESH};
