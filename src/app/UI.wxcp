@@ -28053,6 +28053,7 @@
                 "wxAUI_NB_TAB_MOVE",
                 "wxAUI_NB_SCROLL_BUTTONS",
                 "wxAUI_NB_TAB_SPLIT",
+                "wxAUI_NB_TAB_FIXED_WIDTH",
                 "wxBORDER_NONE"
               ],
               "m_sizerFlags": [

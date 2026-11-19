@@ -2130,7 +2130,7 @@ SideViewBase::SideViewBase(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
     wxBoxSizer* boxSizer638 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(boxSizer638);
     
-    m_auiSideBook = new wxAuiNotebook(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(250,250)), wxAUI_NB_TOP|wxAUI_NB_TAB_MOVE|wxAUI_NB_SCROLL_BUTTONS|wxAUI_NB_TAB_SPLIT|wxBORDER_NONE);
+    m_auiSideBook = new wxAuiNotebook(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(250,250)), wxAUI_NB_TOP|wxAUI_NB_TAB_MOVE|wxAUI_NB_SCROLL_BUTTONS|wxAUI_NB_TAB_FIXED_WIDTH|wxAUI_NB_TAB_SPLIT|wxBORDER_NONE);
     m_auiSideBook->SetName(wxT("m_auiSideBook"));
     
     boxSizer638->Add(m_auiSideBook, 1, wxEXPAND, WXC_FROM_DIP(5));
