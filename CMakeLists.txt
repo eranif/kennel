@@ -293,7 +293,8 @@ add_library(
   src/core/TmuxCommands.cpp
   src/core/TmuxClient.cpp
   src/core/TmuxShim.cpp
-  src/core/RunShell.cpp)
+  src/core/RunShell.cpp
+  src/core/lsp/LspTransport.cpp)
 
 target_include_directories(kennel_core PUBLIC src ${wxWidgets_INCLUDE_DIRS})
 # libssh is an implementation detail of SftpClient.cpp, SshClient.cpp and their
