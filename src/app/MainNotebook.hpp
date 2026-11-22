@@ -6,6 +6,7 @@
 #include "app/PageSwitcherDlg.hpp"
 #include "app/PageViewEvent.hpp"
 #include "app/SearchablePage.hpp"
+#include "app/SessionHandoff.hpp"
 #include "core/Account.h"
 #include "core/AppPaths.h"
 #include "core/FileLocation.h"
@@ -414,8 +415,11 @@ private:
   void RenameSession(SessionPage *page);
   // Opens the Start Agent dialog pre-filled with `page`'s agent and group,
   // and an auto-generated unique name, so the user launches a fresh,
-  // independent session cloned from it.
-  void DuplicateSession(SessionPage *page);
+  // independent session cloned from it. With a `summary` (of "Duplicate with
+  // Summary", see SessionPage::StartHandoff()), the summary is written to the
+  // folder of the new session first (HandoffDelivery), and the session starts
+  // with it (OnHandoffDelivered()).
+  void DuplicateSession(SessionPage *page, const wxString &summary = {});
   void RefreshGroup(const wxString &groupName);
   void MoveSessionToGroup(const wxString &sessionName,
                           const wxString &fromGroupName,
@@ -432,12 +436,10 @@ private:
   // (wxEVT_FILE_REVEAL).
   void RevealFile(const FilePage *file);
 
-  void OnSessionIdle(wxCommandEvent &e);
   // The archive dialog asks to restore / delete a session; the list is shown
   // again after.
   void OnArchiveRestore(wxCommandEvent &e);
   void OnArchiveDelete(wxCommandEvent &e);
-  void OnSessionActive(wxCommandEvent &e);
   void OnSessionExited(wxCommandEvent &e);
   // The user closed a session that could not start: its tmux session is ended
   // and the tab closes (see wxEVT_SESSION_CLOSE_REQUESTED).
@@ -447,6 +449,14 @@ private:
   void OnSessionCwd(wxCommandEvent &e);
   // A saved field of a session changed (its tmux name): save the workspace.
   void OnSessionChanged(wxCommandEvent &e);
+  // "Duplicate with Summary": the agent of a page wrote the summary (the
+  // Start Agent dialog opens), and the summary is in the folder of the new
+  // session (it starts), or could not be written there.
+  void OnSessionSummaryReady(wxCommandEvent &e);
+  void OnHandoffDelivered(HandoffDeliveryEvent &e);
+  void OnHandoffDeliveryFailed(HandoffDeliveryEvent &e);
+  // The delivery that sent `e` has done its work: it goes (deferred).
+  void EndHandoffDelivery(const wxEvent &e);
   // The spinner turned: the tabs of the working pages get the new frame.
   void OnSpinnerFrame();
   // Shows what `page` is doing (the spinner, the check mark or the hand) as
@@ -541,6 +551,8 @@ private:
   wxBitmapBundle m_handIcon;
   wxBitmapBundle m_checkIcon;
   Spinner m_spinner{[this](const wxBitmapBundle &) { OnSpinnerFrame(); }};
-  int m_pendingIdle{0};
   bool m_idleHandled{false};
+  // The summaries of "Duplicate with Summary" that are being written to the
+  // folders of their new sessions.
+  std::vector<std::unique_ptr<HandoffDelivery>> m_handoffDeliveries;
 };

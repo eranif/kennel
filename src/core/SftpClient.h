@@ -48,6 +48,12 @@ public:
   static Status WriteFile(const wxString &host, const wxString &user,
                           const wxString &path, const std::string &content);
 
+  // `path` as an absolute path of the remote host: a leading `~` or `$HOME` is
+  // the remote home, and a relative path is under it. The path does not have
+  // to exist. Blocking, like ReadFile.
+  static StatusOr<wxString>
+  ResolvePath(const wxString &host, const wxString &user, const wxString &path);
+
   // Whether `path` exists on the remote host (a file or a folder). `~/` and
   // `$HOME/` expand to the remote home. Blocking, like ReadFile.
   static StatusOr<bool> Exists(const wxString &host, const wxString &user,
@@ -65,9 +71,19 @@ public:
                            const wxString &path,
                            const std::vector<wxString> &emptyParents = {});
 
+  // Deletes the file `path` (a symbolic link is removed, never followed). A
+  // folder is an error and is left as it is; a path that does not exist is
+  // fine. `~/` and `$HOME/` expand to the remote home. Blocking, like ReadFile.
+  static Status RemoveFile(const wxString &host, const wxString &user,
+                           const wxString &path);
+
   // Creates the file at `path`, or replaces it, with `content`; missing parent
   // folders are created. `~/` and `$HOME/` expand to the remote home. Unlike
-  // WriteFile this is not atomic, it is meant for small new files. Blocking.
+  // WriteFile this is not atomic, it is meant for small new files. With
+  // `exclusive`, a path that exists (a file, a folder or a symbolic link, which
+  // is not followed) is an error and is left as it is; a file that this call
+  // created and could not write (or close) is removed again. Blocking.
   static Status PutFile(const wxString &host, const wxString &user,
-                        const wxString &path, const std::string &content);
+                        const wxString &path, const std::string &content,
+                        bool exclusive = false);
 };

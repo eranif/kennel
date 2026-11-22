@@ -6,11 +6,11 @@
 #include "app/PageViewEvent.hpp"
 #include "app/ReviewBuddyEvent.hpp"
 #include "app/SearchablePage.hpp"
+#include "app/SessionHandoff.hpp"
 #include "app/SessionStatusEvent.hpp"
 #include "app/TabIcon.h"
 #include "app/TmuxMachines.hpp"
 #include "core/Account.h"
-#include "core/ActivityMonitor.h"
 #include "core/AppPaths.h"
 #include "core/Config.h"
 #include "core/Workspace.h"
@@ -40,7 +40,7 @@ class wxUpdateUIEvent;
 // Detached: the terminal ended, but the tmux session of the session is still
 // running on its machine (the user detached, or the connection dropped). The
 // tab stays; Restart() attaches again.
-enum class SessionStatus { Starting, Running, Idle, Exited, Error, Detached };
+enum class SessionStatus { Starting, Running, Exited, Error, Detached };
 
 class SessionPage : public SessionBasePage, public SearchablePage {
 public:
@@ -83,6 +83,17 @@ public:
   void AcknowledgeDone();
 
   SessionStatus Status() const { return m_status; }
+
+  // "Duplicate with Summary": the agent of this session writes a summary of
+  // it on its machine (see SessionHandoff). The message bar says that it waits,
+  // with a Cancel button. When the summary is there, the page sends
+  // wxEVT_SESSION_SUMMARY_READY to the notebook (GetString() is the summary,
+  // the event object is the page), which asks for the new session.
+  void StartHandoff();
+  // Whether StartHandoff() can be used now: an agent session whose agent was
+  // started in a terminal and did not end, that does not work and does not
+  // wait for an answer (OSC 7501), and no other handoff waits.
+  bool CanStartHandoff() const;
   // The dot on the tab of the session: it runs in tmux, or it is Detached.
   TabBadge GetTabBadge() const;
   const Session &GetSession() const { return m_session; }
@@ -205,6 +216,19 @@ private:
   void HideInfo();
   void OnTmuxDownload(wxCommandEvent &event);
   void OnTmuxClose(wxCommandEvent &event);
+  // The handoff ended (see StartHandoff()). Its object goes after its event.
+  void OnHandoffReady(wxCommandEvent &event);
+  void OnHandoffFailed(wxCommandEvent &event);
+  // The Cancel button of the message bar.
+  void OnHandoffCancel(wxCommandEvent &event);
+  // Deletes Session::promptFile when the page goes (it is gone already when the
+  // agent deleted it, as its first message asks). Not for an agent in tmux
+  // whose first message was typed: it may go on without the page (Archive,
+  // Kennel closing), and may still read the file. When its tmux session ends,
+  // the file goes too: a Close (MainNotebook::StopTmux()), or the program that
+  // ended (SetStatus(Exited)).
+  void DeletePromptFile();
+  void EndHandoff();
   // Everything both terminals need once they exist: theme, scrollback, links,
   // the context menu.
   void ConfigureTerminal(wxTerminalViewCtrl *terminal);
@@ -368,6 +392,7 @@ private:
     ID_FIND,
     ID_TMUX_DOWNLOAD,
     ID_TMUX_CLOSE,
+    ID_HANDOFF_CANCEL,
   };
   wxAuiToolBar *m_toolbar{nullptr};
 
@@ -406,13 +431,14 @@ private:
   SessionPage *m_terminalPage{nullptr};
   std::unique_ptr<AcceleratorInterceptor> m_reviewAcceleratorInterceptor;
   std::unique_ptr<ReviewBuddy> m_review;
+  // The handoff that waits for the summary (see StartHandoff()).
+  std::unique_ptr<SessionHandoff> m_handoff;
   std::unique_ptr<ReviewBuddyHeader> m_reviewHeader;
   GitState m_gitState{GitState::Unknown};
   bool m_gitCheckBusy{false};
   std::chrono::steady_clock::time_point m_lastGitCheck;
   // For the worker threads, see AsyncGuard.hpp.
   AliveFlag m_alive{MakeAliveFlag()};
-  std::unique_ptr<ActivityMonitor> m_monitor;
   SessionStatus m_status = SessionStatus::Starting;
   // The session waits for its machine (StartProgram()) to be ready.
   bool m_waitingForTmux{false};
@@ -444,8 +470,6 @@ private:
   std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor{nullptr};
 };
 
-wxDECLARE_EVENT(wxEVT_SESSION_IDLE, wxCommandEvent);
-wxDECLARE_EVENT(wxEVT_SESSION_ACTIVE, wxCommandEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_EXITED, wxCommandEvent);
 // The user closed a session that could not start (its machine has no tmux, or
 // no tmux-shim): GetString() is its name. The notebook ends its tmux session

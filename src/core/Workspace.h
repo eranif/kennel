@@ -10,6 +10,19 @@
 class AdapterRegistry;
 struct AgentDef;
 
+// A file that was made for the first message of an agent (the summary of
+// "Duplicate with Summary"): the agent deletes it when it has read it. If the
+// message is never typed (the page goes first), nobody reads it, and the page
+// deletes it. `path` is as Kennel reaches it: a local path (also a WSL share
+// path), or a path of `remoteHost`.
+struct PromptFile {
+  wxString path;
+  wxString remoteHost;
+  wxString remoteUser;
+
+  bool IsSet() const { return !path.empty(); }
+};
+
 // One persisted session (workspace.json -> sessions[]).
 struct Session {
   wxString name;       // unique within the workspace
@@ -54,6 +67,14 @@ struct Session {
   // The originating JobDef::name, for jobs.log attribution (a job run's
   // session name is "<jobName> #N", but the name alone isn't parsed back).
   wxString jobName;
+  // Transient, never persisted: the first message of the agent of a new
+  // session, on its command line (see BuildCommandLine()). It is sent at the
+  // first start only: a restart, or a restored session, does not send it
+  // again. "Duplicate with Summary" sets it (SessionHandoff).
+  wxString initialPrompt;
+  // Transient, never persisted: the file that initialPrompt tells the agent to
+  // read, while the prompt was not typed yet (see PromptFile).
+  PromptFile promptFile;
   // Whether this session is a one-shot job run (a scheduled job, or "Run Now"):
   // a terminal tab that types the commands of the job (`jobCommands`) as they
   // are, and not the launch command of an agent. The user did not start it by
@@ -163,4 +184,8 @@ struct NewSessionRequest {
   // Set for a one-shot job run; see Session::jobCommands/jobName.
   std::vector<wxString> jobCommands;
   wxString jobName;
+  // The first message of the agent, and its file; see Session::initialPrompt
+  // and Session::promptFile.
+  wxString initialPrompt;
+  PromptFile promptFile;
 };

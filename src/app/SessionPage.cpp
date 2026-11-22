@@ -16,6 +16,7 @@
 #include "core/FileLocation.h"
 #include "core/Helpers.h"
 #include "core/Logger.h"
+#include "core/PromptFileRemover.h"
 #include "core/SftpClient.h"
 #include "core/TmuxClient.h"
 #include "core/TmuxShim.h"
@@ -48,8 +49,6 @@
 #include <wx/choicdlg.h>
 #include <wx/msgdlg.h>
 
-wxDEFINE_EVENT(wxEVT_SESSION_IDLE, wxCommandEvent);
-wxDEFINE_EVENT(wxEVT_SESSION_ACTIVE, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_EXITED, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_CLOSE_REQUESTED, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SESSION_PROGRAM, wxCommandEvent);
@@ -259,6 +258,8 @@ SessionPage::SessionPage(wxWindow *parent, std::optional<AgentDef> agent,
   m_infoBar->Bind(wxEVT_BUTTON, &SessionPage::OnTmuxDownload, this,
                   ID_TMUX_DOWNLOAD);
   m_infoBar->Bind(wxEVT_BUTTON, &SessionPage::OnTmuxClose, this, ID_TMUX_CLOSE);
+  m_infoBar->Bind(wxEVT_BUTTON, &SessionPage::OnHandoffCancel, this,
+                  ID_HANDOFF_CANCEL);
   m_searchBar = new SearchBar(this, SearchBar::Kind::kFindOnly);
   m_searchBar->Hide();
   outer->Add(m_searchBar, wxSizerFlags(0).Expand());
@@ -456,6 +457,22 @@ SessionPage::~SessionPage() {
   // notice, focus or unsplit here: the page is being torn down.
   DestroyReviewPane();
   m_review.reset();
+  // The file of the first message, if the agent did not delete it (or never
+  // started).
+  DeletePromptFile();
+}
+
+void SessionPage::DeletePromptFile() {
+  const PromptFile file = m_session.promptFile;
+  m_session.promptFile = PromptFile{};
+  // An agent in tmux goes on without the page (Archive, Kennel closing): when
+  // its first message was typed, it may not have read the file yet. The file
+  // is its own then (the message asks it to delete it).
+  const bool typed = m_session.initialPrompt.empty();
+  if (m_session.IsTmuxSession() && typed) {
+    return;
+  }
+  PromptFileRemover::Get().Remove(file);
 }
 
 void SessionPage::DestroyReviewPane() {
@@ -546,10 +563,6 @@ void SessionPage::CreateTerminal() {
     }
   }
 
-  m_monitor = std::make_unique<ActivityMonitor>(
-      [this]() { SetStatus(SessionStatus::Running); },
-      [this]() { SetStatus(SessionStatus::Idle); });
-
   m_terminal = TerminalManager::Get().CreateTerminal(
       m_agentPanel, {.shellCommand = shellCommand,
                      .workingDir = m_session.workingDir,
@@ -559,8 +572,6 @@ void SessionPage::CreateTerminal() {
   m_acceleratorInterceptor =
       std::make_unique<AcceleratorInterceptor>(m_terminal);
   GetSizer()->Layout();
-  m_terminal->SetOutputCallback(
-      [this](const std::string &chunk) { m_monitor->OnOutput(chunk); });
   m_terminal->RegisterTextClickedFilter([](const std::string &) -> bool {
     return true; /* consumed */
   });
@@ -665,7 +676,8 @@ std::vector<wxString> SessionPage::ProgramCommands() const {
   }
 
   if (m_agent) {
-    return BuildCommandLine(*m_agent, m_session.workingDir, m_resume, {}, spec);
+    return BuildCommandLine(*m_agent, m_session.workingDir, m_resume,
+                            m_session.initialPrompt, spec);
   }
 
   // A terminal is a shell of this machine. On a remote host it logs in with ssh
@@ -789,7 +801,82 @@ void SessionPage::ShowInfo(const wxString &text, int icon, bool download,
   };
   setButton(ID_TMUX_DOWNLOAD, _("Download"), download);
   setButton(ID_TMUX_CLOSE, _("Close session"), close);
+  // The Cancel of a handoff is shown with its own message only.
+  setButton(ID_HANDOFF_CANCEL, _("Cancel"), false);
   m_infoBar->ShowMessage(text, icon);
+}
+
+bool SessionPage::CanStartHandoff() const {
+  // The agent runs in the terminal: its program was typed (not while the page
+  // waits for tmux), and it did not end (Running, not Exited or Detached).
+  const bool agentRuns = m_terminal != nullptr && m_programStarted &&
+                         !m_waitingForTmux &&
+                         m_status == SessionStatus::Running;
+  // What the agent reports (OSC 7501): not while it works, and not while it
+  // waits for an answer (the prompt would be the answer). An agent that
+  // reports nothing is None.
+  const bool agentFree = m_terminalActivity == ProgramActivity::None ||
+                         m_terminalActivity == ProgramActivity::Done;
+  return m_agent && !IsPlainTerminal() && !m_session.IsJobRun() && !m_handoff &&
+         agentRuns && agentFree;
+}
+
+void SessionPage::StartHandoff() {
+  if (!CanStartHandoff()) {
+    return;
+  }
+  m_handoff = std::make_unique<SessionHandoff>(
+      HandoffPlace(*m_agent, m_session.workingDir), m_terminal);
+  m_handoff->Bind(wxEVT_SESSION_SUMMARY_READY, &SessionPage::OnHandoffReady,
+                  this);
+  m_handoff->Bind(wxEVT_SESSION_SUMMARY_FAILED, &SessionPage::OnHandoffFailed,
+                  this);
+  // The message, with its Cancel button only.
+  for (const int id :
+       {static_cast<int>(ID_TMUX_DOWNLOAD), static_cast<int>(ID_TMUX_CLOSE)}) {
+    if (m_infoBar->HasButtonId(id)) {
+      m_infoBar->RemoveButton(id);
+    }
+  }
+  if (!m_infoBar->HasButtonId(ID_HANDOFF_CANCEL)) {
+    m_infoBar->AddButton(ID_HANDOFF_CANCEL, _("Cancel"));
+  }
+  m_infoBar->ShowMessage(
+      _("The agent writes a summary of this session for a new one..."),
+      wxICON_INFORMATION);
+  m_handoff->Begin();
+}
+
+void SessionPage::OnHandoffReady(wxCommandEvent &event) {
+  HideInfo();
+  // The notebook asks for the new session (a new event: this one is the
+  // handoff's).
+  wxCommandEvent ready{wxEVT_SESSION_SUMMARY_READY};
+  ready.SetEventObject(this);
+  ready.SetString(event.GetString());
+  Notify(ready);
+  EndHandoff();
+}
+
+void SessionPage::OnHandoffFailed(wxCommandEvent &event) {
+  ShowInfo(
+      wxString::Format(_("No summary of this session: %s"), event.GetString()),
+      wxICON_WARNING, false, false);
+  EndHandoff();
+}
+
+void SessionPage::OnHandoffCancel(wxCommandEvent &) {
+  HideInfo();
+  // Ctrl+C to the agent; not from an event of the handoff: it can go now.
+  if (m_handoff) {
+    m_handoff->Cancel();
+    m_handoff.reset();
+  }
+}
+
+void SessionPage::EndHandoff() {
+  // Deferred: the handoff is the one that sends the event that is handled.
+  CallAfter([this] { m_handoff.reset(); });
 }
 
 void SessionPage::HideInfo() {
@@ -833,6 +920,10 @@ void SessionPage::FinaliseTerminalCreate() {
     KLOG_DEBUG() << "Session '" << m_session.name << "' > " << command;
     m_terminal->SendCommand(command);
   }
+  // The first message is for the first start only (see Session::initialPrompt).
+  // Its file stays the page's until the page goes: the agent may not start, or
+  // not delete it.
+  m_session.initialPrompt.clear();
   m_programStarted = true;
   const std::vector<wxString> after = std::move(m_commandsAfterStart);
   m_commandsAfterStart.clear();
@@ -865,6 +956,11 @@ void SessionPage::SetFocus() {
 void SessionPage::Restart() {
   KLOG_DEBUG() << "Restarting session '" << m_session.name << "'";
   CloseReviewBuddy();
+  // A handoff waits for the agent of the terminal that goes: it ends.
+  if (m_handoff) {
+    m_handoff.reset();
+    HideInfo();
+  }
   // Only the agent's terminal restarts: the terminal of the bottom pane goes on
   // (it is not the agent).
   if (m_terminal != nullptr) {
@@ -899,6 +995,9 @@ void SessionPage::Restart() {
 
 void SessionPage::OnTerminated(wxTerminalEvent &evt) {
   evt.Skip();
+  // The program is gone at once, also while a tmux session is asked about:
+  // nothing may be typed for it any more (CanStartHandoff()).
+  m_programStarted = false;
   m_terminalActivity = ProgramActivity::None;
   UpdateProgramActivity();
   // Only a session that really runs in tmux can outlive its terminal.
@@ -1112,19 +1211,11 @@ void SessionPage::SetStatus(SessionStatus status) {
   m_status = status;
   switch (m_status) {
   case SessionStatus::Exited: {
+    // The program ended (also its tmux session): nobody reads the file of its
+    // first message any more.
+    PromptFileRemover::Get().Remove(m_session.promptFile);
+    m_session.promptFile = PromptFile{};
     wxCommandEvent e{wxEVT_SESSION_EXITED};
-    e.SetString(m_session.name);
-    Notify(e);
-    break;
-  }
-  case SessionStatus::Running: {
-    wxCommandEvent e{wxEVT_SESSION_ACTIVE};
-    e.SetString(m_session.name);
-    Notify(e);
-    break;
-  }
-  case SessionStatus::Idle: {
-    wxCommandEvent e{wxEVT_SESSION_IDLE};
     e.SetString(m_session.name);
     Notify(e);
     break;

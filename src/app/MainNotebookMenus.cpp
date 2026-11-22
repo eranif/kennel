@@ -83,6 +83,17 @@ void MainNotebook::ShowSessionMenu(SessionPage *page, wxWindow *on) {
     menu.Bind(
         wxEVT_MENU, [page, this](wxCommandEvent &) { DuplicateSession(page); },
         XRCID("duplicate-session"));
+    // The agent writes a summary of this session first: only while it waits
+    // for the user (see SessionPage::CanStartHandoff()).
+    menu.Append(XRCID("duplicate-session-summary"),
+                _("Duplicate with Summary..."),
+                _("Duplicate the session, and start the new one with a summary "
+                  "of this one"));
+    menu.Enable(XRCID("duplicate-session-summary"), page->CanStartHandoff());
+    // The dialog opens when the summary is there (OnSessionSummaryReady()).
+    menu.Bind(
+        wxEVT_MENU, [page](wxCommandEvent &) { page->StartHandoff(); },
+        XRCID("duplicate-session-summary"));
     menu.Append(XRCID("archive-session"), _("Archive"),
                 _("Close the session and keep it in the archive"));
     menu.Bind(

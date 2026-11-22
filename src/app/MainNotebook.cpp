@@ -28,6 +28,7 @@
 #include "core/EventNotifier.hpp"
 #include "core/JobLog.h"
 #include "core/Logger.h"
+#include "core/PromptFileRemover.h"
 #include "core/SftpClient.h"
 #include "core/TmuxClient.h"
 #include "core/Workspace.h"
@@ -183,15 +184,14 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
                              &MainNotebook::OnFilePathChanged, this);
   Bind(wxEVT_GOTOANYTHING_CHANGED, &MainNotebook::OnGotoChanged, this);
   Bind(wxEVT_GOTOANYTHING_CLOSED, &MainNotebook::OnGotoClosed, this);
-  Bind(wxEVT_SESSION_IDLE, &MainNotebook::OnSessionIdle, this);
   Bind(wxEVT_PAGE_SWITCHER_DONE, &MainNotebook::OnPageSwitcherDone, this);
-  Bind(wxEVT_SESSION_ACTIVE, &MainNotebook::OnSessionActive, this);
   Bind(wxEVT_SESSION_EXITED, &MainNotebook::OnSessionExited, this);
   Bind(wxEVT_SESSION_CLOSE_REQUESTED, &MainNotebook::OnSessionCloseRequested,
        this);
   Bind(wxEVT_SESSION_PROGRAM, &MainNotebook::OnSessionProgram, this);
   Bind(wxEVT_SESSION_CWD, &MainNotebook::OnSessionCwd, this);
   Bind(wxEVT_SESSION_CHANGED, &MainNotebook::OnSessionChanged, this);
+  Bind(wxEVT_SESSION_SUMMARY_READY, &MainNotebook::OnSessionSummaryReady, this);
   Bind(wxEVT_IDLE, &MainNotebook::OnIdleEvent, this);
   // A FilePage handles its own save events first and then Skip()s them, so
   // they propagate up to wxTheApp, where the notebook does its part (activity
@@ -230,14 +230,14 @@ MainNotebook::~MainNotebook() {
                                &MainNotebook::OnFileModifiedChanged, this);
   EventNotifier::Get()->Unbind(wxEVT_FILE_PATH_CHANGED,
                                &MainNotebook::OnFilePathChanged, this);
-  Unbind(wxEVT_SESSION_IDLE, &MainNotebook::OnSessionIdle, this);
-  Unbind(wxEVT_SESSION_ACTIVE, &MainNotebook::OnSessionActive, this);
   Unbind(wxEVT_SESSION_EXITED, &MainNotebook::OnSessionExited, this);
   Unbind(wxEVT_SESSION_CLOSE_REQUESTED, &MainNotebook::OnSessionCloseRequested,
          this);
   Unbind(wxEVT_SESSION_PROGRAM, &MainNotebook::OnSessionProgram, this);
   Unbind(wxEVT_SESSION_CWD, &MainNotebook::OnSessionCwd, this);
   Unbind(wxEVT_SESSION_CHANGED, &MainNotebook::OnSessionChanged, this);
+  Unbind(wxEVT_SESSION_SUMMARY_READY, &MainNotebook::OnSessionSummaryReady,
+         this);
   Unbind(wxEVT_IDLE, &MainNotebook::OnIdleEvent, this);
   if (wxTheApp) {
     wxTheApp->Unbind(wxEVT_FILE_SAVE_STARTED, &MainNotebook::OnFileSaveStarted,
@@ -319,14 +319,25 @@ void MainNotebook::StopTmux(const Session &session) {
   for (const auto &[server, name] : doomed) {
     m_stoppingTmux.insert(name);
   }
+  // The file of the first message of its agent (Session::promptFile): the
+  // agent ends with the kill, so nobody reads it any more. Deleted after the
+  // kill (the page that goes leaves it to tmux); Kennel waits for it at exit.
+  const PromptFile promptFile = session.promptFile;
+  if (promptFile.IsSet()) {
+    PromptFileRemover::Get().BeginJob();
+  }
   // Blocks (ssh, wsl.exe): a thread of its own, nothing of the UI is used.
-  std::thread([this, alive = m_alive, account, doomed] {
+  std::thread([this, alive = m_alive, account, doomed, promptFile] {
     for (const auto &[server, name] : doomed) {
       if (const Status st = TmuxClient::KillSession(account, server, name);
           !st.ok()) {
         KLOG_WARN() << "Could not end the tmux session " << name << ": "
                     << st.message();
       }
+    }
+    if (promptFile.IsSet()) {
+      PromptFileRemover::Get().Remove(promptFile);
+      PromptFileRemover::Get().EndJob();
     }
     CallAfterIfAlive(alive, [this, doomed] {
       for (const auto &[server, name] : doomed) {
@@ -1753,6 +1764,8 @@ bool MainNotebook::LaunchSession(const NewSessionRequest &req,
   session.jobName = req.jobName;
   session.terminalPane = req.terminalPane;
   session.terminalPaneShown = req.terminalPaneShown;
+  session.initialPrompt = req.initialPrompt;
+  session.promptFile = req.promptFile;
   // A restored session attaches to the tmux session it had (it is kept, and the
   // name is reserved by the entry that is being restored). A new session runs
   // in tmux unless the user turned it off: the name is made once and kept. A
@@ -2103,12 +2116,6 @@ void MainNotebook::RefreshGroup(const wxString &groupName) {
   }
   for (auto *page : GetSessions(groupName)) {
     page->CallAfter(&SessionPage::Restart);
-    m_pendingIdle++;
-  }
-  if (m_pendingIdle > 0) {
-    GetMainFrame()->SetActivityText(
-        wxString::Format(_("Refreshing %d sessions"), m_pendingIdle));
-    GetMainFrame()->StartActivityIndicator();
   }
 }
 
@@ -2229,7 +2236,8 @@ void MainNotebook::RenameGroup(const wxString &oldName) {
   SyncWorkspaceToDisk();
 }
 
-void MainNotebook::DuplicateSession(SessionPage *page) {
+void MainNotebook::DuplicateSession(SessionPage *page,
+                                    const wxString &summary) {
   CHECK_NOT_NULL_RETURN(page);
   const auto &session = page->GetSession();
 
@@ -2243,13 +2251,85 @@ void MainNotebook::DuplicateSession(SessionPage *page) {
   dlg.SetSelectedClientName(session.agentName);
   dlg.SetSelectedGroup(session.groupName);
   dlg.SetSessionName(candidate);
+  if (!summary.empty()) {
+    dlg.SetTitle(_("Duplicate with Summary"));
+  }
 
   if (dlg.ShowModal() != wxID_OK) {
     return;
   }
-  if (LaunchSession(dlg.GetRequest())) {
-    RememberWorkingDir(dlg.GetCustomWorkingDir());
+  if (summary.empty()) {
+    if (LaunchSession(dlg.GetRequest())) {
+      RememberWorkingDir(dlg.GetCustomWorkingDir());
+    }
+    return;
   }
+  // The summary goes to the folder of the new session first, on its machine:
+  // the session starts when it is there (OnHandoffDelivered()).
+  const NewSessionRequest request = dlg.GetRequest();
+  const AgentDef *agent =
+      AppManager::Get().Adapters().FindAgent(request.agentName);
+  if (agent == nullptr) {
+    wxMessageBox(
+        wxString::Format(_("The agent '%s' is not known"), request.agentName),
+        "Kennel", wxOK | wxICON_ERROR, this);
+    return;
+  }
+  RememberWorkingDir(dlg.GetCustomWorkingDir());
+  auto delivery = std::make_unique<HandoffDelivery>(
+      HandoffPlace(*agent, request.workingDir), summary, request);
+  delivery->Bind(wxEVT_HANDOFF_DELIVERED, &MainNotebook::OnHandoffDelivered,
+                 this);
+  delivery->Bind(wxEVT_HANDOFF_DELIVERY_FAILED,
+                 &MainNotebook::OnHandoffDeliveryFailed, this);
+  HandoffDelivery *started = delivery.get();
+  m_handoffDeliveries.push_back(std::move(delivery));
+  started->Begin();
+}
+
+void MainNotebook::OnSessionSummaryReady(wxCommandEvent &e) {
+  // The event is pending: the page may be gone. Compare the pointer only.
+  for (auto *page : GetSessions()) {
+    if (page == e.GetEventObject()) {
+      DuplicateSession(page, e.GetString());
+      return;
+    }
+  }
+  KLOG_INFO() << "The session of the summary is gone: no new session";
+}
+
+void MainNotebook::OnHandoffDelivered(HandoffDeliveryEvent &e) {
+  // The page of the session takes the summary (it deletes it when it goes).
+  // When the session did not start (its name was taken while the summary was
+  // written, or the page could not be made), the delivery deletes it when it
+  // goes (EndHandoffDelivery()).
+  if (LaunchSession(e.GetRequest())) {
+    for (const auto &delivery : m_handoffDeliveries) {
+      if (delivery.get() == e.GetEventObject()) {
+        delivery->ReleaseFile();
+        break;
+      }
+    }
+  }
+  EndHandoffDelivery(e);
+}
+
+void MainNotebook::OnHandoffDeliveryFailed(HandoffDeliveryEvent &e) {
+  wxMessageBox(wxString::Format(_("The new session '%s' was not started: %s"),
+                                e.GetRequest().name, e.GetString()),
+               "Kennel", wxOK | wxICON_ERROR, this);
+  EndHandoffDelivery(e);
+}
+
+void MainNotebook::EndHandoffDelivery(const wxEvent &e) {
+  // Deferred: the delivery is the one that sends the event that is handled.
+  const wxObject *done = e.GetEventObject();
+  CallAfter([this, done] {
+    std::erase_if(m_handoffDeliveries,
+                  [done](const std::unique_ptr<HandoffDelivery> &delivery) {
+                    return delivery.get() == done;
+                  });
+  });
 }
 
 void MainNotebook::RenameSession(SessionPage *page) {
@@ -2506,23 +2586,6 @@ void MainNotebook::MoveSessionToGroup(const wxString &sessionName,
     ShowPage(page);
   }
 }
-
-void MainNotebook::OnSessionIdle(wxCommandEvent &e) {
-  e.Skip();
-  if (m_pendingIdle > 0) {
-    m_pendingIdle--;
-  }
-
-  if (m_pendingIdle == 0) {
-    GetMainFrame()->StopActivityIndicator();
-    GetMainFrame()->ClearActivityText();
-  } else if (m_pendingIdle > 0) {
-    GetMainFrame()->SetActivityText(
-        wxString::Format(_("Refreshing %d sessions"), m_pendingIdle));
-  }
-}
-
-void MainNotebook::OnSessionActive(wxCommandEvent &e) { e.Skip(); }
 
 void MainNotebook::OnSessionChanged(wxCommandEvent &e) {
   e.Skip();

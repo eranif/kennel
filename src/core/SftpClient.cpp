@@ -337,6 +337,21 @@ Status SftpClient::WriteFile(const wxString &host, const wxString &user,
   });
 }
 
+StatusOr<wxString> SftpClient::ResolvePath(const wxString &host,
+                                           const wxString &user,
+                                           const wxString &path) {
+  return WithConnection<StatusOr<wxString>>(
+      host, user, [&](Connection &conn) -> StatusOr<wxString> {
+        if (conn.home.empty()) {
+          return Status::Error(
+              wxString::Format("Could not find the home folder on %s", host));
+        }
+        const wxString expanded = ExpandHome(path, conn.home);
+        return expanded.StartsWith("/") ? expanded
+                                        : JoinRemote(conn.home, expanded);
+      });
+}
+
 StatusOr<bool> SftpClient::Exists(const wxString &host, const wxString &user,
                                   const wxString &path) {
   return WithConnection<StatusOr<bool>>(
@@ -370,45 +385,122 @@ StatusOr<bool> SftpClient::Exists(const wxString &host, const wxString &user,
 }
 
 Status SftpClient::PutFile(const wxString &host, const wxString &user,
-                           const wxString &path, const std::string &content) {
+                           const wxString &path, const std::string &content,
+                           bool exclusive) {
+  // `created`: this call made the file (exclusive only) and it is still there.
+  // The connection may die after the create, and WithConnection() may try
+  // once more on a new one, or not: a second try does not create again (O_EXCL
+  // would fail on that file) and returns the first error; a file that is still
+  // this call's at the end is removed by a separate RemoveFile().
+  bool created = false;
+  Status firstError = Status::Ok();
+  Status result =
+      WithConnection<Status>(host, user, [&](Connection &conn) -> Status {
+        sftp_session sftp = conn.sftp.get();
+        ssh_session session = conn.ssh.get();
+        const wxString &home = conn.home;
+        const std::string target =
+            ExpandHome(path, home).ToStdString(wxConvUTF8);
+
+        if (created) {
+          return firstError; // See `created`: removed after this
+        }
+
+        // Create the missing parent folders, one level at a time.
+        for (size_t slash = target.find('/', 1); slash != std::string::npos;
+             slash = target.find('/', slash + 1)) {
+          const std::string dir = target.substr(0, slash);
+          SftpAttrPtr attrs{sftp_stat(sftp, dir.c_str())};
+          if (!attrs && sftp_mkdir(sftp, dir.c_str(), 0755) != SSH_OK) {
+            // Somebody may have created it in the meantime; servers do not
+            // agree on the error code for that, so look again.
+            attrs.reset(sftp_stat(sftp, dir.c_str()));
+            if (!attrs) {
+              return SshError(wxString::Format("Could not create %s", dir),
+                              session);
+            }
+          }
+          if (attrs && attrs->type != SSH_FILEXFER_TYPE_DIRECTORY) {
+            return Status::Error(wxString::Format("%s is not a folder", dir));
+          }
+        }
+
+        // O_EXCL: the open fails on a path that exists, a symbolic link too.
+        const int flags = O_WRONLY | O_CREAT | (exclusive ? O_EXCL : O_TRUNC);
+        SftpFilePtr file{sftp_open(sftp, target.c_str(), flags, 0644)};
+        if (!file) {
+          return SshError(wxString::Format("Could not create %s", path),
+                          session);
+        }
+        created = exclusive;
+        // A file that this call created and could not write is removed again
+        // (an exclusive one only: the others were there before); if that fails
+        // here, after the call (see `created`).
+        const auto failWith = [&](const wxString &what) -> Status {
+          Status error = SshError(what, session);
+          if (exclusive && sftp_unlink(sftp, target.c_str()) == SSH_OK) {
+            created = false; // Removed
+          }
+          firstError = error;
+          return error;
+        };
+        size_t offset = 0;
+        while (offset < content.size()) {
+          const size_t chunk =
+              std::min<size_t>(32 * 1024, content.size() - offset);
+          const ssize_t n =
+              sftp_write(file.get(), content.data() + offset, chunk);
+          if (n < 0) {
+            file.reset();
+            return failWith(wxString::Format("Could not write %s", path));
+          }
+          offset += static_cast<size_t>(n);
+        }
+        // The close tells whether the server took the data.
+        if (sftp_close(file.release()) != SSH_OK) {
+          return failWith(wxString::Format("Could not write %s", path));
+        }
+        return Status::Ok();
+      });
+  if (!result.ok() && created) {
+    // Best effort, on a connection of its own (the one of the write may be
+    // gone).
+    if (const Status removed = RemoveFile(host, user, path); !removed.ok()) {
+      result = Status::Error(
+          result.message() +
+          wxString::Format(" (and %s is left: %s)", path, removed.message()));
+    }
+  }
+  return result;
+}
+
+Status SftpClient::RemoveFile(const wxString &host, const wxString &user,
+                              const wxString &path) {
   return WithConnection<Status>(host, user, [&](Connection &conn) -> Status {
     sftp_session sftp = conn.sftp.get();
     ssh_session session = conn.ssh.get();
-    const wxString &home = conn.home;
-    const std::string target = ExpandHome(path, home).ToStdString(wxConvUTF8);
-
-    // Create the missing parent folders, one level at a time.
-    for (size_t slash = target.find('/', 1); slash != std::string::npos;
-         slash = target.find('/', slash + 1)) {
-      const std::string dir = target.substr(0, slash);
-      SftpAttrPtr attrs{sftp_stat(sftp, dir.c_str())};
-      if (!attrs && sftp_mkdir(sftp, dir.c_str(), 0755) != SSH_OK) {
-        // Somebody may have created it in the meantime; servers do not agree on
-        // the error code for that, so look again.
-        attrs.reset(sftp_stat(sftp, dir.c_str()));
-        if (!attrs) {
-          return SshError(wxString::Format("Could not create %s", dir),
-                          session);
-        }
+    const std::string target =
+        ExpandHome(path, conn.home).ToStdString(wxConvUTF8);
+    sftp->errnum = SSH_FX_OK;
+    SftpAttrPtr attrs{sftp_lstat(sftp, target.c_str())};
+    if (!attrs) {
+      if (!conn.IsHealthy()) {
+        return SshError(wxString::Format("Could not check %s", path), session);
       }
-      if (attrs && attrs->type != SSH_FILEXFER_TYPE_DIRECTORY) {
-        return Status::Error(wxString::Format("%s is not a folder", dir));
+      const int code = sftp_get_error(sftp);
+      if (code == SSH_FX_NO_SUCH_FILE || code == SSH_FX_NO_SUCH_PATH) {
+        return Status::Ok(); // Gone already
       }
+      return SshError(
+          wxString::Format("Could not check %s (SFTP error %d)", path, code),
+          session);
     }
-
-    SftpFilePtr file{
-        sftp_open(sftp, target.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)};
-    if (!file) {
-      return SshError(wxString::Format("Could not create %s", path), session);
+    if (attrs->type == SSH_FILEXFER_TYPE_DIRECTORY) {
+      return Status::Error(
+          wxString::Format("%s is a folder: it is not removed", path));
     }
-    size_t offset = 0;
-    while (offset < content.size()) {
-      const size_t chunk = std::min<size_t>(32 * 1024, content.size() - offset);
-      const ssize_t n = sftp_write(file.get(), content.data() + offset, chunk);
-      if (n < 0) {
-        return SshError(wxString::Format("Could not write %s", path), session);
-      }
-      offset += static_cast<size_t>(n);
+    if (sftp_unlink(sftp, target.c_str()) != SSH_OK) {
+      return SshError(wxString::Format("Could not remove %s", path), session);
     }
     return Status::Ok();
   });

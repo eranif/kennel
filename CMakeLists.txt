@@ -253,7 +253,6 @@ add_library(
   src/core/ConfigStore.cpp
   src/core/ClientAdapter.cpp
   src/core/AdapterRegistry.cpp
-  src/core/ActivityMonitor.cpp
   src/core/Job.cpp
   src/core/JobLog.cpp
   src/core/JobScheduler.cpp
@@ -271,6 +270,7 @@ add_library(
   src/core/KennelRemote.cpp
   src/core/AgentScanner.cpp
   src/core/SftpClient.cpp
+  src/core/PromptFileRemover.cpp
   src/core/SshClient.cpp
   src/core/SshSession.cpp
   src/core/CrashHandler.cpp
@@ -365,6 +365,7 @@ set(KENNEL_APP_SOURCES
     src/app/GitPanel.cpp
     src/app/GitTerminals.cpp
     src/app/OutputView.cpp
+    src/app/SessionHandoff.cpp
     src/app/FileActions.cpp
     src/app/TabIcon.cpp
     src/app/ActivityView.cpp

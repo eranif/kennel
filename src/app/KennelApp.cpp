@@ -9,10 +9,19 @@
 #include "core/AppPaths.h"
 #include "core/CrashHandler.h"
 #include "core/Logger.h"
+#include "core/PromptFileRemover.h"
 
 // wxWidgets application entry point. Creates and shows the main window.
 class KennelApp : public wxApp {
 public:
+  int OnExit() override {
+    // The windows are gone: a page that went may have left a remote file to
+    // delete (PromptFileRemover). Not longer than a few seconds: a host that
+    // does not answer does not keep Kennel open.
+    PromptFileRemover::Get().Flush(std::chrono::seconds(5));
+    return wxApp::OnExit();
+  }
+
   void OnInitCmdLine(wxCmdLineParser &parser) override {
     wxApp::OnInitCmdLine(parser);
     parser.AddOption(
