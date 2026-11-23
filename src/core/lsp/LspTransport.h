@@ -2,12 +2,17 @@
 
 #include "core/Status.h"
 
+#include <memory>
 #include <string>
 #include <vector>
 #include <wx/event.h>
+#include <wx/string.h>
+#include <wx/timer.h>
 
-// What a transport reports. Sent to the handler given to LspTransport::Start(),
-// on its thread (the UI thread). GUI-free.
+class Process;
+
+// What a transport reports. Sent on the EventNotifier, on the UI thread.
+// GUI-free.
 class LspTransportEvent : public wxCommandEvent {
 public:
   explicit LspTransportEvent(wxEventType type = wxEVT_NULL, int id = 0)
@@ -43,28 +48,64 @@ wxDECLARE_EVENT(wxEVT_LSP_TRANSPORT_STDERR, LspTransportEvent);
 // Sent once, last, unless Stop() was called first.
 wxDECLARE_EVENT(wxEVT_LSP_TRANSPORT_CLOSED, LspTransportEvent);
 
-// The pipe to one language server: its input and its output, wherever it runs
-// (this machine, a WSL distribution, an ssh host). One implementation for each
-// kind of place.
+// Where the language server runs.
+enum class TransportType {
+  kWsl,   // In a WSL distribution: wsl.exe -d <distribution> --exec <server>
+  kLocal, // On this machine: <server>
+  kSsh,   // On a host: ssh <host> <server>
+};
+
+// Which language server it is.
+enum class LspKind {
+  kClangd,       // C and C++
+  kGopls,        // Go
+  kRustAnalyzer, // Rust
+};
+
+// The pipe to one language server: its input and its output, wherever it runs.
+// The server is always a process of this machine; for WSL and ssh that process
+// is the program that carries the pipes to the other machine (wsl.exe, ssh).
 //
 // It moves bytes and nothing else: the framing of the messages is not its job.
 // It never calls back: everything it has to say is an LspTransportEvent, sent
-// to the handler that was given to Start().
-class LspTransport {
+// on the EventNotifier.
+class LspTransport : public wxEvtHandler {
 public:
-  virtual ~LspTransport() = default;
+  // `target` is the WSL distribution (kWsl) or the host (kSsh), which may be an
+  // ~/.ssh/config alias; empty for kLocal. `user` is for kSsh only: empty means
+  // the ssh default.
+  LspTransport(TransportType type, LspKind kind,
+               const wxString &target = wxEmptyString,
+               const wxString &user = wxEmptyString);
+  // Ends the server (see Stop()).
+  ~LspTransport() override;
 
-  // Starts `argv` (the program, then its arguments) and returns at once.
-  // wxEVT_LSP_TRANSPORT_OPENED comes when it runs, and
-  // wxEVT_LSP_TRANSPORT_CLOSED when it ended or could not be started. An error
-  // (and no event) when it can not even be tried, or was started before.
-  // `handler` must outlive the transport, or Stop() must be called first.
-  virtual Status Start(const std::vector<std::string> &argv,
-                       wxEvtHandler *handler) = 0;
+  // Starts the server and returns at once. wxEVT_LSP_TRANSPORT_OPENED comes
+  // when it runs, and wxEVT_LSP_TRANSPORT_CLOSED when it ended. An error (and
+  // no event) when it could not be started, or was started before.
+  Status Start();
 
-  // Queues `bytes` for the input of the server. Never blocks the caller.
-  virtual void Send(const std::string &bytes) = 0;
+  // Writes `bytes` to the input of the server. An error when it is not running.
+  Status Send(const std::string &bytes);
 
   // Ends the server. No event is sent after this.
-  virtual void Stop() = 0;
+  void Stop();
+
+private:
+  // The server and its arguments, for the kind of the server.
+  std::vector<std::string> GetServerArgv() const;
+  // The command line of the process to start: the server itself, or wsl.exe or
+  // ssh with the server as their command. Every argument is quoted for the
+  // command line of a program (see Process::QuoteArgument()).
+  std::vector<std::string> BuildCommand() const;
+  // Looks whether the process is still there: Process says nothing when it
+  // ends.
+  void OnTimer(wxTimerEvent &event);
+
+  TransportType m_type;
+  LspKind m_kind;
+  wxString m_target;
+  wxString m_user;
+  std::shared_ptr<Process> m_process;
+  wxTimer m_timer;
 };
