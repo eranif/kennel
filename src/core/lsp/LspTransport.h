@@ -11,7 +11,8 @@
 
 class Process;
 
-// What a transport reports. Sent on the EventNotifier, on the UI thread.
+// What a transport reports. Sent on the EventNotifier, on the UI thread. The
+// event object (GetEventObject()) is the LspTransport that sent it.
 // GUI-free.
 class LspTransportEvent : public wxCommandEvent {
 public:

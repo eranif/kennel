@@ -80,11 +80,13 @@ Status LspTransport::Start() {
         // On the thread that reads the process: the events go to the UI thread.
         if (!out.empty()) {
           LspTransportEvent event(wxEVT_LSP_TRANSPORT_STDOUT);
+          event.SetEventObject(this);
           event.SetData(out);
           EventNotifier::Get()->AddPendingEvent(event);
         }
         if (!err.empty()) {
           LspTransportEvent event(wxEVT_LSP_TRANSPORT_STDERR);
+          event.SetEventObject(this);
           event.SetData(err);
           EventNotifier::Get()->AddPendingEvent(event);
         }
@@ -94,6 +96,7 @@ Status LspTransport::Start() {
     return Status::Error("The language server could not be started");
   }
   LspTransportEvent opened(wxEVT_LSP_TRANSPORT_OPENED);
+  opened.SetEventObject(this);
   EventNotifier::Get()->AddPendingEvent(opened);
   m_timer.Start(250);
   return Status::Ok();
@@ -122,6 +125,7 @@ void LspTransport::OnTimer(wxTimerEvent &) {
   m_timer.Stop();
   m_process.reset();
   LspTransportEvent event(wxEVT_LSP_TRANSPORT_CLOSED);
+  event.SetEventObject(this);
   event.SetExitCode(-1);
   EventNotifier::Get()->AddPendingEvent(event);
 }
