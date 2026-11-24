@@ -1,59 +1,38 @@
 #include "core/lsp/JsonRpcFramer.h"
 
-#include "core/EventNotifier.hpp"
+#include "core/lsp/LspClient.h"
 
 #include <cctype>
+#include <chrono>
 #include <cstdlib>
 
-wxDEFINE_EVENT(wxEVT_JSON_RPC_MESSAGE, JsonRpcEvent);
-
-JsonRpcFramer::JsonRpcFramer(LspServer *transport) : m_transport(transport) {
-  EventNotifier::Get()->Bind(wxEVT_LSP_SERVER_STDOUT, &JsonRpcFramer::OnStdout,
-                             this);
+JsonRpcFramer::JsonRpcFramer(LspClient *client) : m_client(client) {
   m_worker = std::thread(&JsonRpcFramer::Run, this);
 }
 
 JsonRpcFramer::~JsonRpcFramer() {
-  EventNotifier::Get()->Unbind(wxEVT_LSP_SERVER_STDOUT,
-                               &JsonRpcFramer::OnStdout, this);
-  {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_stop = true;
-  }
+  m_stop = true;
   m_wake.notify_one();
   m_worker.join();
 }
 
-Status JsonRpcFramer::Send(const std::string &body) {
-  return m_transport->Send("Content-Length: " + std::to_string(body.size()) +
-                           "\r\n\r\n" + body);
-}
-
-void JsonRpcFramer::OnStdout(LspServerEvent &event) {
-  if (event.GetEventObject() != m_transport) {
-    event.Skip(); // The output of another server
-    return;
-  }
-  event.Skip(false); // Ours: nobody else handles it
+void JsonRpcFramer::Feed(std::string buffer) {
   {
     std::lock_guard<std::mutex> lock(m_mutex);
-    m_incoming += event.GetData();
+    m_incoming += buffer;
   }
   m_wake.notify_one();
-}
-
-void JsonRpcFramer::OnParsed(std::string body) {
-  JsonRpcEvent message(wxEVT_JSON_RPC_MESSAGE);
-  message.SetEventObject(m_transport);
-  message.SetBody(body);
-  EventNotifier::Get()->AddPendingEvent(message);
 }
 
 void JsonRpcFramer::Run() {
   for (;;) {
     {
       std::unique_lock<std::mutex> lock(m_mutex);
-      m_wake.wait(lock, [this] { return m_stop || !m_incoming.empty(); });
+      // Nothing came in 10 ms: look again (also at m_stop).
+      if (!m_wake.wait_for(lock, std::chrono::milliseconds(10),
+                           [this] { return m_stop || !m_incoming.empty(); })) {
+        continue;
+      }
       if (m_stop) {
         return;
       }
@@ -61,7 +40,7 @@ void JsonRpcFramer::Run() {
       m_incoming.clear();
     }
     while (std::optional<std::string> body = ExtractMessage()) {
-      CallAfter(&JsonRpcFramer::OnParsed, *body);
+      m_client->CallAfter(&LspClient::OnParsed, *body);
     }
   }
 }

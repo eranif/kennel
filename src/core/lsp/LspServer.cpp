@@ -1,20 +1,13 @@
 #include "core/lsp/LspServer.h"
 
-#include "core/EventNotifier.hpp"
 #include "core/Process.hpp"
 #include "core/ShellQuote.h"
+#include "core/lsp/LspClient.h"
 
-wxDEFINE_EVENT(wxEVT_LSP_SERVER_OPENED, LspServerEvent);
-wxDEFINE_EVENT(wxEVT_LSP_SERVER_STDOUT, LspServerEvent);
-wxDEFINE_EVENT(wxEVT_LSP_SERVER_STDERR, LspServerEvent);
-wxDEFINE_EVENT(wxEVT_LSP_SERVER_CLOSED, LspServerEvent);
-
-LspServer::LspServer(TransportType type, LspKind kind, const wxString &target,
-                     const wxString &user)
-    : m_type(type), m_kind(kind), m_target(target), m_user(user),
-      m_timer(this) {
-  Bind(wxEVT_TIMER, &LspServer::OnTimer, this);
-}
+LspServer::LspServer(LspClient *client, TransportType type, LspKind kind,
+                     const wxString &target, const wxString &user)
+    : m_client(client), m_type(type), m_kind(kind), m_target(target),
+      m_user(user) {}
 
 LspServer::~LspServer() { Stop(); }
 
@@ -77,28 +70,19 @@ Status LspServer::Start() {
   }
   m_process = Process::StartInteractive(
       BuildCommand(), [this](const std::string &out, const std::string &err) {
-        // On the thread that reads the process: the events go to the UI thread.
+        // On the thread that reads the process: the client gets it on the UI
+        // thread.
         if (!out.empty()) {
-          LspServerEvent event(wxEVT_LSP_SERVER_STDOUT);
-          event.SetEventObject(this);
-          event.SetData(out);
-          EventNotifier::Get()->AddPendingEvent(event);
+          m_client->CallAfter(&LspClient::OnServerStdout, out);
         }
         if (!err.empty()) {
-          LspServerEvent event(wxEVT_LSP_SERVER_STDERR);
-          event.SetEventObject(this);
-          event.SetData(err);
-          EventNotifier::Get()->AddPendingEvent(event);
+          m_client->CallAfter(&LspClient::OnServerStderr, err);
         }
         return true;
       });
   if (!m_process) {
     return Status::Error("The language server could not be started");
   }
-  LspServerEvent opened(wxEVT_LSP_SERVER_OPENED);
-  opened.SetEventObject(this);
-  EventNotifier::Get()->AddPendingEvent(opened);
-  m_timer.Start(250);
   return Status::Ok();
 }
 
@@ -110,22 +94,8 @@ Status LspServer::Send(const std::string &bytes) {
 }
 
 void LspServer::Stop() {
-  m_timer.Stop();
   if (m_process) {
     m_process->Stop();
     m_process.reset();
   }
-}
-
-void LspServer::OnTimer(wxTimerEvent &) {
-  if (!m_process || m_process->IsRunning()) {
-    return;
-  }
-  // It ended by itself: Process has delivered all its output by now.
-  m_timer.Stop();
-  m_process.reset();
-  LspServerEvent event(wxEVT_LSP_SERVER_CLOSED);
-  event.SetEventObject(this);
-  event.SetExitCode(-1);
-  EventNotifier::Get()->AddPendingEvent(event);
 }
