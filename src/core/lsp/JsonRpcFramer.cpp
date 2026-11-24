@@ -7,14 +7,14 @@
 
 wxDEFINE_EVENT(wxEVT_JSON_RPC_MESSAGE, JsonRpcEvent);
 
-JsonRpcFramer::JsonRpcFramer(LspTransport *transport) : m_transport(transport) {
-  EventNotifier::Get()->Bind(wxEVT_LSP_TRANSPORT_STDOUT,
-                             &JsonRpcFramer::OnStdout, this);
+JsonRpcFramer::JsonRpcFramer(LspServer *transport) : m_transport(transport) {
+  EventNotifier::Get()->Bind(wxEVT_LSP_SERVER_STDOUT, &JsonRpcFramer::OnStdout,
+                             this);
   m_worker = std::thread(&JsonRpcFramer::Run, this);
 }
 
 JsonRpcFramer::~JsonRpcFramer() {
-  EventNotifier::Get()->Unbind(wxEVT_LSP_TRANSPORT_STDOUT,
+  EventNotifier::Get()->Unbind(wxEVT_LSP_SERVER_STDOUT,
                                &JsonRpcFramer::OnStdout, this);
   {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -29,7 +29,7 @@ Status JsonRpcFramer::Send(const std::string &body) {
                            "\r\n\r\n" + body);
 }
 
-void JsonRpcFramer::OnStdout(LspTransportEvent &event) {
+void JsonRpcFramer::OnStdout(LspServerEvent &event) {
   if (event.GetEventObject() != m_transport) {
     event.Skip(); // The output of another server
     return;

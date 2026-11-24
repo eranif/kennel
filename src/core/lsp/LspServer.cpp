@@ -1,24 +1,24 @@
-#include "core/lsp/LspTransport.h"
+#include "core/lsp/LspServer.h"
 
 #include "core/EventNotifier.hpp"
 #include "core/Process.hpp"
 #include "core/ShellQuote.h"
 
-wxDEFINE_EVENT(wxEVT_LSP_TRANSPORT_OPENED, LspTransportEvent);
-wxDEFINE_EVENT(wxEVT_LSP_TRANSPORT_STDOUT, LspTransportEvent);
-wxDEFINE_EVENT(wxEVT_LSP_TRANSPORT_STDERR, LspTransportEvent);
-wxDEFINE_EVENT(wxEVT_LSP_TRANSPORT_CLOSED, LspTransportEvent);
+wxDEFINE_EVENT(wxEVT_LSP_SERVER_OPENED, LspServerEvent);
+wxDEFINE_EVENT(wxEVT_LSP_SERVER_STDOUT, LspServerEvent);
+wxDEFINE_EVENT(wxEVT_LSP_SERVER_STDERR, LspServerEvent);
+wxDEFINE_EVENT(wxEVT_LSP_SERVER_CLOSED, LspServerEvent);
 
-LspTransport::LspTransport(TransportType type, LspKind kind,
-                           const wxString &target, const wxString &user)
+LspServer::LspServer(TransportType type, LspKind kind, const wxString &target,
+                     const wxString &user)
     : m_type(type), m_kind(kind), m_target(target), m_user(user),
       m_timer(this) {
-  Bind(wxEVT_TIMER, &LspTransport::OnTimer, this);
+  Bind(wxEVT_TIMER, &LspServer::OnTimer, this);
 }
 
-LspTransport::~LspTransport() { Stop(); }
+LspServer::~LspServer() { Stop(); }
 
-std::vector<std::string> LspTransport::GetServerArgv() const {
+std::vector<std::string> LspServer::GetServerArgv() const {
   switch (m_kind) {
   case LspKind::kClangd:
     return {"clangd"};
@@ -30,7 +30,7 @@ std::vector<std::string> LspTransport::GetServerArgv() const {
   return {};
 }
 
-std::vector<std::string> LspTransport::BuildCommand() const {
+std::vector<std::string> LspServer::BuildCommand() const {
   const std::vector<std::string> server = GetServerArgv();
   std::vector<std::string> command;
   switch (m_type) {
@@ -71,7 +71,7 @@ std::vector<std::string> LspTransport::BuildCommand() const {
   return command;
 }
 
-Status LspTransport::Start() {
+Status LspServer::Start() {
   if (m_process) {
     return Status::Error("The language server was started already");
   }
@@ -79,13 +79,13 @@ Status LspTransport::Start() {
       BuildCommand(), [this](const std::string &out, const std::string &err) {
         // On the thread that reads the process: the events go to the UI thread.
         if (!out.empty()) {
-          LspTransportEvent event(wxEVT_LSP_TRANSPORT_STDOUT);
+          LspServerEvent event(wxEVT_LSP_SERVER_STDOUT);
           event.SetEventObject(this);
           event.SetData(out);
           EventNotifier::Get()->AddPendingEvent(event);
         }
         if (!err.empty()) {
-          LspTransportEvent event(wxEVT_LSP_TRANSPORT_STDERR);
+          LspServerEvent event(wxEVT_LSP_SERVER_STDERR);
           event.SetEventObject(this);
           event.SetData(err);
           EventNotifier::Get()->AddPendingEvent(event);
@@ -95,21 +95,21 @@ Status LspTransport::Start() {
   if (!m_process) {
     return Status::Error("The language server could not be started");
   }
-  LspTransportEvent opened(wxEVT_LSP_TRANSPORT_OPENED);
+  LspServerEvent opened(wxEVT_LSP_SERVER_OPENED);
   opened.SetEventObject(this);
   EventNotifier::Get()->AddPendingEvent(opened);
   m_timer.Start(250);
   return Status::Ok();
 }
 
-Status LspTransport::Send(const std::string &bytes) {
+Status LspServer::Send(const std::string &bytes) {
   if (!m_process || !m_process->Write(bytes)) {
     return Status::Error("The language server is not running");
   }
   return Status::Ok();
 }
 
-void LspTransport::Stop() {
+void LspServer::Stop() {
   m_timer.Stop();
   if (m_process) {
     m_process->Stop();
@@ -117,14 +117,14 @@ void LspTransport::Stop() {
   }
 }
 
-void LspTransport::OnTimer(wxTimerEvent &) {
+void LspServer::OnTimer(wxTimerEvent &) {
   if (!m_process || m_process->IsRunning()) {
     return;
   }
   // It ended by itself: Process has delivered all its output by now.
   m_timer.Stop();
   m_process.reset();
-  LspTransportEvent event(wxEVT_LSP_TRANSPORT_CLOSED);
+  LspServerEvent event(wxEVT_LSP_SERVER_CLOSED);
   event.SetEventObject(this);
   event.SetExitCode(-1);
   EventNotifier::Get()->AddPendingEvent(event);

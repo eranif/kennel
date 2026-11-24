@@ -12,25 +12,25 @@
 class Process;
 
 // What a transport reports. Sent on the EventNotifier, on the UI thread. The
-// event object (GetEventObject()) is the LspTransport that sent it.
+// event object (GetEventObject()) is the LspServer that sent it.
 // GUI-free.
-class LspTransportEvent : public wxCommandEvent {
+class LspServerEvent : public wxCommandEvent {
 public:
-  explicit LspTransportEvent(wxEventType type = wxEVT_NULL, int id = 0)
+  explicit LspServerEvent(wxEventType type = wxEVT_NULL, int id = 0)
       : wxCommandEvent(type, id) {}
-  LspTransportEvent(const LspTransportEvent &) = default;
-  wxEvent *Clone() const override { return new LspTransportEvent(*this); }
+  LspServerEvent(const LspServerEvent &) = default;
+  wxEvent *Clone() const override { return new LspServerEvent(*this); }
 
-  // wxEVT_LSP_TRANSPORT_STDOUT and wxEVT_LSP_TRANSPORT_STDERR: raw bytes, in
+  // wxEVT_LSP_SERVER_STDOUT and wxEVT_LSP_SERVER_STDERR: raw bytes, in
   // the order they came. They may end in the middle of a message.
   const std::string &GetData() const { return m_data; }
   void SetData(const std::string &data) { m_data = data; }
 
-  // wxEVT_LSP_TRANSPORT_CLOSED: an error status when the server could not be
+  // wxEVT_LSP_SERVER_CLOSED: an error status when the server could not be
   // started or the connection was lost, ok when the server ended by itself.
   const Status &GetResult() const { return m_result; }
   void SetResult(const Status &result) { m_result = result; }
-  // wxEVT_LSP_TRANSPORT_CLOSED: the exit code of the server, -1 when there is
+  // wxEVT_LSP_SERVER_CLOSED: the exit code of the server, -1 when there is
   // none.
   int GetExitCode() const { return GetInt(); }
   void SetExitCode(int exitCode) { SetInt(exitCode); }
@@ -41,13 +41,13 @@ private:
 };
 
 // The server runs and its input can be written.
-wxDECLARE_EVENT(wxEVT_LSP_TRANSPORT_OPENED, LspTransportEvent);
+wxDECLARE_EVENT(wxEVT_LSP_SERVER_OPENED, LspServerEvent);
 // The server wrote to its standard output (the messages) or its standard error
-// (its log). See LspTransportEvent::GetData().
-wxDECLARE_EVENT(wxEVT_LSP_TRANSPORT_STDOUT, LspTransportEvent);
-wxDECLARE_EVENT(wxEVT_LSP_TRANSPORT_STDERR, LspTransportEvent);
+// (its log). See LspServerEvent::GetData().
+wxDECLARE_EVENT(wxEVT_LSP_SERVER_STDOUT, LspServerEvent);
+wxDECLARE_EVENT(wxEVT_LSP_SERVER_STDERR, LspServerEvent);
 // Sent once, last, unless Stop() was called first.
-wxDECLARE_EVENT(wxEVT_LSP_TRANSPORT_CLOSED, LspTransportEvent);
+wxDECLARE_EVENT(wxEVT_LSP_SERVER_CLOSED, LspServerEvent);
 
 // Where the language server runs.
 enum class TransportType {
@@ -68,21 +68,21 @@ enum class LspKind {
 // is the program that carries the pipes to the other machine (wsl.exe, ssh).
 //
 // It moves bytes and nothing else: the framing of the messages is not its job.
-// It never calls back: everything it has to say is an LspTransportEvent, sent
+// It never calls back: everything it has to say is an LspServerEvent, sent
 // on the EventNotifier.
-class LspTransport : public wxEvtHandler {
+class LspServer : public wxEvtHandler {
 public:
   // `target` is the WSL distribution (kWsl) or the host (kSsh), which may be an
   // ~/.ssh/config alias; empty for kLocal. `user` is for kSsh only: empty means
   // the ssh default.
-  LspTransport(TransportType type, LspKind kind,
-               const wxString &target = wxEmptyString,
-               const wxString &user = wxEmptyString);
+  LspServer(TransportType type, LspKind kind,
+            const wxString &target = wxEmptyString,
+            const wxString &user = wxEmptyString);
   // Ends the server (see Stop()).
-  ~LspTransport() override;
+  ~LspServer() override;
 
-  // Starts the server and returns at once. wxEVT_LSP_TRANSPORT_OPENED comes
-  // when it runs, and wxEVT_LSP_TRANSPORT_CLOSED when it ended. An error (and
+  // Starts the server and returns at once. wxEVT_LSP_SERVER_OPENED comes
+  // when it runs, and wxEVT_LSP_SERVER_CLOSED when it ended. An error (and
   // no event) when it could not be started, or was started before.
   Status Start();
 

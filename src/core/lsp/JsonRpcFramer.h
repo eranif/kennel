@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/Status.h"
-#include "core/lsp/LspTransport.h"
+#include "core/lsp/LspServer.h"
 
 #include <condition_variable>
 #include <mutex>
@@ -12,7 +12,7 @@
 
 // One message of the server: the JSON, without its header. Sent on the
 // EventNotifier, on the UI thread. The event object (GetEventObject()) is the
-// LspTransport that the message came from. GUI-free.
+// LspServer that the message came from. GUI-free.
 class JsonRpcEvent : public wxCommandEvent {
 public:
   explicit JsonRpcEvent(wxEventType type = wxEVT_NULL, int id = 0)
@@ -33,8 +33,8 @@ wxDECLARE_EVENT(wxEVT_JSON_RPC_MESSAGE, JsonRpcEvent);
 // The framing of JSON-RPC in the Language Server Protocol: every message is
 // `Content-Length: <n>\r\n\r\n` and then n bytes of JSON (UTF-8).
 //
-// It works for one LspTransport. Incoming: it listens to the output of the
-// transport (wxEVT_LSP_TRANSPORT_STDOUT on the EventNotifier), cuts it into
+// It works for one LspServer. Incoming: it listens to the output of the
+// transport (wxEVT_LSP_SERVER_STDOUT on the EventNotifier), cuts it into
 // messages on a thread of its own (a long message must not stall the UI), and
 // the UI thread sends each one as a wxEVT_JSON_RPC_MESSAGE. Outgoing: Send()
 // puts the header on a message and writes it to the transport.
@@ -44,7 +44,7 @@ public:
   static constexpr size_t kMaxMessageBytes = 256 * 1024 * 1024;
 
   // `transport` must outlive the framer.
-  explicit JsonRpcFramer(LspTransport *transport);
+  explicit JsonRpcFramer(LspServer *transport);
   // Stops the thread and waits for it.
   ~JsonRpcFramer() override;
 
@@ -56,7 +56,7 @@ public:
 
 private:
   // The output of a transport: the bytes go to the thread when it is ours.
-  void OnStdout(LspTransportEvent &event);
+  void OnStdout(LspServerEvent &event);
   // The thread found a message: the UI thread sends it (the thread calls this
   // with CallAfter()).
   void OnParsed(std::string body);
@@ -71,7 +71,7 @@ private:
   // Only the thread calls it.
   std::optional<std::string> ExtractMessage();
 
-  LspTransport *m_transport;
+  LspServer *m_transport;
 
   std::mutex m_mutex;
   std::condition_variable m_wake;
