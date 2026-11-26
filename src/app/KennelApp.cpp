@@ -30,6 +30,13 @@ public:
         "is stored under <dir>/.kennel. Lets multiple instances run "
         "side by side with separate data.",
         wxCMD_LINE_VAL_STRING);
+    parser.AddOption("l", "log-level",
+                     "How much to log: trace, debug, info (the default), warn "
+                     "or error.",
+                     wxCMD_LINE_VAL_STRING);
+    parser.AddSwitch("", "stdout",
+                     "Also write the log to the console (the standard "
+                     "output).");
   }
 
   bool OnCmdLineParsed(wxCmdLineParser &parser) override {
@@ -37,6 +44,15 @@ public:
       return false;
     }
     parser.Found("d", &m_homeOverride);
+    wxString level;
+    if (parser.Found("log-level", &level) &&
+        !Logger::ParseLevel(level, &m_logLevel)) {
+      parser.Usage();
+      return false;
+    }
+    if (parser.Found("stdout")) {
+      Logger::Get().SetStdout(true);
+    }
     return true;
   }
 
@@ -61,7 +77,7 @@ public:
     wxFileName logFile = paths.LogsDir();
     logFile.SetFullName("kennel.log");
     Logger::Get().SetLogFile(logFile.GetFullPath());
-    Logger::Get().SetLevel(LogLevel::kInfo);
+    Logger::Get().SetLevel(m_logLevel);
     KLOG_INFO() << "Kennel starting; data dir: " << paths.Root();
 
     // Install crash handler before any further initialization so that even
@@ -87,6 +103,7 @@ public:
 
 private:
   wxString m_homeOverride;
+  LogLevel m_logLevel{LogLevel::kInfo};
 };
 
 wxIMPLEMENT_APP(KennelApp);

@@ -33,6 +33,16 @@ public:
   void SetLevel(LogLevel level) { m_level = level; }
   LogLevel GetLevel() const { return m_level; }
 
+  // `name` is "trace", "debug", "info", "warn" or "error" (any case). False,
+  // and `level` as it was, for anything else.
+  static bool ParseLevel(const wxString &name, LogLevel *level);
+
+  // Also writes every message to the standard output (the --stdout option).
+  // On Windows Kennel has no console of its own: when its standard output is
+  // not redirected, this attaches to the console of the program that started
+  // it (cmd, PowerShell).
+  void SetStdout(bool enabled);
+
   // Directs output to the given file (appending). Reopens if already open.
   void SetLogFile(const wxString &path);
 
@@ -79,6 +89,7 @@ private:
   void EnsureOpen();
 
   LogLevel m_level{LogLevel::kInfo};
+  bool m_stdout{false};
   // Any thread may log (the scan of the agents does).
   std::mutex m_mutex;
   wxString m_logPath;

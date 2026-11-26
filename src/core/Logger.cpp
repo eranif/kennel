@@ -2,6 +2,12 @@
 
 #include <wx/datetime.h>
 
+#include <cstdio>
+
+#ifdef __WXMSW__
+#include <windows.h>
+#endif
+
 namespace {
 wxString LevelToString(LogLevel level) {
   switch (level) {
@@ -41,16 +47,56 @@ void Logger::EnsureOpen() {
   m_file.Open(m_logPath, "a");
 }
 
+bool Logger::ParseLevel(const wxString &name, LogLevel *level) {
+  const wxString lower = name.Lower();
+  if (lower == "trace") {
+    *level = LogLevel::kTrace;
+  } else if (lower == "debug") {
+    *level = LogLevel::kDebug;
+  } else if (lower == "info") {
+    *level = LogLevel::kInfo;
+  } else if (lower == "warn") {
+    *level = LogLevel::kWarn;
+  } else if (lower == "error") {
+    *level = LogLevel::kError;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+void Logger::SetStdout(bool enabled) {
+#ifdef __WXMSW__
+  if (enabled) {
+    // Kennel is a program without a console. Started from cmd or PowerShell
+    // with its output not redirected, it has no standard output: take the
+    // console of the program that started it. Redirected (> file, a pipe), the
+    // handle is there and nothing is needed.
+    const HANDLE out = ::GetStdHandle(STD_OUTPUT_HANDLE);
+    if ((out == nullptr || out == INVALID_HANDLE_VALUE) &&
+        ::AttachConsole(ATTACH_PARENT_PROCESS)) {
+      std::freopen("CONOUT$", "w", stdout);
+    }
+  }
+#endif
+  std::lock_guard<std::mutex> lock(m_mutex);
+  m_stdout = enabled;
+}
+
 void Logger::Write(LogLevel level, const wxString &msg) {
   std::lock_guard<std::mutex> lock(m_mutex);
-  EnsureOpen();
-  if (!m_file.IsOpened()) {
-    return;
-  }
   wxDateTime now = wxDateTime::UNow();
   wxString line = now.FormatISOCombined(' ') +
                   wxString::Format(".%03ld", now.GetMillisecond()) + " [" +
                   LevelToString(level) + "] " + msg + "\n";
+  if (m_stdout) {
+    std::fputs(line.utf8_str(), stdout);
+    std::fflush(stdout);
+  }
+  EnsureOpen();
+  if (!m_file.IsOpened()) {
+    return;
+  }
   m_file.Write(line);
   m_file.Flush();
 }
