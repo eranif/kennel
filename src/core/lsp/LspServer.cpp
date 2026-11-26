@@ -107,6 +107,10 @@ Status LspServer::Start() {
   return Status::Ok();
 }
 
+bool LspServer::IsRunning() const {
+  return m_process && m_process->IsRunning();
+}
+
 Status LspServer::Send(const std::string &bytes) {
   if (!m_process || !m_process->Write(bytes)) {
     return Status::Error("The language server is not running");

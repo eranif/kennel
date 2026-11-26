@@ -9,6 +9,7 @@
 #include <set>
 #include <wx/event.h>
 #include <wx/string.h>
+#include <wx/timer.h>
 
 // Where a server is on its way to being used.
 enum class LspServerState {
@@ -17,6 +18,7 @@ enum class LspServerState {
   kInstalling,      // Being downloaded and installed
   kInitializing,    // Launched, the handshake is not done
   kReady,           // Can be used
+  kRestarting,      // The process ended: waiting to start it again
   kDeclined,        // The user said no to the install
   kFailed,          // Did not work (the message says why)
 };
@@ -50,7 +52,12 @@ wxDECLARE_EVENT(wxEVT_LSP_SERVER_FAILED, LspManagerEvent);
 
 // The owner of the language servers, and the only thing a page talks to. One
 // server for each LspServerKey. GUI-free; only the UI thread may call it.
-class LspManager {
+//
+// One timer, for all the servers, looks once a second for a server whose
+// process ended, and starts it again after a delay that doubles with every
+// failure in a row (1 s, 2 s, 4 s ... at most 60 s). It gives up after 5
+// failures in a row; a server that ran for 60 s starts the count again.
+class LspManager : public wxEvtHandler {
 public:
   static LspManager &Get();
   ~LspManager();
@@ -88,6 +95,13 @@ private:
   // One server of the manager (see LspManager.cpp).
   class Entry;
 
+  // The timer: every entry looks at its process.
+  void OnTimer(wxTimerEvent &event);
+
   // The key is LspServerKey::GetKey().
   std::map<wxString, std::unique_ptr<Entry>> m_entries;
+  // Made with the first server, ended by Shutdown().
+  std::unique_ptr<wxTimer> m_timer;
+  // Shutdown() was called: GetServerFor() starts nothing any more.
+  bool m_isShutdown{false};
 };

@@ -5,7 +5,14 @@
 #include "core/RemoteInstaller.h"
 #include "core/Ripgrep.h"
 
+#include <algorithm>
+#include <chrono>
 #include <wx/intl.h>
+
+namespace {
+// How often the timer of the manager looks at the processes of the servers.
+constexpr int kWatchIntervalMs = 1000;
+} // namespace
 
 wxDEFINE_EVENT(wxEVT_LSP_INSTALL_NEEDED, LspManagerEvent);
 wxDEFINE_EVENT(wxEVT_LSP_SERVER_READY, LspManagerEvent);
@@ -61,6 +68,32 @@ public:
     }
   }
 
+  // Called by the timer of the manager, once a second: a server whose process
+  // ended is started again after a delay (see StartAgainLater()), and a server
+  // that waits for its delay is started when it is over.
+  void Watch() {
+    const Clock::time_point now = Clock::now();
+    switch (m_state) {
+    case LspServerState::kInitializing:
+    case LspServerState::kReady:
+      if (m_client && !m_client->IsRunning()) {
+        OnProcessEnded(now);
+      }
+      break;
+    case LspServerState::kRestarting:
+      if (now >= m_restartAt) {
+        Launch();
+      }
+      break;
+    case LspServerState::kChecking:
+    case LspServerState::kAwaitingConsent:
+    case LspServerState::kInstalling:
+    case LspServerState::kDeclined:
+    case LspServerState::kFailed:
+      break;
+    }
+  }
+
   LspServerState m_state{LspServerState::kChecking};
   // Made when the program is there (from kInitializing); usable when the state
   // is kReady.
@@ -69,6 +102,47 @@ public:
   wxString m_message;
 
 private:
+  using Clock = std::chrono::steady_clock;
+
+  // The delay before the first restart; it doubles with every failure in a row,
+  // up to kMaxDelay.
+  static constexpr std::chrono::seconds kFirstDelay{1};
+  static constexpr std::chrono::seconds kMaxDelay{60};
+  // The server gives up (kFailed) after this many failures in a row.
+  static constexpr int kMaxFailures = 5;
+  // A server that ran this long was healthy: the failures start from 0 again.
+  static constexpr std::chrono::seconds kHealthyUptime{60};
+
+  // The process of the server ended on its own.
+  void OnProcessEnded(const Clock::time_point &now) {
+    const auto uptime =
+        std::chrono::duration_cast<std::chrono::seconds>(now - m_launchedAt);
+    KLOG_DEBUG() << "LSP | " << m_key.GetKey()
+                 << ": the process ended, it ran for " << uptime.count() << "s";
+    m_client.reset();
+    if (uptime >= kHealthyUptime) {
+      m_failures = 0;
+    }
+    ++m_failures;
+    if (m_failures > kMaxFailures) {
+      Fail(wxString::Format(_("The language server ended %d times in a row; "
+                              "giving up."),
+                            m_failures));
+      return;
+    }
+    // 1 s, 2 s, 4 s ... at most kMaxDelay.
+    std::chrono::seconds delay = kFirstDelay;
+    for (int i = 1; i < m_failures && delay < kMaxDelay; ++i) {
+      delay *= 2;
+    }
+    delay = std::min(delay, kMaxDelay);
+    KLOG_DEBUG() << "LSP | " << m_key.GetKey() << ": failure " << m_failures
+                 << " of " << kMaxFailures << ", starting it again in "
+                 << delay.count() << "s";
+    m_restartAt = now + delay;
+    m_state = LspServerState::kRestarting;
+  }
+
   void OnInstallProgress(InstallEvent &event) {
     KLOG_DEBUG() << "LSP | " << m_key.GetKey() << ": " << event.GetString();
   }
@@ -94,17 +168,19 @@ private:
     KLOG_INFO() << "LSP | " << tool.name << " " << tool.version << " is on "
                 << m_key.m_account.GetDisplayName() << " at "
                 << event.GetPath();
-    Launch(event.GetPath());
+    m_installedPath = event.GetPath();
+    Launch();
   }
 
   // Starts the server and the handshake. The answer comes with OnClientReady()
   // or OnClientFailed().
-  void Launch(const wxString &installedPath) {
+  void Launch() {
     KLOG_DEBUG() << "LSP | " << m_key.GetKey() << ": launching "
-                 << m_key.GetProgram(installedPath);
+                 << m_key.GetProgram(m_installedPath);
     m_state = LspServerState::kInitializing;
+    m_launchedAt = Clock::now();
     m_client =
-        std::make_shared<LspClient>(m_key, m_key.GetProgram(installedPath));
+        std::make_shared<LspClient>(m_key, m_key.GetProgram(m_installedPath));
     const Status started = m_client->Start();
     if (!started.ok()) {
       m_client.reset();
@@ -147,6 +223,14 @@ private:
 
   LspServerKey m_key;
   RemoteInstaller m_installer;
+  // Where RemoteInstaller found (or put) the program, as it reports it.
+  wxString m_installedPath;
+  // When the process was started last.
+  Clock::time_point m_launchedAt;
+  // When to start it again (kRestarting).
+  Clock::time_point m_restartAt;
+  // How many times in a row the process ended.
+  int m_failures{0};
 };
 
 LspManager &LspManager::Get() {
@@ -156,8 +240,19 @@ LspManager &LspManager::Get() {
 
 LspManager::~LspManager() = default;
 
+void LspManager::OnTimer(wxTimerEvent &) {
+  for (auto &[key, entry] : m_entries) {
+    entry->Watch();
+  }
+}
+
 StatusOr<std::shared_ptr<LspClient>>
 LspManager::GetServerFor(const LspServerKey &key) {
+  if (m_isShutdown) {
+    return Status::Error(
+        StatusCode::kUnavailable,
+        _("The language servers are shut down: Kennel is closing."));
+  }
   if (key.GetTool() == nullptr) {
     return Status::Error(
         StatusCode::kNotAvailable,
@@ -170,6 +265,14 @@ LspManager::GetServerFor(const LspServerKey &key) {
     KLOG_DEBUG() << "LSP | " << key.GetKey() << ": a new server is wanted";
     it->second = std::make_unique<Entry>(key);
     it->second->Check();
+    if (!m_timer) {
+      // One timer for all the servers.
+      m_timer = std::make_unique<wxTimer>(this);
+      Bind(wxEVT_TIMER, &LspManager::OnTimer, this);
+      m_timer->Start(kWatchIntervalMs);
+      KLOG_DEBUG() << "LSP | watching the servers every " << kWatchIntervalMs
+                   << " ms";
+    }
   }
 
   const Entry &entry = *it->second;
@@ -187,6 +290,7 @@ LspManager::GetServerFor(const LspServerKey &key) {
   case LspServerState::kAwaitingConsent:
   case LspServerState::kInstalling:
   case LspServerState::kInitializing:
+  case LspServerState::kRestarting:
     break;
   }
   return Status::Error(
@@ -195,6 +299,13 @@ LspManager::GetServerFor(const LspServerKey &key) {
 }
 
 void LspManager::Shutdown() {
+  m_isShutdown = true;
+  // First the timer: nothing may start a server again.
+  if (m_timer) {
+    m_timer->Stop();
+    m_timer.reset();
+    Unbind(wxEVT_TIMER, &LspManager::OnTimer, this);
+  }
   KLOG_DEBUG() << "LSP | shutting down, " << m_entries.size() << " server(s)";
   while (!m_entries.empty()) {
     auto it = m_entries.begin();

@@ -56,6 +56,9 @@ public:
   // started, or was started before.
   Status Start();
 
+  // Whether the process of the server is alive.
+  bool IsRunning() const;
+
   // Writes `bytes` to the input of the server. An error when it is not running.
   Status Send(const std::string &bytes);
 

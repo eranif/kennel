@@ -35,6 +35,9 @@ public:
   // started.
   Status Start();
 
+  // Whether the process of the server is alive.
+  bool IsRunning() const { return m_server.IsRunning(); }
+
   // Writes `body` (JSON) with its `Content-Length` header to the server.
   Status Send(const std::string &body);
 
