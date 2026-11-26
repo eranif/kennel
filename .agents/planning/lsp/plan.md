@@ -1,8 +1,10 @@
 # Plan: LSP support in Kennel
 
 Progress: `[x]` done, `[ ]` open. Tick a box when its commit is pushed.
-Status as of 2026-11-24. Phase 1 is started: `LspServer`, `JsonRpcFramer` and a skeleton of
-`LspClient` are pushed (`src/core/lsp/`). Nothing has been run against a real server yet.
+Status as of 2026-11-26. Phase 1 is started: `LspServer`, `JsonRpcFramer` and a skeleton of
+`LspClient` are pushed (`src/core/lsp/`). `Status` has reason codes (`StatusCode`, committed, not
+pushed). The flow of `LspManager::GetServerFor()` is decided (see "The flow of a file"). Nothing
+has been run against a real server yet.
 
 ## Context
 Kennel opens files in `FilePage` (an `Editor`, a `wxStyledTextCtrl`) for this machine, a WSL
@@ -75,12 +77,15 @@ their own**: the GUI-free ones in `src/core/lsp/`, the ones that touch the UI in
    `initialized` / `shutdown` / `exit`, request timeouts, `$/cancelRequest`, a crash (restart
    with a limit), the capabilities of the server (including the semantic tokens legend). Knows
    nothing of editors.
-4. `LspManager`: the single owner of the servers, and the only thing a page talks to: a page
-   calls it (`manager->SemanticTokens(...)` and the like) and the answer comes back as an
-   event. It starts and shuts down the servers. A server is identified by `{ Account,
-   WorkingDirectory }` (the `m_rootDir` of the `Account`) and the language, since a server
-   speaks one language. The working directory is the one of a session (see below). Reads
-   `LanguageServerConfig`.
+4. `LspManager`: the single owner of the servers (`LspManager::Get()`), and the only thing a
+   page talks to. A server is identified by `{ Account, WorkingDirectory, language }` (the
+   `m_rootDir` of the `Account`; a server speaks one language), at most one per key. The
+   working directory is the one of a session (see below). Reads `LanguageServerConfig`. The one
+   entry point is `StatusOr<std::shared_ptr<LspClient>> GetServerFor(key)`: it returns the
+   client when the server is ready, and otherwise it starts what is missing (check, install,
+   launch, handshake) by itself and returns an error `Status` whose code says why (see "The flow
+   of a file"). There is no `Start()`. The answers of the other requests
+   (`manager->SemanticTokens(...)` and the like) come back as events.
 5. `LanguageServerConfig`: see below.
 6. `LspUri`: `file:///` URIs (Windows drive letters, percent-encoding, Linux paths for WSL).
 7. `LspPositionConverter`: UTF-8 (STC bytes) <-> UTF-16 (LSP) per line, cached per document
@@ -119,10 +124,48 @@ fits best wins (the same account, and a working directory that holds the file; t
 when several do). Nothing is stored in the file page or in the workspace for this. There is no
 search for markers (`.git`, `Cargo.toml`, ...) any more.
 
-Never start anything without the user: a server is started only for a language that has a
-configured and found command, and a missing server is offered once ("Install clangd on
-<host>?" through `RemoteInstaller`, same message-box rule as ripgrep), remembered per
-account + language. A "Language Servers" menu/status item shows what runs and lets the user stop it.
+Never install anything without the user: a missing server is offered ("Download and Install
+clangd?" through `RemoteInstaller`, the same check-only / ask / install steps and the same
+message box as ripgrep in `FindInFilesDlg`). A "Language Servers" menu/status item shows what
+runs and lets the user stop it.
+
+### The flow of a file
+1. A file opens. The `FilePage` works out the language (from the extension), the account
+   (`GetAccount()`) and the working directory (the best fitting open session). No language or no
+   fitting session: nothing more happens.
+2. The page calls `LspManager::Get().GetServerFor(key)`. The answer is the client, or a `Status`:
+   - the entry is **Ready**: the client (`shared_ptr<LspClient>`);
+   - no entry yet: the entry is created in **Checking**, the work starts in the background, and
+     the answer is `kUnavailable`;
+   - **Checking, AwaitingConsent, Installing, Initializing**: `kUnavailable` (try again after
+     the event of step 7);
+   - **Declined**: `kPermissionDenied`;
+   - no server for this language, or no build of it for this machine: `kNotAvailable`;
+   - **Failed**: another code, with the message.
+3. **Check**: `RemoteInstaller` in `Mode::kCheckOnly` for the `ToolDescription` of the server, on
+   the account. An error -> **Failed**. Installed -> step 5. `NeedsInstall()` -> **AwaitingConsent**
+   and `wxEVT_LSP_INSTALL_NEEDED` (key, tool).
+4. **Ask**: `MainFrame` handles it with the message box of ripgrep and calls
+   `manager->Install(key)` (-> **Installing**, `RemoteInstaller` in `Mode::kInstall`, progress
+   forwarded as events, then step 5 or **Failed**) or `manager->Decline(key)` (-> **Declined**).
+5. **Launch**: the manager makes the `LspClient` (type from the account, kind from the language)
+   and starts it. -> **Initializing**.
+6. **Handshake**, once per server: `initialize` (`rootUri`, client capabilities with
+   `positionEncodings`), the response (the capabilities of the server are kept), `initialized`.
+   -> **Ready**.
+7. The manager sends `wxEVT_LSP_SERVER_READY` (key), or `wxEVT_LSP_SERVER_FAILED` (key,
+   message). The page that got `kUnavailable` handles it, calls `GetServerFor(key)` again, gets
+   the client and sends `didOpen` (then `didChange`, `didSave`, `didClose`). The manager keeps no
+   list of documents and queues nothing for the page.
+8. The server asks the client things: `window/workDoneProgress/create`,
+   `client/registerCapability`, `workspace/configuration` must be answered, or clangd and
+   rust-analyzer wait for ever.
+9. The last document of a key closes: after a grace period `shutdown`, `exit`, `Stop()`. A crash
+   -> **Failed** (restart with a limit).
+
+`StatusCode` (`core/Status.h`, done): `kUnknown` (the default of `Status::Error(message)`),
+`kUnavailable` (not ready, try again), `kPermissionDenied` (the user said no), `kNotAvailable`
+(nothing to use, and waiting does not help).
 
 ## Phases
 
@@ -148,11 +191,17 @@ document outline, workspace symbols, find references. Editing features come afte
       semantic tokens); keep the server's, and ask them (`SupportsDefinition()` ...) before
       sending a request.
 - [x] Files added to `CMakeLists.txt` (for the classes above).
+- [x] `StatusCode` in `Status` (`kUnavailable`, `kPermissionDenied`, `kNotAvailable`, ...), for
+      `GetServerFor()`.
 
 ### Phase 2 - Manager, config, document sync (feature 1: didOpen / didChange / didSave / didClose)
-- [ ] `LanguageServerConfig` + defaults + persistence (`ConfigStore`), `LspManager`
-      (key, ref count, grace-period stop, restart limit, the working directory from the
-      sessions), `LspUri`.
+- [ ] `LanguageServerConfig` + defaults + persistence (`ConfigStore`), `LspUri`.
+- [ ] `LspManager`: `GetServerFor(key)` and the flow of a file (entry states Checking,
+      AwaitingConsent, Installing, Initializing, Ready, Declined, Failed; `RemoteInstaller` check
+      / install; `Install(key)` / `Decline(key)`; launch and handshake; the events
+      `wxEVT_LSP_INSTALL_NEEDED`, `wxEVT_LSP_SERVER_READY`, `wxEVT_LSP_SERVER_FAILED`), the
+      working directory from the sessions, the grace-period stop, the restart limit. The handler
+      of the install question in `MainFrame`.
 - [ ] `LspDocument` in `FilePage` (`src/app/lsp/`): `didOpen` on load, `didChange` on STC modify
       (debounced; a full-text send is fine for a start, incremental after), `didSave`,
       `didClose`.
@@ -251,3 +300,12 @@ phase when one is wanted.
     `Process`; if the client is destroyed while it runs, it calls a client that is gone. Needs a
     change in `Process` (or a guard); `Process::Write()` can also wait when the server does
     not read.
+11. **Where the server is installed**: with the ripgrep approach the program is
+    `$HOME/.kennel/bin/<server>`, but `LspServer` runs the bare name, and `wsl.exe --exec` does
+    no `$HOME` expansion. `LspServer` needs the absolute path (`InstallEvent::GetPath()`).
+12. **`PATH` first?** Phase 9 says to look for a server on `PATH` before installing; "like
+    ripgrep" means `~/.kennel/bin` only. Not decided.
+13. **Is "Declined" remembered**: in memory only (asked again at the next start), or kept in the
+    config per account and language?
+14. **One `RemoteInstaller` per key**: it runs one install at a time, so two files that open at
+    once on different accounts need one installer each (or a queue).
