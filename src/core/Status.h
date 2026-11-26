@@ -6,24 +6,48 @@
 #include <new>
 #include <utility>
 
+// Why a Status is an error. A caller that must tell one failure from another
+// (for example "try again later" from "it will never work") looks at this and
+// not at the text of the message.
+enum class StatusCode {
+  kOk,
+  kUnknown,          // An error that has no more precise reason
+  kUnavailable,      // Not ready now, may be later: try again (for example a
+                     // server that is being installed or started)
+  kPermissionDenied, // The user (or the machine) said no
+  kNotAvailable,     // There is nothing to use, and nothing will appear by
+                     // waiting (no server for this language, no build of the
+                     // tool for this machine)
+};
+
 // Lightweight, exception-free result type modeled on absl::Status. An OK
-// status carries no message; an error status carries a human-readable message.
+// status carries no message; an error status carries a reason (StatusCode) and
+// a human-readable message.
 class Status {
 public:
   Status() = default; // OK
 
   static Status Ok() { return Status(); }
-  static Status Error(const wxString &message) { return Status(message); }
+  // An error with no precise reason (StatusCode::kUnknown).
+  static Status Error(const wxString &message) {
+    return Status(StatusCode::kUnknown, message);
+  }
+  // `code` must not be StatusCode::kOk.
+  static Status Error(StatusCode code, const wxString &message) {
+    return Status(code, message);
+  }
 
-  bool ok() const { return m_ok; }
+  bool ok() const { return m_code == StatusCode::kOk; }
+  StatusCode code() const { return m_code; }
   const wxString &message() const { return m_message; }
 
-  explicit operator bool() const { return m_ok; }
+  explicit operator bool() const { return ok(); }
 
 private:
-  explicit Status(const wxString &message) : m_ok(false), m_message(message) {}
+  Status(StatusCode code, const wxString &message)
+      : m_code(code), m_message(message) {}
 
-  bool m_ok = true;
+  StatusCode m_code = StatusCode::kOk;
   wxString m_message;
 };
 
