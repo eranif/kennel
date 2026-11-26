@@ -296,6 +296,7 @@ add_library(
   src/core/RunShell.cpp
   src/core/lsp/JsonRpcFramer.cpp
   src/core/lsp/LspClient.cpp
+  src/core/lsp/LspManager.cpp
   src/core/lsp/LspServer.cpp)
 
 target_include_directories(kennel_core PUBLIC src ${wxWidgets_INCLUDE_DIRS})
