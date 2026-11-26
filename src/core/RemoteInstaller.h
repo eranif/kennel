@@ -107,7 +107,7 @@ public:
   // A download is stopped when it goes over this many bytes (it is read in
   // pieces as it arrives, so it is never held in memory beyond the limit by
   // much), and so is one that says in its headers that it is bigger.
-  static constexpr size_t kMaxDownload = 64 * 1024 * 1024;
+  static constexpr size_t kMaxDownload = 256 * 1024 * 1024;
 
   explicit RemoteInstaller(wxEvtHandler *handler);
   // Detaches from a running install (it is cancelled, no event comes). Never
