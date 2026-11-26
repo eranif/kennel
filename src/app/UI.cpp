@@ -50,11 +50,11 @@ static void wxCrafterFiTVkcInitBitmapResources() {
 
   XRC_ADD_FILE(
       wxT("XRC_resource/"
-          "UI.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"),
+          "UI.cpp$C__msys64_home_eran_devl_kennel_src_app_UI_app_bitmaps.xrc"),
       xml_res_file_0, xml_res_size_0, wxT("text/xml"));
   wxXmlResource::Get()->Load(
       wxT("memory:XRC_resource/"
-          "UI.cpp$_Users_eifrah_devl_kennel_src_app_UI_app_bitmaps.xrc"));
+          "UI.cpp$C__msys64_home_eran_devl_kennel_src_app_UI_app_bitmaps.xrc"));
 }
 
 #ifdef WXC_MAYBE_UNUSED
@@ -1897,6 +1897,59 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
   boxSizer673->Add(m_buttonResetTmuxTerminalSettings, 0, wxALL | wxALIGN_RIGHT,
                    WXC_FROM_DIP(5));
 
+  m_panelAnswers =
+      new wxPanel(m_notebook352, wxID_ANY, wxDefaultPosition,
+                  wxDLG_UNIT(m_notebook352, wxSize(-1, -1)), wxTAB_TRAVERSAL);
+  m_notebook352->AddPage(m_panelAnswers, _("Answers"), false);
+
+  wxBoxSizer *boxSizerAnswers = new wxBoxSizer(wxVERTICAL);
+  m_panelAnswers->SetSizer(boxSizerAnswers);
+
+  m_staticTextAnswersHelp = new wxStaticText(
+      m_panelAnswers, wxID_ANY,
+      _("The questions that you answered with \"do not ask again\". Remove an "
+        "answer to be asked again."),
+      wxDefaultPosition, wxDLG_UNIT(m_panelAnswers, wxSize(-1, -1)), 0);
+
+  boxSizerAnswers->Add(m_staticTextAnswersHelp, 0, wxALL, WXC_FROM_DIP(5));
+
+  wxBoxSizer *boxSizerAnswersBody = new wxBoxSizer(wxHORIZONTAL);
+
+  boxSizerAnswers->Add(boxSizerAnswersBody, 1, wxALL | wxEXPAND,
+                       WXC_FROM_DIP(5));
+
+  m_listCtrlAnswers =
+      new wxListCtrl(m_panelAnswers, wxID_ANY, wxDefaultPosition,
+                     wxDLG_UNIT(m_panelAnswers, wxSize(-1, -1)),
+                     wxLC_SINGLE_SEL | wxLC_REPORT);
+
+  boxSizerAnswersBody->Add(m_listCtrlAnswers, 1, wxALL | wxEXPAND,
+                           WXC_FROM_DIP(5));
+
+  m_listCtrlAnswers->InsertColumn(m_listCtrlAnswers->GetColumnCount(),
+                                  _("Question"), wxLIST_FORMAT_LEFT, 420);
+  m_listCtrlAnswers->InsertColumn(m_listCtrlAnswers->GetColumnCount(),
+                                  _("Answer"), wxLIST_FORMAT_LEFT, 80);
+  wxBoxSizer *boxSizerAnswerButtons = new wxBoxSizer(wxVERTICAL);
+
+  boxSizerAnswersBody->Add(boxSizerAnswerButtons, 0, 0, WXC_FROM_DIP(5));
+
+  m_buttonRemoveAnswer =
+      new wxButton(m_panelAnswers, wxID_ANY, _("Remove"), wxDefaultPosition,
+                   wxDLG_UNIT(m_panelAnswers, wxSize(-1, -1)), 0);
+  m_buttonRemoveAnswer->SetToolTip(_("Ask the selected question again"));
+
+  boxSizerAnswerButtons->Add(m_buttonRemoveAnswer, 0, wxALL | wxEXPAND,
+                             WXC_FROM_DIP(5));
+
+  m_buttonRemoveAllAnswers =
+      new wxButton(m_panelAnswers, wxID_ANY, _("Remove All"), wxDefaultPosition,
+                   wxDLG_UNIT(m_panelAnswers, wxSize(-1, -1)), 0);
+  m_buttonRemoveAllAnswers->SetToolTip(_("Ask all these questions again"));
+
+  boxSizerAnswerButtons->Add(m_buttonRemoveAllAnswers, 0, wxALL | wxEXPAND,
+                             WXC_FROM_DIP(5));
+
   m_stdBtnSizer347 = new wxStdDialogButtonSizer();
 
   boxSizer346->Add(m_stdBtnSizer347, 0, wxALL | wxALIGN_CENTER_HORIZONTAL,
@@ -1954,6 +2007,14 @@ SettingsDlgBase::SettingsDlgBase(wxWindow *parent, wxWindowID id,
                                  &SettingsDlgBase::OnTabOutlineColour, this);
   m_button508->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
                     &SettingsDlgBase::OnBrowseForShellWorkingDir, this);
+  m_buttonRemoveAnswer->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
+                             &SettingsDlgBase::OnRemoveAnswer, this);
+  m_buttonRemoveAnswer->Bind(wxEVT_UPDATE_UI,
+                             &SettingsDlgBase::OnRemoveAnswerUI, this);
+  m_buttonRemoveAllAnswers->Bind(wxEVT_COMMAND_BUTTON_CLICKED,
+                                 &SettingsDlgBase::OnRemoveAllAnswers, this);
+  m_buttonRemoveAllAnswers->Bind(wxEVT_UPDATE_UI,
+                                 &SettingsDlgBase::OnRemoveAllAnswersUI, this);
 }
 
 SettingsDlgBase::~SettingsDlgBase() {
@@ -1967,6 +2028,14 @@ SettingsDlgBase::~SettingsDlgBase() {
                                    &SettingsDlgBase::OnTabOutlineColour, this);
   m_button508->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
                       &SettingsDlgBase::OnBrowseForShellWorkingDir, this);
+  m_buttonRemoveAnswer->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
+                               &SettingsDlgBase::OnRemoveAnswer, this);
+  m_buttonRemoveAnswer->Unbind(wxEVT_UPDATE_UI,
+                               &SettingsDlgBase::OnRemoveAnswerUI, this);
+  m_buttonRemoveAllAnswers->Unbind(wxEVT_COMMAND_BUTTON_CLICKED,
+                                   &SettingsDlgBase::OnRemoveAllAnswers, this);
+  m_buttonRemoveAllAnswers->Unbind(
+      wxEVT_UPDATE_UI, &SettingsDlgBase::OnRemoveAllAnswersUI, this);
 }
 
 NewAgentWizardBase::NewAgentWizardBase(wxWindow *parent, wxWindowID id,

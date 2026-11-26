@@ -40,6 +40,7 @@
 #include <wx/menu.h>
 #include <wx/fontpicker.h>
 #include <wx/spinctrl.h>
+#include <wx/listctrl.h>
 #include <wx/wizard.h>
 #include <vector>
 #include <wx/bannerwindow.h>
@@ -441,6 +442,11 @@ protected:
     wxPanel* m_panelTerminals;
     wxTextCtrl* m_textCtrlTmuxTerminalSettings;
     wxButton* m_buttonResetTmuxTerminalSettings;
+    wxPanel* m_panelAnswers;
+    wxStaticText* m_staticTextAnswersHelp;
+    wxListCtrl* m_listCtrlAnswers;
+    wxButton* m_buttonRemoveAnswer;
+    wxButton* m_buttonRemoveAllAnswers;
     wxStdDialogButtonSizer* m_stdBtnSizer347;
     wxButton* m_buttonOk;
     wxButton* m_buttonCancel;
@@ -451,6 +457,10 @@ protected:
     virtual void OnTabPosition(wxCommandEvent& event) { event.Skip(); }
     virtual void OnTabOutlineColour(wxCommandEvent& event) { event.Skip(); }
     virtual void OnBrowseForShellWorkingDir(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnRemoveAnswer(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnRemoveAnswerUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnRemoveAllAnswers(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnRemoveAllAnswersUI(wxUpdateUIEvent& event) { event.Skip(); }
 
 public:
     wxStaticText* GetStaticText355() { return m_staticText355; }
@@ -491,6 +501,11 @@ public:
     wxPanel* GetPanelTerminals() { return m_panelTerminals; }
     wxNotebook* GetNotebook669() { return m_notebook669; }
     wxPanel* GetPanelTmux() { return m_panelTmux; }
+    wxStaticText* GetStaticTextAnswersHelp() { return m_staticTextAnswersHelp; }
+    wxListCtrl* GetListCtrlAnswers() { return m_listCtrlAnswers; }
+    wxButton* GetButtonRemoveAnswer() { return m_buttonRemoveAnswer; }
+    wxButton* GetButtonRemoveAllAnswers() { return m_buttonRemoveAllAnswers; }
+    wxPanel* GetPanelAnswers() { return m_panelAnswers; }
     wxNotebook* GetNotebook352() { return m_notebook352; }
     wxPanel* GetPanel350() { return m_panel350; }
     SettingsDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Settings"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);

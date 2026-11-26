@@ -90,6 +90,16 @@ protected:
   void OnBrowseForShellWorkingDir(wxCommandEvent &event) override;
   void OnChoiceTheme(wxCommandEvent &event) override;
   void OnFontSelected(wxFontPickerEvent &event) override;
+  // The "Answers" page: Remove takes back the answer that is selected in the
+  // list, Remove All all of them (the questions are asked again).
+  void OnRemoveAnswer(wxCommandEvent &event) override;
+  void OnRemoveAllAnswers(wxCommandEvent &event) override;
+  // Both are disabled when the list has no answers.
+  void OnRemoveAnswerUI(wxUpdateUIEvent &event) override;
+  void OnRemoveAllAnswersUI(wxUpdateUIEvent &event) override;
+
+  // Shows the stored answers (DialogAnswers) in the list of the "Answers" page.
+  void ShowAnswers();
 
   // Not in the generated dialog: bound in the constructor. They put the
   // default tmux commands back in the text of the page.

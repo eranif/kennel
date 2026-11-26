@@ -5,6 +5,7 @@
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
 #include "core/Helpers.h"
+#include "core/Logger.h"
 #include "core/TmuxCommands.h"
 #include "terminal_view.h"
 #include <wx/tokenzr.h>
@@ -201,6 +202,7 @@ SettingsDlg::SettingsDlg(wxWindow *parent) : SettingsDlgBase(parent) {
       wxEVT_BUTTON, &SettingsDlg::OnResetTmuxAgentSettings, this);
   m_buttonResetTmuxTerminalSettings->Bind(
       wxEVT_BUTTON, &SettingsDlg::OnResetTmuxTerminalSettings, this);
+  ShowAnswers();
   GetSizer()->Fit(this);
   PositionDialog(this);
 }
@@ -249,6 +251,47 @@ void SettingsDlg::OnResetTmuxAgentSettings(wxCommandEvent &) {
 
 void SettingsDlg::OnResetTmuxTerminalSettings(wxCommandEvent &) {
   m_textCtrlTmuxTerminalSettings->SetValue(tmux::DefaultTerminalSettings());
+}
+
+void SettingsDlg::ShowAnswers() {
+  m_listCtrlAnswers->DeleteAllItems();
+  const auto &entries = AppManager::Get().GetDialogAnswers().GetEntries();
+  for (size_t i = 0; i < entries.size(); ++i) {
+    const long row = m_listCtrlAnswers->InsertItem(static_cast<long>(i),
+                                                   entries[i].m_question);
+    m_listCtrlAnswers->SetItem(row, 1, entries[i].m_yes ? _("Yes") : _("No"));
+  }
+}
+
+void SettingsDlg::OnRemoveAnswerUI(wxUpdateUIEvent &event) {
+  // Nothing to take back when the list is empty.
+  event.Enable(m_listCtrlAnswers->GetItemCount() > 0);
+}
+
+void SettingsDlg::OnRemoveAllAnswersUI(wxUpdateUIEvent &event) {
+  event.Enable(m_listCtrlAnswers->GetItemCount() > 0);
+}
+
+void SettingsDlg::OnRemoveAnswer(wxCommandEvent &) {
+  const long row = m_listCtrlAnswers->GetNextItem(-1, wxLIST_NEXT_ALL,
+                                                  wxLIST_STATE_SELECTED);
+  const auto &entries = AppManager::Get().GetDialogAnswers().GetEntries();
+  if (row < 0 || static_cast<size_t>(row) >= entries.size()) {
+    return;
+  }
+  // A copy: the entry is gone when Remove() returns.
+  const wxString key = entries[row].m_key;
+  if (Status st = AppManager::Get().GetDialogAnswers().Remove(key); !st.ok()) {
+    KLOG_WARN() << "Could not remove the answer: " << st.message();
+  }
+  ShowAnswers();
+}
+
+void SettingsDlg::OnRemoveAllAnswers(wxCommandEvent &) {
+  if (Status st = AppManager::Get().GetDialogAnswers().RemoveAll(); !st.ok()) {
+    KLOG_WARN() << "Could not remove the answers: " << st.message();
+  }
+  ShowAnswers();
 }
 
 void SettingsDlg::OnTabPosition(wxCommandEvent &event) {
