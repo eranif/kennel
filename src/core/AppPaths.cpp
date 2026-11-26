@@ -47,6 +47,12 @@ wxFileName AppPaths::PersistFile() const {
   return f;
 }
 
+wxFileName AppPaths::DialogAnswersFile() const {
+  wxFileName f = m_root;
+  f.SetFullName("dialog-answers.json");
+  return f;
+}
+
 wxFileName AppPaths::SessionsDir() const {
   wxFileName d = m_root;
   d.AppendDir("sessions");

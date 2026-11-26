@@ -264,6 +264,7 @@ add_library(
   src/core/UpdateChecker.cpp
   src/core/Logger.cpp
   src/core/SshConfigParser.cpp
+  src/core/DialogAnswers.cpp
   src/core/HostsStore.cpp
   src/core/Process.cpp
   src/core/Helpers.cpp

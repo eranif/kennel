@@ -34,13 +34,26 @@ struct LspServerKey {
   // The name of the kind of the server: "clangd", "gopls", "rust-analyzer".
   wxString GetKindName() const;
 
+  // The machine as text: "LocalHost", or Account::GetId() for the others.
+  wxString GetMachine() const {
+    return m_account.IsLocalHost() ? wxString("LocalHost") : m_account.GetId();
+  }
+
   // The key as one text, fit to be the key of a map and to be read in a log:
-  // "clangd(machine=LocalHost, rootDir=C:/src/app)". The machine is
-  // "LocalHost", or Account::GetId() for the others.
+  // "clangd(machine=LocalHost, rootDir=C:/src/app)".
   wxString GetKey() const {
-    const wxString machine =
-        m_account.IsLocalHost() ? wxString("LocalHost") : m_account.GetId();
-    return GetKindName() + "(machine=" + machine +
+    return GetKindName() + "(machine=" + GetMachine() +
            ", rootDir=" + m_account.m_rootDir + ")";
+  }
+
+  // The question "Install the server on this machine?" (it is the same for
+  // every working directory of the machine): how DialogAnswers tells it from
+  // the others, and the words that the user reads there.
+  wxString GetInstallAnswerKey() const {
+    return "lsp.install(" + GetKindName() + ", machine=" + GetMachine() + ")";
+  }
+  wxString GetInstallQuestion() const {
+    return wxString::Format(_("Install %s on %s?"), GetKindName(),
+                            m_account.GetDisplayName());
   }
 };

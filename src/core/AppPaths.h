@@ -15,14 +15,15 @@ public:
   // Constructs paths rooted at <home>/.kennel for an explicit home dir.
   static AppPaths WithHome(const wxString &home);
 
-  wxFileName Root() const;          // <home>/.kennel
-  wxFileName ConfigFile() const;    // root/config.json
-  wxFileName WorkspaceFile() const; // root/workspace.json
-  wxFileName HostsFile() const;     // root/hosts.json
-  wxFileName PersistFile() const;   // root/.persist.json
-  wxFileName SessionsDir() const;   // root/sessions
-  wxFileName LogsDir() const;       // root/logs
-  wxFileName AssetsDir() const;     // root/assets (icons)
+  wxFileName Root() const;              // <home>/.kennel
+  wxFileName ConfigFile() const;        // root/config.json
+  wxFileName WorkspaceFile() const;     // root/workspace.json
+  wxFileName HostsFile() const;         // root/hosts.json
+  wxFileName PersistFile() const;       // root/.persist.json
+  wxFileName DialogAnswersFile() const; // root/dialog-answers.json
+  wxFileName SessionsDir() const;       // root/sessions
+  wxFileName LogsDir() const;           // root/logs
+  wxFileName AssetsDir() const;         // root/assets (icons)
 
   // Creates root, sessions/, and logs/ if missing. Idempotent. Returns true
   // on success; on failure the error message is written to *error (if given).

@@ -1,5 +1,6 @@
 #include "core/lsp/LspManager.h"
 
+#include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
 #include "core/Logger.h"
 #include "core/RemoteInstaller.h"
@@ -159,6 +160,16 @@ private:
     }
     const ToolDescription &tool = *m_key.GetTool();
     if (event.NeedsInstall()) {
+      // The user said No before, and asked not to be asked again.
+      const std::optional<bool> stored =
+          AppManager::Get().GetDialogAnswers().FindAnswer(
+              m_key.GetInstallAnswerKey());
+      if (stored && !*stored) {
+        KLOG_DEBUG() << "LSP | " << m_key.GetKey() << ": " << tool.name
+                     << " is not there, and the answer is stored: No";
+        m_state = LspServerState::kDeclined;
+        return;
+      }
       KLOG_DEBUG() << "LSP | " << m_key.GetKey() << ": " << tool.name
                    << " is not there, asking the user";
       m_state = LspServerState::kAwaitingConsent;
@@ -259,6 +270,18 @@ LspManager::GetServerFor(const LspServerKey &key) {
         _("There is no language server to install for this language."));
   }
 
+  // Declined means that the answer is stored. The user took it back in the
+  // Settings: the question is open again.
+  if (const auto declined = m_entries.find(key.GetKey());
+      declined != m_entries.end() &&
+      declined->second->m_state == LspServerState::kDeclined &&
+      !AppManager::Get().GetDialogAnswers().FindAnswer(
+          key.GetInstallAnswerKey())) {
+    KLOG_DEBUG() << "LSP | " << key.GetKey()
+                 << ": the stored answer was removed, asking again";
+    m_entries.erase(declined);
+  }
+
   const wxString name = key.m_account.GetDisplayName();
   auto [it, added] = m_entries.try_emplace(key.GetKey());
   if (added) {
@@ -343,5 +366,11 @@ void LspManager::Decline(const LspServerKey &key) {
     KLOG_DEBUG() << "LSP | " << key.GetKey()
                  << ": the user declined the install";
     it->second->m_state = LspServerState::kDeclined;
+    // Not asked again, on this machine, until the user takes the answer back.
+    const Status stored = AppManager::Get().GetDialogAnswers().Store(
+        key.GetInstallAnswerKey(), key.GetInstallQuestion(), false);
+    if (!stored.ok()) {
+      KLOG_WARN() << "LSP | could not store the answer: " << stored.message();
+    }
   }
 }

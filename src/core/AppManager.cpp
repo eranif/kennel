@@ -67,6 +67,11 @@ void AppManager::Initialize(const AppPaths &paths) {
 
   m_hostsStore = std::make_unique<HostsStore>(paths);
 
+  m_dialogAnswers = std::make_unique<DialogAnswers>(paths);
+  if (Status st = m_dialogAnswers->Load(); !st.ok()) {
+    KLOG_WARN() << "Could not load the dialog answers: " << st.message();
+  }
+
   // A saved empty name stays empty in the file, so the default is set here too.
   if (m_uiPrefs.terminalTheme.empty()) {
     m_uiPrefs.terminalTheme = "Mariana";
@@ -143,6 +148,13 @@ HostsStore &AppManager::Hosts() {
     std::abort();
   }
   return *m_hostsStore;
+}
+
+DialogAnswers &AppManager::GetDialogAnswers() {
+  if (!m_dialogAnswers) {
+    std::abort();
+  }
+  return *m_dialogAnswers;
 }
 
 UiPrefs &AppManager::GetPrefs() { return m_uiPrefs; }

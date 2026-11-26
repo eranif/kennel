@@ -5,6 +5,7 @@
 #include "core/Bitmaps.h"
 #include "core/Config.h"
 #include "core/ConfigStore.h"
+#include "core/DialogAnswers.h"
 #include "core/HostsStore.h"
 #include "core/Status.h"
 #include "core/UiPrefs.h"
@@ -79,6 +80,10 @@ public:
 
   HostsStore &Hosts();
 
+  // The answers that the user does not want to be asked again
+  // (dialog-answers.json).
+  DialogAnswers &GetDialogAnswers();
+
   // UI preferences: the live snapshot and the store backing .persist.json.
   UiPrefs &GetPrefs();
   Status SavePrefs();
@@ -96,5 +101,6 @@ private:
   ::Workspace m_initialWorkspace;
   std::unique_ptr<UiPrefsStore> m_uiPrefsStore;
   std::unique_ptr<HostsStore> m_hostsStore;
+  std::unique_ptr<DialogAnswers> m_dialogAnswers;
   std::unique_ptr<Bitmaps> m_bitmaps;
 };
