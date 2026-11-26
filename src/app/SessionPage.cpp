@@ -280,6 +280,9 @@ SessionPage::SessionPage(wxWindow *parent, std::optional<AgentDef> agent,
   });
   Bind(wxEVT_SEARCHBAR_FIND, &SessionPage::OnSearchBarFind, this);
   Bind(wxEVT_SEARCHBAR_CLOSE, &SessionPage::OnSearchBarClose, this);
+  m_promptEnterTimer.SetOwner(this);
+  Bind(wxEVT_TIMER, &SessionPage::OnPromptEnterTimer, this,
+       m_promptEnterTimer.GetId());
   EventNotifier::Get()->Bind(wxEVT_TMUX_MACHINE, &SessionPage::OnTmuxMachine,
                              this);
   Bind(wxEVT_REVIEW_BUDDY_CLOSE, [this](ReviewBuddyEvent &event) {
@@ -806,19 +809,40 @@ void SessionPage::ShowInfo(const wxString &text, int icon, bool download,
   m_infoBar->ShowMessage(text, icon);
 }
 
+bool SessionPage::IsAgentRunning() const {
+  // Its program was typed (not while the page waits for tmux), and it did not
+  // end (Running, not Exited or Detached).
+  return m_agent && !IsPlainTerminal() && !m_session.IsJobRun() &&
+         m_terminal != nullptr && m_programStarted && !m_waitingForTmux &&
+         m_status == SessionStatus::Running;
+}
+
 bool SessionPage::CanStartHandoff() const {
-  // The agent runs in the terminal: its program was typed (not while the page
-  // waits for tmux), and it did not end (Running, not Exited or Detached).
-  const bool agentRuns = m_terminal != nullptr && m_programStarted &&
-                         !m_waitingForTmux &&
-                         m_status == SessionStatus::Running;
   // What the agent reports (OSC 7501): not while it works, and not while it
   // waits for an answer (the prompt would be the answer). An agent that
   // reports nothing is None.
   const bool agentFree = m_terminalActivity == ProgramActivity::None ||
                          m_terminalActivity == ProgramActivity::Done;
-  return m_agent && !IsPlainTerminal() && !m_session.IsJobRun() && !m_handoff &&
-         agentRuns && agentFree;
+  return !m_handoff && IsAgentRunning() && agentFree;
+}
+
+bool SessionPage::SendPrompt(const wxString &text) {
+  // Not while the agent waits for an answer (OSC 7501): the message would be
+  // the answer.
+  if (!IsAgentRunning() || m_terminalActivity == ProgramActivity::Blocked) {
+    return false;
+  }
+  m_terminal->SendInput(text.ToStdString(wxConvUTF8));
+  // In most agents the text after a paste is a new line until the paste is
+  // done: Enter comes a little later (as Review Buddy does).
+  m_promptEnterTimer.StartOnce(kPromptEnterDelayMs);
+  return true;
+}
+
+void SessionPage::OnPromptEnterTimer(wxTimerEvent &) {
+  if (m_terminal != nullptr) {
+    m_terminal->SendEnter();
+  }
 }
 
 void SessionPage::StartHandoff() {

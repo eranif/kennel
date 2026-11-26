@@ -124,6 +124,15 @@ public:
   // ---- Sessions ----------------------------------------------------------
   bool CanRefreshCurrent() const;
   void RefreshCurrentSelection();
+  // File > Refresh All Sessions: restarts every agent session (not the plain
+  // terminals, not the jobs), as Refresh does for one.
+  bool CanRefreshAllSessions() const;
+  void RefreshAllSessions();
+  // File > Broadcast: the user picks agent sessions and a message
+  // (BroadcastDlg), which is typed into each of them
+  // (SessionPage::SendPrompt()). The ones that can not take it now are named.
+  bool CanBroadcastPrompt() const;
+  void BroadcastPrompt();
   // Shows the Ctrl+Tab page switcher (every open session and file, most
   // recently used first) and activates the page chosen when Ctrl is released.
   // If Ctrl is already up, activates the next/previous page directly.
@@ -413,6 +422,8 @@ private:
   void DeleteAll();
   void RenameGroup(const wxString &oldName);
   void RenameSession(SessionPage *page);
+  // The agent sessions: not the plain terminals, not the jobs.
+  std::vector<SessionPage *> GetAgentSessions() const;
   // Opens the Start Agent dialog pre-filled with `page`'s agent and group,
   // and an auto-generated unique name, so the user launches a fresh,
   // independent session cloned from it. With a `summary` (of "Duplicate with

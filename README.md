@@ -202,7 +202,7 @@ Click a tab to bring its terminal to the front. On the left of every session the
 
 | Tool | Description |
 |---|---|
-| **Restart** | Restarts the session (also **File → Refresh Current Selection**, `F5`). A session in tmux attaches to its tmux session again, and asks its machine about tmux again. |
+| **Restart** | Restarts the session (also **File → Refresh Current Session**, `F5`). A session in tmux attaches to its tmux session again, and asks its machine about tmux again. |
 | **Review Buddy** | Starts a second agent that reviews the work of the session, and controls the review. |
 | **Terminal** | Opens a terminal named `<Session> \| Terminal` on the same host and in the same folder as the session (agent sessions only). On a remote host it logs in with ssh and runs in tmux there. |
 | **Copy**, **Paste** | Clipboard actions for the terminal that has the focus. |

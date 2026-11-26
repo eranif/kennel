@@ -401,8 +401,8 @@ void MainFrame::BuildMenuBar() {
   fileMenu->Append(XRCID("start-agent"), _("&Start Agent...\tCtrl+T"),
                    _("Start a new agent session"));
   Bind(wxEVT_MENU, &MainFrame::OnStartAgent, this, XRCID("start-agent"));
-  fileMenu->Append(XRCID("start-terminal"), _("New Terminal\tCtrl+E"),
-                   _("Start GlyphT Terminal"));
+  fileMenu->Append(XRCID("start-terminal"), _("Start Terminal\tCtrl+E"),
+                   _("Start a new Terminal"));
   Bind(wxEVT_MENU, &MainFrame::OnNewTerminal, this, XRCID("start-terminal"));
 
   // The physical Ctrl key, also on macOS (Cmd+` switches the windows of the
@@ -412,12 +412,13 @@ void MainFrame::BuildMenuBar() {
   // wx cannot parse '§' in the label (only ASCII keys), so the label only
   // shows the shortcut and the key is set on the native menu item.
   wxMenuItem *sessionTerminalItem = fileMenu->Append(
-      XRCID("session-terminal"), _("Session Terminal\tRawCtrl+§"),
+      XRCID("session-terminal"), _("Toggle Session Terminal\tRawCtrl+§"),
       _("Open a terminal below the agent, on its machine and in "
         "its folder"));
   SetMacMenuKeyEquivalent(sessionTerminalItem, wxT('§'), true);
 #else
-  fileMenu->Append(XRCID("session-terminal"), _("Session Terminal\tCtrl+`"),
+  fileMenu->Append(XRCID("session-terminal"),
+                   _("Toggle Session Terminal\tCtrl+`"),
                    _("Open a terminal below the agent, on its machine and in "
                      "its folder"));
 #endif
@@ -426,9 +427,29 @@ void MainFrame::BuildMenuBar() {
        XRCID("session-terminal"));
   Bind(wxEVT_UPDATE_UI, &MainFrame::OnSessionTerminalUI, this,
        XRCID("session-terminal"));
-  fileMenu->Append(wxID_REFRESH, _("&Refresh Current Selection\tF5"),
+  fileMenu->AppendSeparator();
+  fileMenu->Append(wxID_REFRESH, _("&Refresh Current Session\tF5"),
                    _("Refresh the Current Selection"));
   Bind(wxEVT_MENU, &MainFrame::OnRefreshSession, this, wxID_REFRESH);
+  // Cmd+Shift+F5 on macOS (Cmd+F5 and Control+F5 are taken by the system).
+  // AcceleratorInterceptor handles the key (a terminal would get it
+  // otherwise).
+  fileMenu->Append(XRCID("refresh-all-sessions"),
+                   _("Refresh All Sessions\tCtrl+Shift+F5"),
+                   _("Restart all the agent sessions (not the terminals)"));
+  Bind(wxEVT_MENU, &MainFrame::OnRefreshAllSessions, this,
+       XRCID("refresh-all-sessions"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnRefreshAllSessionsUI, this,
+       XRCID("refresh-all-sessions"));
+  fileMenu->AppendSeparator();
+  // AcceleratorInterceptor handles the key (a terminal would get it
+  // otherwise).
+  fileMenu->Append(XRCID("broadcast-prompt"), _("Broadcast...\tCtrl+Shift+B"),
+                   _("Send a message to several agent sessions"));
+  Bind(wxEVT_MENU, &MainFrame::OnBroadcastPrompt, this,
+       XRCID("broadcast-prompt"));
+  Bind(wxEVT_UPDATE_UI, &MainFrame::OnBroadcastPromptUI, this,
+       XRCID("broadcast-prompt"));
   fileMenu->Append(XRCID("rename-selection"), _("Rename Session...\tF2"),
                    _("Rename the selected session"));
   Bind(wxEVT_MENU, &MainFrame::OnRenameItem, this, XRCID("rename-selection"));
@@ -1194,6 +1215,22 @@ void MainFrame::OnRefreshSession(wxCommandEvent &evt) {
   wxUnusedVar(evt);
   if (m_mainView->GetSessionsBook()->CanRefreshCurrent())
     m_mainView->GetSessionsBook()->RefreshCurrentSelection();
+}
+
+void MainFrame::OnRefreshAllSessions(wxCommandEvent &) {
+  m_mainView->GetSessionsBook()->RefreshAllSessions();
+}
+
+void MainFrame::OnRefreshAllSessionsUI(wxUpdateUIEvent &evt) {
+  evt.Enable(m_mainView->GetSessionsBook()->CanRefreshAllSessions());
+}
+
+void MainFrame::OnBroadcastPrompt(wxCommandEvent &) {
+  m_mainView->GetSessionsBook()->BroadcastPrompt();
+}
+
+void MainFrame::OnBroadcastPromptUI(wxUpdateUIEvent &evt) {
+  evt.Enable(m_mainView->GetSessionsBook()->CanBroadcastPrompt());
 }
 
 void MainFrame::OnCloseAllSessions(wxCommandEvent &evt) {

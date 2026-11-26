@@ -90,6 +90,12 @@ public:
   // wxEVT_SESSION_SUMMARY_READY to the notebook (GetString() is the summary,
   // the event object is the page), which asks for the new session.
   void StartHandoff();
+  // An agent session whose agent was started in its terminal and did not end.
+  bool IsAgentRunning() const;
+  // Types `text` (one line) into the agent, then Enter: File > Broadcast.
+  // False, and nothing is typed, when the agent does not run, or waits for an
+  // answer (OSC 7501: the text would be the answer).
+  bool SendPrompt(const wxString &text);
   // Whether StartHandoff() can be used now: an agent session whose agent was
   // started in a terminal and did not end, that does not work and does not
   // wait for an answer (OSC 7501), and no other handoff waits.
@@ -221,6 +227,7 @@ private:
   void OnHandoffFailed(wxCommandEvent &event);
   // The Cancel button of the message bar.
   void OnHandoffCancel(wxCommandEvent &event);
+  void OnPromptEnterTimer(wxTimerEvent &event);
   // Deletes Session::promptFile when the page goes (it is gone already when the
   // agent deleted it, as its first message asks). Not for an agent in tmux
   // whose first message was typed: it may go on without the page (Archive,
@@ -433,6 +440,9 @@ private:
   std::unique_ptr<ReviewBuddy> m_review;
   // The handoff that waits for the summary (see StartHandoff()).
   std::unique_ptr<SessionHandoff> m_handoff;
+  // Enter after the text of SendPrompt().
+  static constexpr int kPromptEnterDelayMs = 400;
+  wxTimer m_promptEnterTimer;
   std::unique_ptr<ReviewBuddyHeader> m_reviewHeader;
   GitState m_gitState{GitState::Unknown};
   bool m_gitCheckBusy{false};

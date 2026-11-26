@@ -48,6 +48,7 @@
 #include <wx/srchctrl.h>
 #include <wx/aui/auibook.h>
 #include <wx/simplebook.h>
+#include <wx/checklst.h>
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
 #include <wx/persist/toplevel.h>
@@ -814,6 +815,38 @@ public:
     wxAuiNotebook* GetAuiOutputBook() { return m_auiOutputBook; }
     OutputViewBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500,300), long style = wxTAB_TRAVERSAL);
     virtual ~OutputViewBase();
+};
+
+
+class BroadcastDlgBase : public wxDialog
+{
+protected:
+    wxPanel* m_panelBroadcast;
+    wxStaticText* m_staticTextSessions;
+    wxCheckListBox* m_checkListSessions;
+    wxStaticText* m_staticTextMessage;
+    wxTextCtrl* m_textCtrlMessage;
+    wxButton* m_buttonCheckAll;
+    wxButton* m_buttonUncheckAll;
+    wxStdDialogButtonSizer* m_stdBtnSizerBroadcast;
+    wxButton* m_buttonSend;
+    wxButton* m_buttonCancel;
+
+protected:
+    virtual void OnCheckAll(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnUncheckAll(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnSendUI(wxUpdateUIEvent& event) { event.Skip(); }
+
+public:
+    wxStaticText* GetStaticTextSessions() { return m_staticTextSessions; }
+    wxCheckListBox* GetCheckListSessions() { return m_checkListSessions; }
+    wxStaticText* GetStaticTextMessage() { return m_staticTextMessage; }
+    wxTextCtrl* GetTextCtrlMessage() { return m_textCtrlMessage; }
+    wxButton* GetButtonCheckAll() { return m_buttonCheckAll; }
+    wxButton* GetButtonUncheckAll() { return m_buttonUncheckAll; }
+    wxPanel* GetPanelBroadcast() { return m_panelBroadcast; }
+    BroadcastDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Broadcast"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);
+    virtual ~BroadcastDlgBase();
 };
 
 #endif

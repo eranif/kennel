@@ -208,6 +208,11 @@ private:
   void OnEditAgents(wxCommandEvent &evt);
   void OnRefreshSession(wxCommandEvent &evt);
   void OnRefreshSessionUI(wxUpdateUIEvent &evt);
+  // File > Refresh All Sessions, File > Broadcast.
+  void OnRefreshAllSessions(wxCommandEvent &evt);
+  void OnRefreshAllSessionsUI(wxUpdateUIEvent &evt);
+  void OnBroadcastPrompt(wxCommandEvent &evt);
+  void OnBroadcastPromptUI(wxUpdateUIEvent &evt);
   void OnNewFile(wxCommandEvent &evt);
   void OnOpenFile(wxCommandEvent &evt);
   void OnNewAgent(wxCommandEvent &evt);

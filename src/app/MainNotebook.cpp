@@ -2,6 +2,7 @@
 
 #include "PopupStyle.hpp"
 #include "app/ArchiveDlg.hpp"
+#include "app/BroadcastDlg.hpp"
 
 #include "GlyphTabPainter.h"
 #include "StartAgentDialog.hpp"
@@ -2107,6 +2108,63 @@ void MainNotebook::RefreshCurrentSelection() {
   auto *page = GetActiveSessionPage();
   if (page != nullptr && IsSessionGroupName(page->GetSession().groupName)) {
     page->Restart();
+  }
+}
+
+std::vector<SessionPage *> MainNotebook::GetAgentSessions() const {
+  std::vector<SessionPage *> agents;
+  for (auto *page : GetSessions()) {
+    if (!page->IsPlainTerminal() && !page->GetSession().IsJobRun()) {
+      agents.push_back(page);
+    }
+  }
+  return agents;
+}
+
+bool MainNotebook::CanRefreshAllSessions() const {
+  return !GetAgentSessions().empty();
+}
+
+void MainNotebook::RefreshAllSessions() {
+  for (auto *page : GetAgentSessions()) {
+    page->CallAfter(&SessionPage::Restart);
+  }
+}
+
+bool MainNotebook::CanBroadcastPrompt() const {
+  return !GetAgentSessions().empty();
+}
+
+void MainNotebook::BroadcastPrompt() {
+  std::vector<BroadcastDlg::Target> targets;
+  for (auto *page : GetAgentSessions()) {
+    const Session &session = page->GetSession();
+    targets.push_back({SessionRef{session.groupName, session.name},
+                       session.groupName + " / " + session.name + "  (" +
+                           session.agentName + ")"});
+  }
+  if (targets.empty()) {
+    return;
+  }
+  BroadcastDlg dlg(this, targets);
+  if (dlg.ShowModal() != wxID_OK) {
+    return;
+  }
+  const wxString message = dlg.GetMessage();
+  wxArrayString skipped;
+  for (const SessionRef &ref : dlg.GetSelectedSessions()) {
+    // The session may have gone while the dialog was open.
+    auto *page = dynamic_cast<SessionPage *>(FindPage(ref));
+    if (page == nullptr || !page->SendPrompt(message)) {
+      skipped.Add(ref.groupName + " / " + ref.name);
+    }
+  }
+  if (!skipped.empty()) {
+    wxMessageBox(
+        wxString::Format(_("The message was not sent to these sessions: their "
+                           "agent does not run, or waits for an answer:\n\n%s"),
+                         wxJoin(skipped, '\n')),
+        _("Broadcast"), wxOK | wxICON_WARNING, this);
   }
 }
 

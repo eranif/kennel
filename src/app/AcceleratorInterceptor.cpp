@@ -79,6 +79,12 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     wxCommandEvent evtOutputView{wxEVT_MENU, XRCID("show-output-view")};
     GetMainFrame()->GetEventHandler()->AddPendingEvent(evtOutputView);
     return;
+  } else if (keyEvent.GetKeyCode() == WXK_F5 &&
+             keyEvent.GetModifiers() == (wxMOD_CONTROL | wxMOD_SHIFT)) {
+    // Refresh All Sessions.
+    wxCommandEvent evtRefreshAll{wxEVT_MENU, XRCID("refresh-all-sessions")};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtRefreshAll);
+    return;
   } else if (keyEvent.GetKeyCode() == WXK_F5) {
     // Rename
     wxCommandEvent evtRefreshSession{wxEVT_MENU, wxID_REFRESH};
@@ -139,6 +145,12 @@ void AcceleratorInterceptor::OnCharHook(wxKeyEvent &keyEvent) {
     // Open File. Plain Ctrl+O is left to the terminal (Claude Code uses it).
     wxCommandEvent evtOpenFile{wxEVT_MENU, XRCID("open-file")};
     wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(evtOpenFile);
+    return;
+  } else if (keyEvent.GetUnicodeKey() == 'B' &&
+             keyEvent.GetModifiers() == (wxMOD_CONTROL | wxMOD_SHIFT)) {
+    // Broadcast. The terminal would get it otherwise.
+    wxCommandEvent evtBroadcast{wxEVT_MENU, XRCID("broadcast-prompt")};
+    GetMainFrame()->GetEventHandler()->AddPendingEvent(evtBroadcast);
     return;
   } else if (keyEvent.GetUnicodeKey() == 'A' &&
              keyEvent.GetModifiers() == (wxMOD_CONTROL | wxMOD_SHIFT)) {

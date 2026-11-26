@@ -369,6 +369,7 @@ set(KENNEL_APP_SOURCES
     src/app/GitTerminals.cpp
     src/app/OutputView.cpp
     src/app/SessionHandoff.cpp
+    src/app/BroadcastDlg.cpp
     src/app/FileActions.cpp
     src/app/TabIcon.cpp
     src/app/ActivityView.cpp
