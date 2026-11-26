@@ -6,6 +6,8 @@
 
 #include <map>
 #include <memory>
+#include <set>
+#include <wx/event.h>
 #include <wx/string.h>
 
 // Where a server is on its way to being used.
@@ -13,17 +15,45 @@ enum class LspServerState {
   kChecking,        // Looking for the server on the machine
   kAwaitingConsent, // Not there: the user is asked if it may be installed
   kInstalling,      // Being downloaded and installed
-  kInitializing,    // Started, the handshake (initialize) is not done
+  kInitializing,    // Launched, the handshake is not done
   kReady,           // Can be used
   kDeclined,        // The user said no to the install
   kFailed,          // Did not work (the message says why)
 };
+
+// The events of LspManager. They are sent on the EventNotifier, on the UI
+// thread.
+class LspManagerEvent : public wxCommandEvent {
+public:
+  explicit LspManagerEvent(wxEventType type = wxEVT_NULL, int id = 0)
+      : wxCommandEvent(type, id) {}
+  LspManagerEvent(const LspManagerEvent &) = default;
+  wxEvent *Clone() const override { return new LspManagerEvent(*this); }
+
+  // The server that the event is about.
+  const LspServerKey &GetKey() const { return m_key; }
+  void SetKey(const LspServerKey &key) { m_key = key; }
+
+private:
+  LspServerKey m_key;
+};
+
+// The server is not on the machine, and the user has to say if Kennel may
+// install it: answer with LspManager::Install() or LspManager::Decline().
+// GetString() is the name of the program and its version.
+wxDECLARE_EVENT(wxEVT_LSP_INSTALL_NEEDED, LspManagerEvent);
+// The server of GetKey() is ready: LspManager::GetServerFor() gives its client
+// now.
+wxDECLARE_EVENT(wxEVT_LSP_SERVER_READY, LspManagerEvent);
+// A server could not be made ready. GetString() says why.
+wxDECLARE_EVENT(wxEVT_LSP_SERVER_FAILED, LspManagerEvent);
 
 // The owner of the language servers, and the only thing a page talks to. One
 // server for each LspServerKey. GUI-free; only the UI thread may call it.
 class LspManager {
 public:
   static LspManager &Get();
+  ~LspManager();
 
   LspManager(const LspManager &) = delete;
   LspManager &operator=(const LspManager &) = delete;
@@ -34,21 +64,30 @@ public:
   //    started now: it is checked, installed if the user agrees, launched and
   //    initialized); try again when it says that it is ready.
   //  - kPermissionDenied: the user did not want it installed.
+  //  - kNotAvailable: there is no server of this kind to install.
   //  - kUnknown: it failed, the message says why.
   StatusOr<std::shared_ptr<LspClient>> GetServerFor(const LspServerKey &key);
+
+  // Ends every server (a running one is stopped) and forgets them all. For the
+  // end of the application.
+  void Shutdown();
+
+  // The answer to wxEVT_LSP_INSTALL_NEEDED: install the server, or do not.
+  void Install(const LspServerKey &key);
+  void Decline(const LspServerKey &key);
+
+  // Ends every server whose LspServerKey::GetKey() is not in `neededKeys`: a
+  // running one is stopped, one that is being checked or installed is given up.
+  // What the user declined stays declined. Called when a page closes, with the
+  // keys that the pages that are still open need.
+  void StopUnused(const std::set<wxString> &neededKeys);
 
 private:
   LspManager() = default;
 
-  // One server of the manager.
-  struct Entry {
-    LspServerState m_state{LspServerState::kChecking};
-    // Set when the state is kReady.
-    std::shared_ptr<LspClient> m_client;
-    // Set when the state is kFailed.
-    wxString m_message;
-  };
+  // One server of the manager (see LspManager.cpp).
+  class Entry;
 
   // The key is LspServerKey::GetKey().
-  std::map<wxString, Entry> m_entries;
+  std::map<wxString, std::unique_ptr<Entry>> m_entries;
 };

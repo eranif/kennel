@@ -81,6 +81,32 @@ struct Account {
     return wxEmptyString;
   }
 
+  // Whether `path` (in the notation of the account) is the start folder or is
+  // inside it. False when the account has no start folder.
+  bool IsInRootDir(const wxString &path) const {
+    wxString root = m_rootDir;
+    wxString inside = path;
+    root.Replace("\\", "/");
+    inside.Replace("\\", "/");
+    while (root.size() > 1 && root.EndsWith("/")) {
+      root.RemoveLast();
+    }
+    if (root.empty()) {
+      return false;
+    }
+#ifdef __WXMSW__
+    if (IsLocalHost()) {
+      // The file names of this machine do not care about the case.
+      root.MakeLower();
+      inside.MakeLower();
+    }
+#endif
+    if (root == "/") {
+      return inside.StartsWith("/");
+    }
+    return inside == root || inside.StartsWith(root + "/");
+  }
+
   bool operator==(const Account &other) const {
     return GetId() == other.GetId() && m_rootDir == other.m_rootDir;
   }

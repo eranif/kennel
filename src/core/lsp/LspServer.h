@@ -36,10 +36,14 @@ enum class LspKind {
 class LspServer {
 public:
   // `client` gets the output of the server, and must outlive this object.
-  // `target` is the WSL distribution (kWsl) or the host (kSsh), which may be an
-  // ~/.ssh/config alias; empty for kLocal. `user` is for kSsh only: empty means
-  // the ssh default.
+  // `program` is the server to run, as a path on the machine where it runs; for
+  // kSsh it may start with "$HOME/", which the shell of the host expands. Empty
+  // means the name of the program of `kind`, found on the PATH. `target` is the
+  // WSL distribution (kWsl) or the host (kSsh), which may be an ~/.ssh/config
+  // alias; empty for kLocal. `user` is for kSsh only: empty means the ssh
+  // default.
   LspServer(LspClient *client, TransportType type, LspKind kind,
+            const wxString &program = wxEmptyString,
             const wxString &target = wxEmptyString,
             const wxString &user = wxEmptyString);
   // Ends the server (see Stop()).
@@ -65,10 +69,14 @@ private:
   // ssh with the server as their command. Every argument is quoted for the
   // command line of a program (see Process::QuoteArgument()).
   std::vector<std::string> BuildCommand() const;
+  // `word` as one word of the shell of a host: quoted, except a leading
+  // "$HOME/", which the shell must expand.
+  std::string QuoteForHostShell(const std::string &word) const;
 
   LspClient *m_client;
   TransportType m_type;
   LspKind m_kind;
+  wxString m_program;
   wxString m_target;
   wxString m_user;
   std::shared_ptr<Process> m_process;

@@ -29,9 +29,11 @@
 #include "core/EventNotifier.hpp"
 #include "core/Logger.h"
 #include "core/RemoteInstaller.h"
+#include "core/Ripgrep.h"
 #include "core/UpdateChecker.h"
 #include "core/Version.h"
 #include "core/WslPath.h"
+#include "core/lsp/LspManager.h"
 #include <wx/sysopt.h>
 
 #include "terminal_view.h"
@@ -167,6 +169,8 @@ void MainFrame::FinaliseStartup() {
   }
 
   EventNotifier::Get()->Bind(wxEVT_AGENT_SCAN, &MainFrame::OnAgentScan, this);
+  EventNotifier::Get()->Bind(wxEVT_LSP_INSTALL_NEEDED,
+                             &MainFrame::OnLspInstallNeeded, this);
   StartLocalAgentScan();
 }
 
@@ -261,7 +265,11 @@ MainFrame::~MainFrame() {
   // install of a tool.
   AgentScan::Stop();
   RemoteInstaller::Stop();
+  // The language servers are processes of ours: they end with the window.
+  LspManager::Get().Shutdown();
   EventNotifier::Get()->Unbind(wxEVT_AGENT_SCAN, &MainFrame::OnAgentScan, this);
+  EventNotifier::Get()->Unbind(wxEVT_LSP_INSTALL_NEEDED,
+                               &MainFrame::OnLspInstallNeeded, this);
   mainFrame = nullptr;
   Unbind(wxEVT_ACTIVATE, &MainFrame::OnActivate, this);
 }
@@ -746,6 +754,24 @@ wxString JoinNames(const wxArrayString &names) {
   return joined;
 }
 } // namespace
+
+void MainFrame::OnLspInstallNeeded(LspManagerEvent &event) {
+  const LspServerKey key = event.GetKey();
+  wxMessageDialog dlg(this,
+                      wxString::Format(_("Install %s?"), event.GetString()),
+                      "Kennel", wxYES_NO | wxICON_QUESTION);
+  dlg.SetExtendedMessage(wxString::Format(
+      _("%s is needed for code intelligence of the files on %s, and it is "
+        "not installed there (or it is another version).\n\n"
+        "Kennel will download it and put it in %s."),
+      event.GetString(), key.m_account.GetDisplayName(),
+      ripgrep::InstallDir()));
+  if (dlg.ShowModal() == wxID_YES) {
+    LspManager::Get().Install(key);
+  } else {
+    LspManager::Get().Decline(key);
+  }
+}
 
 void MainFrame::OnAgentScan(AgentScanEvent &e) {
   if (e.starting) {

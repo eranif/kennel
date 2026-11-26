@@ -23,6 +23,7 @@
 // with that client preselected. Shared state is reached via AppManager::Get().
 class AgentScanEvent;
 class EditMenu;
+class LspManagerEvent;
 class ReviewBuddyMenu;
 class SessionPage;
 struct GotoItem;
@@ -150,6 +151,9 @@ private:
   // Then the user is asked, once, whether to look in WSL and on the SSH hosts.
   void OfferRemoteAgentScan();
   void OnAgentScan(AgentScanEvent &e);
+  // A language server is not on the machine: asks the user if Kennel may
+  // install it (see LspManager).
+  void OnLspInstallNeeded(LspManagerEvent &event);
   // Adds the agents that are not defined yet. Returns the names of the ones
   // added.
   wxArrayString AddFoundAgents(const std::vector<AgentDef> &agents);

@@ -7,9 +7,11 @@
 #include "app/FileViewState.hpp"
 #include "app/SearchablePage.hpp"
 #include "core/Account.h"
+#include "core/lsp/LspManager.h"
 #include "terminal_theme.h"
 
 #include <memory>
+#include <optional>
 #include <thread>
 #include <wx/aui/auibar.h>
 #include <wx/panel.h>
@@ -71,6 +73,10 @@ public:
   // path of the page otherwise. It is what a FileTreeCtrl of the account shows.
   wxString GetAccountPath() const;
   bool IsRemote() const { return !m_remoteHost.host.empty(); }
+  // The key of the language server that the file needs, or nothing when it has
+  // none, is not a file (a diff, an untitled page), or no open session holds
+  // it.
+  std::optional<LspServerKey> GetLanguageServerKey() const;
   bool IsModified() const { return m_editor->GetCtrl()->GetModify(); }
   bool CanSave() const {
     if (m_untitled) {
@@ -144,6 +150,14 @@ public:
   void ClearBookmarks();
 
 private:
+  void InitDone();
+
+  // Asks the LspManager for the language server of the file (see
+  // LspManager::GetServerFor()). Nothing for a file that has no language
+  // server, or that no open session holds.
+  void RequestLanguageServer();
+  // A language server is ready: when it is the one of this file, asks again.
+  void OnLspServerReady(LspManagerEvent &event);
   // The tools of the bookmarks and of the editor options on the toolbar.
   void OnBookmarkTool(wxCommandEvent &event);
   // The user toggled Show Line Numbers or Highlight Word on the toolbar.

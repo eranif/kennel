@@ -1,17 +1,30 @@
 #include "core/lsp/LspServer.h"
 
+#include "core/Logger.h"
 #include "core/Process.hpp"
 #include "core/ShellQuote.h"
 #include "core/lsp/LspClient.h"
 
 LspServer::LspServer(LspClient *client, TransportType type, LspKind kind,
-                     const wxString &target, const wxString &user)
-    : m_client(client), m_type(type), m_kind(kind), m_target(target),
-      m_user(user) {}
+                     const wxString &program, const wxString &target,
+                     const wxString &user)
+    : m_client(client), m_type(type), m_kind(kind), m_program(program),
+      m_target(target), m_user(user) {}
 
 LspServer::~LspServer() { Stop(); }
 
+std::string LspServer::QuoteForHostShell(const std::string &word) const {
+  static const std::string kHome = "$HOME/";
+  if (word.compare(0, kHome.size(), kHome) == 0) {
+    return "\"$HOME\"/" + ShellQuote(word.substr(kHome.size()));
+  }
+  return ShellQuote(word);
+}
+
 std::vector<std::string> LspServer::GetServerArgv() const {
+  if (!m_program.empty()) {
+    return {m_program.ToStdString(wxConvUTF8)};
+  }
   switch (m_kind) {
   case LspKind::kClangd:
     return {"clangd"};
@@ -38,7 +51,7 @@ std::vector<std::string> LspServer::BuildCommand() const {
     // The host runs one string with its shell: the words are quoted for it.
     std::string remote;
     for (const std::string &word : server) {
-      remote += (remote.empty() ? "" : " ") + ShellQuote(word);
+      remote += (remote.empty() ? "" : " ") + QuoteForHostShell(word);
     }
     // -T: no terminal, which would change the bytes. BatchMode: never ask a
     // question (a password, an unknown host key): nobody could answer it, and
@@ -68,8 +81,14 @@ Status LspServer::Start() {
   if (m_process) {
     return Status::Error("The language server was started already");
   }
+  const std::vector<std::string> command = BuildCommand();
+  std::string commandLine;
+  for (const std::string &arg : command) {
+    commandLine += (commandLine.empty() ? "" : " ") + arg;
+  }
+  KLOG_DEBUG() << "LSP | starting: " << commandLine;
   m_process = Process::StartInteractive(
-      BuildCommand(), [this](const std::string &out, const std::string &err) {
+      command, [this](const std::string &out, const std::string &err) {
         // On the thread that reads the process: the client gets it on the UI
         // thread.
         if (!out.empty()) {
@@ -81,8 +100,10 @@ Status LspServer::Start() {
         return true;
       });
   if (!m_process) {
+    KLOG_DEBUG() << "LSP | the process did not start";
     return Status::Error("The language server could not be started");
   }
+  KLOG_DEBUG() << "LSP | the process is running";
   return Status::Ok();
 }
 
@@ -95,7 +116,13 @@ Status LspServer::Send(const std::string &bytes) {
 
 void LspServer::Stop() {
   if (m_process) {
+    const std::vector<std::string> argv = GetServerArgv();
+    const std::string program = argv.empty() ? std::string() : argv.front();
+    KLOG_DEBUG() << "LSP | stopping " << program
+                 << (m_target.empty() ? wxString() : " on " + m_target);
     m_process->Stop();
     m_process.reset();
+    KLOG_DEBUG() << "LSP | stopped " << program
+                 << (m_target.empty() ? wxString() : " on " + m_target);
   }
 }

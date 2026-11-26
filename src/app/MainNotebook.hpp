@@ -249,6 +249,11 @@ public:
   wxWindow *GetCurrentPage() const;
   std::vector<wxWindow *> GetPages() const;
   std::vector<SessionPage *> GetSessions() const;
+  // The open session that fits a file best: the same machine as `account`, and
+  // a working directory that holds `path` (in the notation of the account); the
+  // deepest one when several do. Its account, with the working directory as
+  // m_rootDir, or nothing when no session fits.
+  std::optional<Account> FindSessionAccountFor(const FilePage *filepage) const;
   std::vector<SessionPage *> GetSessions(const wxString &group) const;
   std::vector<FilePage *> GetFiles() const;
   SessionPage *FindSession(const wxString &group, const wxString &name) const;

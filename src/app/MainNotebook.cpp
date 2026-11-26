@@ -655,6 +655,22 @@ std::vector<SessionPage *> MainNotebook::GetSessions() const {
   return sessions;
 }
 
+std::optional<Account>
+MainNotebook::FindSessionAccountFor(const FilePage *filepage) const {
+  std::optional<Account> best;
+  for (SessionPage *session : GetSessions()) {
+    const Account candidate = session->GetAccount();
+    if (candidate.GetId() != filepage->GetAccount().GetId() ||
+        !candidate.IsInRootDir(filepage->GetAccountPath())) {
+      continue;
+    }
+    if (!best || candidate.m_rootDir.size() > best->m_rootDir.size()) {
+      best = candidate;
+    }
+  }
+  return best;
+}
+
 std::vector<SessionPage *>
 MainNotebook::GetSessions(const wxString &group) const {
   std::vector<SessionPage *> sessions;

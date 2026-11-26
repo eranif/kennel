@@ -10,6 +10,7 @@
 #include "core/Logger.h"
 #include "core/SftpClient.h"
 #include "core/WslPath.h"
+#include "core/lsp/LspManager.h"
 #include <wx/app.h>
 #include <wx/filedlg.h>
 #include <wx/filename.h>
@@ -116,6 +117,8 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
                              &FilePage::OnWrapLinesChanged, this);
   EventNotifier::Get()->Bind(wxEVT_EDITOR_OPTIONS_CHANGED,
                              &FilePage::OnEditorOptionsChanged, this);
+  EventNotifier::Get()->Bind(wxEVT_LSP_SERVER_READY,
+                             &FilePage::OnLspServerReady, this);
 }
 
 void FilePage::ApplyToolBarStyle() { toolbar::ApplyStyle(m_toolbar); }
@@ -195,18 +198,65 @@ FilePage::~FilePage() {
                                &FilePage::OnWrapLinesChanged, this);
   EventNotifier::Get()->Unbind(wxEVT_EDITOR_OPTIONS_CHANGED,
                                &FilePage::OnEditorOptionsChanged, this);
+  EventNotifier::Get()->Unbind(wxEVT_LSP_SERVER_READY,
+                               &FilePage::OnLspServerReady, this);
   if (m_saveThread.joinable()) {
     m_saveThread.join();
   }
 }
 
-bool FilePage::LoadLocal() { return m_editor->LoadFile(m_path); }
+bool FilePage::LoadLocal() {
+  const bool loaded = m_editor->LoadFile(m_path);
+  if (loaded) {
+    RequestLanguageServer();
+  }
+  return loaded;
+}
 
 void FilePage::LoadRemote(const wxString &text, bool editable) {
   m_editor->SetText(text);
   m_editor->SetEditable(editable);
   m_searchBar->EnableReplace(CanReplace());
   m_reloadState.reset(); // Of a reload: the bookmarks, the caret, the view
+  if (!m_transient) {
+    RequestLanguageServer();
+  }
+}
+
+std::optional<LspServerKey> FilePage::GetLanguageServerKey() const {
+  if (m_transient || m_untitled ||
+      EditFileDlg::LangFromPath(m_path) != EditorLang::kCxx) {
+    return std::nullopt;
+  }
+  // The working directory of the server is the one of a session that holds the
+  // file.
+  const std::optional<Account> account =
+      GetMainView()->GetSessionsBook()->FindSessionAccountFor(this);
+  if (!account) {
+    return std::nullopt;
+  }
+  return LspServerKey{*account, LspKind::kClangd};
+}
+
+void FilePage::RequestLanguageServer() {
+  const std::optional<LspServerKey> key = GetLanguageServerKey();
+  if (!key) {
+    return;
+  }
+  const auto server = LspManager::Get().GetServerFor(*key);
+  if (server.ok()) {
+    KLOG_INFO() << "LSP | ready for " << m_path;
+  } else {
+    KLOG_INFO() << "LSP | " << m_path << ": " << server.status().message();
+  }
+}
+
+void FilePage::OnLspServerReady(LspManagerEvent &event) {
+  event.Skip();
+  const std::optional<LspServerKey> key = GetLanguageServerKey();
+  if (key && key->GetKey() == event.GetKey().GetKey()) {
+    RequestLanguageServer();
+  }
 }
 
 void FilePage::CancelReload() {
