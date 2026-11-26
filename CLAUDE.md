@@ -1,5 +1,12 @@
 # Working in this repo
 
+## HARD RULE, above all others
+
+**Do EXACTLY what the user tells you. NEVER assume. NEVER put something somewhere
+"for convenience". Do NOT make decisions: ASK.** A class, a place, a name, an approach, a
+behaviour that the user did not give is a decision, and it is the user's: stop and ask one short
+question first.
+
 Kennel is a native desktop app (C++/wxWidgets) for running and managing multiple
 interactive AI CLI agent sessions side by side. Full architecture, build, and
 contributing details live in [`BUILDING.md`](BUILDING.md) and [`README.md`](README.md) —
