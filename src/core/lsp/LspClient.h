@@ -41,6 +41,15 @@ public:
   // Writes `body` (JSON) with its `Content-Length` header to the server.
   Status Send(const std::string &body);
 
+  // `textDocument/didOpen`: the document at `path` (a path on the machine of
+  // the server) is open, and `text` is what it holds now. `version` is 1 for
+  // the first text of a document.
+  Status DidOpen(const wxString &path, int version, const wxString &text);
+  // `textDocument/didSave`: the document at `path` was saved.
+  Status DidSave(const wxString &path);
+  // `textDocument/didClose`: the document at `path` is closed.
+  Status DidClose(const wxString &path);
+
   // What the server said it can do (the `capabilities` of its answer to
   // `initialize`) as JSON text. Empty until wxEVT_LSP_CLIENT_READY.
   const std::string &GetServerCapabilities() const {
@@ -59,6 +68,9 @@ public:
   void OnServerStderr(std::string buffer);
 
 private:
+  // Sends the notification `method` (a message without an id); `params` is the
+  // JSON text of its parameters.
+  Status SendNotification(const std::string &method, const std::string &params);
   // Tells the EventNotifier: `type` with the text `text`, from this client.
   void Notify(wxEventType type, const wxString &text);
 

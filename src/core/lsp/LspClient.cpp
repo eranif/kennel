@@ -53,6 +53,42 @@ Status LspClient::Send(const std::string &body) {
                        "\r\n\r\n" + body);
 }
 
+Status LspClient::SendNotification(const std::string &method,
+                                   const std::string &params) {
+  // The envelope is written by hand: `params` holds the whole text of a file
+  // and is not parsed again.
+  return Send("{\"jsonrpc\":\"2.0\",\"method\":" + json(method).dump() +
+              ",\"params\":" + params + "}");
+}
+
+Status LspClient::DidOpen(const wxString &path, int version,
+                          const wxString &text) {
+  const json params = {
+      {"textDocument",
+       {{"uri", LspUri(path).GetUri().ToStdString(wxConvUTF8)},
+        {"languageId", m_key.GetLanguageId().ToStdString(wxConvUTF8)},
+        {"version", version},
+        {"text", text.ToStdString(wxConvUTF8)}}}};
+  KLOG_DEBUG() << "LSP | didOpen " << path;
+  return SendNotification("textDocument/didOpen", params.dump());
+}
+
+Status LspClient::DidSave(const wxString &path) {
+  const json params = {
+      {"textDocument",
+       {{"uri", LspUri(path).GetUri().ToStdString(wxConvUTF8)}}}};
+  KLOG_DEBUG() << "LSP | didSave " << path;
+  return SendNotification("textDocument/didSave", params.dump());
+}
+
+Status LspClient::DidClose(const wxString &path) {
+  const json params = {
+      {"textDocument",
+       {{"uri", LspUri(path).GetUri().ToStdString(wxConvUTF8)}}}};
+  KLOG_DEBUG() << "LSP | didClose " << path;
+  return SendNotification("textDocument/didClose", params.dump());
+}
+
 void LspClient::Notify(wxEventType type, const wxString &text) {
   wxCommandEvent event(type);
   event.SetEventObject(this);

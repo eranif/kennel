@@ -156,6 +156,12 @@ public:
 private:
   void InitDone();
 
+  // The client of the language server of the file, or null when it has none or
+  // it is not ready. With `create` the LspManager starts the server if it is
+  // not known (LspManager::GetServerFor(), and the reason is logged),
+  // without it only a server that exists is given
+  // (LspManager::GetServerIfExistsFor()).
+  std::shared_ptr<LspClient> GetServer(bool create) const;
   // Asks the LspManager for the language server of the file (see
   // LspManager::GetServerFor()). Nothing for a file that has no language
   // server, or that no open session holds.

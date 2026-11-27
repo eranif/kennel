@@ -200,6 +200,14 @@ FilePage::~FilePage() {
                                &FilePage::OnEditorOptionsChanged, this);
   EventNotifier::Get()->Unbind(wxEVT_LSP_SERVER_READY,
                                &FilePage::OnLspServerReady, this);
+  // Not created: the page is removed after the server may have been ended, and
+  // creating it would start it again.
+  if (const auto server = GetServer(false)) {
+    const Status closed = server->DidClose(GetAccountPath());
+    if (!closed.ok()) {
+      KLOG_WARN() << "LSP | didClose " << m_path << ": " << closed.message();
+    }
+  }
   if (m_saveThread.joinable()) {
     m_saveThread.join();
   }
@@ -238,16 +246,32 @@ std::optional<LspServerKey> FilePage::GetLanguageServerKey() const {
   return LspServerKey{*account, LspKind::kClangd};
 }
 
-void FilePage::RequestLanguageServer() {
+std::shared_ptr<LspClient> FilePage::GetServer(bool create) const {
   const std::optional<LspServerKey> key = GetLanguageServerKey();
   if (!key) {
-    return;
+    return nullptr;
+  }
+  if (!create) {
+    return LspManager::Get().GetServerIfExistsFor(*key).value_or(nullptr);
   }
   const auto server = LspManager::Get().GetServerFor(*key);
-  if (server.ok()) {
-    KLOG_INFO() << "LSP | ready for " << m_path;
-  } else {
+  if (!server.ok()) {
     KLOG_INFO() << "LSP | " << m_path << ": " << server.status().message();
+    return nullptr;
+  }
+  return *server;
+}
+
+void FilePage::RequestLanguageServer() {
+  const auto server = GetServer(true);
+  if (!server) {
+    return;
+  }
+  KLOG_INFO() << "LSP | ready for " << m_path;
+  const Status opened =
+      server->DidOpen(GetAccountPath(), /*version=*/1, m_editor->GetText());
+  if (!opened.ok()) {
+    KLOG_WARN() << "LSP | didOpen " << m_path << ": " << opened.message();
   }
 }
 
@@ -565,6 +589,12 @@ void FilePage::OnSave(wxCommandEvent &event) {
 }
 
 void FilePage::SendSaved() {
+  if (const auto server = GetServer(false)) {
+    const Status saved = server->DidSave(GetAccountPath());
+    if (!saved.ok()) {
+      KLOG_WARN() << "LSP | didSave " << m_path << ": " << saved.message();
+    }
+  }
   FileEvent event{wxEVT_FILE_SAVED};
   event.SetEventObject(this);
   event.SetPath(GetAccountPath());
