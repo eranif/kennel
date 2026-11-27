@@ -34,9 +34,6 @@ struct LspServerKey {
   // The name of the kind of the server: "clangd", "gopls", "rust-analyzer".
   wxString GetKindName() const;
 
-  // The `languageId` of the documents that the server gets in `didOpen`.
-  wxString GetLanguageId() const;
-
   // The machine as text: "LocalHost", or Account::GetId() for the others.
   wxString GetMachine() const {
     return m_account.IsLocalHost() ? wxString("LocalHost") : m_account.GetId();

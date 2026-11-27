@@ -156,16 +156,23 @@ public:
 private:
   void InitDone();
 
-  // The client of the language server of the file, or null when it has none or
-  // it is not ready. With `create` the LspManager starts the server if it is
-  // not known (LspManager::GetServerFor(), and the reason is logged),
-  // without it only a server that exists is given
-  // (LspManager::GetServerIfExistsFor()).
-  std::shared_ptr<LspClient> GetServer(bool create) const;
-  // Asks the LspManager for the language server of the file (see
-  // LspManager::GetServerFor()). Nothing for a file that has no language
-  // server, or that no open session holds.
+  // The client of the server that has the file open (m_lspKey), or null when
+  // there is none or it is not ready. Never starts a server
+  // (LspManager::FindReadyServer()).
+  std::shared_ptr<LspClient> FindServer() const;
+  // The client of the server of `key`: the LspManager starts the server if it
+  // is not known (LspManager::GetServerFor()). Null when it is not ready; the
+  // reason is logged.
+  std::shared_ptr<LspClient> StartServer(const LspServerKey &key) const;
+  // The `languageId` of the file for `didOpen`, from its extension.
+  wxString GetLanguageId() const;
+  // Asks the LspManager for the language server of the file (see StartServer())
+  // and opens the file there. Nothing for a file that has no language server,
+  // or that no open session holds.
   void RequestLanguageServer();
+  // Tells the server that has the file open (m_lspKey) that it is closed.
+  // Nothing when no server has it open.
+  void CloseInLanguageServer();
   // A language server is ready: when it is the one of this file, asks again.
   void OnLspServerReady(LspManagerEvent &event);
   // The tools of the bookmarks and of the editor options on the toolbar.
@@ -229,6 +236,9 @@ private:
   SearchBar *m_searchBar{nullptr}; // Hidden until Find
   wxString m_findText;             // What the last search looked for
   int m_findOptions{0};            // Its SearchBar::kWholeWord / kMatchCase
+  // The key of the server that got `didOpen` for the file (a request that was
+  // made, which nothing else holds), until `didClose`.
+  std::optional<LspServerKey> m_lspKey;
   // Lets Ctrl+Tab (and the other global shortcuts) work while the
   // editor has focus.
   std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor;

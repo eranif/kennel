@@ -61,14 +61,13 @@ Status LspClient::SendNotification(const std::string &method,
               ",\"params\":" + params + "}");
 }
 
-Status LspClient::DidOpen(const wxString &path, int version,
-                          const wxString &text) {
-  const json params = {
-      {"textDocument",
-       {{"uri", LspUri(path).GetUri().ToStdString(wxConvUTF8)},
-        {"languageId", m_key.GetLanguageId().ToStdString(wxConvUTF8)},
-        {"version", version},
-        {"text", text.ToStdString(wxConvUTF8)}}}};
+Status LspClient::DidOpen(const wxString &path, const wxString &languageId,
+                          int version, const wxString &text) {
+  const json params = {{"textDocument",
+                        {{"uri", LspUri(path).GetUri().ToStdString(wxConvUTF8)},
+                         {"languageId", languageId.ToStdString(wxConvUTF8)},
+                         {"version", version},
+                         {"text", text.ToStdString(wxConvUTF8)}}}};
   KLOG_DEBUG() << "LSP | didOpen " << path;
   return SendNotification("textDocument/didOpen", params.dump());
 }

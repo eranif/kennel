@@ -42,9 +42,11 @@ public:
   Status Send(const std::string &body);
 
   // `textDocument/didOpen`: the document at `path` (a path on the machine of
-  // the server) is open, and `text` is what it holds now. `version` is 1 for
-  // the first text of a document.
-  Status DidOpen(const wxString &path, int version, const wxString &text);
+  // the server) is open, and `text` is what it holds now. `languageId` is the
+  // language of the document ("c", "cpp"), `version` is 1 for the first text of
+  // a document.
+  Status DidOpen(const wxString &path, const wxString &languageId, int version,
+                 const wxString &text);
   // `textDocument/didSave`: the document at `path` was saved.
   Status DidSave(const wxString &path);
   // `textDocument/didClose`: the document at `path` is closed.

@@ -324,11 +324,11 @@ LspManager::GetServerFor(const LspServerKey &key) {
       wxString::Format(_("The language server on %s is not ready yet."), name));
 }
 
-std::optional<std::shared_ptr<LspClient>>
-LspManager::GetServerIfExistsFor(const LspServerKey &key) const {
+std::shared_ptr<LspClient>
+LspManager::FindReadyServer(const LspServerKey &key) const {
   const auto it = m_entries.find(key.GetKey());
   if (it == m_entries.end() || it->second->m_state != LspServerState::kReady) {
-    return std::nullopt;
+    return nullptr;
   }
   return it->second->m_client;
 }

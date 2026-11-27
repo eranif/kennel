@@ -200,14 +200,8 @@ FilePage::~FilePage() {
                                &FilePage::OnEditorOptionsChanged, this);
   EventNotifier::Get()->Unbind(wxEVT_LSP_SERVER_READY,
                                &FilePage::OnLspServerReady, this);
-  // Not created: the page is removed after the server may have been ended, and
-  // creating it would start it again.
-  if (const auto server = GetServer(false)) {
-    const Status closed = server->DidClose(GetAccountPath());
-    if (!closed.ok()) {
-      KLOG_WARN() << "LSP | didClose " << m_path << ": " << closed.message();
-    }
-  }
+  // At the exit the main view is gone: nothing here may reach it.
+  CloseInLanguageServer();
   if (m_saveThread.joinable()) {
     m_saveThread.join();
   }
@@ -216,6 +210,8 @@ FilePage::~FilePage() {
 bool FilePage::LoadLocal() {
   const bool loaded = m_editor->LoadFile(m_path);
   if (loaded) {
+    // A reload: the server has the old text, and a document is opened once.
+    CloseInLanguageServer();
     RequestLanguageServer();
   }
   return loaded;
@@ -227,6 +223,8 @@ void FilePage::LoadRemote(const wxString &text, bool editable) {
   m_searchBar->EnableReplace(CanReplace());
   m_reloadState.reset(); // Of a reload: the bookmarks, the caret, the view
   if (!m_transient) {
+    // A reload: the server has the old text, and a document is opened once.
+    CloseInLanguageServer();
     RequestLanguageServer();
   }
 }
@@ -246,15 +244,18 @@ std::optional<LspServerKey> FilePage::GetLanguageServerKey() const {
   return LspServerKey{*account, LspKind::kClangd};
 }
 
-std::shared_ptr<LspClient> FilePage::GetServer(bool create) const {
-  const std::optional<LspServerKey> key = GetLanguageServerKey();
-  if (!key) {
+std::shared_ptr<LspClient> FilePage::FindServer() const {
+  // The key of the request, not GetLanguageServerKey(): the page may be on its
+  // way out, and the main view with it.
+  if (!m_lspKey) {
     return nullptr;
   }
-  if (!create) {
-    return LspManager::Get().GetServerIfExistsFor(*key).value_or(nullptr);
-  }
-  const auto server = LspManager::Get().GetServerFor(*key);
+  return LspManager::Get().FindReadyServer(*m_lspKey);
+}
+
+std::shared_ptr<LspClient>
+FilePage::StartServer(const LspServerKey &key) const {
+  const auto server = LspManager::Get().GetServerFor(key);
   if (!server.ok()) {
     KLOG_INFO() << "LSP | " << m_path << ": " << server.status().message();
     return nullptr;
@@ -262,17 +263,48 @@ std::shared_ptr<LspClient> FilePage::GetServer(bool create) const {
   return *server;
 }
 
+wxString FilePage::GetLanguageId() const {
+  // The case counts: ".C" is C++ and ".M" is Objective-C++ (GCC, clangd).
+  const wxString extension = m_path.AfterLast('.');
+  if (extension == "c") {
+    return "c";
+  }
+  if (extension == "m") {
+    return "objective-c";
+  }
+  if (extension == "M" || extension.Lower() == "mm") {
+    return "objective-cpp";
+  }
+  return "cpp";
+}
+
 void FilePage::RequestLanguageServer() {
-  const auto server = GetServer(true);
+  const std::optional<LspServerKey> key = GetLanguageServerKey();
+  if (!key) {
+    return;
+  }
+  const auto server = StartServer(*key);
   if (!server) {
     return;
   }
   KLOG_INFO() << "LSP | ready for " << m_path;
-  const Status opened =
-      server->DidOpen(GetAccountPath(), /*version=*/1, m_editor->GetText());
+  const Status opened = server->DidOpen(GetAccountPath(), GetLanguageId(),
+                                        /*version=*/1, m_editor->GetText());
   if (!opened.ok()) {
     KLOG_WARN() << "LSP | didOpen " << m_path << ": " << opened.message();
+    return;
   }
+  m_lspKey = key;
+}
+
+void FilePage::CloseInLanguageServer() {
+  if (const auto server = FindServer()) {
+    const Status closed = server->DidClose(GetAccountPath());
+    if (!closed.ok()) {
+      KLOG_WARN() << "LSP | didClose " << m_path << ": " << closed.message();
+    }
+  }
+  m_lspKey.reset();
 }
 
 void FilePage::OnLspServerReady(LspManagerEvent &event) {
@@ -490,9 +522,12 @@ bool FilePage::SaveAs() {
     return false;
   }
   const wxString oldPath = GetAccountPath();
+  // The old path is closed on its server, the new one is opened on its own.
+  CloseInLanguageServer();
   m_path = path;
   m_untitled = false;
   m_editor->SetEditorLanguage(EditFileDlg::LangFromPath(path));
+  RequestLanguageServer();
   FileEvent changed{wxEVT_FILE_PATH_CHANGED};
   changed.SetEventObject(this);
   changed.SetPath(path);
@@ -589,7 +624,7 @@ void FilePage::OnSave(wxCommandEvent &event) {
 }
 
 void FilePage::SendSaved() {
-  if (const auto server = GetServer(false)) {
+  if (const auto server = FindServer()) {
     const Status saved = server->DidSave(GetAccountPath());
     if (!saved.ok()) {
       KLOG_WARN() << "LSP | didSave " << m_path << ": " << saved.message();

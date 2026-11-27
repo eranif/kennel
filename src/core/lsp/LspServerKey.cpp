@@ -28,18 +28,6 @@ wxString LspServerKey::GetKindName() const {
   return "?";
 }
 
-wxString LspServerKey::GetLanguageId() const {
-  switch (m_kind) {
-  case LspKind::kClangd:
-    return "cpp";
-  case LspKind::kGopls:
-    return "go";
-  case LspKind::kRustAnalyzer:
-    return "rust";
-  }
-  return "?";
-}
-
 wxString LspServerKey::GetProgram(const wxString &installedPath) const {
   static const wxString kHome = "$HOME";
   if (!installedPath.StartsWith(kHome)) {

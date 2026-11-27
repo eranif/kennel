@@ -7,7 +7,6 @@
 
 #include <map>
 #include <memory>
-#include <optional>
 #include <vector>
 #include <wx/event.h>
 #include <wx/string.h>
@@ -77,10 +76,9 @@ public:
   //  - kUnknown: it failed, the message says why.
   StatusOr<std::shared_ptr<LspClient>> GetServerFor(const LspServerKey &key);
 
-  // The client of the server of `key` when it exists and is ready, and nothing
+  // The client of the server of `key` when it exists and is ready, and null
   // otherwise. Unlike GetServerFor() it never starts a server, checks, or asks.
-  std::optional<std::shared_ptr<LspClient>>
-  GetServerIfExistsFor(const LspServerKey &key) const;
+  std::shared_ptr<LspClient> FindReadyServer(const LspServerKey &key) const;
 
   // Ends every server (a running one is stopped) and forgets them all. For the
   // end of the application.
