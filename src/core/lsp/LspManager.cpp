@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <utility>
 #include <wx/intl.h>
 
 namespace {
@@ -94,6 +95,8 @@ public:
       break;
     }
   }
+
+  const LspServerKey &GetServerKey() const { return m_key; }
 
   LspServerState m_state{LspServerState::kChecking};
   // Made when the program is there (from kInitializing); usable when the state
@@ -323,6 +326,13 @@ LspManager::GetServerFor(const LspServerKey &key) {
 
 void LspManager::Shutdown() {
   m_isShutdown = true;
+  auto *notifier = EventNotifier::Get();
+  notifier->Unbind(wxEVT_PAGE_ADDED, &LspManager::OnPageAdded, this);
+  notifier->Unbind(wxEVT_PAGE_REMOVED, &LspManager::OnPageRemoved, this);
+  notifier->Unbind(wxEVT_PAGE_RENAMED, &LspManager::OnPageRenamed, this);
+  notifier->Unbind(wxEVT_PAGE_MOVED, &LspManager::OnPageMoved, this);
+  notifier->Unbind(wxEVT_SESSION_PAGES_CLEARED, &LspManager::OnPagesCleared,
+                   this);
   // First the timer: nothing may start a server again.
   if (m_timer) {
     m_timer->Stop();
@@ -347,14 +357,108 @@ void LspManager::Install(const LspServerKey &key) {
   }
 }
 
-void LspManager::StopUnused(const std::set<wxString> &neededKeys) {
+void LspManager::Initialize() {
+  auto *notifier = EventNotifier::Get();
+  notifier->Bind(wxEVT_PAGE_ADDED, &LspManager::OnPageAdded, this);
+  notifier->Bind(wxEVT_PAGE_REMOVED, &LspManager::OnPageRemoved, this);
+  notifier->Bind(wxEVT_PAGE_RENAMED, &LspManager::OnPageRenamed, this);
+  notifier->Bind(wxEVT_PAGE_MOVED, &LspManager::OnPageMoved, this);
+  notifier->Bind(wxEVT_SESSION_PAGES_CLEARED, &LspManager::OnPagesCleared,
+                 this);
+}
+
+void LspManager::OnPageAdded(PageViewEvent &event) {
+  event.Skip(); // The other views follow it too
+  Page page;
+  page.m_type = event.GetPageType();
+  page.m_machine = event.GetAccount().GetId();
+  page.m_workingDir = event.GetWorkingDir();
+  page.m_path = event.GetPath();
+  page.m_ref = event.GetRef();
+  m_pages.push_back(std::move(page));
+}
+
+void LspManager::OnPageRemoved(PageViewEvent &event) {
+  event.Skip();
+  const bool isFile = event.GetPageType() == PageType::kFile;
+  const wxString machine = event.GetAccount().GetId();
+  const auto it =
+      std::find_if(m_pages.begin(), m_pages.end(), [&](const Page &page) {
+        if (isFile) {
+          return page.m_type == PageType::kFile && page.m_machine == machine &&
+                 page.m_path == event.GetPath();
+        }
+        return page.m_type != PageType::kFile && page.m_ref == event.GetRef();
+      });
+  if (it != m_pages.end()) {
+    m_pages.erase(it);
+  }
+  EndUnusedServers();
+}
+
+void LspManager::OnPageRenamed(PageViewEvent &event) {
+  event.Skip();
+  if (event.GetPageType() == PageType::kFile) {
+    // A file that was saved under another name.
+    const wxString machine = event.GetAccount().GetId();
+    for (Page &page : m_pages) {
+      if (page.m_type == PageType::kFile && page.m_machine == machine &&
+          page.m_path == event.GetOldFilePath()) {
+        page.m_path = event.GetPath();
+        page.m_workingDir = event.GetWorkingDir();
+      }
+    }
+    EndUnusedServers();
+    return;
+  }
+  for (Page &page : m_pages) {
+    if (page.m_type != PageType::kFile && page.m_ref == event.GetOldRef()) {
+      page.m_ref = event.GetRef();
+    }
+  }
+}
+
+void LspManager::OnPageMoved(PageViewEvent &event) {
+  event.Skip();
+  // A terminal went to another folder.
+  for (Page &page : m_pages) {
+    if (page.m_type != PageType::kFile && page.m_ref == event.GetRef()) {
+      page.m_workingDir = event.GetAccount().m_rootDir;
+    }
+  }
+  EndUnusedServers();
+}
+
+void LspManager::OnPagesCleared(wxCommandEvent &event) {
+  event.Skip();
+  // Every page is gone: no server is needed.
+  m_pages.clear();
+  EndUnusedServers(/*force=*/true);
+}
+
+bool LspManager::IsNeeded(const LspServerKey &key) const {
+  const wxString machine = key.m_account.GetId();
+  return std::any_of(m_pages.begin(), m_pages.end(), [&](const Page &page) {
+    if (page.m_machine != machine) {
+      return false;
+    }
+    if (page.m_type == PageType::kFile) {
+      return key.m_account.IsInRootDir(page.m_path);
+    }
+    return page.m_workingDir == key.m_account.m_rootDir;
+  });
+}
+
+void LspManager::EndUnusedServers(bool force) {
   for (auto it = m_entries.begin(); it != m_entries.end();) {
-    if (neededKeys.count(it->first) != 0 ||
-        it->second->m_state == LspServerState::kDeclined) {
+    // What the user declined stays declined.
+    if (it->second->m_state == LspServerState::kDeclined ||
+        (!force && IsNeeded(it->second->GetServerKey()))) {
       ++it;
       continue;
     }
-    KLOG_DEBUG() << "LSP | " << it->first << ": no page needs it, ending it";
+    KLOG_DEBUG() << "LSP | " << it->first << ": "
+                 << (force ? "ending it" : "no page needs it, ending it");
     it = m_entries.erase(it);
   }
 }

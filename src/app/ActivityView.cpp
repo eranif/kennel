@@ -242,11 +242,17 @@ void ActivityView::OnSessionPageShown(PageViewEvent &event) {
 
 void ActivityView::OnSessionRenamed(PageViewEvent &event) {
   event.Skip();
+  if (event.GetPageType() == PageType::kFile) {
+    return; // A file is not a session
+  }
   RenameSession(event.GetOldRef(), event.GetRef());
 }
 
 void ActivityView::OnSessionPageRemoved(PageViewEvent &event) {
   event.Skip();
+  if (event.GetPageType() == PageType::kFile) {
+    return; // A file is not a session
+  }
   if (m_active == event.GetRef()) {
     m_active.reset(); // The session is gone
   }

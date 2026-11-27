@@ -32,6 +32,11 @@ public:
   const wxString &GetPath() const { return m_path; }
   void SetPath(const wxString &path) { m_path = path; }
 
+  // wxEVT_FILE_PATH_CHANGED: the path the page had (in the notation of
+  // GetAccount()), when GetPath() is the new one.
+  const wxString &GetOldPath() const { return m_oldPath; }
+  void SetOldPath(const wxString &path) { m_oldPath = path; }
+
   // Whether the path is a folder.
   bool IsDir() const { return m_isDir; }
   void SetIsDir(bool isDir) { m_isDir = isDir; }
@@ -83,6 +88,7 @@ public:
 
 private:
   wxString m_path;
+  wxString m_oldPath;
   bool m_isDir{false};
   int m_line{0};
   int m_column{0};
@@ -117,8 +123,9 @@ wxDECLARE_EVENT(wxEVT_CLOSE_ALL_FILES_ENDED, wxCommandEvent);
 // only.
 wxDECLARE_EVENT(wxEVT_FILE_MODIFIED_CHANGED, FileEvent);
 // Sent on the EventNotifier by a FilePage that got a file (an untitled page
-// that was saved): GetPath() is the new path. The event object is the page; the
-// event is pending, so the page may be gone: compare the pointer only.
+// that was saved): GetPath() is the new path, GetOldPath() the old one. The
+// event object is the page; the event is pending, so the page may be gone:
+// compare the pointer only.
 wxDECLARE_EVENT(wxEVT_FILE_PATH_CHANGED, FileEvent);
 // Sent on the EventNotifier when a file was saved (a local file, and a remote
 // one when the upload worked): GetPath() and GetAccount() tell which. The views

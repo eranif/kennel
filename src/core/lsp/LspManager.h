@@ -1,12 +1,13 @@
 #pragma once
 
+#include "core/PageViewEvent.hpp"
 #include "core/Status.h"
 #include "core/lsp/LspClient.h"
 #include "core/lsp/LspServerKey.h"
 
 #include <map>
 #include <memory>
-#include <set>
+#include <vector>
 #include <wx/event.h>
 #include <wx/string.h>
 #include <wx/timer.h>
@@ -83,14 +84,42 @@ public:
   void Install(const LspServerKey &key);
   void Decline(const LspServerKey &key);
 
-  // Ends every server whose LspServerKey::GetKey() is not in `neededKeys`: a
-  // running one is stopped, one that is being checked or installed is given up.
-  // What the user declined stays declined. Called when a page closes, with the
-  // keys that the pages that are still open need.
-  void StopUnused(const std::set<wxString> &neededKeys);
+  // Starts to listen to the page events (wxEVT_PAGE_ADDED and the others): the
+  // manager keeps what pages are open, and ends a server when no page needs it
+  // any more. Call it once, before the first page is made.
+  void Initialize();
 
 private:
   LspManager() = default;
+
+  // An open page, as the page events tell it. A server is needed while a page
+  // matches it: a session or a terminal that works in the folder of the server
+  // (same machine, the same working directory), or a file that is inside that
+  // folder.
+  struct Page {
+    PageType m_type{PageType::kSession};
+    // Account::GetId(): the machine.
+    wxString m_machine;
+    // A session or a terminal: its working directory. A file: the folder of the
+    // file.
+    wxString m_workingDir;
+    // A file: its full path.
+    wxString m_path;
+    // A session or a terminal: its name.
+    SessionRef m_ref;
+  };
+
+  void OnPageAdded(PageViewEvent &event);
+  void OnPageRemoved(PageViewEvent &event);
+  void OnPageRenamed(PageViewEvent &event);
+  void OnPageMoved(PageViewEvent &event);
+  void OnPagesCleared(wxCommandEvent &event);
+
+  // Whether an open page needs the server of `key`.
+  bool IsNeeded(const LspServerKey &key) const;
+  // Ends the servers that no open page needs (what the user declined stays).
+  // With `force` every server is ended, without looking at the pages.
+  void EndUnusedServers(bool force = false);
 
   // One server of the manager (see LspManager.cpp).
   class Entry;
@@ -100,6 +129,8 @@ private:
 
   // The key is LspServerKey::GetKey().
   std::map<wxString, std::unique_ptr<Entry>> m_entries;
+  // The pages that are open.
+  std::vector<Page> m_pages;
   // Made with the first server, ended by Shutdown().
   std::unique_ptr<wxTimer> m_timer;
   // Shutdown() was called: GetServerFor() starts nothing any more.

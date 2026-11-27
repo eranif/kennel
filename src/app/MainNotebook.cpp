@@ -396,12 +396,10 @@ void MainNotebook::CloseOrArchiveSession(const wxString &groupName,
   }
 }
 
-void MainNotebook::SendPageEvent(wxEventType type, const SessionRef &ref,
-                                 const Account &account,
-                                 const SessionRef &oldRef,
-                                 PageActivity activity,
-                                 const wxString &workingDir, PageType pageType,
-                                 const wxString &path) {
+void MainNotebook::SendPageEvent(
+    wxEventType type, const SessionRef &ref, const Account &account,
+    const SessionRef &oldRef, PageActivity activity, const wxString &workingDir,
+    PageType pageType, const wxString &path, const wxString &oldFilePath) {
   PageViewEvent event(type, GetId());
   event.SetEventObject(this);
   event.SetRef(ref);
@@ -411,13 +409,16 @@ void MainNotebook::SendPageEvent(wxEventType type, const SessionRef &ref,
   event.SetWorkingDir(workingDir);
   event.SetPageType(pageType);
   event.SetPath(path);
+  event.SetOldFilePath(oldFilePath);
   EventNotifier::Get()->ProcessEvent(event);
 }
 
-void MainNotebook::SendFilePageEvent(wxEventType type, const FilePage *page) {
+void MainNotebook::SendFilePageEvent(wxEventType type, const FilePage *page,
+                                     const wxString &oldPath) {
   // A file has no session: no reference.
   SendPageEvent(type, SessionRef{}, page->GetAccount(), {}, PageActivity::None,
-                page->GetDirectory(), PageType::kFile, page->GetPath());
+                page->GetDirectory(), PageType::kFile, page->GetAccountPath(),
+                oldPath);
 }
 
 void MainNotebook::OnShowSessionRequested(PageViewEvent &event) {
@@ -1350,6 +1351,9 @@ void MainNotebook::OnFilePathChanged(FileEvent &e) {
         m_book->SetPageToolTip(index, file->GetPath());
         m_book->SetPageBitmap(index, IconOf(file));
       }
+      // The others that keep the pages (the language servers) learn the new
+      // path, and the old one.
+      SendFilePageEvent(wxEVT_PAGE_RENAMED, file, e.GetOldPath());
       SyncWorkspaceSoon();
       return;
     }

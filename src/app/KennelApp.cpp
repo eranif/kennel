@@ -10,6 +10,7 @@
 #include "core/CrashHandler.h"
 #include "core/Logger.h"
 #include "core/PromptFileRemover.h"
+#include "core/lsp/LspManager.h"
 
 // wxWidgets application entry point. Creates and shows the main window.
 class KennelApp : public wxApp {
@@ -90,6 +91,9 @@ public:
     // Load config, workspace, and UI prefs into the process-wide AppManager.
     // UI code reaches all of these via AppManager::Get().
     AppManager::Get().Initialize(paths);
+
+    // Before the first page is made: it follows the pages that are open.
+    LspManager::Get().Initialize();
 
     // Before the first window is created.
     ApplyAppTheme(AppManager::Get().GetPrefs().appTheme);

@@ -329,14 +329,16 @@ wxString FilePage::GetAccountPath() const {
 }
 
 wxString FilePage::GetDirectory() const {
-  if (IsRemote()) {
-    wxString dir = m_path.BeforeLast('/');
-    if (dir.empty() && m_path.StartsWith("/")) {
-      dir = "/"; // A file at the root
-    }
-    return dir;
+  const wxString path = GetAccountPath();
+  if (GetAccount().IsLocalHost()) {
+    return wxFileName(path).GetPath();
   }
-  return wxFileName(m_path).GetPath();
+  // A Linux path (a remote host, WSL).
+  wxString dir = path.BeforeLast('/');
+  if (dir.empty() && path.StartsWith("/")) {
+    dir = "/"; // A file at the root
+  }
+  return dir;
 }
 
 wxString FilePage::GetFolder() const {
@@ -463,12 +465,14 @@ bool FilePage::SaveAs() {
                    wxOK | wxICON_ERROR, this);
     return false;
   }
+  const wxString oldPath = GetAccountPath();
   m_path = path;
   m_untitled = false;
   m_editor->SetEditorLanguage(EditFileDlg::LangFromPath(path));
   FileEvent changed{wxEVT_FILE_PATH_CHANGED};
   changed.SetEventObject(this);
   changed.SetPath(path);
+  changed.SetOldPath(oldPath);
   EventNotifier::Get()->AddPendingEvent(changed);
   SendSaved();
   return true;

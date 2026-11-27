@@ -357,9 +357,12 @@ private:
                      PageActivity activity = PageActivity::None,
                      const wxString &workingDir = wxEmptyString,
                      PageType pageType = PageType::kSession,
-                     const wxString &path = wxEmptyString);
-  // wxEVT_PAGE_ADDED / wxEVT_PAGE_REMOVED for a file page.
-  void SendFilePageEvent(wxEventType type, const FilePage *page);
+                     const wxString &path = wxEmptyString,
+                     const wxString &oldFilePath = wxEmptyString);
+  // wxEVT_PAGE_ADDED / wxEVT_PAGE_REMOVED / wxEVT_PAGE_RENAMED for a file page.
+  // `oldPath` is for the rename: the path that the file had.
+  void SendFilePageEvent(wxEventType type, const FilePage *page,
+                         const wxString &oldPath = wxEmptyString);
   // The side views ask (they arrive on the EventNotifier):
   // The user chose a session in the file explorer or in the activity view.
   void OnShowSessionRequested(PageViewEvent &event);

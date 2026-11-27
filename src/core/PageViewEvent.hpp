@@ -56,13 +56,20 @@ public:
   PageType GetPageType() const { return m_pageType; }
   void SetPageType(PageType type) { m_pageType = type; }
 
-  // A file: its full path ("C:\a\b\file.cpp", "/home/me/file.cpp"). Empty for
+  // A file: its full path in the notation of GetAccount() ("C:\a\b\file.cpp",
+  // "/home/me/file.cpp"; a Linux path for WSL and for a remote host). Empty for
   // the other pages.
   const wxString &GetPath() const { return m_path; }
   void SetPath(const wxString &path) { m_path = path; }
 
+  // A file that was renamed (Save As, or an untitled file that was saved): the
+  // path it had, in the same notation as GetPath(), which is the new one.
+  const wxString &GetOldFilePath() const { return m_oldFilePath; }
+  void SetOldFilePath(const wxString &path) { m_oldFilePath = path; }
+
 private:
   wxString m_path;
+  wxString m_oldFilePath;
   SessionRef m_ref;
   SessionRef m_oldRef;
   Account m_account;
@@ -85,7 +92,10 @@ private:
 //                                event is handled): GetAccount(),
 //                                GetWorkingDir(), GetPageType(), GetPath() (a
 //                                file only).
-//   wxEVT_PAGE_RENAMED:  GetOldRef() is GetRef() now.
+//   wxEVT_PAGE_RENAMED:  GetOldRef() is GetRef() now. A file (GetPageType() is
+//                                kFile): GetOldFilePath() is GetPath() now,
+//                                with GetAccount() and GetWorkingDir() of the
+//                                new path.
 //   wxEVT_SESSION_PAGES_CLEARED: every session is gone.
 //   wxEVT_PAGE_SHOWN:    the session GetRef() is the page showing now.
 //   wxEVT_PAGE_MOVED:    the place of a terminal changed (it went to

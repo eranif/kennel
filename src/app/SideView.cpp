@@ -373,16 +373,25 @@ void SideView::ShowContext(Context &context) {
 
 void SideView::OnSessionPageAdded(PageViewEvent &event) {
   event.Skip();
+  if (event.GetPageType() == PageType::kFile) {
+    return; // A file is not a session
+  }
   AddSession(event.GetRef(), event.GetAccount());
 }
 
 void SideView::OnSessionPageRemoved(PageViewEvent &event) {
   event.Skip();
+  if (event.GetPageType() == PageType::kFile) {
+    return;
+  }
   RemoveSession(event.GetRef());
 }
 
 void SideView::OnSessionRenamed(PageViewEvent &event) {
   event.Skip();
+  if (event.GetPageType() == PageType::kFile) {
+    return; // A file is not a session
+  }
   RenameSession(event.GetOldRef(), event.GetRef());
 }
 
