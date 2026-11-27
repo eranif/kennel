@@ -1,12 +1,12 @@
 #pragma once
 
 #include "UI.hpp"
-#include "app/FileEvent.hpp"
-#include "core/PageViewEvent.hpp"
 #include "core/Account.h"
+#include "core/FileEvent.hpp"
 #include "core/GitDriver.h"
 #include "core/GitEvent.h"
 #include "core/GitTypes.h"
+#include "core/PageViewEvent.hpp"
 #include "core/Workspace.h"
 
 #include <memory>

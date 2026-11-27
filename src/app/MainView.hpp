@@ -1,10 +1,10 @@
 #pragma once
 
 #include "UI.hpp"
-#include "app/FileEvent.hpp"
 #include "app/OutputView.hpp"
 #include "app/SideView.hpp"
 #include "app/ThemeManager.h"
+#include "core/FileEvent.hpp"
 
 class FindResultsView;
 

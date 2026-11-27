@@ -2,6 +2,8 @@
 
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
+#include "core/Globals.hpp"
+#include "core/IManager.h"
 #include "core/Logger.h"
 #include "core/RemoteInstaller.h"
 #include "core/Ripgrep.h"
@@ -261,7 +263,7 @@ void LspManager::OnTimer(wxTimerEvent &) {
 }
 
 StatusOr<std::shared_ptr<LspClient>>
-LspManager::GetServerFor(const LspServerKey &key) {
+LspManager::GetClientFor(const LspServerKey &key) {
   if (m_isShutdown) {
     return Status::Error(
         StatusCode::kUnavailable,
@@ -324,15 +326,6 @@ LspManager::GetServerFor(const LspServerKey &key) {
       wxString::Format(_("The language server on %s is not ready yet."), name));
 }
 
-std::shared_ptr<LspClient>
-LspManager::FindReadyServer(const LspServerKey &key) const {
-  const auto it = m_entries.find(key.GetKey());
-  if (it == m_entries.end() || it->second->m_state != LspServerState::kReady) {
-    return nullptr;
-  }
-  return it->second->m_client;
-}
-
 void LspManager::Shutdown() {
   m_isShutdown = true;
   auto *notifier = EventNotifier::Get();
@@ -348,6 +341,7 @@ void LspManager::Shutdown() {
     m_timer.reset();
     Unbind(wxEVT_TIMER, &LspManager::OnTimer, this);
   }
+  notifier->Unbind(wxEVT_FILE_SAVED, &LspManager::OnFileSaved, this);
   KLOG_DEBUG() << "LSP | shutting down, " << m_entries.size() << " server(s)";
   while (!m_entries.empty()) {
     auto it = m_entries.begin();
@@ -374,6 +368,94 @@ void LspManager::Initialize() {
   notifier->Bind(wxEVT_PAGE_MOVED, &LspManager::OnPageMoved, this);
   notifier->Bind(wxEVT_SESSION_PAGES_CLEARED, &LspManager::OnPagesCleared,
                  this);
+  notifier->Bind(wxEVT_FILE_SAVED, &LspManager::OnFileSaved, this);
+}
+
+void LspManager::OnFileSaved(FileEvent &event) {
+  event.Skip(); // The views of the files follow it too
+  IManager *manager = GetKennelManager();
+  IEditor *editor =
+      manager ? manager->FindEditorByUID(event.GetEditorUID()) : nullptr;
+  if (editor == nullptr) {
+    return;
+  }
+  if (const auto client = FindClient(*editor)) {
+    client->OnDocumentSaved(editor);
+  }
+}
+
+bool LspManager::IsClientAvailableFor(IEditor *editor) {
+  if (m_isShutdown || editor == nullptr) {
+    return false;
+  }
+  const std::optional<LspServerKey> key = editor->GetServerKey();
+  if (!key) {
+    return false;
+  }
+  const auto client = GetClientFor(*key);
+  // Not ready yet is on its way (the ready event comes). Anything else is for
+  // good: nothing starts it again.
+  if (!client.ok() && client.status().code() != StatusCode::kUnavailable) {
+    KLOG_WARN() << "LSP | " << editor->GetFilePath()
+                << ": no language server: " << client.status().message();
+  }
+  return client.ok();
+}
+
+void LspManager::NotifyOpened(IEditor *editor) {
+  if (m_isShutdown || editor == nullptr) {
+    return;
+  }
+  const std::optional<LspServerKey> key = editor->GetServerKey();
+  if (!key) {
+    return;
+  }
+  // Starts the server when there is none. When it is not ready yet,
+  // wxEVT_LSP_SERVER_READY tells the editor to notify again.
+  const auto client = GetClientFor(*key);
+  if (!client.ok()) {
+    KLOG_DEBUG() << "LSP | " << editor->GetFilePath() << ": "
+                 << client.status().message();
+    return;
+  }
+  (*client)->NotifyOpened(editor);
+}
+
+std::optional<RequestID> LspManager::GetSemanticHighlightsFor(IEditor *editor) {
+  if (m_isShutdown || editor == nullptr) {
+    return std::nullopt;
+  }
+  const std::optional<LspServerKey> key = editor->GetServerKey();
+  if (!key) {
+    return std::nullopt;
+  }
+  // Starts the server when there is none. When it is not ready yet,
+  // wxEVT_LSP_SERVER_READY tells the editor to ask again.
+  const auto client = GetClientFor(*key);
+  if (!client.ok()) {
+    KLOG_DEBUG() << "LSP | " << editor->GetFilePath() << ": "
+                 << client.status().message();
+    return std::nullopt;
+  }
+  return (*client)->GetSemanticHighlightsFor(editor);
+}
+
+void LspManager::NotifyClosed(IEditor *editor) {
+  if (editor == nullptr) {
+    return;
+  }
+  if (const auto client = FindClient(*editor)) {
+    client->CloseDocument(editor);
+  }
+}
+
+std::shared_ptr<LspClient> LspManager::FindClient(const IEditor &editor) const {
+  const std::optional<LspServerKey> key = editor.GetServerKey();
+  if (!key) {
+    return nullptr;
+  }
+  const auto it = m_entries.find(key->GetKey());
+  return it == m_entries.end() ? nullptr : it->second->m_client;
 }
 
 void LspManager::OnPageAdded(PageViewEvent &event) {
@@ -401,6 +483,13 @@ void LspManager::OnPageRemoved(PageViewEvent &event) {
       });
   if (it != m_pages.end()) {
     m_pages.erase(it);
+  }
+  if (isFile) {
+    // Before the servers that nobody needs end: they are told first. The page
+    // is still there, and gives its editor.
+    IManager *manager = GetKennelManager();
+    NotifyClosed(manager ? manager->FindEditorByUID(event.GetEditorUID())
+                         : nullptr);
   }
   EndUnusedServers();
 }
@@ -440,7 +529,7 @@ void LspManager::OnPageMoved(PageViewEvent &event) {
 
 void LspManager::OnPagesCleared(wxCommandEvent &event) {
   event.Skip();
-  // Every page is gone: no server is needed.
+  // Every page is gone: no server is needed, and no file is open.
   m_pages.clear();
   EndUnusedServers(/*force=*/true);
 }

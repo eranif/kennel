@@ -1,10 +1,14 @@
 #include "core/lsp/LspClient.h"
 
 #include "core/EventNotifier.hpp"
+#include "core/Globals.hpp"
+#include "core/IManager.h"
 #include "core/Logger.h"
 #include "core/json.hpp"
+#include "core/lsp/LspSemanticTokens.h"
 #include "core/lsp/LspUri.h"
 
+#include <atomic>
 #include <utility>
 #include <wx/utils.h>
 
@@ -29,7 +33,19 @@ Status LspClient::Start() {
   // What this client can do. More is added with the features that use it.
   const json capabilities = {
       {"general", {{"positionEncodings", json::array({"utf-8", "utf-16"})}}},
-      {"textDocument", {{"synchronization", {{"didSave", true}}}}},
+      {"textDocument",
+       {{"synchronization", {{"didSave", true}}},
+        {"semanticTokens",
+         {{"requests", {{"full", true}}},
+          {"tokenTypes",
+           json::array({"namespace", "type",     "class",         "enum",
+                        "interface", "struct",   "typeParameter", "parameter",
+                        "variable",  "property", "enumMember",    "event",
+                        "function",  "method",   "macro",         "keyword",
+                        "modifier",  "comment",  "string",        "number",
+                        "regexp",    "operator", "decorator"})},
+          {"tokenModifiers", json::array()},
+          {"formats", json::array({"relative"})}}}}},
   };
   const json params = {
       {"processId", static_cast<int>(wxGetProcessId())},
@@ -61,15 +77,195 @@ Status LspClient::SendNotification(const std::string &method,
               ",\"params\":" + params + "}");
 }
 
-Status LspClient::DidOpen(const wxString &path, const wxString &languageId,
+Status LspClient::DidOpen(const wxString &path, LspLanguage language,
                           int version, const wxString &text) {
+  // The name that the protocol gives to the language.
+  std::string languageId;
+  switch (language) {
+  case LspLanguage::kC:
+    languageId = "c";
+    break;
+  case LspLanguage::kObjectiveC:
+    languageId = "objective-c";
+    break;
+  case LspLanguage::kObjectiveCpp:
+    languageId = "objective-cpp";
+    break;
+  case LspLanguage::kCpp:
+  case LspLanguage::kNone:
+    languageId = "cpp";
+    break;
+  }
   const json params = {{"textDocument",
                         {{"uri", LspUri(path).GetUri().ToStdString(wxConvUTF8)},
-                         {"languageId", languageId.ToStdString(wxConvUTF8)},
+                         {"languageId", languageId},
                          {"version", version},
                          {"text", text.ToStdString(wxConvUTF8)}}}};
   KLOG_DEBUG() << "LSP | didOpen " << path;
   return SendNotification("textDocument/didOpen", params.dump());
+}
+
+Status LspClient::DidChange(const wxString &path, int version,
+                            const wxString &text) {
+  // The whole text: one change without a range.
+  const json params = {
+      {"textDocument",
+       {{"uri", LspUri(path).GetUri().ToStdString(wxConvUTF8)},
+        {"version", version}}},
+      {"contentChanges",
+       json::array({json{{"text", text.ToStdString(wxConvUTF8)}}})}};
+  KLOG_DEBUG() << "LSP | didChange " << path << ", version " << version;
+  return SendNotification("textDocument/didChange", params.dump());
+}
+
+StatusOr<int> LspClient::RequestSemanticTokens(const wxString &path) {
+  const json params = {
+      {"textDocument",
+       {{"uri", LspUri(path).GetUri().ToStdString(wxConvUTF8)}}}};
+  KLOG_DEBUG() << "LSP | semanticTokens/full " << path;
+  return SendRequest("textDocument/semanticTokens/full", params.dump());
+}
+
+StatusOr<int> LspClient::SendRequest(const std::string &method,
+                                     const std::string &params) {
+  const int id = m_nextProtocolId++;
+  const Status sent = Send("{\"jsonrpc\":\"2.0\",\"id\":" + std::to_string(id) +
+                           ",\"method\":" + json(method).dump() +
+                           ",\"params\":" + params + "}");
+  if (!sent.ok()) {
+    return sent;
+  }
+  return id;
+}
+
+void LspClient::NotifyOpened(IEditor *editor) {
+  // Until the handshake is done the server is not ready for anything.
+  if (editor == nullptr || m_serverCapabilities.empty()) {
+    return;
+  }
+  const wxString path = editor->GetFilePath();
+  const uint64_t changeCounter = editor->GetChangeCounter();
+  // The change counter is the version of the text: it goes up with each change
+  // and never goes back.
+  const int version = static_cast<int>(changeCounter);
+  const FilePageUID editorId = editor->GetEditorUID();
+  const bool isOpen = m_changeCounters.count(editorId) != 0;
+  // A file that is loaded again (a reload) is open already: its text is sent as
+  // a change, a document is opened once.
+  const Status sent = isOpen ? DidChange(path, version, editor->GetText())
+                             : DidOpen(path, editor->GetLanguageId(), version,
+                                       editor->GetText());
+  if (!sent.ok()) {
+    KLOG_WARN() << "LSP | " << path << ": " << sent.message();
+    return;
+  }
+  m_changeCounters[editorId] = changeCounter;
+}
+
+std::optional<RequestID> LspClient::GetSemanticHighlightsFor(IEditor *editor) {
+  if (editor == nullptr) {
+    return std::nullopt;
+  }
+  const wxString path = editor->GetFilePath();
+  const uint64_t changeCounter = editor->GetChangeCounter();
+
+  // The server has the file since NotifyOpened(), or it is not ready.
+  const auto known = m_changeCounters.find(editor->GetEditorUID());
+  if (known == m_changeCounters.end()) {
+    return std::nullopt;
+  }
+  // The changes since: before the request, the server answers for the text that
+  // it has.
+  if (known->second != changeCounter) {
+    const Status changed =
+        DidChange(path, static_cast<int>(changeCounter), editor->GetText());
+    if (!changed.ok()) {
+      KLOG_WARN() << "LSP | didChange " << path << ": " << changed.message();
+      return std::nullopt;
+    }
+    known->second = changeCounter;
+  }
+
+  const StatusOr<int> sent = RequestSemanticTokens(path);
+  if (!sent.ok()) {
+    KLOG_WARN() << "LSP | semantic tokens " << path << ": "
+                << sent.status().message();
+    return std::nullopt;
+  }
+  // One ID for all the clients: an editor may wait for answers of several.
+  static std::atomic<RequestID> nextRequestId{1};
+  Request request;
+  request.id = nextRequestId++;
+  request.editorId = editor->GetEditorUID();
+  request.account = editor->GetAccount();
+  request.path = path;
+  request.changeCounter = changeCounter;
+  m_requests.emplace(*sent, request);
+  return request.id;
+}
+
+void LspClient::OnResponse(int id, const std::string &result,
+                           const wxString &error) {
+  const auto found = m_requests.find(id);
+  if (found == m_requests.end()) {
+    return;
+  }
+  const Request request = found->second;
+  m_requests.erase(found);
+  if (!error.empty()) {
+    KLOG_WARN() << "LSP | " << request.path << ": " << error;
+    return;
+  }
+  // The editor is fetched from the live application, if it is still there.
+  IManager *manager = GetKennelManager();
+  IEditor *editor =
+      manager ? manager->FindEditorByUID(request.editorId) : nullptr;
+  if (editor == nullptr ||
+      editor->GetChangeCounter() != request.changeCounter) {
+    // The file was closed, or its text changed since the server was asked: the
+    // answer is for the old one. The editor asks again for the new one.
+    KLOG_DEBUG() << "LSP | " << request.path
+                 << ": the semantic tokens are old, dropped";
+    return;
+  }
+  const StatusOr<LspSemanticWords> words =
+      LspSemanticTokens(m_serverCapabilities)
+          .GetWords(result, editor->GetText());
+  if (!words.ok()) {
+    KLOG_WARN() << "LSP | " << request.path << ": " << words.status().message();
+    return;
+  }
+  KLOG_DEBUG() << "LSP | " << request.path << ": semantic tokens";
+  LspSemanticTokensEvent tokens(wxEVT_LSP_SEMANTIC_TOKENS);
+  tokens.SetRequestId(request.id);
+  tokens.SetAccount(request.account);
+  tokens.SetFilePath(request.path);
+  tokens.SetWords(*words);
+  EventNotifier::Get()->ProcessEvent(tokens);
+}
+
+void LspClient::CloseDocument(IEditor *editor) {
+  if (editor == nullptr ||
+      m_changeCounters.erase(editor->GetEditorUID()) == 0) {
+    return; // Not open here
+  }
+  const wxString path = editor->GetFilePath();
+  const Status closed = DidClose(path);
+  if (!closed.ok()) {
+    KLOG_WARN() << "LSP | didClose " << path << ": " << closed.message();
+  }
+}
+
+void LspClient::OnDocumentSaved(IEditor *editor) {
+  if (editor == nullptr ||
+      m_changeCounters.count(editor->GetEditorUID()) == 0) {
+    return; // Not open here
+  }
+  const wxString path = editor->GetFilePath();
+  const Status saved = DidSave(path);
+  if (!saved.ok()) {
+    KLOG_WARN() << "LSP | didSave " << path << ": " << saved.message();
+  }
 }
 
 Status LspClient::DidSave(const wxString &path) {
@@ -132,7 +328,24 @@ void LspClient::OnParsed(std::string body) {
     return;
   }
 
-  if (!hasId || message["id"] != m_initializeId) {
+  if (!hasId) {
+    return;
+  }
+  if (message["id"] != m_initializeId) {
+    // The answer to a request of an editor.
+    if (message["id"].is_number_integer()) {
+      wxString error;
+      if (message.contains("error")) {
+        const json &failure = message["error"];
+        error = failure.is_object() && failure.contains("message") &&
+                        failure["message"].is_string()
+                    ? wxString::FromUTF8(failure["message"].get<std::string>())
+                    : wxString("The request failed");
+      }
+      OnResponse(message["id"].get<int>(),
+                 message.contains("result") ? message["result"].dump() : "null",
+                 error);
+    }
     return;
   }
 

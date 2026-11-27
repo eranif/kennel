@@ -1,6 +1,6 @@
 #pragma once
 
-#include "app/FileEvent.hpp"
+#include "core/FileEvent.hpp"
 #include "core/PageViewEvent.hpp"
 #include "core/Spinner.h"
 #include "core/Workspace.h"

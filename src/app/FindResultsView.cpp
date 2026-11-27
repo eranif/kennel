@@ -1,12 +1,12 @@
 #include "FindResultsView.hpp"
 
 #include "app/Editor.h"
-#include "app/FileEvent.hpp"
 #include "app/FileTreeCtrl.hpp"
 #include "app/ThemeManager.h"
 #include "app/ToolBarUtils.h"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
+#include "core/FileEvent.hpp"
 
 #include <algorithm>
 #include <wx/aui/auibar.h>

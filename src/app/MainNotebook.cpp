@@ -194,12 +194,12 @@ MainNotebook::MainNotebook(wxWindow *parent, wxWindowID winid,
   Bind(wxEVT_SESSION_CHANGED, &MainNotebook::OnSessionChanged, this);
   Bind(wxEVT_SESSION_SUMMARY_READY, &MainNotebook::OnSessionSummaryReady, this);
   Bind(wxEVT_IDLE, &MainNotebook::OnIdleEvent, this);
-  // A FilePage handles its own save events first and then Skip()s them, so
-  // they propagate up to wxTheApp, where the notebook does its part (activity
-  // indicator, closing after a save).
-  wxTheApp->Bind(wxEVT_FILE_SAVE_STARTED, &MainNotebook::OnFileSaveStarted,
-                 this);
-  wxTheApp->Bind(wxEVT_FILE_SAVE_DONE, &MainNotebook::OnFileSaveDone, this);
+  // The save events of a FilePage come on the EventNotifier: the notebook does
+  // its part (activity indicator, closing after a save).
+  EventNotifier::Get()->Bind(wxEVT_FILE_SAVE_STARTED,
+                             &MainNotebook::OnFileSaveStarted, this);
+  EventNotifier::Get()->Bind(wxEVT_FILE_SAVE_DONE,
+                             &MainNotebook::OnFileSaveDone, this);
 
   // Behind the book: the blurred desktop shows where the tab bar has no tab.
   if (glass) {
@@ -240,11 +240,10 @@ MainNotebook::~MainNotebook() {
   Unbind(wxEVT_SESSION_SUMMARY_READY, &MainNotebook::OnSessionSummaryReady,
          this);
   Unbind(wxEVT_IDLE, &MainNotebook::OnIdleEvent, this);
-  if (wxTheApp) {
-    wxTheApp->Unbind(wxEVT_FILE_SAVE_STARTED, &MainNotebook::OnFileSaveStarted,
-                     this);
-    wxTheApp->Unbind(wxEVT_FILE_SAVE_DONE, &MainNotebook::OnFileSaveDone, this);
-  }
+  EventNotifier::Get()->Unbind(wxEVT_FILE_SAVE_STARTED,
+                               &MainNotebook::OnFileSaveStarted, this);
+  EventNotifier::Get()->Unbind(wxEVT_FILE_SAVE_DONE,
+                               &MainNotebook::OnFileSaveDone, this);
 }
 
 // ---------------------------------------------------------------------------
@@ -399,7 +398,8 @@ void MainNotebook::CloseOrArchiveSession(const wxString &groupName,
 void MainNotebook::SendPageEvent(
     wxEventType type, const SessionRef &ref, const Account &account,
     const SessionRef &oldRef, PageActivity activity, const wxString &workingDir,
-    PageType pageType, const wxString &path, const wxString &oldFilePath) {
+    PageType pageType, const wxString &path, const wxString &oldFilePath,
+    FilePageUID editorUID) {
   PageViewEvent event(type, GetId());
   event.SetEventObject(this);
   event.SetRef(ref);
@@ -410,6 +410,7 @@ void MainNotebook::SendPageEvent(
   event.SetPageType(pageType);
   event.SetPath(path);
   event.SetOldFilePath(oldFilePath);
+  event.SetEditorUID(editorUID);
   EventNotifier::Get()->ProcessEvent(event);
 }
 
@@ -418,7 +419,7 @@ void MainNotebook::SendFilePageEvent(wxEventType type, const FilePage *page,
   // A file has no session: no reference.
   SendPageEvent(type, SessionRef{}, page->GetAccount(), {}, PageActivity::None,
                 page->GetDirectory(), PageType::kFile, page->GetAccountPath(),
-                oldPath);
+                oldPath, page->GetEditorUID());
 }
 
 void MainNotebook::OnShowSessionRequested(PageViewEvent &event) {
@@ -1155,8 +1156,8 @@ void MainNotebook::OnFileSaveDone(FileEvent &e) {
 
   const wxString key = e.GetKey();
   if (m_closeAfterSave.erase(key) > 0 && e.GetStatusCode().ok()) {
-    // Deferred: this event is still being dispatched by the very page that is
-    // about to be destroyed.
+    // Deferred: the page may still be in FileSaved() (its error dialog runs the
+    // event loop), and it is about to be destroyed.
     CallAfter(&MainNotebook::CloseFileByKey, key);
   }
 }

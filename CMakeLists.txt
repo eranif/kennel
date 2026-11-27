@@ -265,6 +265,9 @@ add_library(
   src/core/Logger.cpp
   src/core/SshConfigParser.cpp
   src/core/DialogAnswers.cpp
+  src/core/FileEvent.cpp
+  src/core/Globals.cpp
+  src/core/IEditor.cpp
   src/core/PageViewEvent.cpp
   src/core/HostsStore.cpp
   src/core/Process.cpp
@@ -300,6 +303,7 @@ add_library(
   src/core/lsp/JsonRpcFramer.cpp
   src/core/lsp/LspClient.cpp
   src/core/lsp/LspManager.cpp
+  src/core/lsp/LspSemanticTokens.cpp
   src/core/lsp/LspServer.cpp
   src/core/lsp/LspServerKey.cpp
   src/core/lsp/LspUri.cpp)
@@ -320,6 +324,7 @@ target_link_libraries(kennel_core PUBLIC ${wxWidgets_LIBRARIES})
 # ---------------------------------------------------------------------------
 set(KENNEL_APP_SOURCES
     src/app/KennelApp.cpp
+    src/app/KennelManager.cpp
     src/app/AcceleratorInterceptor.cpp
     src/app/AuiBookLayout.cpp
     src/app/ToolBarUtils.cpp
@@ -333,7 +338,6 @@ set(KENNEL_APP_SOURCES
     src/app/AssetBootstrap.cpp
     src/app/AboutDialog.cpp
     src/app/EditFileDlg.cpp
-    src/app/FileEvent.cpp
     src/app/FilePage.cpp
     src/app/GotoAnythingBar.cpp
     src/app/PageSwitcherDlg.cpp

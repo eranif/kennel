@@ -257,7 +257,7 @@ std::vector<LoadedTheme> LoadShippedThemes() {
     if (ParseThemeTomlFile(fn.GetFullPath(), &lt.theme)) {
       lt.theme.isBlockCursor = true;
       lt.theme.font = wxTerminalTheme::MakeDefaultFont();
-      KLOG_DEBUG() << "Loading shipped theme: " << lt.name
+      KLOG_TRACE() << "Loading shipped theme: " << lt.name
                    << ". Font size:" << lt.theme.font.GetPointSize();
       themes.push_back(std::move(lt));
     }

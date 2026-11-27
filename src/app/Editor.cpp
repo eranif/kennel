@@ -729,8 +729,50 @@ void Editor::UpdateLineNumbers() {
   }
 }
 
+void Editor::SetSemanticWords(const LspSemanticWords &words) {
+  m_semanticWords = words;
+  ApplySemanticWords();
+}
+
+void Editor::ApplySemanticWords() {
+  if (m_lang != EditorLang::kCxx) {
+    return;
+  }
+  const auto join = [this](LspSemanticType type) {
+    wxString joined;
+    if (const auto it = m_semanticWords.find(type);
+        it != m_semanticWords.end()) {
+      for (const wxString &word : it->second) {
+        joined << word << " ";
+      }
+    }
+    return joined;
+  };
+  // The sets of the C++ lexer: 1 is "secondary" (wxSTC_C_WORD2, already
+  // styled), 3 is the global classes.
+  m_ctrl->SetKeyWords(1, join(LspSemanticType::kFunction));
+  m_ctrl->SetKeyWords(3, join(LspSemanticType::kClass));
+  AddProperty(m_ctrl, wxSTC_C_GLOBALCLASS, m_theme.bg, m_theme.cyan);
+
+  // The variables: a style of their own, under the identifiers.
+  m_ctrl->FreeSubStyles();
+  const int variables = m_ctrl->AllocateSubStyles(wxSTC_C_IDENTIFIER, 1);
+  if (variables >= 0) {
+    m_ctrl->SetIdentifiers(variables, join(LspSemanticType::kVariable));
+    AddProperty(m_ctrl, variables, m_theme.bg, m_theme.brightBlue);
+  }
+  // The lexer reads the words again.
+  m_ctrl->Colourise(0, -1);
+}
+
 void Editor::OnModified(wxStyledTextEvent &event) {
   event.Skip();
+  // Only the text: a style that is set (the colours of a language server) is a
+  // modification too, and must not count.
+  if ((event.GetModificationType() &
+       (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT)) != 0) {
+    ++m_changeCounter;
+  }
   // Only a change in the number of lines can change the margin width.
   if (event.GetLinesAdded() != 0) {
     UpdateLineNumbers();

@@ -4,6 +4,7 @@
 #include <wx/string.h>
 
 #include "core/Account.h"
+#include "core/FilePageUID.h"
 #include "core/Workspace.h"
 
 // What the program of a session reports it is doing (OSC 7501).
@@ -66,10 +67,15 @@ public:
   // path it had, in the same notation as GetPath(), which is the new one.
   const wxString &GetOldFilePath() const { return m_oldFilePath; }
   void SetOldFilePath(const wxString &path) { m_oldFilePath = path; }
+  // A file: the ID of its editor (see IEditor::GetEditorUID()); zero for the
+  // other pages.
+  FilePageUID GetEditorUID() const { return m_editorUID; }
+  void SetEditorUID(FilePageUID uid) { m_editorUID = uid; }
 
 private:
   wxString m_path;
   wxString m_oldFilePath;
+  FilePageUID m_editorUID{0};
   SessionRef m_ref;
   SessionRef m_oldRef;
   Account m_account;

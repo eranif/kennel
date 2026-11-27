@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/lsp/LspSemanticTokens.h"
 #include "terminal_theme.h"
 #include <optional>
 #include <vector>
@@ -95,6 +96,13 @@ public:
 
   bool IsModified() const { return m_ctrl->IsModified(); }
   wxString GetText() const { return m_ctrl->GetText(); }
+  // The words that a language server named in the text, by their kind: the
+  // lexer colours them (C++ only for now). Kept, and put in again when the
+  // lexer is made again (the theme or the language changed).
+  void SetSemanticWords(const LspSemanticWords &words);
+  // Goes up with each insert or delete in the text (a style change does not
+  // count), and never goes back (see IEditor::GetChangeCounter()).
+  uint64_t GetChangeCounter() const { return m_changeCounter; }
   bool CanSave() const {
     return m_filepath.has_value() && m_ctrl->IsEditable();
   }
@@ -146,8 +154,15 @@ private:
   static constexpr size_t kMaxHighlightedWord = 256;
   static constexpr int kMaxHighlights = 2000;
 
+  // Puts m_semanticWords in the keyword sets of the lexer, and colours them
+  // (the functions are set 1, the classes set 3, the variables are a substyle
+  // of the identifiers, as CodeLite does).
+  void ApplySemanticWords();
+
   void InitEditor() {
     InitEditor(m_ctrl, m_lang, m_theme);
+    // The lexer was made again: the words of the language server go back in.
+    ApplySemanticWords();
     InitBookmarks();
     InitWordHighlight();
     InitMultipleCarets();
@@ -230,6 +245,8 @@ private:
   wxTerminalTheme m_theme;
   std::optional<wxString> m_filepath{std::nullopt};
   long m_lastUpdatePosition{wxNOT_FOUND};
-  bool m_hasBraceHighlight{false}; // A good or a bad one is shown
-  bool m_wordsDirty{false};        // HighlightWords() has to run
+  bool m_hasBraceHighlight{false};  // A good or a bad one is shown
+  bool m_wordsDirty{false};         // HighlightWords() has to run
+  uint64_t m_changeCounter{0};      // See GetChangeCounter()
+  LspSemanticWords m_semanticWords; // See SetSemanticWords()
 };

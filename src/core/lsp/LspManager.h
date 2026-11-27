@@ -1,12 +1,16 @@
 #pragma once
 
+#include "core/FileEvent.hpp"
+#include "core/IEditor.h"
 #include "core/PageViewEvent.hpp"
 #include "core/Status.h"
 #include "core/lsp/LspClient.h"
+#include "core/lsp/LspEvent.h"
 #include "core/lsp/LspServerKey.h"
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <vector>
 #include <wx/event.h>
 #include <wx/string.h>
@@ -45,7 +49,7 @@ private:
 // install it: answer with LspManager::Install() or LspManager::Decline().
 // GetString() is the name of the program and its version.
 wxDECLARE_EVENT(wxEVT_LSP_INSTALL_NEEDED, LspManagerEvent);
-// The server of GetKey() is ready: LspManager::GetServerFor() gives its client
+// The server of GetKey() is ready: LspManager::GetClientFor() gives its client
 // now.
 wxDECLARE_EVENT(wxEVT_LSP_SERVER_READY, LspManagerEvent);
 // A server could not be made ready. GetString() says why.
@@ -66,6 +70,36 @@ public:
   LspManager(const LspManager &) = delete;
   LspManager &operator=(const LspManager &) = delete;
 
+  // Whether the client of the server of the file of `editor` is ready to be
+  // used. Starts the server when there is none (check, install if the user
+  // agrees, launch, handshake). False when it is not ready yet, or never will
+  // be (no language server for the file, the user declined it, it failed): the
+  // editor tries again when wxEVT_LSP_SERVER_READY comes.
+  bool IsClientAvailableFor(IEditor *editor);
+
+  // The file of the editor was loaded. The manager only finds the server of the
+  // file (IEditor::GetServerKey()), starting it when there is none, and gives
+  // the call to its client (LspClient::NotifyOpened()). Nothing when the server
+  // is not ready: nothing is kept, and the editor tells it again when
+  // wxEVT_LSP_SERVER_READY says that the server is.
+  void NotifyOpened(IEditor *editor);
+
+  // The file of the editor is going to have another name (Save As): the servers
+  // that have it open under the name that it has now are told that it is
+  // closed. A page that is removed is told by the page event.
+  void NotifyClosed(IEditor *editor);
+
+  // The editor wants the semantic highlights of its text. The manager only
+  // finds the server of the file (IEditor::GetServerKey()) and gives the call
+  // to its client (LspClient::GetSemanticHighlightsFor()): it starts the server
+  // when there is none (check, install if the user agrees, launch, handshake).
+  // The answer comes as wxEVT_LSP_SEMANTIC_TOKENS with the returned ID. Nothing
+  // (std::nullopt) when the server is not ready, or will never be (no language
+  // server for the file, no session holds it, the user declined it, it failed):
+  // nothing is kept, and the editor asks again when wxEVT_LSP_SERVER_READY says
+  // that the server is.
+  std::optional<RequestID> GetSemanticHighlightsFor(IEditor *editor);
+
   // The client of the server of `key` when it is ready. Otherwise an error that
   // says why (StatusCode):
   //  - kUnavailable: it is not ready yet (a server that is not known yet is
@@ -74,11 +108,7 @@ public:
   //  - kPermissionDenied: the user did not want it installed.
   //  - kNotAvailable: there is no server of this kind to install.
   //  - kUnknown: it failed, the message says why.
-  StatusOr<std::shared_ptr<LspClient>> GetServerFor(const LspServerKey &key);
-
-  // The client of the server of `key` when it exists and is ready, and null
-  // otherwise. Unlike GetServerFor() it never starts a server, checks, or asks.
-  std::shared_ptr<LspClient> FindReadyServer(const LspServerKey &key) const;
+  StatusOr<std::shared_ptr<LspClient>> GetClientFor(const LspServerKey &key);
 
   // Ends every server (a running one is stopped) and forgets them all. For the
   // end of the application.
@@ -113,6 +143,12 @@ private:
     SessionRef m_ref;
   };
 
+  // The client of the server of the file of `editor`, or null when the server
+  // is not known. Never starts a server.
+  std::shared_ptr<LspClient> FindClient(const IEditor &editor) const;
+  // A file was saved: the client that has it open tells its server (see
+  // LspClient::OnDocumentSaved()).
+  void OnFileSaved(FileEvent &event);
   void OnPageAdded(PageViewEvent &event);
   void OnPageRemoved(PageViewEvent &event);
   void OnPageRenamed(PageViewEvent &event);
@@ -137,6 +173,6 @@ private:
   std::vector<Page> m_pages;
   // Made with the first server, ended by Shutdown().
   std::unique_ptr<wxTimer> m_timer;
-  // Shutdown() was called: GetServerFor() starts nothing any more.
+  // Shutdown() was called: GetClientFor() starts nothing any more.
   bool m_isShutdown{false};
 };

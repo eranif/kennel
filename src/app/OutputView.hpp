@@ -1,8 +1,8 @@
 #pragma once
 
 #include "UI.hpp"
-#include "app/FileEvent.hpp"
 #include "app/GitTerminals.hpp"
+#include "core/FileEvent.hpp"
 
 #include <memory>
 

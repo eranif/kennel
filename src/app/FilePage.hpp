@@ -3,16 +3,18 @@
 #include "app/AcceleratorInterceptor.h"
 #include "app/Editor.h"
 #include "app/EditorState.hpp"
-#include "app/FileEvent.hpp"
 #include "app/FileViewState.hpp"
 #include "app/SearchablePage.hpp"
 #include "core/Account.h"
+#include "core/FileEvent.hpp"
+#include "core/IEditor.h"
 #include "core/lsp/LspManager.h"
 #include "terminal_theme.h"
 
 #include <memory>
 #include <optional>
 #include <thread>
+#include <unordered_set>
 #include <wx/aui/auibar.h>
 #include <wx/panel.h>
 
@@ -25,7 +27,7 @@ wxDECLARE_EVENT(wxEVT_WRAP_LINES_CHANGED, wxCommandEvent);
 // A file shown in the main view, opened from a path clicked in a terminal.
 // Both kinds are edited here and saved with Save / Ctrl+S: a local file is
 // written to disk, a remote file is written back over SFTP.
-class FilePage : public wxPanel, public SearchablePage {
+class FilePage : public wxPanel, public SearchablePage, public IEditor {
 public:
   // `remoteHost` is empty for a local file. The page's key (GetKey()) is
   // FileEvent::MakeKey(path, remoteHost), so re-opening the same file can
@@ -72,15 +74,24 @@ public:
   wxString GetDirectory() const;
   // Whose file it is: a remote host, a WSL distribution (a file on the share
   // of the distro) or this machine.
-  Account GetAccount() const;
+  Account GetAccount() const override;
   // The path in the notation of GetAccount(): a Linux path for a WSL file, the
   // path of the page otherwise. It is what a FileTreeCtrl of the account shows.
   wxString GetAccountPath() const;
+  // IEditor.
+  wxString GetFilePath() const override { return GetAccountPath(); }
+  wxString GetText() const override { return m_editor->GetText(); }
+  uint64_t GetChangeCounter() const override {
+    return m_editor->GetChangeCounter();
+  }
+  FilePageUID GetEditorUID() const override { return m_uid; }
   bool IsRemote() const { return !m_remoteHost.host.empty(); }
-  // The key of the language server that the file needs, or nothing when it has
-  // none, is not a file (a diff, an untitled page), or no open session holds
-  // it.
-  std::optional<LspServerKey> GetLanguageServerKey() const;
+  std::optional<Account> GetSessionAccount() const override {
+    return m_sessionAccount;
+  }
+  // The `languageId` of the file for the language server, from its extension;
+  // empty for a diff, an untitled page and a file of another language.
+  LspLanguage GetLanguageId() const override;
   bool IsModified() const { return m_editor->GetCtrl()->GetModify(); }
   bool CanSave() const {
     if (m_untitled) {
@@ -156,25 +167,22 @@ public:
 private:
   void InitDone();
 
-  // The client of the server that has the file open (m_lspKey), or null when
-  // there is none or it is not ready. Never starts a server
-  // (LspManager::FindReadyServer()).
-  std::shared_ptr<LspClient> FindServer() const;
-  // The client of the server of `key`: the LspManager starts the server if it
-  // is not known (LspManager::GetServerFor()). Null when it is not ready; the
-  // reason is logged.
-  std::shared_ptr<LspClient> StartServer(const LspServerKey &key) const;
-  // The `languageId` of the file for `didOpen`, from its extension.
-  wxString GetLanguageId() const;
-  // Asks the LspManager for the language server of the file (see StartServer())
-  // and opens the file there. Nothing for a file that has no language server,
-  // or that no open session holds.
-  void RequestLanguageServer();
-  // Tells the server that has the file open (m_lspKey) that it is closed.
-  // Nothing when no server has it open.
-  void CloseInLanguageServer();
-  // A language server is ready: when it is the one of this file, asks again.
+  // Finds the machine and the root directory of the file (GetSessionAccount())
+  // among the open sessions, when it is loaded. Does nothing when it was found
+  // already.
+  void ResolveSessionAccount();
+  // Asks the LspManager for the semantic highlights of the text, and keeps the
+  // number of the request (m_lspRequestIds).
+  void RequestSemanticHighlights();
+  // The content of the file is loaded: tells the language server that the file
+  // is open and asks for the highlights, when the client of the server is
+  // available. Otherwise the page waits for wxEVT_LSP_SERVER_READY.
+  void NotifyLanguageServer();
+  // A language server is ready: a page that waits for one tries again.
   void OnLspServerReady(LspManagerEvent &event);
+  // The language server named the words of the text: the editor colours them
+  // when the event answers a request of this page.
+  void OnSemanticTokens(LspSemanticTokensEvent &event);
   // The tools of the bookmarks and of the editor options on the toolbar.
   void OnBookmarkTool(wxCommandEvent &event);
   // The user toggled Show Line Numbers or Highlight Word on the toolbar.
@@ -236,9 +244,16 @@ private:
   SearchBar *m_searchBar{nullptr}; // Hidden until Find
   wxString m_findText;             // What the last search looked for
   int m_findOptions{0};            // Its SearchBar::kWholeWord / kMatchCase
-  // The key of the server that got `didOpen` for the file (a request that was
-  // made, which nothing else holds), until `didClose`.
-  std::optional<LspServerKey> m_lspKey;
+  // The account of the session that holds the file (see GetSessionAccount()).
+  std::optional<Account> m_sessionAccount;
+  // The client of the language server was not available when the file was
+  // loaded: the page tries again when a server is ready.
+  bool m_notifyLspAgain{false};
+  // The requests of this page that wait for their answer (see
+  // LspManager::GetSemanticHighlightsFor()).
+  std::unordered_set<RequestID> m_lspRequestIds;
+  // See GetEditorUID().
+  const FilePageUID m_uid;
   // Lets Ctrl+Tab (and the other global shortcuts) work while the
   // editor has focus.
   std::unique_ptr<AcceleratorInterceptor> m_acceleratorInterceptor;

@@ -1,13 +1,13 @@
 #pragma once
 #include "GlyphBook.h"
 #include "app/AsyncGuard.hpp"
-#include "app/FileEvent.hpp"
 #include "app/FileViewState.hpp"
 #include "app/PageSwitcherDlg.hpp"
 #include "app/SearchablePage.hpp"
 #include "app/SessionHandoff.hpp"
 #include "core/Account.h"
 #include "core/AppPaths.h"
+#include "core/FileEvent.hpp"
 #include "core/FileLocation.h"
 #include "core/Job.h"
 #include "core/PageViewEvent.hpp"
@@ -358,7 +358,8 @@ private:
                      const wxString &workingDir = wxEmptyString,
                      PageType pageType = PageType::kSession,
                      const wxString &path = wxEmptyString,
-                     const wxString &oldFilePath = wxEmptyString);
+                     const wxString &oldFilePath = wxEmptyString,
+                     FilePageUID editorUID = 0);
   // wxEVT_PAGE_ADDED / wxEVT_PAGE_REMOVED / wxEVT_PAGE_RENAMED for a file page.
   // `oldPath` is for the rename: the path that the file had.
   void SendFilePageEvent(wxEventType type, const FilePage *page,

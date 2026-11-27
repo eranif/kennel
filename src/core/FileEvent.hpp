@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/Account.h"
+#include "core/FilePageUID.h"
 #include "core/Status.h"
 
 #include <wx/event.h>
@@ -36,6 +37,11 @@ public:
   // GetAccount()), when GetPath() is the new one.
   const wxString &GetOldPath() const { return m_oldPath; }
   void SetOldPath(const wxString &path) { m_oldPath = path; }
+
+  // wxEVT_FILE_SAVED: the ID of the editor of the file that was saved (see
+  // IEditor::GetEditorUID()); zero for the other events.
+  FilePageUID GetEditorUID() const { return m_editorUID; }
+  void SetEditorUID(FilePageUID uid) { m_editorUID = uid; }
 
   // Whether the path is a folder.
   bool IsDir() const { return m_isDir; }
@@ -89,6 +95,7 @@ public:
 private:
   wxString m_path;
   wxString m_oldPath;
+  FilePageUID m_editorUID{0};
   bool m_isDir{false};
   int m_line{0};
   int m_column{0};
@@ -97,13 +104,11 @@ private:
   Status m_status;
 };
 
-// Sent (processed, on the UI thread) by a FilePage when SaveAsync() starts an
+// Sent on the EventNotifier (queued) by a FilePage when SaveAsync() starts an
 // upload.
 wxDECLARE_EVENT(wxEVT_FILE_SAVE_STARTED, FileEvent);
-// Sent (queued) by the FilePage's save thread to the page itself when the
-// upload finishes; GetStatusCode() holds the outcome. The page handles it first
-// (the file's own state) and Skip()s it, so it propagates up to wxTheApp, where
-// MainView handles the rest.
+// Sent on the EventNotifier (queued) by a FilePage when the upload finishes;
+// GetStatusCode() holds the outcome.
 wxDECLARE_EVENT(wxEVT_FILE_SAVE_DONE, FileEvent);
 // Sent on the EventNotifier when the file in GetPath() (in the notation of
 // GetAccount()) became the page that is showing. The receiver shows where it is

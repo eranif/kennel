@@ -4,10 +4,12 @@
 
 #include "app/AppTheme.h"
 #include "app/AssetBootstrap.h"
+#include "app/KennelManager.hpp"
 #include "app/MainFrame.h"
 #include "core/AppManager.h"
 #include "core/AppPaths.h"
 #include "core/CrashHandler.h"
+#include "core/Globals.hpp"
 #include "core/Logger.h"
 #include "core/PromptFileRemover.h"
 #include "core/lsp/LspManager.h"
@@ -16,6 +18,7 @@
 class KennelApp : public wxApp {
 public:
   int OnExit() override {
+    SetKennelManager(nullptr);
     // The windows are gone: a page that went may have left a remote file to
     // delete (PromptFileRemover). Not longer than a few seconds: a host that
     // does not answer does not keep Kennel open.
@@ -92,6 +95,9 @@ public:
     // UI code reaches all of these via AppManager::Get().
     AppManager::Get().Initialize(paths);
 
+    // The core reaches what is live in the application through it.
+    SetKennelManager(&m_manager);
+
     // Before the first page is made: it follows the pages that are open.
     LspManager::Get().Initialize();
 
@@ -106,6 +112,7 @@ public:
   }
 
 private:
+  KennelManager m_manager;
   wxString m_homeOverride;
   LogLevel m_logLevel{LogLevel::kInfo};
 };

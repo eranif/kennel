@@ -1,10 +1,10 @@
 #pragma once
 
 #include "UI.hpp"
-#include "app/FileEvent.hpp"
 #include "app/FileTreeCtrl.hpp"
-#include "core/PageViewEvent.hpp"
 #include "core/Account.h"
+#include "core/FileEvent.hpp"
+#include "core/PageViewEvent.hpp"
 #include "core/Workspace.h"
 
 #include <atomic>
