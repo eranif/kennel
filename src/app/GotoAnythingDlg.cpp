@@ -1,6 +1,6 @@
 #include "GotoAnythingDlg.hpp"
 
-#include "app/PageViewEvent.hpp"
+#include "core/PageViewEvent.hpp"
 #include "app/PopupStyle.hpp"
 
 #include "app/DataViewUtils.hpp"

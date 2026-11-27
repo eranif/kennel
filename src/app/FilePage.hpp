@@ -66,6 +66,9 @@ public:
   // The folder of the file: a path for a local file, "host:path" for a remote
   // one.
   wxString GetFolder() const;
+  // The folder part of the full path of the file, in the notation of the path
+  // ("C:\a\b" for "C:\a\b\file.cpp", "/home/me" for a remote file).
+  wxString GetDirectory() const;
   // Whose file it is: a remote host, a WSL distribution (a file on the share
   // of the distro) or this machine.
   Account GetAccount() const;

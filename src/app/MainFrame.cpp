@@ -15,7 +15,7 @@
 #include "app/JobLogViewer.hpp"
 #include "app/NewAgentWizard.hpp"
 #include "app/PageNames.h"
-#include "app/PageViewEvent.hpp"
+#include "core/PageViewEvent.hpp"
 #include "app/PopupStyle.hpp"
 #include "app/ReviewBuddyMenu.hpp"
 #include "app/SearchablePage.hpp"

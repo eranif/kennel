@@ -3,7 +3,6 @@
 #include "UI.hpp"
 #include "app/AcceleratorInterceptor.h"
 #include "app/AsyncGuard.hpp"
-#include "app/PageViewEvent.hpp"
 #include "app/ReviewBuddyEvent.hpp"
 #include "app/SearchablePage.hpp"
 #include "app/SessionHandoff.hpp"
@@ -13,6 +12,7 @@
 #include "core/Account.h"
 #include "core/AppPaths.h"
 #include "core/Config.h"
+#include "core/PageViewEvent.hpp"
 #include "core/Workspace.h"
 #include <optional>
 
@@ -110,6 +110,10 @@ public:
   // the remote host the program runs on, starting in the folder of the session.
   Account GetAccount() const;
   inline bool IsPlainTerminal() const { return !m_agent.has_value(); }
+  // kTerminal for a plain terminal, kSession for a session of an agent.
+  PageType GetPageType() const {
+    return IsPlainTerminal() ? PageType::kTerminal : PageType::kSession;
+  }
   void Restart();
   // Types `commands` into the terminal, once what the session runs is started
   // (in tmux, that is after the machine has answered): a command typed before

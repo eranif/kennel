@@ -3,7 +3,7 @@
 #include "UI.hpp"
 #include "app/FileEvent.hpp"
 #include "app/FileTreeCtrl.hpp"
-#include "app/PageViewEvent.hpp"
+#include "core/PageViewEvent.hpp"
 #include "core/Account.h"
 #include "core/Workspace.h"
 

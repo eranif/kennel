@@ -32,30 +32,30 @@ ActivityView::ActivityView(wxWindow *parent)
   m_list->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
                &ActivityView::OnSelectionChanged, this);
   Bind(wxEVT_IDLE, &ActivityView::OnIdle, this);
-  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGE_RENAMED,
+  EventNotifier::Get()->Bind(wxEVT_PAGE_RENAMED,
                              &ActivityView::OnSessionRenamed, this);
-  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGE_REMOVED,
+  EventNotifier::Get()->Bind(wxEVT_PAGE_REMOVED,
                              &ActivityView::OnSessionPageRemoved, this);
   EventNotifier::Get()->Bind(wxEVT_SESSION_PAGES_CLEARED,
                              &ActivityView::OnSessionPagesCleared, this);
-  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGE_SHOWN,
+  EventNotifier::Get()->Bind(wxEVT_PAGE_SHOWN,
                              &ActivityView::OnSessionPageShown, this);
-  EventNotifier::Get()->Bind(wxEVT_SESSION_PAGE_ACTIVITY,
+  EventNotifier::Get()->Bind(wxEVT_PAGE_ACTIVITY,
                              &ActivityView::OnSessionPageActivity, this);
   EventNotifier::Get()->Bind(wxEVT_FILE_REVEAL, &ActivityView::OnFileReveal,
                              this);
 }
 
 ActivityView::~ActivityView() {
-  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGE_RENAMED,
+  EventNotifier::Get()->Unbind(wxEVT_PAGE_RENAMED,
                                &ActivityView::OnSessionRenamed, this);
-  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGE_REMOVED,
+  EventNotifier::Get()->Unbind(wxEVT_PAGE_REMOVED,
                                &ActivityView::OnSessionPageRemoved, this);
   EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGES_CLEARED,
                                &ActivityView::OnSessionPagesCleared, this);
-  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGE_SHOWN,
+  EventNotifier::Get()->Unbind(wxEVT_PAGE_SHOWN,
                                &ActivityView::OnSessionPageShown, this);
-  EventNotifier::Get()->Unbind(wxEVT_SESSION_PAGE_ACTIVITY,
+  EventNotifier::Get()->Unbind(wxEVT_PAGE_ACTIVITY,
                                &ActivityView::OnSessionPageActivity, this);
   EventNotifier::Get()->Unbind(wxEVT_FILE_REVEAL, &ActivityView::OnFileReveal,
                                this);

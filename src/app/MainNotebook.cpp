@@ -399,14 +399,25 @@ void MainNotebook::CloseOrArchiveSession(const wxString &groupName,
 void MainNotebook::SendPageEvent(wxEventType type, const SessionRef &ref,
                                  const Account &account,
                                  const SessionRef &oldRef,
-                                 PageActivity activity) {
+                                 PageActivity activity,
+                                 const wxString &workingDir, PageType pageType,
+                                 const wxString &path) {
   PageViewEvent event(type, GetId());
   event.SetEventObject(this);
   event.SetRef(ref);
   event.SetOldRef(oldRef);
   event.SetAccount(account);
   event.SetActivity(activity);
+  event.SetWorkingDir(workingDir);
+  event.SetPageType(pageType);
+  event.SetPath(path);
   EventNotifier::Get()->ProcessEvent(event);
+}
+
+void MainNotebook::SendFilePageEvent(wxEventType type, const FilePage *page) {
+  // A file has no session: no reference.
+  SendPageEvent(type, SessionRef{}, page->GetAccount(), {}, PageActivity::None,
+                page->GetDirectory(), PageType::kFile, page->GetPath());
 }
 
 void MainNotebook::OnShowSessionRequested(PageViewEvent &event) {
@@ -818,7 +829,7 @@ void MainNotebook::TouchRecent(const SessionRef &ref) {
 }
 
 void MainNotebook::RenameRecent(const SessionRef &from, const SessionRef &to) {
-  SendPageEvent(wxEVT_SESSION_PAGE_RENAMED, to, Account::LocalHost(), from);
+  SendPageEvent(wxEVT_PAGE_RENAMED, to, Account::LocalHost(), from);
   std::replace(m_recent.begin(), m_recent.end(), from, to);
   // The group of the page may be another one now.
   GroupPage(FindPage(to));
@@ -972,7 +983,7 @@ void MainNotebook::PageShown(wxWindow *page, bool updateRecent) {
       session->AcknowledgeDone();
       ApplyPageIcon(session);
     }
-    SendPageEvent(wxEVT_SESSION_PAGE_SHOWN, *ref);
+    SendPageEvent(wxEVT_PAGE_SHOWN, *ref);
     session->ApplyTitle();
     session->PublishStatus();
   } else if (auto *file = dynamic_cast<FilePage *>(page)) {
@@ -1051,7 +1062,8 @@ SessionPage *MainNotebook::AddSession(SessionPage *page) {
       (!account.IsLocalHost() || ::wxDirExists(session.sideDir))) {
     account.m_rootDir = session.sideDir;
   }
-  SendPageEvent(wxEVT_SESSION_PAGE_ADDED, ref, account);
+  SendPageEvent(wxEVT_PAGE_ADDED, ref, account, {}, PageActivity::None,
+                page->GetAccount().m_rootDir, page->GetPageType());
   return page;
 }
 
@@ -1083,6 +1095,7 @@ SessionPage *MainNotebook::AddSessionPage(const Session &session, bool resume) {
 
 void MainNotebook::AddFilePage(FilePage *page) {
   AddTab(page);
+  SendFilePageEvent(wxEVT_PAGE_ADDED, page);
   SyncWorkspaceSoon();
 }
 
@@ -1091,8 +1104,13 @@ void MainNotebook::RemovePage(wxWindow *page) {
 
   if (auto *session = dynamic_cast<SessionPage *>(page)) {
     const wxString &groupName = session->GetSession().groupName;
-    SendPageEvent(wxEVT_SESSION_PAGE_REMOVED,
-                  SessionRef{groupName, session->GetSession().name});
+    const Account account = session->GetAccount();
+    SendPageEvent(wxEVT_PAGE_REMOVED,
+                  SessionRef{groupName, session->GetSession().name}, account,
+                  {}, PageActivity::None, account.m_rootDir,
+                  session->GetPageType());
+  } else if (auto *file = dynamic_cast<FilePage *>(page)) {
+    SendFilePageEvent(wxEVT_PAGE_REMOVED, file);
   }
   // The page used before this one is shown first. Left to the book, it would
   // select the next tab, and that tab would count as the one used last.
@@ -2258,9 +2276,12 @@ void MainNotebook::DeleteGroupByName(const wxString &name) {
   }
   for (auto *page : sessions) {
     StopTmux(page->GetSession()); // Closing a group stops its sessions
+    const Account account = page->GetAccount();
     SendPageEvent(
-        wxEVT_SESSION_PAGE_REMOVED,
-        SessionRef{page->GetSession().groupName, page->GetSession().name});
+        wxEVT_PAGE_REMOVED,
+        SessionRef{page->GetSession().groupName, page->GetSession().name},
+        account, {}, PageActivity::None, account.m_rootDir,
+        page->GetPageType());
     DeleteTab(page);
   }
 
@@ -2677,7 +2698,7 @@ void MainNotebook::OnSessionCwd(wxCommandEvent &e) {
         SyncWorkspaceSoon();
         // The side bar follows the terminal to its folder.
         const Session &session = page->GetSession();
-        SendPageEvent(wxEVT_SESSION_PAGE_MOVED,
+        SendPageEvent(wxEVT_PAGE_MOVED,
                       SessionRef{session.groupName, session.name},
                       page->GetAccount());
       }
@@ -2697,7 +2718,7 @@ void MainNotebook::OnSessionProgram(wxCommandEvent &e) {
       // the page that is showing is reported on purpose, and the activity view
       // removes it when the application is idle (ActivityView::OnIdle()).
       const Session &session = page->GetSession();
-      SendPageEvent(wxEVT_SESSION_PAGE_ACTIVITY,
+      SendPageEvent(wxEVT_PAGE_ACTIVITY,
                     SessionRef{session.groupName, session.name},
                     page->GetAccount(), {}, page->GetProgramActivity());
       // Nobody needs a check mark on the page that is showing.

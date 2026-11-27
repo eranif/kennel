@@ -38,16 +38,14 @@ SideView::SideView(wxWindow *parent) : SideViewBase(parent) {
   GetPanelActivity()->GetSizer()->Add(m_activity, wxSizerFlags(1).Expand());
 
   auto *notifier = EventNotifier::Get();
-  notifier->Bind(wxEVT_SESSION_PAGE_ADDED, &SideView::OnSessionPageAdded, this);
-  notifier->Bind(wxEVT_SESSION_PAGE_REMOVED, &SideView::OnSessionPageRemoved,
-                 this);
-  notifier->Bind(wxEVT_SESSION_PAGE_RENAMED, &SideView::OnSessionRenamed, this);
-  notifier->Bind(wxEVT_SESSION_PAGE_SHOWN, &SideView::OnSessionPageShown, this);
+  notifier->Bind(wxEVT_PAGE_ADDED, &SideView::OnSessionPageAdded, this);
+  notifier->Bind(wxEVT_PAGE_REMOVED, &SideView::OnSessionPageRemoved, this);
+  notifier->Bind(wxEVT_PAGE_RENAMED, &SideView::OnSessionRenamed, this);
+  notifier->Bind(wxEVT_PAGE_SHOWN, &SideView::OnSessionPageShown, this);
   notifier->Bind(wxEVT_SESSION_PAGES_CLEARED, &SideView::OnSessionPagesCleared,
                  this);
-  notifier->Bind(wxEVT_SESSION_PAGE_ACTIVITY, &SideView::OnSessionPageActivity,
-                 this);
-  notifier->Bind(wxEVT_SESSION_PAGE_MOVED, &SideView::OnSessionPageMoved, this);
+  notifier->Bind(wxEVT_PAGE_ACTIVITY, &SideView::OnSessionPageActivity, this);
+  notifier->Bind(wxEVT_PAGE_MOVED, &SideView::OnSessionPageMoved, this);
   notifier->Bind(wxEVT_FILETREE_SET_ROOT, &SideView::OnChangeFolder, this);
   notifier->Bind(wxEVT_GITVIEW_CHANGE_FOLDER, &SideView::OnChangeFolder, this);
   notifier->Bind(wxEVT_FILE_SAVED, &SideView::OnFileSaved, this);
@@ -65,20 +63,14 @@ SideView::SideView(wxWindow *parent) : SideViewBase(parent) {
 
 SideView::~SideView() {
   auto *notifier = EventNotifier::Get();
-  notifier->Unbind(wxEVT_SESSION_PAGE_ADDED, &SideView::OnSessionPageAdded,
-                   this);
-  notifier->Unbind(wxEVT_SESSION_PAGE_REMOVED, &SideView::OnSessionPageRemoved,
-                   this);
-  notifier->Unbind(wxEVT_SESSION_PAGE_RENAMED, &SideView::OnSessionRenamed,
-                   this);
-  notifier->Unbind(wxEVT_SESSION_PAGE_SHOWN, &SideView::OnSessionPageShown,
-                   this);
+  notifier->Unbind(wxEVT_PAGE_ADDED, &SideView::OnSessionPageAdded, this);
+  notifier->Unbind(wxEVT_PAGE_REMOVED, &SideView::OnSessionPageRemoved, this);
+  notifier->Unbind(wxEVT_PAGE_RENAMED, &SideView::OnSessionRenamed, this);
+  notifier->Unbind(wxEVT_PAGE_SHOWN, &SideView::OnSessionPageShown, this);
   notifier->Unbind(wxEVT_SESSION_PAGES_CLEARED,
                    &SideView::OnSessionPagesCleared, this);
-  notifier->Unbind(wxEVT_SESSION_PAGE_ACTIVITY,
-                   &SideView::OnSessionPageActivity, this);
-  notifier->Unbind(wxEVT_SESSION_PAGE_MOVED, &SideView::OnSessionPageMoved,
-                   this);
+  notifier->Unbind(wxEVT_PAGE_ACTIVITY, &SideView::OnSessionPageActivity, this);
+  notifier->Unbind(wxEVT_PAGE_MOVED, &SideView::OnSessionPageMoved, this);
   notifier->Unbind(wxEVT_FILETREE_SET_ROOT, &SideView::OnChangeFolder, this);
   notifier->Unbind(wxEVT_GITVIEW_CHANGE_FOLDER, &SideView::OnChangeFolder,
                    this);
@@ -320,7 +312,7 @@ void SideView::DeleteContext(const wxString &key, bool reshow) {
     return;
   }
   // The book has no page selected now. The session the user works in has the
-  // say; the next wxEVT_SESSION_PAGE_SHOWN is not sent when a file page takes
+  // say; the next wxEVT_PAGE_SHOWN is not sent when a file page takes
   // over, so the side bar must not be left blank. Without that session, any
   // context that is safe to show: one on this machine or WSL, or a remote one
   // that is connected already. A new connection is never started here.

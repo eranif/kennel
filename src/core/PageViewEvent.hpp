@@ -1,6 +1,5 @@
 #pragma once
 
-#include <wx/dataview.h>
 #include <wx/event.h>
 #include <wx/string.h>
 
@@ -13,6 +12,13 @@ enum class PageActivity {
   Working,
   Done,
   Blocked,
+};
+
+// What a page is.
+enum class PageType {
+  kFile,     // A file
+  kSession,  // A session of an agent
+  kTerminal, // A terminal (a session without an agent)
 };
 
 // An event about a page (a session); the page is named by GetRef() (a
@@ -40,11 +46,29 @@ public:
   PageActivity GetActivity() const { return m_activity; }
   void SetActivity(PageActivity activity) { m_activity = activity; }
 
+  // The folder the page works in: the working directory of a session or a
+  // terminal, in the notation of GetAccount() (a Linux path for WSL and for a
+  // remote host). For a file: the folder part of GetPath().
+  const wxString &GetWorkingDir() const { return m_workingDir; }
+  void SetWorkingDir(const wxString &dir) { m_workingDir = dir; }
+
+  // What the page is.
+  PageType GetPageType() const { return m_pageType; }
+  void SetPageType(PageType type) { m_pageType = type; }
+
+  // A file: its full path ("C:\a\b\file.cpp", "/home/me/file.cpp"). Empty for
+  // the other pages.
+  const wxString &GetPath() const { return m_path; }
+  void SetPath(const wxString &path) { m_path = path; }
+
 private:
+  wxString m_path;
   SessionRef m_ref;
   SessionRef m_oldRef;
   Account m_account;
   PageActivity m_activity{PageActivity::None};
+  wxString m_workingDir;
+  PageType m_pageType{PageType::kSession};
 };
 
 // The events below are how the pages (MainNotebook) and the side views
@@ -53,16 +77,21 @@ private:
 //
 // From the pages, on the EventNotifier (the receiver follows and sends nothing
 // back):
-//   wxEVT_SESSION_PAGE_ADDED:    a session or a terminal with files to show:
-//                                GetRef(), GetAccount().
-//   wxEVT_SESSION_PAGE_REMOVED:  GetRef() is gone.
-//   wxEVT_SESSION_PAGE_RENAMED:  GetOldRef() is GetRef() now.
+//   wxEVT_PAGE_ADDED:    a session or a terminal with files to show, or a file:
+//                                GetRef() (not for a file), GetAccount(),
+//                                GetWorkingDir(), GetPageType(), GetPath()
+//                                (a file only).
+//   wxEVT_PAGE_REMOVED:  GetRef() is gone (it is still there while the
+//                                event is handled): GetAccount(),
+//                                GetWorkingDir(), GetPageType(), GetPath() (a
+//                                file only).
+//   wxEVT_PAGE_RENAMED:  GetOldRef() is GetRef() now.
 //   wxEVT_SESSION_PAGES_CLEARED: every session is gone.
-//   wxEVT_SESSION_PAGE_SHOWN:    the session GetRef() is the page showing now.
-//   wxEVT_SESSION_PAGE_MOVED:    the place of a terminal changed (it went to
+//   wxEVT_PAGE_SHOWN:    the session GetRef() is the page showing now.
+//   wxEVT_PAGE_MOVED:    the place of a terminal changed (it went to
 //                                another folder): GetRef(), GetAccount().
 //                                Only plain terminals send it.
-//   wxEVT_SESSION_PAGE_ACTIVITY: GetActivity() is what the program of GetRef()
+//   wxEVT_PAGE_ACTIVITY: GetActivity() is what the program of GetRef()
 //                                is doing now (None: nothing), also for the
 //                                page that is showing.
 //   wxEVT_PAGES_TOOLBAR_STYLE:   the toolbars take the style of the theme
@@ -72,17 +101,17 @@ private:
 //                                of the session GetRef():
 //                                GetAccount().m_rootDir is the folder. The page
 //                                keeps it in its session (it is saved), and
-//                                wxEVT_SESSION_PAGE_ADDED has it the next time.
+//                                wxEVT_PAGE_ADDED has it the next time.
 //                                Never sent for a terminal (it follows its
 //                                shell).
 // (A file that is showing is reported with wxEVT_FILE_REVEAL, see FileEvent.)
-wxDECLARE_EVENT(wxEVT_SESSION_PAGE_ADDED, PageViewEvent);
-wxDECLARE_EVENT(wxEVT_SESSION_PAGE_REMOVED, PageViewEvent);
-wxDECLARE_EVENT(wxEVT_SESSION_PAGE_RENAMED, PageViewEvent);
+wxDECLARE_EVENT(wxEVT_PAGE_ADDED, PageViewEvent);
+wxDECLARE_EVENT(wxEVT_PAGE_REMOVED, PageViewEvent);
+wxDECLARE_EVENT(wxEVT_PAGE_RENAMED, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_PAGES_CLEARED, wxCommandEvent);
-wxDECLARE_EVENT(wxEVT_SESSION_PAGE_SHOWN, PageViewEvent);
-wxDECLARE_EVENT(wxEVT_SESSION_PAGE_ACTIVITY, PageViewEvent);
-wxDECLARE_EVENT(wxEVT_SESSION_PAGE_MOVED, PageViewEvent);
+wxDECLARE_EVENT(wxEVT_PAGE_SHOWN, PageViewEvent);
+wxDECLARE_EVENT(wxEVT_PAGE_ACTIVITY, PageViewEvent);
+wxDECLARE_EVENT(wxEVT_PAGE_MOVED, PageViewEvent);
 wxDECLARE_EVENT(wxEVT_PAGES_TOOLBAR_STYLE, wxCommandEvent);
 wxDECLARE_EVENT(wxEVT_SESSION_SIDE_DIR_CHANGED, PageViewEvent);
 

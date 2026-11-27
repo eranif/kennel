@@ -328,6 +328,17 @@ wxString FilePage::GetAccountPath() const {
   return m_path;
 }
 
+wxString FilePage::GetDirectory() const {
+  if (IsRemote()) {
+    wxString dir = m_path.BeforeLast('/');
+    if (dir.empty() && m_path.StartsWith("/")) {
+      dir = "/"; // A file at the root
+    }
+    return dir;
+  }
+  return wxFileName(m_path).GetPath();
+}
+
 wxString FilePage::GetFolder() const {
   if (IsRemote()) {
     wxString dir = m_path.BeforeLast('/');

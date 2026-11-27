@@ -2,7 +2,7 @@
 
 #include "UI.hpp"
 #include "app/FileEvent.hpp"
-#include "app/PageViewEvent.hpp"
+#include "core/PageViewEvent.hpp"
 #include "core/Account.h"
 #include "core/GitDriver.h"
 #include "core/GitEvent.h"

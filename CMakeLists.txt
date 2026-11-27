@@ -265,6 +265,7 @@ add_library(
   src/core/Logger.cpp
   src/core/SshConfigParser.cpp
   src/core/DialogAnswers.cpp
+  src/core/PageViewEvent.cpp
   src/core/HostsStore.cpp
   src/core/Process.cpp
   src/core/Helpers.cpp
@@ -336,7 +337,6 @@ set(KENNEL_APP_SOURCES
     src/app/FilePage.cpp
     src/app/GotoAnythingBar.cpp
     src/app/PageSwitcherDlg.cpp
-    src/app/PageViewEvent.cpp
     src/app/ReviewBuddy.cpp
     src/app/ReviewBuddyEvent.cpp
     src/app/ReviewBuddyHeader.cpp

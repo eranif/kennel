@@ -1,7 +1,7 @@
 #pragma once
 
 #include "app/FileEvent.hpp"
-#include "app/PageViewEvent.hpp"
+#include "core/PageViewEvent.hpp"
 #include "core/Spinner.h"
 #include "core/Workspace.h"
 
@@ -15,7 +15,7 @@ class wxDataViewListCtrl;
 
 // Sent on the EventNotifier when the user clicks a session of the list. The
 // session is GetRef(); the host shows it, and the page that shows then comes
-// back on wxEVT_SESSION_PAGE_SHOWN.
+// back on wxEVT_PAGE_SHOWN.
 wxDECLARE_EVENT(wxEVT_ACTIVITYVIEW_SESSION_SELECTED, PageViewEvent);
 
 // The sessions whose program is working, is done or is blocked.

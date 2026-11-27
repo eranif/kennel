@@ -4,13 +4,13 @@
 #include "app/FileEvent.hpp"
 #include "app/FileViewState.hpp"
 #include "app/PageSwitcherDlg.hpp"
-#include "app/PageViewEvent.hpp"
 #include "app/SearchablePage.hpp"
 #include "app/SessionHandoff.hpp"
 #include "core/Account.h"
 #include "core/AppPaths.h"
 #include "core/FileLocation.h"
 #include "core/Job.h"
+#include "core/PageViewEvent.hpp"
 #include "core/Spinner.h"
 #include "core/TmuxCommands.h"
 #include "core/UiPrefs.h"
@@ -354,7 +354,12 @@ private:
   void SendPageEvent(wxEventType type, const SessionRef &ref,
                      const Account &account = Account::LocalHost(),
                      const SessionRef &oldRef = {},
-                     PageActivity activity = PageActivity::None);
+                     PageActivity activity = PageActivity::None,
+                     const wxString &workingDir = wxEmptyString,
+                     PageType pageType = PageType::kSession,
+                     const wxString &path = wxEmptyString);
+  // wxEVT_PAGE_ADDED / wxEVT_PAGE_REMOVED for a file page.
+  void SendFilePageEvent(wxEventType type, const FilePage *page);
   // The side views ask (they arrive on the EventNotifier):
   // The user chose a session in the file explorer or in the activity view.
   void OnShowSessionRequested(PageViewEvent &event);
