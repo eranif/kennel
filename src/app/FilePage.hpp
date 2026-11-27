@@ -24,6 +24,13 @@ class SearchBar;
 // shows the setting of the preferences.
 wxDECLARE_EVENT(wxEVT_WRAP_LINES_CHANGED, wxCommandEvent);
 
+// Where a file page is with its language server.
+enum class EditorLspState {
+  kInit,         // The file was not loaded yet: nothing was asked
+  kPendingReady, // No client is available: the page waits for a ready server
+  kRegistered,   // The server has the file (it was told: NotifyOpened())
+};
+
 // A file shown in the main view, opened from a path clicked in a terminal.
 // Both kinds are edited here and saved with Save / Ctrl+S: a local file is
 // written to disk, a remote file is written back over SFTP.
@@ -85,6 +92,7 @@ public:
     return m_editor->GetChangeCounter();
   }
   FilePageUID GetEditorUID() const override { return m_uid; }
+  void NotifyLspTerminated() override;
   bool IsRemote() const { return !m_remoteHost.host.empty(); }
   std::optional<Account> GetSessionAccount() const override {
     return m_sessionAccount;
@@ -246,9 +254,8 @@ private:
   int m_findOptions{0};            // Its SearchBar::kWholeWord / kMatchCase
   // The account of the session that holds the file (see GetSessionAccount()).
   std::optional<Account> m_sessionAccount;
-  // The client of the language server was not available when the file was
-  // loaded: the page tries again when a server is ready.
-  bool m_notifyLspAgain{false};
+  // Where the file is with the language server.
+  EditorLspState m_lspState{EditorLspState::kInit};
   // The requests of this page that wait for their answer (see
   // LspManager::GetSemanticHighlightsFor()).
   std::unordered_set<RequestID> m_lspRequestIds;

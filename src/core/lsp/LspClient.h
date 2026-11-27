@@ -46,11 +46,12 @@ public:
   bool IsRunning() const { return m_server.IsRunning(); }
 
   // The file of the editor was loaded: the server is told that it is open
-  // (didOpen, or didChange when it is open already: a reload). Nothing when the
-  // server is not ready (nothing is kept: the editor tells it again when it is,
-  // see wxEVT_LSP_SERVER_READY). From here the change counter of the editor
-  // says what the server lacks.
-  void NotifyOpened(IEditor *editor);
+  // (didOpen, or didChange when it is open already: a reload). Returns whether
+  // the server has the file now: false when the server is not ready, or when
+  // the message could not be sent. Nothing is kept; only the first case is
+  // tried again by the editor (wxEVT_LSP_SERVER_READY). From here the change
+  // counter of the editor says what the server lacks.
+  bool NotifyOpened(IEditor *editor);
 
   // The editor wants the semantic highlights of its text. The changes of the
   // text since NotifyOpened() or the last call are sent first (didChange), then
@@ -65,6 +66,11 @@ public:
   // The file of the editor was saved: the server is told. Nothing when it is
   // not open here.
   void OnDocumentSaved(IEditor *editor);
+
+  // The process of the server ended (the client is still here): every editor
+  // that has a file open on it is told (IEditor::NotifyLspTerminated()), and
+  // the client forgets the files and the requests that wait.
+  void NotifyTerminated();
 
   // What the server said it can do (the `capabilities` of its answer to
   // `initialize`) as JSON text. Empty until wxEVT_LSP_CLIENT_READY.

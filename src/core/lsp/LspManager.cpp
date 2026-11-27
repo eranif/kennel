@@ -125,6 +125,8 @@ private:
         std::chrono::duration_cast<std::chrono::seconds>(now - m_launchedAt);
     KLOG_DEBUG() << "LSP | " << m_key.GetKey()
                  << ": the process ended, it ran for " << uptime.count() << "s";
+    // The editors that had files on it register again with the next server.
+    m_client->NotifyTerminated();
     m_client.reset();
     if (uptime >= kHealthyUptime) {
       m_failures = 0;
@@ -402,13 +404,13 @@ bool LspManager::IsClientAvailableFor(IEditor *editor) {
   return client.ok();
 }
 
-void LspManager::NotifyOpened(IEditor *editor) {
+bool LspManager::NotifyOpened(IEditor *editor) {
   if (m_isShutdown || editor == nullptr) {
-    return;
+    return false;
   }
   const std::optional<LspServerKey> key = editor->GetServerKey();
   if (!key) {
-    return;
+    return false;
   }
   // Starts the server when there is none. When it is not ready yet,
   // wxEVT_LSP_SERVER_READY tells the editor to notify again.
@@ -416,9 +418,9 @@ void LspManager::NotifyOpened(IEditor *editor) {
   if (!client.ok()) {
     KLOG_DEBUG() << "LSP | " << editor->GetFilePath() << ": "
                  << client.status().message();
-    return;
+    return false;
   }
-  (*client)->NotifyOpened(editor);
+  return (*client)->NotifyOpened(editor);
 }
 
 std::optional<RequestID> LspManager::GetSemanticHighlightsFor(IEditor *editor) {

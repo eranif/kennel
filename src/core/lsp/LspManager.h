@@ -79,10 +79,11 @@ public:
 
   // The file of the editor was loaded. The manager only finds the server of the
   // file (IEditor::GetServerKey()), starting it when there is none, and gives
-  // the call to its client (LspClient::NotifyOpened()). Nothing when the server
-  // is not ready: nothing is kept, and the editor tells it again when
-  // wxEVT_LSP_SERVER_READY says that the server is.
-  void NotifyOpened(IEditor *editor);
+  // the call to its client (LspClient::NotifyOpened()). Returns whether the
+  // server has the file now. False when there is no client yet (nothing is
+  // kept: the editor tells it again when wxEVT_LSP_SERVER_READY comes), or the
+  // client could not send the file (see LspClient::NotifyOpened()).
+  bool NotifyOpened(IEditor *editor);
 
   // The file of the editor is going to have another name (Save As): the servers
   // that have it open under the name that it has now are told that it is

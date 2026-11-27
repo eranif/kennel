@@ -32,6 +32,10 @@ public:
   // given when the editor is made, goes up with each editor and is never used
   // twice.
   virtual FilePageUID GetEditorUID() const = 0;
+  // The language server of the file ended (its process died): what the editor
+  // was told by it, or was waiting for, is gone. The editor registers again
+  // when a server is ready (wxEVT_LSP_SERVER_READY).
+  virtual void NotifyLspTerminated() = 0;
   // Counts the changes of the text (an insert or a delete). It goes up at each
   // change and never goes back, not even when the file is loaded again: whoever
   // keeps a number can tell by it that the text is not the one it knows.

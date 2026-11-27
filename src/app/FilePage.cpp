@@ -268,22 +268,38 @@ void FilePage::RequestSemanticHighlights() {
 }
 
 void FilePage::NotifyLanguageServer() {
-  // Starts the server when there is none. When it is not ready yet, the manager
-  // keeps nothing: the page tries again when a server is ready.
-  m_notifyLspAgain = !LspManager::Get().IsClientAvailableFor(this);
-  if (m_notifyLspAgain) {
+  // A file that no server will ever have (another language, an untitled page,
+  // no session holds it) waits for nothing.
+  if (!GetServerKey()) {
+    // (After a Save As the old file was closed on its server.)
+    m_lspState = EditorLspState::kInit;
+    m_lspRequestIds.clear();
     return;
   }
-  LspManager::Get().NotifyOpened(this);
+  // Starts the server when there is none. When it is not ready yet, the manager
+  // keeps nothing: the page tries again when a server is ready.
+  if (!LspManager::Get().IsClientAvailableFor(this) ||
+      !LspManager::Get().NotifyOpened(this)) {
+    m_lspState = EditorLspState::kPendingReady;
+    return;
+  }
   RequestSemanticHighlights();
+  m_lspState = EditorLspState::kRegistered;
 }
 
 void FilePage::OnLspServerReady(LspManagerEvent &event) {
   event.Skip();
-  if (!m_notifyLspAgain) {
+  if (m_lspState != EditorLspState::kPendingReady) {
     return;
   }
   NotifyLanguageServer();
+}
+
+void FilePage::NotifyLspTerminated() {
+  // The server is gone, and so are the answers that were on their way. The page
+  // registers again when a new server is ready.
+  m_lspState = EditorLspState::kPendingReady;
+  m_lspRequestIds.clear();
 }
 
 void FilePage::OnSemanticTokens(LspSemanticTokensEvent &event) {

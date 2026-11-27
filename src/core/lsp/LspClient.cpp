@@ -138,10 +138,10 @@ StatusOr<int> LspClient::SendRequest(const std::string &method,
   return id;
 }
 
-void LspClient::NotifyOpened(IEditor *editor) {
+bool LspClient::NotifyOpened(IEditor *editor) {
   // Until the handshake is done the server is not ready for anything.
   if (editor == nullptr || m_serverCapabilities.empty()) {
-    return;
+    return false;
   }
   const wxString path = editor->GetFilePath();
   const uint64_t changeCounter = editor->GetChangeCounter();
@@ -157,9 +157,10 @@ void LspClient::NotifyOpened(IEditor *editor) {
                                        editor->GetText());
   if (!sent.ok()) {
     KLOG_WARN() << "LSP | " << path << ": " << sent.message();
-    return;
+    return false;
   }
   m_changeCounters[editorId] = changeCounter;
+  return true;
 }
 
 std::optional<RequestID> LspClient::GetSemanticHighlightsFor(IEditor *editor) {
@@ -242,6 +243,20 @@ void LspClient::OnResponse(int id, const std::string &result,
   tokens.SetFilePath(request.path);
   tokens.SetWords(*words);
   EventNotifier::Get()->ProcessEvent(tokens);
+}
+
+void LspClient::NotifyTerminated() {
+  // The process is dead, but the manager notices it once a second: an editor
+  // may have called this client since. What it was told is cleared here too.
+  IManager *manager = GetKennelManager();
+  for (const auto &opened : m_changeCounters) {
+    if (IEditor *editor =
+            manager ? manager->FindEditorByUID(opened.first) : nullptr) {
+      editor->NotifyLspTerminated();
+    }
+  }
+  m_changeCounters.clear();
+  m_requests.clear();
 }
 
 void LspClient::CloseDocument(IEditor *editor) {
