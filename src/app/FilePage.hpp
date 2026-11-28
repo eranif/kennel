@@ -186,6 +186,9 @@ private:
   // is open and asks for the highlights, when the client of the server is
   // available. Otherwise the page waits for wxEVT_LSP_SERVER_READY.
   void NotifyLanguageServer();
+  // A session was added: a page that had no session when it was loaded looks
+  // for its machine and root directory again.
+  void OnPageAdded(PageViewEvent &event);
   // A language server is ready: a page that waits for one tries again.
   void OnLspServerReady(LspManagerEvent &event);
   // The language server named the words of the text: the editor colours them

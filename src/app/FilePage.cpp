@@ -124,6 +124,7 @@ FilePage::FilePage(wxWindow *parent, const wxString &path,
                              &FilePage::OnEditorOptionsChanged, this);
   EventNotifier::Get()->Bind(wxEVT_LSP_SEMANTIC_TOKENS,
                              &FilePage::OnSemanticTokens, this);
+  EventNotifier::Get()->Bind(wxEVT_PAGE_ADDED, &FilePage::OnPageAdded, this);
   EventNotifier::Get()->Bind(wxEVT_LSP_SERVER_READY,
                              &FilePage::OnLspServerReady, this);
 }
@@ -207,6 +208,7 @@ FilePage::~FilePage() {
                                &FilePage::OnEditorOptionsChanged, this);
   EventNotifier::Get()->Unbind(wxEVT_LSP_SEMANTIC_TOKENS,
                                &FilePage::OnSemanticTokens, this);
+  EventNotifier::Get()->Unbind(wxEVT_PAGE_ADDED, &FilePage::OnPageAdded, this);
   EventNotifier::Get()->Unbind(wxEVT_LSP_SERVER_READY,
                                &FilePage::OnLspServerReady, this);
   if (m_saveThread.joinable()) {
@@ -285,6 +287,19 @@ void FilePage::NotifyLanguageServer() {
   }
   RequestSemanticHighlights();
   m_lspState = EditorLspState::kRegistered;
+}
+
+void FilePage::OnPageAdded(PageViewEvent &event) {
+  event.Skip(); // The other views follow it too
+  // A session was added: it may hold a file that had no session when it was
+  // loaded. Only a page that has no root yet looks (the root never changes).
+  if (event.GetPageType() == PageType::kFile || m_sessionAccount) {
+    return;
+  }
+  ResolveSessionAccount();
+  if (m_sessionAccount) {
+    NotifyLanguageServer();
+  }
 }
 
 void FilePage::OnLspServerReady(LspManagerEvent &event) {
