@@ -288,8 +288,6 @@ private:
   Node *NodeOf(const wxDataViewItem &item) const;
   // The path of the top of the tree in the notation of the entries.
   wxString NormalizeRoot(const wxString &dir) const;
-  // The last part of `path`, the label of the top of the tree.
-  static wxString FolderNameOf(const wxString &path);
   // `path` with / for the separator and none at the end, for comparing.
   wxString ForCompare(const wxString &path) const;
   // Whether `path` is `dir` or is inside it (both from ForCompare()).

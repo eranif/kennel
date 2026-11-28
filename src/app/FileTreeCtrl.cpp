@@ -565,10 +565,9 @@ wxDataViewItem FileTreeCtrl::AddTop() {
   top.type = FileProvider::FileType::kDir;
   auto *topNode = new Node(top);
   topNode->loaded = true; // Its entries are added by the caller
-  // Only the name of the folder, with no host: a full path or a long host
-  // name does not fit in a narrow view.
+  // The full path of the folder.
   const wxDataViewItem item = m_tree->AppendContainer(
-      wxDataViewItem(), FolderNameOf(m_root), wxDataViewTreeCtrl::NO_IMAGE,
+      wxDataViewItem(), m_root, wxDataViewTreeCtrl::NO_IMAGE,
       wxDataViewTreeCtrl::NO_IMAGE, topNode);
   const auto &folder =
       AppManager::Get().GetBitmaps().GetByAlias("folder", false);
@@ -729,19 +728,6 @@ FileTreeCtrl::Node *FileTreeCtrl::NodeOf(const wxDataViewItem &item) const {
   }
   // The empty child of a folder that is not listed yet has no node.
   return dynamic_cast<Node *>(m_tree->GetItemData(item));
-}
-
-wxString FileTreeCtrl::FolderNameOf(const wxString &path) {
-  // A remote path uses '/' on any platform, so split on both separators.
-  wxString trimmed = path;
-  while (trimmed.length() > 1 &&
-         (trimmed.EndsWith("/") || trimmed.EndsWith("\\"))) {
-    trimmed.RemoveLast();
-  }
-  const size_t sep = trimmed.find_last_of("/\\");
-  const wxString name = sep == wxString::npos ? trimmed : trimmed.Mid(sep + 1);
-  // The top of a file system ("/") has no name; show the path.
-  return name.empty() ? path : name;
 }
 
 wxString FileTreeCtrl::NormalizeRoot(const wxString &dir) const {
