@@ -3,6 +3,7 @@
 
 #ifdef __WXMSW__
 
+#include <mutex>
 #include <wx/arrstr.h>
 #include <wx/filename.h>
 #include <wx/msw/registry.h>
@@ -15,53 +16,51 @@ constexpr const char *kMSYS2RegistryNameV1 = "MSYS2 64bit";
 constexpr const char *kMSYS2RegistryNameV2 = "MSYS2";
 } // namespace
 
-static bool m_checked_for_install_dir{false};
-static bool m_checked_for_home_dir{false};
+// Looked for once; std::call_once makes it safe to ask from any thread (the
+// UI thread and the worker of the agent scan).
+static std::once_flag m_install_dir_once;
+static std::once_flag m_home_dir_once;
 static std::optional<wxString> m_install_dir;
 static std::optional<wxString> m_home_dir;
 
 std::optional<wxString> FindInstallDir() {
-  if (m_checked_for_install_dir) {
-    return m_install_dir;
-  }
-
-  m_checked_for_install_dir = true;
-
-  wxString reg_install_path;
-  wxRegKey uninstall(wxRegKey::HKCU,
-                     R"(SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall)");
-  wxString appname;
-  long dummy;
-  bool cont = uninstall.GetFirstKey(appname, dummy);
-  while (cont) {
-    wxString display_name;
-    wxRegKey appkey(wxRegKey::HKCU,
-                    R"(SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\)" +
-                        appname);
-    if (appkey.QueryValue("DisplayName", display_name) &&
-        (display_name == kMSYS2RegistryNameV1 ||
-         display_name == kMSYS2RegistryNameV2)) {
-      appkey.QueryValue("InstallLocation", reg_install_path);
-      break;
+  std::call_once(m_install_dir_once, [] {
+    wxString reg_install_path;
+    wxRegKey uninstall(
+        wxRegKey::HKCU,
+        R"(SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall)");
+    wxString appname;
+    long dummy;
+    bool cont = uninstall.GetFirstKey(appname, dummy);
+    while (cont) {
+      wxString display_name;
+      wxRegKey appkey(
+          wxRegKey::HKCU,
+          R"(SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\)" + appname);
+      if (appkey.QueryValue("DisplayName", display_name) &&
+          (display_name == kMSYS2RegistryNameV1 ||
+           display_name == kMSYS2RegistryNameV2)) {
+        appkey.QueryValue("InstallLocation", reg_install_path);
+        break;
+      }
+      cont = uninstall.GetNextKey(appname, dummy);
     }
-    cont = uninstall.GetNextKey(appname, dummy);
-  }
 
-  if (!reg_install_path.empty()) {
-    m_install_dir = reg_install_path;
-    return m_install_dir;
-  } else {
+    if (!reg_install_path.empty()) {
+      m_install_dir = reg_install_path;
+      return;
+    }
     // try common paths
     std::vector<wxString> vpaths = {R"(C:\msys64)", R"(C:\msys2)",
                                     R"(C:\msys)"};
     for (const wxString &path : vpaths) {
       if (wxFileName::DirExists(path)) {
         m_install_dir = path;
-        return m_install_dir;
+        return;
       }
     }
-  }
-  return std::nullopt;
+  });
+  return m_install_dir;
 }
 
 std::optional<wxString> FindHomeDir() {
@@ -70,19 +69,15 @@ std::optional<wxString> FindHomeDir() {
     return std::nullopt;
   }
 
-  if (m_checked_for_home_dir) {
-    return m_home_dir;
-  }
+  std::call_once(m_home_dir_once, [&msyspath] {
+    wxFileName cargo_dir{*msyspath, wxEmptyString};
+    cargo_dir.AppendDir("home");
+    cargo_dir.AppendDir(::wxGetUserId());
 
-  m_checked_for_home_dir = true;
-
-  wxFileName cargo_dir{*msyspath, wxEmptyString};
-  cargo_dir.AppendDir("home");
-  cargo_dir.AppendDir(::wxGetUserId());
-
-  if (cargo_dir.DirExists()) {
-    m_home_dir = cargo_dir.GetPath();
-  }
+    if (cargo_dir.DirExists()) {
+      m_home_dir = cargo_dir.GetPath();
+    }
+  });
   return m_home_dir;
 }
 
@@ -91,14 +86,15 @@ wxString GetPath(bool useSystemPath) {
 
   wxArrayString paths_to_try;
 
-  // next in order are is the PATH environment variable
+  // first in order is the PATH environment variable: what the user put there
+  // is what the user wants
   if (useSystemPath) {
     wxString pathenv;
     wxGetEnv("PATH", &pathenv);
     paths_to_try = ::wxStringTokenize(pathenv, ";", wxTOKEN_STRTOK);
   }
 
-  // if we have msys2 installed, add the bin folder (we place them at start)
+  // if we have msys2 installed, add its bin folders after the PATH
   if (msyspath) {
     const wxString m_chroots[] = {
         "\\clang64",
@@ -106,8 +102,14 @@ wxString GetPath(bool useSystemPath) {
         "\\usr",
         "\\",
     };
+    // The order of the folders: the root, usr, clangarm64, clang64 (each one
+    // goes before the one added before it)
+    wxArrayString msys_paths;
     for (const auto &root : m_chroots) {
-      paths_to_try.Insert(*msyspath + root + R"(\bin)", 0);
+      msys_paths.Insert(*msyspath + root + R"(\bin)", 0);
+    }
+    for (const wxString &path : msys_paths) {
+      paths_to_try.Add(path);
     }
   }
 
@@ -179,10 +181,20 @@ std::optional<wxString> Which(const wxString &command, bool useSystemPath) {
   // from a GUI on macOS where the shell profile hasn't run).
   const wxString home = ::wxGetHomeDir();
   const wxString extraDirs[] = {
-      home + "/.local/bin", home + "/.cargo/bin", home + "/.nvm/current/bin",
-      home + "/.volta/bin", home + "/.bun/bin",   home + "/go/bin",
-      "/usr/local/bin",     "/opt/homebrew/bin",  "/opt/homebrew/sbin",
-      "/usr/local/go/bin",  "/snap/bin",          home + "/.toolbox/bin",
+      home + "/.local/bin",
+      home + "/.cargo/bin",
+      home + "/.nvm/current/bin",
+      home + "/.volta/bin",
+      home + "/.bun/bin",
+      home + "/go/bin",
+      "/usr/local/bin",
+      "/opt/homebrew/bin",
+      "/opt/homebrew/sbin",
+      "/usr/local/go/bin",
+      "/snap/bin",
+      home + "/.toolbox/bin",
+      "/opt/homebrew/opt/llvm/bin",
+      "/Library/Developer/CommandLineTools/usr/bin",
   };
 
   for (const wxString &dir : extraDirs) {

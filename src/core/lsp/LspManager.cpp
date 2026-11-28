@@ -3,6 +3,7 @@
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
 #include "core/Globals.hpp"
+#include "core/Helpers.h"
 #include "core/IManager.h"
 #include "core/Logger.h"
 #include "core/RemoteInstaller.h"
@@ -43,9 +44,24 @@ public:
                                  &Entry::OnClientFailed, this);
   }
 
-  // Looks for the program on the machine, and changes nothing there. The
-  // answer comes with OnInstallDone().
+  // Looks for the program on the machine, and changes nothing there. On this
+  // machine a program that is installed already is launched at once, otherwise
+  // the answer comes with OnInstallDone().
   void Check() {
+    // This machine: a server that is installed already is the one to use (it
+    // knows where the headers of its compiler are). Nothing is asked or
+    // installed then, and the version is not looked at. The other machines have
+    // the install flow only.
+    if (m_key.m_account.IsLocalHost()) {
+      if (const std::optional<wxString> found =
+              platform::Which(m_key.GetKindName())) {
+        KLOG_INFO() << "LSP | " << m_key.GetKey() << ": using the installed "
+                    << m_key.GetKindName() << " at " << *found;
+        m_installedPath = *found;
+        Launch();
+        return;
+      }
+    }
     KLOG_DEBUG() << "LSP | " << m_key.GetKey() << ": looking for "
                  << m_key.GetTool()->name << " on "
                  << m_key.m_account.GetDisplayName() << " in "

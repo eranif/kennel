@@ -202,7 +202,12 @@ stored in `DialogAnswers` and the user takes it back in Settings.
 
 ### Phase 9 - Servers and install
 - [x] clangd: `ToolDescription`, the ask-before-install message box, the remembered "No".
-- [ ] A server that is on the `PATH` already: "found clangd at X, use it or install?" is not built.
+- [x] A server that is installed on this machine is used as it is (`platform::Which()` in
+      `Helpers.cpp`: the `PATH` first, then MSYS2 on Windows, the usual folders on macOS and
+      Linux, Homebrew's llvm and Xcode's tools included). Nothing is asked, so the install question
+      and a stored "No" apply only when none is found. For WSL and ssh the install flow is
+      unchanged. Tried on Windows (MSYS2 clangd: the colours are right, the headers are found).
+- [ ] A version check of the clangd that was found (the decoder needs `utf-8` positions): none yet.
 - [ ] gopls, rust-analyzer and the others (single binaries are installed the same way; npm based
       ones are only detected).
 
@@ -239,7 +244,11 @@ help, code actions, formatting. Add a phase when one is wanted.
 5. **A file with no session**: no server, until a session that holds it is added.
 6. **Where the server is installed**: `$HOME/.kennel/bin/<server>`; the program path is built per
    machine (`LspServerKey::GetProgram()`).
-7. **`PATH` first**: not decided; the install is "like ripgrep", only `~/.kennel/bin`.
+7. **An installed server first**: on this machine `platform::Which()` is asked before anything;
+   what it finds is used without a question and without a version check. The Kennel install
+   (`~/.kennel/bin`) is for the machines where nothing is found, and for WSL and ssh. Reason:
+   an installed clangd knows where the headers of its compiler are; the one that Kennel installs
+   does not (no `--query-driver`), and without them the semantic tokens are missing.
 8. **A "No" is remembered**: in `DialogAnswers`, per machine and server, shown in Settings.
 9. **How the client learns that the server ended**: the manager polls `IsRunning()` once a second.
 10. **UI components are not kept** by the core: a page is fetched from the live notebook by its
