@@ -1,311 +1,243 @@
 # Plan: LSP support in Kennel
 
 Progress: `[x]` done, `[ ]` open. Tick a box when its commit is pushed.
-Status as of 2026-11-26. Phase 1 is started: `LspServer`, `JsonRpcFramer` and a skeleton of
-`LspClient` are pushed (`src/core/lsp/`). `Status` has reason codes (`StatusCode`, committed, not
-pushed). The flow of `LspManager::GetServerFor()` is decided (see "The flow of a file"). Nothing
-has been run against a real server yet.
+Status as of 2026-11-28 (everything below marked done is pushed, up to `d816fe2`).
+clangd works on this machine from start to end: the install question, launch, handshake,
+`didOpen` / `didChange` / `didSave` / `didClose`, semantic highlights for C and C++, the watcher
+with its backoff, the dead-server flow, and ending the servers that no page needs. The user saw
+the highlights work. Not verified by running: WSL files, ssh files, the restart of a dead
+server (kill `clangd.exe`), quitting with C++ files open.
 
 ## Context
 Kennel opens files in `FilePage` (an `Editor`, a `wxStyledTextCtrl`) for this machine, a WSL
-distribution and an ssh host. Today the editor has syntax colours and brace matching only. LSP
-(Language Server Protocol) adds what a language server knows: diagnostics, go to definition,
-find references, hover, completion, rename, document symbols.
+distribution and an ssh host. Before LSP the editor had syntax colours and brace matching only.
+LSP (Language Server Protocol) adds what a language server knows: semantic colours, go to
+definition, find references, completion, rename, document symbols.
 
 Kennel is not an IDE: the main use is reading and reviewing what an AI agent wrote. So the order
-is **read features first** (document sync, semantic highlighting, go to definition, document
-outline, workspace symbols, find references), and the editing features (code completion, rename)
-come later.
+is **read features first** (semantic highlighting, go to definition, document outline, workspace
+symbols, find references), and the editing features (code completion, rename) come later.
 
-Rules to keep (CLAUDE.md): never hand-edit `UI.cpp/UI.hpp` (use the `wxcrafter` skill), no
-exceptions (`Status`/`StatusOr`), `src/core/` GUI-free, wx events (or `CallAfter()`) instead of
-`std::function`, **never a detached thread** (a thread belongs to its object and is joined in the
-destructor), helpers are methods of the object (not free functions, not `XxxOf` / `XxxFor`),
-`KLOG_*`, simple single-purpose classes, no mirrored state (ask the runtime), build +
-clang-format before every commit, commits signed off (`-s`), no Co-Authored-By, no push without
-approval.
+Rules to keep (CLAUDE.md, and what the user said in this work):
+- **Ask, do not assume**: a class, a place, a name or a behaviour that the user did not give is the
+  user's decision. Do what was named, nothing more.
+- Never hand-edit `UI.cpp/UI.hpp` (use the `wxcrafter` skill); no exceptions (`Status` /
+  `StatusOr`); `src/core/` GUI-free; **never a detached thread**; helpers are methods of the object
+  (not free functions, not anonymous namespaces, not `XxxOf` / `XxxFor` unless the user named it);
+  `KLOG_*`; no mirrored state (ask the runtime); build and `clang-format` before every commit;
+  commits signed off (`-s`), no Co-Authored-By, no push without approval.
+- **Events go through `EventNotifier`** (not to a window, not to `wxTheApp`), so that `src/core/`
+  can handle them too. Event classes that the core needs live in `src/core/`.
+- **No UI component is cached** by a core class: no `IEditor *`, no `weak_ptr` to a page. What the
+  core needs it copies at the call, or fetches from the live application (`IManager`).
 
 ## What is already there
 - `Process::StartInteractive` + `Write` + `Stop`: a child with stdin open and an output callback.
   This is how **every** server runs (see `LspServer`). It delivers chunks, not messages (framing
-  is `JsonRpcFramer`'s). It has no "the process ended" notification, and `Write()` waits when the
-  pipe is full.
-- `wsl.exe -d <distro> --exec <cmd>` through `Process`: a WSL server is a local child of
-  wsl.exe, and the server sees Linux paths.
-- `ssh <host> <cmd>` through `Process`: an ssh server is a local child of `ssh`.
-- `RemoteInstaller` + `ToolDescription`: installs a pinned tool into `~/.kennel/bin` of an account.
-  Written to be reused for clangd (see its header).
-- `Account` (this machine / WSL / ssh) and `FileLocation`; `FilePage::GetAccount()` and
-  `GetAccountPath()` already give "whose file, which path" in the notation of the account.
-- `Editor::GotoLine(line, column, length)` (select a range), `FileEvent` open-at-line, the
-  side bar (`SideView`, a `wxAuiNotebook`: file explorer, git, activity, find results) which gets
-  a new "LSP" tab for the results, `FindResultsView`, `SearchablePage`.
-- `SshClient::ExecuteStreaming` (written for find-in-files): a remote command whose output
-  arrives as it is produced. It is the read side only (no stdin).
-- `EventNotifier`, `Status`/`StatusOr`, `json.hpp` (only in `.cpp`).
-
-## What is missing
-- Request ids and a response table (the `Content-Length` framing is done: `JsonRpcFramer`).
-- Position conversion: LSP counts **UTF-16 code units**, STC counts **bytes** (UTF-8). Needs a
-  converter per line (`PositionFromLSP` / `PositionToLSP`), and it must be right for emoji
-  (the find-in-files work hit the same class of bug).
-- Document sync: STC modification events -> `didChange`.
-- Everything above the transport: servers config, UI.
+  is `JsonRpcFramer`'s). It has no "the process ended" notification: the manager polls
+  `IsRunning()`.
+- `wsl.exe -d <distro> --exec <cmd>` and `ssh <host> <cmd>` through `Process`: a WSL or ssh server
+  is a local child of `wsl.exe` or `ssh`.
+- `RemoteInstaller` + `ToolDescription`: installs a pinned tool into `~/.kennel/bin` of an account
+  (used for clangd 23.1.0, binary only, limit 256 MB).
+- `Account` (this machine / WSL / ssh), `FilePage::GetAccount()` and `GetAccountPath()`.
+- `DialogAnswers` (`dialog-answers.json`) and the "Answers" page in Settings: a stored "No" to the
+  install question, taken back by the user.
+- Page events (`PageViewEvent`, `src/core/`): `wxEVT_PAGE_ADDED/REMOVED/RENAMED/MOVED/...`, for
+  sessions, terminals and files, with the working directory, the page type, the path, the old file
+  path and, for a file, the ID of its editor.
+- `FileEvent` (`src/core/`): `wxEVT_FILE_SAVED` carries the editor ID; the save events
+  (`SAVE_STARTED`, `SAVE_DONE`) go through the `EventNotifier`.
 
 ## Design
 
-Layers, from the bottom. Each is one class with one job. **All LSP classes live in a folder of
-their own**: the GUI-free ones in `src/core/lsp/`, the ones that touch the UI in `src/app/lsp/`
-(both folders go into `CMakeLists.txt`; includes are `core/lsp/Xxx.h`, `app/lsp/Xxx.hpp`).
+All LSP classes are in `src/core/lsp/` (GUI-free). What the core knows of the application is only
+`IEditor` and `IManager` (both in `src/core/`); the application implements them.
 
-`src/core/lsp/` (GUI-free):
-1. `JsonRpcFramer` (done): `Feed(buffer)` takes what the server wrote (any thread); a thread of
-   its own (owned, joined in the destructor, waits with a 10 ms `wait_for`) cuts it into
-   `Content-Length: N\r\n\r\n<json>` messages, so a very long body does not stall the UI, and
-   gives each one to `LspClient::OnParsed()` with `CallAfter()` (so it runs on the UI thread).
-2. `LspServer` (done): one language server process, always a local `Process`
-   (`Process::StartInteractive`). `LspServer(LspClient *client, TransportType, LspKind, target,
-   user)`; `TransportType` is `kWsl` / `kLocal` / `kSsh`, `LspKind` is `kClangd` / `kGopls` /
-   `kRustAnalyzer`. `Start()`, `Send(bytes)`, `Stop()`. The command is built for the type: the
-   program itself, `wsl.exe -d <distro> --exec <program>`, or `ssh -T -o BatchMode=yes
-   [user@]host '<program>'`. What the server writes to stdout and stderr is given to the client
-   with `CallAfter(&LspClient::OnServerStdout / OnServerStderr, ...)`.
-3. `LspClient` (a skeleton): owns one `LspServer` and one `JsonRpcFramer`; is a `wxEvtHandler`
-   (for `CallAfter()`). Done: `Send(body)` (adds the header), `OnServerStdout()` (feeds the
-   framer), `OnServerStderr()` (logs it), `OnParsed()` (a stub). To do: `Request(method,
-   params)` returning an id, the answers and the server notifications as events, `initialize` /
-   `initialized` / `shutdown` / `exit`, request timeouts, `$/cancelRequest`, a crash (restart
-   with a limit), the capabilities of the server (including the semantic tokens legend). Knows
-   nothing of editors.
-4. `LspManager`: the single owner of the servers (`LspManager::Get()`), and the only thing a
-   page talks to. A server is identified by `{ Account, WorkingDirectory, language }` (the
-   `m_rootDir` of the `Account`; a server speaks one language), at most one per key. The
-   working directory is the one of a session (see below). Reads `LanguageServerConfig`. The one
-   entry point is `StatusOr<std::shared_ptr<LspClient>> GetServerFor(key)`: it returns the
-   client when the server is ready, and otherwise it starts what is missing (check, install,
-   launch, handshake) by itself and returns an error `Status` whose code says why (see "The flow
-   of a file"). There is no `Start()`. The answers of the other requests
-   (`manager->SemanticTokens(...)` and the like) come back as events.
-5. `LanguageServerConfig`: see below.
-6. `LspUri`: `file:///` URIs (Windows drive letters, percent-encoding, Linux paths for WSL).
-7. `LspPositionConverter`: UTF-8 (STC bytes) <-> UTF-16 (LSP) per line, cached per document
-   version. A fallback when the server accepts `utf-8` (open question 6).
+**The interfaces (`src/core/`)**
+- `IEditor` (implemented by `FilePage`): `GetAccount()`, `GetFilePath()` (in the notation of the
+  account, a Linux path for WSL), `GetLanguageId()` (an `LspLanguage`), `GetText()`,
+  `GetChangeCounter()` (counts inserts and deletes, never goes back), `GetEditorUID()`
+  (`FilePageUID`, unique, never zero), `GetSessionAccount()` (the account of the session that
+  holds the file, found once when the file is loaded), `NotifyLspTerminated()`. `GetServerKey()`
+  is a method of the interface: it builds the `LspServerKey` from `GetSessionAccount()` and the
+  language.
+- `IManager` (implemented by `KennelManager` in `src/app/`): `GetActiveEditor()`,
+  `GetAllEditors()`, `FindEditorByUID()`. `KennelApp` gives it to the core with
+  `SetKennelManager()`; the core gets it with `GetKennelManager()` (`core/Globals.hpp`).
 
-`src/app/lsp/` (UI):
-8. `LspDocument` (one per `FilePage`): talks to the manager by events only. `didOpen` on load,
-   `didChange` (debounced ~250 ms) on STC modify, `didSave`, `didClose`. Applies results to the
-   `Editor`.
-9. `LspSemanticHighlighter`: semantic tokens -> STC styles / indicators (used by `LspDocument`).
-10. `LspSymbolsDlg`: the popup of the document outline and of the workspace symbols (like Go to
-    Anything).
-11. `LspReferencesView`: the find-references results, in the "LSP" tab of the side bar. Shares a
-    base with `FindResultsView` if the two overlap enough.
-12. `LspLocationHistory`: back / forward after a jump.
-13. `LspServersPage`: the Settings page (server list, enable/disable, restart, log level).
+**The LSP classes (`src/core/lsp/`)**
+1. `JsonRpcFramer`: cuts the output of the server into `Content-Length` messages on a thread of its
+   own, and gives them to `LspClient::OnParsed()` on the UI thread.
+2. `LspServer`: one server process (`kLocal` / `kWsl` / `kSsh`). `LspServerKey` is
+   `{ Account (with the m_rootDir of a session), LspKind }`, with `GetKey()` (a readable text),
+   `GetProgram()`, the install question and its answer key.
+3. `LspClient`: owns one `LspServer` and one `JsonRpcFramer`; does the handshake (it asks for
+   `utf-8` positions and semantic tokens) and **all the work of the editors**:
+   - `NotifyOpened(editor)`: `didOpen` (or `didChange` for a reload); returns whether the server
+     has the file. The version is the change counter.
+   - `GetSemanticHighlightsFor(editor)`: `didChange` when the change counter moved, then
+     `textDocument/semanticTokens/full`. Returns a `RequestID`. The answer is decoded
+     (`LspSemanticTokens`) against the text of the live editor (fetched with `FindEditorByUID`),
+     dropped if the text changed, and sent as `wxEVT_LSP_SEMANTIC_TOKENS`.
+   - `CloseDocument(editor)`, `OnDocumentSaved(editor)` (`didClose`, `didSave`),
+     `NotifyTerminated()` (tells every editor that has a file open on it).
+   - It keeps only a map `FilePageUID -> change counter` (what the server has) and the requests
+     that wait. No text, no editor.
+4. `LspManager`: a **thin** owner of the servers (`LspManager::Get()`), one `Entry` per
+   `LspServerKey`: a state machine (`kChecking`, `kAwaitingConsent`, `kInstalling`, `kInitializing`,
+   `kReady`, `kRestarting`, `kDeclined`, `kFailed`) that owns the `RemoteInstaller` and the client.
+   - `GetClientFor(key)` returns the client when ready and starts what is missing otherwise;
+     `IsClientAvailableFor(editor)`; `NotifyOpened(editor)`; `NotifyClosed(editor)` (Save As);
+     `GetSemanticHighlightsFor(editor)`. They find the server with `editor->GetServerKey()` and
+     give the call to its client. **Nothing is queued or kept**: when the client is not ready the
+     answer is "not available", and the editor asks again on `wxEVT_LSP_SERVER_READY`.
+   - It listens to the page events: it keeps the list of open pages, ends the servers that no page
+     needs (a session or terminal in the folder of the server, or a file inside it), and forwards
+     a removed file (`didClose`) and a saved file (`didSave`) to the client.
+   - One timer for all servers (1 s): a dead process is noticed (`IsRunning()`), the client tells
+     the editors (`NotifyTerminated()`), and the server starts again with a backoff (1 s, doubling,
+     60 s at most, 5 failures give up, a run of 60 s starts the count again).
+   - `Shutdown()` (from `~MainFrame`) stops every server.
+5. Events: `LspManagerEvent` (`wxEVT_LSP_INSTALL_NEEDED`, `wxEVT_LSP_SERVER_READY`,
+   `wxEVT_LSP_SERVER_FAILED`) and `LspEvent` (the base of the answers: `RequestID`, account, path)
+   with `LspSemanticTokensEvent` (`wxEVT_LSP_SEMANTIC_TOKENS`, the words by kind:
+   `{ kClass => {...}, kFunction => {...}, kVariable => {...} }`). Later answers (completions,
+   symbols, outline) derive from `LspEvent`.
+6. `LspUri`, `LspLanguage`, `LspSemanticTokens` (token types -> words), `Clangd` (the
+   `ToolDescription`).
 
-Go to definition, and the call from the UI to the manager, are small methods of `Editor` /
-`FilePage` / `LspDocument`, not classes. Dialogs and pages (`LspSymbolsDlg`, `LspServersPage`,
-the "LSP" tab) are windows in `UI.wxcp`, through the `wxcrafter` skill, with their logic in the
-"Inherited Class".
-
-Servers config (`LanguageServerConfig`, core, persisted in the existing config store):
-`{ language, fileExtensions, command, args, installable(ToolDescription?), initializationOptions }`
-Defaults for clangd, gopls, rust-analyzer, pyright/pylsp, typescript-language-server,
-lua-language-server. User can edit them (a section in Settings). Per-account override: the
-command to run on a remote host may differ from the local one.
+**The editor side (`src/app/`)**
+- `FilePage`: after the content is loaded (`LoadLocal`, `LoadRemote`, Save As) it resolves its
+  session account once (`ResolveSessionAccount()`, the deepest session whose working directory
+  holds the file), then `NotifyLanguageServer()`. Its state is `EditorLspState`: `kInit`,
+  `kPendingReady` (no client yet: waits for `wxEVT_LSP_SERVER_READY`), `kRegistered`. It keeps the
+  `RequestID`s that it waits for in a set and takes an answer only for its own ID. A page with no
+  session looks again when a session is added (`wxEVT_PAGE_ADDED`).
+- `Editor`: counts the changes (`GetChangeCounter()`, text inserts and deletes only) and colours
+  the words: functions in keyword set 1 (`wxSTC_C_WORD2`), classes in set 3 (`wxSTC_C_GLOBALCLASS`),
+  variables in a substyle of `wxSTC_C_IDENTIFIER` (as CodeLite does), re-applied when the theme
+  rebuilds the lexer.
 
 Where the server runs follows the file: a local file -> local server; WSL file -> server inside
-the distro (`wsl.exe -d --exec`, Linux paths, no `\\wsl$` URIs); ssh file -> server on the host
-(`ssh`).
-The working directory of the server is **the one of a session**: a session page already knows
-its account and its working directory (`SessionPage::GetAccount()` / `m_session.workingDir`).
-A file does not keep it: when the file is opened, the open sessions are asked and the one that
-fits best wins (the same account, and a working directory that holds the file; the deepest
-when several do). Nothing is stored in the file page or in the workspace for this. There is no
-search for markers (`.git`, `Cargo.toml`, ...) any more.
+the distro (Linux paths); ssh file -> server on the host. The working directory of the server is
+**the one of a session** (no search for `.git` or other markers).
 
-Never install anything without the user: a missing server is offered ("Download and Install
-clangd?" through `RemoteInstaller`, the same check-only / ask / install steps and the same
-message box as ripgrep in `FindInFilesDlg`). A "Language Servers" menu/status item shows what
-runs and lets the user stop it.
+Never install anything without the user: a missing server is offered ("Install clangd on X?"
+through `RemoteInstaller`, with a short title and the details in the extended message); a "No" is
+stored in `DialogAnswers` and the user takes it back in Settings.
 
 ### The flow of a file
-1. A file opens. The `FilePage` works out the language (from the extension), the account
-   (`GetAccount()`) and the working directory (the best fitting open session). No language or no
-   fitting session: nothing more happens.
-2. The page calls `LspManager::Get().GetServerFor(key)`. The answer is the client, or a `Status`:
-   - the entry is **Ready**: the client (`shared_ptr<LspClient>`);
-   - no entry yet: the entry is created in **Checking**, the work starts in the background, and
-     the answer is `kUnavailable`;
-   - **Checking, AwaitingConsent, Installing, Initializing**: `kUnavailable` (try again after
-     the event of step 7);
-   - **Declined**: `kPermissionDenied`;
-   - no server for this language, or no build of it for this machine: `kNotAvailable`;
-   - **Failed**: another code, with the message.
-3. **Check**: `RemoteInstaller` in `Mode::kCheckOnly` for the `ToolDescription` of the server, on
-   the account. An error -> **Failed**. Installed -> step 5. `NeedsInstall()` -> **AwaitingConsent**
-   and `wxEVT_LSP_INSTALL_NEEDED` (key, tool).
-4. **Ask**: `MainFrame` handles it with the message box of ripgrep and calls
-   `manager->Install(key)` (-> **Installing**, `RemoteInstaller` in `Mode::kInstall`, progress
-   forwarded as events, then step 5 or **Failed**) or `manager->Decline(key)` (-> **Declined**).
-5. **Launch**: the manager makes the `LspClient` (type from the account, kind from the language)
-   and starts it. -> **Initializing**.
-6. **Handshake**, once per server: `initialize` (`rootUri`, client capabilities with
-   `positionEncodings`), the response (the capabilities of the server are kept), `initialized`.
-   -> **Ready**.
-7. The manager sends `wxEVT_LSP_SERVER_READY` (key), or `wxEVT_LSP_SERVER_FAILED` (key,
-   message). The page that got `kUnavailable` handles it, calls `GetServerFor(key)` again, gets
-   the client and sends `didOpen` (then `didChange`, `didSave`, `didClose`). The manager keeps no
-   list of documents and queues nothing for the page.
-8. The server asks the client things: `window/workDoneProgress/create`,
-   `client/registerCapability`, `workspace/configuration` must be answered, or clangd and
-   rust-analyzer wait for ever.
-9. The last document of a key closes: after a grace period `shutdown`, `exit`, `Stop()`. A crash
-   -> **Failed** (restart with a limit).
+1. The file is loaded. `FilePage::ResolveSessionAccount()` finds the session that holds it. No
+   session, or no language server for the file: the page waits for nothing (`kInit`), or looks
+   again when a session is added.
+2. `NotifyLanguageServer()`: `LspManager::IsClientAvailableFor()` starts the server when there is
+   none (check, install question, launch, handshake). Not ready: the page is `kPendingReady`.
+3. When `wxEVT_LSP_SERVER_READY` comes, a waiting page runs step 2 again.
+4. Ready: `LspManager::NotifyOpened()` -> `LspClient::NotifyOpened()` sends `didOpen`; then
+   `GetSemanticHighlightsFor()` sends the changes since (`didChange`) and the request.
+5. The answer is decoded and sent as `wxEVT_LSP_SEMANTIC_TOKENS` with the `RequestID`; the page
+   whose set holds the ID colours the words.
+6. A save sends `didSave`; closing the page sends `didClose`; Save As closes the old path before
+   the name changes and registers the new file as a file of its own.
+7. The last page that needs a server closes: the manager ends it. The process dies: the clients
+   tell the editors, which go back to waiting, and the restarted server brings the ready event.
 
-`StatusCode` (`core/Status.h`, done): `kUnknown` (the default of `Status::Error(message)`),
-`kUnavailable` (not ready, try again), `kPermissionDenied` (the user said no), `kNotAvailable`
-(nothing to use, and waiting does not help).
+`StatusCode` (`core/Status.h`): `kUnknown`, `kUnavailable` (not ready, on its way), `kPermissionDenied`
+(the user said no), `kNotAvailable` (nothing to use, waiting does not help).
 
 ## Phases
 
-Read-only features first, in this order: document sync, semantic highlighting, go to definition,
-document outline, workspace symbols, find references. Editing features come after (Phase 8).
+### Phase 1 - Server, client, manager (`src/core/lsp/`)
+- [x] `JsonRpcFramer`, `LspServer` (local, WSL, ssh as local processes).
+- [x] `LspClient`: handshake, requests, responses, notifications, the files that are open.
+- [x] `LspManager`: `GetClientFor()` and the flow (check, install, launch, handshake), the install
+      question in `MainFrame`, the stored answer and the "Answers" page, the watcher with its
+      backoff, ending the servers that no page needs, `Shutdown()`.
+- [x] clangd `ToolDescription` (23.1.0), `StatusCode`, `LspUri`, the logging (`LSP | `, `--log-level`,
+      `--stdout`).
+- [x] The page events in `src/core/` (`PageViewEvent`), for sessions, terminals and files.
 
-### Phase 0 - Spike (decide before building)
-- [ ] Run clangd by hand from Kennel code on a local file: `initialize`, `didOpen`,
-      `textDocument/definition`, print the answer to `KLOG_INFO`. Throw-away, not merged.
-      Goal: confirm framing, the UTF-16 offsets, and how much `Process` needs (the output
-      callback gives raw chunks; stdin writes must not block the UI thread).
-- [ ] Try the remote case with `ssh host clangd` as a local `Process` (it is what `LspServer`
-      does for `kSsh`): needs the OpenSSH client and keys that work without a question.
+### Phase 2 - Document sync
+- [x] `didOpen`, `didChange` (the whole text, from the change counter), `didSave`, `didClose`.
+- [x] `IEditor`, `IManager`, `KennelManager`; the editor ID; `FileEvent` in `src/core/`.
+- [x] A server that dies: `NotifyTerminated()`, the editors register again on the ready event.
+- [ ] A look again when a session changes its working directory (`wxEVT_PAGE_MOVED`): not done.
+- [ ] Incremental `didChange` (ranges): today the whole text is sent; matters for big files.
+- [ ] Remote files (ssh) and WSL files: written, not tried.
 
-### Phase 1 - Server and client (`src/core/lsp/`)
-- [x] `JsonRpcFramer` (framing, on a thread of its own).
-- [x] `LspServer` (local, WSL and ssh as local processes; the command is built per
-      `TransportType`; the program per `LspKind`).
-- [ ] `LspClient`: skeleton done (owns the server and the framer, `Send()`, the output of the
-      server). To do: handshake, requests/responses, notifications as events, cancel,
-      timeouts, shutdown, crash detection.
-- [ ] Capabilities: send a minimal client capabilities object (including `positionEncodings`,
-      semantic tokens); keep the server's, and ask them (`SupportsDefinition()` ...) before
-      sending a request.
-- [x] Files added to `CMakeLists.txt` (for the classes above).
-- [x] `StatusCode` in `Status` (`kUnavailable`, `kPermissionDenied`, `kNotAvailable`, ...), for
-      `GetServerFor()`.
+### Phase 3 - Semantic highlighting (C and C++)
+- [x] `textDocument/semanticTokens/full`, the legend, `utf-8` positions (an error otherwise: no
+      UTF-16 fallback), words by kind, keyword sets and a substyle in the C++ lexer.
+- [ ] Refresh while the user types: today the editor asks once after the load (and after a reload
+      or Save As). The user decided that; revisit when needed.
+- [ ] Colours: mine for now (variables bright blue, classes cyan, functions blue); tune with the
+      theme.
+- [ ] Other languages: go (gopls), rust (rust-analyzer), ... each with its own `LspKind`,
+      `ToolDescription`, `LspLanguage` and keyword-set mapping in the editor. The user wants this
+      after the C++ case looks good.
 
-### Phase 2 - Manager, config, document sync (feature 1: didOpen / didChange / didSave / didClose)
-- [ ] `LanguageServerConfig` + defaults + persistence (`ConfigStore`), `LspUri`.
-- [ ] `LspManager`: `GetServerFor(key)` and the flow of a file (entry states Checking,
-      AwaitingConsent, Installing, Initializing, Ready, Declined, Failed; `RemoteInstaller` check
-      / install; `Install(key)` / `Decline(key)`; launch and handshake; the events
-      `wxEVT_LSP_INSTALL_NEEDED`, `wxEVT_LSP_SERVER_READY`, `wxEVT_LSP_SERVER_FAILED`), the
-      working directory from the sessions, the grace-period stop, the restart limit. The handler
-      of the install question in `MainFrame`.
-- [ ] `LspDocument` in `FilePage` (`src/app/lsp/`): `didOpen` on load, `didChange` on STC modify
-      (debounced; a full-text send is fine for a start, incremental after), `didSave`,
-      `didClose`.
-- [ ] `LspPositionConverter` with a UTF-8 <-> UTF-16 line table (cached per document version).
-- [ ] Remote files: the URI is the path on the host; the content comes from the editor (we
-      send it in `didOpen`), so the server never needs the file over a share.
-- [ ] Unsaved/untitled/transient pages (git diff): never sent to a server.
-- [ ] Status of each server (starting / ready / failed + the stderr tail) readable by the UI.
+### Phase 4 - Go to definition
+- [ ] `textDocument/definition` (Ctrl+click, F12) through a new method of the manager and an
+      `LspEvent` answer; several results -> a small popup list.
+- [ ] Back / forward after a jump.
 
-### Phase 3 - Semantic highlighting (feature 2)
-- [ ] `LspSemanticHighlighter`: `textDocument/semanticTokens/full` (and `/full/delta` when the
-      server has it), the legend from the server capabilities, tokens (relative line / column,
-      UTF-16) -> STC styles or indicators on top of the lexer colours. Re-requested after a
-      `didChange` (debounced), the old tokens are dropped when the version changes.
-- [ ] Token types and modifiers -> the colours of the active theme (`ThemeManager`).
-- [ ] Not used for a file whose server does not offer it; a setting to turn it off.
+### Phase 5 - Document outline
+- [ ] `textDocument/documentSymbol` in a dialog (through `UI.wxcp`): filter box, kinds, Enter goes to
+      the line. The shortcut is to be decided (Ctrl+Shift+O is Open File).
 
-### Phase 4 - Go to definition (feature 3)
-- [ ] `textDocument/definition` (and declaration / type definition): Ctrl+click and F12 -> opens
-      the file at the place via the `FileEvent` path (the target may be another file or another
-      root, on the same account). Several results -> a small popup list.
-- [ ] `LspLocationHistory`: back / forward after a jump.
+### Phase 6 - Workspace symbols
+- [ ] `workspace/symbol` in the same dialog (or as a mode of Go to Anything).
 
-### Phase 5 - Document outline (feature 4)
-- [ ] `textDocument/documentSymbol` (hierarchical `DocumentSymbol` and flat `SymbolInformation`)
-      in `LspSymbolsDlg`: filter box, kind icons, Enter = `GotoLine`. The shortcut is to be
-      decided (Ctrl+Shift+O is Open File).
-
-### Phase 6 - Workspace symbols (feature 5)
-- [ ] `workspace/symbol` in the same `LspSymbolsDlg` (or as a mode of Go to Anything), debounced
-      query as the user types, results from the server of the current file's root.
-
-### Phase 7 - Find references (feature 6)
-- [ ] `textDocument/references`: results in the new "LSP" tab of the side bar (a page of the
-      side-bar notebook, added to `UI.wxcp` through the `wxcrafter` skill), reusing the layout of
-      `FindResultsView` (file, line, text, click to open). `LspReferencesView`, with a base class
-      if the two share enough.
+### Phase 7 - Find references
+- [ ] `textDocument/references`: results in a new "LSP" tab of the side bar (through `UI.wxcp`),
+      like `FindResultsView`.
 
 ### Phase 8 - Editing features (later)
-- [ ] Code completion popup (`textDocument/completion`, trigger characters, `resolve`),
-      snippets reduced to plain text.
-- [ ] Rename symbol (`WorkspaceEdit` across files: applies to open pages and writes closed
-      files; needs a preview list, so it is the riskiest feature; do last).
+- [ ] `GetCompletionsFor(editor)` (the second call of the manager that the user named): the popup,
+      trigger characters, `resolve`.
+- [ ] Rename (a `WorkspaceEdit` across files; the riskiest, last).
 
-### Phase 9 - Install servers and remote
-- [ ] `ToolDescription` for clangd (pinned URL + SHA-256 per OS/arch), install into
-      `~/.kennel/bin` of the account with `RemoteInstaller`. Others (gopls, rust-analyzer) are
-      downloaded the same way if they ship single binaries; npm-based ones are not installed
-      by Kennel, only detected.
-- [ ] Ask-before-install message box + remembered answer per account and language.
-- [ ] Detect an existing server on `PATH` of the account first (`which` / `where`), use it
-      instead of installing.
+### Phase 9 - Servers and install
+- [x] clangd: `ToolDescription`, the ask-before-install message box, the remembered "No".
+- [ ] A server that is on the `PATH` already: "found clangd at X, use it or install?" is not built.
+- [ ] gopls, rust-analyzer and the others (single binaries are installed the same way; npm based
+      ones are only detected).
 
 ### Phase 10 - Polish and release
-- [ ] `LspServersPage`: server list, enable/disable per language, restart, log level.
-- [ ] Server stderr and the JSON traffic into `~/.kennel/logs/` behind a debug switch.
-- [ ] Manual checks (no test suite): local, WSL, ssh; a file with emoji and CJK (offsets);
-      big file; the server crashing; the server missing; two roots at once; closing the last
-      file stops the server; reconnect after the ssh connection drops; file changed on disk
-      (`workspace/didChangeWatchedFiles`).
+- [ ] A Settings page for the servers (list, enable or disable, restart, log level).
+- [ ] The traffic of the server in the log behind a debug switch.
+- [ ] Manual checks (no test suite): local, WSL, ssh; emoji and CJK (offsets); a big file; a server
+      that crashes; a server that is missing; two roots at once; quitting with C++ files open;
+      closing the last file; a file changed on disk (`workspace/didChangeWatchedFiles`).
 - [ ] Release notes and README mention.
-- [ ] Build (`./build.sh`) + `clang-format` before each commit.
 
 ### Not scheduled
-Diagnostics (`publishDiagnostics`: squiggles, margin marker, a "Problems" list), hover, signature
-help, code actions / quick fix, formatting. They are not in the list of features to build; add a
-phase when one is wanted.
+Diagnostics (`publishDiagnostics` is ignored today: squiggles, a "Problems" list), hover, signature
+help, code actions, formatting. Add a phase when one is wanted.
 
-## Open questions
-1. **Remote transport**: decided, `ssh` runs as a local process, like WSL and local servers
-   (`LspServer`); there is no libssh channel. It needs the OpenSSH client on this machine and
-   keys that work without a question (`BatchMode=yes`).
-2. **One server per what?** Decided: per account, working directory (of a session) and
-   language. Still open: a file that **no open session fits** (a file from the file tree of
-   another machine, a file restored at startup before its session exists): no server, or the
-   folder of the file as its working directory?
-3. **Scope of editing**: decided, the editing features (Phase 8: code completion, rename) come
-   after the read-only ones. Sync still has to be correct from Phase 2, because semantic
-   tokens and every request depend on the server seeing the same text as the editor.
-4. **Which languages first?** Suggestion: clangd (the project itself is C++), then gopls and
-   rust-analyzer. Say if another is more important.
-5. **Language list in the editor**: `EditorLang` has 15 entries but no Go/Lua; the language
-   for LSP is a separate key (by extension), so this is not blocked, but syntax colours for Go
-   would be missing.
-6. **Position encoding**: ask for `utf-8` through the `positionEncodings` capability (LSP 3.17)
-   when the server supports it; it removes the UTF-16 conversion. Keep the converter as the
-   fallback.
-7. **Windows paths**: URIs for local Windows files (`file:///C:/...`, drive letter case,
-   percent-encoding); WSL files must be sent with the Linux path to a server inside the distro.
-8. **How does the client learn that the server started or ended?** The `LspServer` events
-   (opened, closed) were dropped, and `Process` has no end notification. The client needs it
-   for the handshake and for crash detection.
-9. **`PATH` of the server on WSL and ssh**: `wsl.exe --exec` and a command over ssh do not read
-   the profile, so `~/.local/bin`, `~/.cargo/bin` and the like are not on `PATH`.
-10. **`Process` and the lifetime of the client**: the output callback runs on a thread of
-    `Process`; if the client is destroyed while it runs, it calls a client that is gone. Needs a
-    change in `Process` (or a guard); `Process::Write()` can also wait when the server does
-    not read.
-11. **Where the server is installed**: with the ripgrep approach the program is
-    `$HOME/.kennel/bin/<server>`, but `LspServer` runs the bare name, and `wsl.exe --exec` does
-    no `$HOME` expansion. `LspServer` needs the absolute path (`InstallEvent::GetPath()`).
-12. **`PATH` first?** Phase 9 says to look for a server on `PATH` before installing; "like
-    ripgrep" means `~/.kennel/bin` only. Not decided.
-13. **Is "Declined" remembered**: in memory only (asked again at the next start), or kept in the
-    config per account and language?
-14. **One `RemoteInstaller` per key**: it runs one install at a time, so two files that open at
-    once on different accounts need one installer each (or a queue).
+## Open items and known limits
+- A file that no session holds gets no server until a session that holds it is added.
+- A failed server (`kFailed`) is not tried again: a warning is logged (the user's decision). A
+  declined one stays declined until the user takes the answer back.
+- `LspSemanticTokens::GetWords` parses the capabilities JSON on every answer, on the UI thread;
+  cache the legend in the client if a big file shows a pause.
+- A page that is destroyed without its remove event leaves its entry in the map of the client
+  until the server ends (harmless).
+- The review folder `828df2cb-...` is gone; its `response-1.md` still describes the older design.
+
+## Decisions (were open questions)
+1. **Remote transport**: `ssh` runs as a local process, like WSL and local servers; needs the
+   OpenSSH client and keys that work without a question (`BatchMode=yes`).
+2. **One server per what**: per account, working directory (of a session) and language.
+3. **Editing features** come after the read-only ones.
+4. **Position encoding**: `utf-8` only; no UTF-16 converter (an error when the server does not
+   answer `utf-8`).
+5. **A file with no session**: no server, until a session that holds it is added.
+6. **Where the server is installed**: `$HOME/.kennel/bin/<server>`; the program path is built per
+   machine (`LspServerKey::GetProgram()`).
+7. **`PATH` first**: not decided; the install is "like ripgrep", only `~/.kennel/bin`.
+8. **A "No" is remembered**: in `DialogAnswers`, per machine and server, shown in Settings.
+9. **How the client learns that the server ended**: the manager polls `IsRunning()` once a second.
+10. **UI components are not kept** by the core: a page is fetched from the live notebook by its
+    editor ID (`IManager::FindEditorByUID()`).
