@@ -5,8 +5,9 @@ Status as of 2026-11-28 (everything below marked done is pushed, up to `d816fe2`
 clangd works on this machine from start to end: the install question, launch, handshake,
 `didOpen` / `didChange` / `didSave` / `didClose`, semantic highlights for C and C++, the watcher
 with its backoff, the dead-server flow, and ending the servers that no page needs. The user saw
-the highlights work. Not verified by running: WSL files, ssh files, the restart of a dead
-server (kill `clangd.exe`), quitting with C++ files open.
+the highlights work. Verified by running (2026-11-28): local, WSL and ssh files (install,
+handshake, highlights); a killed server is restarted and the pages register again; quitting
+with C++ files open. Not verified by running: Save As and reload.
 
 ## Context
 Kennel opens files in `FilePage` (an `Editor`, a `wxStyledTextCtrl`) for this machine, a WSL
@@ -164,7 +165,8 @@ stored in `DialogAnswers` and the user takes it back in Settings.
 - [x] A server that dies: `NotifyTerminated()`, the editors register again on the ready event.
 - [ ] A look again when a session changes its working directory (`wxEVT_PAGE_MOVED`): not done.
 - [ ] Incremental `didChange` (ranges): today the whole text is sent; matters for big files.
-- [ ] Remote files (ssh) and WSL files: written, not tried.
+- [x] Remote files (ssh) and WSL files: tried, they work (the upload chunk of `SftpClient::PutFile`
+      was raised from 32 KiB to 4 MiB: it was very slow).
 
 ### Phase 3 - Semantic highlighting (C and C++)
 - [x] `textDocument/semanticTokens/full`, the legend, `utf-8` positions (an error otherwise: no
@@ -207,9 +209,10 @@ stored in `DialogAnswers` and the user takes it back in Settings.
 ### Phase 10 - Polish and release
 - [ ] A Settings page for the servers (list, enable or disable, restart, log level).
 - [ ] The traffic of the server in the log behind a debug switch.
-- [ ] Manual checks (no test suite): local, WSL, ssh; emoji and CJK (offsets); a big file; a server
-      that crashes; a server that is missing; two roots at once; quitting with C++ files open;
-      closing the last file; a file changed on disk (`workspace/didChangeWatchedFiles`).
+- [ ] Manual checks (no test suite). Done: local, WSL, ssh; a server that crashes (killed, restarts);
+      quitting with C++ files open. Open: emoji and CJK (offsets); a big file; a server that is
+      missing; two roots at once; Save As and reload; closing the last file; a file changed on
+      disk (`workspace/didChangeWatchedFiles`).
 - [ ] Release notes and README mention.
 
 ### Not scheduled
