@@ -117,6 +117,7 @@ EditorLang EditFileDlg::LangFromPath(const wxString &filepath) {
       {"pyi", EditorLang::kPython},     {"mk", EditorLang::kMakefile},
       {"mak", EditorLang::kMakefile},   {"rs", EditorLang::kRust},
       {"diff", EditorLang::kDiff},      {"patch", EditorLang::kDiff},
+      {"go", EditorLang::kGo},          {"php", EditorLang::kPhp},
   };
   return find_or(extMap, lowerName.AfterLast('.'), EditorLang::kText);
 }

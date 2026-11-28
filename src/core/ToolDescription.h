@@ -11,7 +11,9 @@ struct ToolAsset {
   // The machine this is for, as `uname -s` and `uname -m` print them.
   wxString os;   // "Linux"
   wxString arch; // "x86_64", "aarch64" (macOS's "arm64" is the second)
-  wxString url;  // A .tar.gz, or a plain executable
+  // A .tar.gz or a .zip (see `member`), a .gz (the executable, compressed), or
+  // a plain executable
+  wxString url;
   // SHA-256 of what `url` serves, 64 lower-case hex digits.
   wxString sha256;
   // The file to take out of the archive ("rg"). Empty: the download is the

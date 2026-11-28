@@ -91,6 +91,18 @@ Status LspClient::DidOpen(const wxString &path, LspLanguage language,
   case LspLanguage::kObjectiveCpp:
     languageId = "objective-cpp";
     break;
+  case LspLanguage::kGo:
+    languageId = "go";
+    break;
+  case LspLanguage::kRust:
+    languageId = "rust";
+    break;
+  case LspLanguage::kPython:
+    languageId = "python";
+    break;
+  case LspLanguage::kPhp:
+    languageId = "php";
+    break;
   case LspLanguage::kCpp:
   case LspLanguage::kNone:
     languageId = "cpp";

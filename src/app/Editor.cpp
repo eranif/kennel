@@ -232,6 +232,12 @@ void Editor::InitEditor(wxStyledTextCtrl *ctrl, EditorLang lang,
   case EditorLang::kJson:
     InitJsonStyle(ctrl, theme);
     break;
+  case EditorLang::kGo:
+    InitGoStyle(ctrl, theme);
+    break;
+  case EditorLang::kPhp:
+    InitPhpStyle(ctrl, theme);
+    break;
   }
   // Only the guide of the caret's indent is visible: it is the highlight guide
   // (see OnUpdateUI()), so the other guides take the colour of the background.
@@ -735,33 +741,100 @@ void Editor::SetSemanticWords(const LspSemanticWords &words) {
 }
 
 void Editor::ApplySemanticWords() {
-  if (m_lang != EditorLang::kCxx) {
-    return;
+  switch (m_lang) {
+  case EditorLang::kCxx:
+  case EditorLang::kGo:
+    ApplySemanticWordsCppLexer();
+    break;
+  case EditorLang::kRust:
+    ApplySemanticWordsRust();
+    break;
+  case EditorLang::kPython:
+    ApplySemanticWordsPython();
+    break;
+  case EditorLang::kPhp:
+    ApplySemanticWordsPhp();
+    break;
+  default:
+    break;
   }
-  const auto join = [this](LspSemanticType type) {
-    wxString joined;
-    if (const auto it = m_semanticWords.find(type);
-        it != m_semanticWords.end()) {
-      for (const wxString &word : it->second) {
-        joined << word << " ";
-      }
+}
+
+wxString Editor::GetSemanticWordsText(LspSemanticType type) const {
+  wxString joined;
+  if (const auto it = m_semanticWords.find(type); it != m_semanticWords.end()) {
+    for (const wxString &word : it->second) {
+      joined << word << " ";
     }
-    return joined;
-  };
+  }
+  return joined;
+}
+
+void Editor::ApplySemanticWordsCppLexer() {
   // The sets of the C++ lexer: 1 is "secondary" (wxSTC_C_WORD2, already
   // styled), 3 is the global classes.
-  m_ctrl->SetKeyWords(1, join(LspSemanticType::kFunction));
-  m_ctrl->SetKeyWords(3, join(LspSemanticType::kClass));
+  m_ctrl->SetKeyWords(1, GetSemanticWordsText(LspSemanticType::kFunction));
+  m_ctrl->SetKeyWords(3, GetSemanticWordsText(LspSemanticType::kClass));
   AddProperty(m_ctrl, wxSTC_C_GLOBALCLASS, m_theme.bg, m_theme.cyan);
 
   // The variables: a style of their own, under the identifiers.
   m_ctrl->FreeSubStyles();
   const int variables = m_ctrl->AllocateSubStyles(wxSTC_C_IDENTIFIER, 1);
   if (variables >= 0) {
-    m_ctrl->SetIdentifiers(variables, join(LspSemanticType::kVariable));
+    m_ctrl->SetIdentifiers(variables,
+                           GetSemanticWordsText(LspSemanticType::kVariable));
     AddProperty(m_ctrl, variables, m_theme.bg, m_theme.brightBlue);
   }
   // The lexer reads the words again.
+  m_ctrl->Colourise(0, -1);
+}
+
+void Editor::ApplySemanticWordsRust() {
+  // The sets 0 to 2 are the keywords and the types that the editor has (see
+  // InitRustStyle()); 3 to 5 are for the words of the language server.
+  m_ctrl->SetKeyWords(3, GetSemanticWordsText(LspSemanticType::kClass));
+  m_ctrl->SetKeyWords(4, GetSemanticWordsText(LspSemanticType::kFunction));
+  m_ctrl->SetKeyWords(5, GetSemanticWordsText(LspSemanticType::kVariable));
+  AddProperty(m_ctrl, wxSTC_RUST_WORD4, m_theme.bg, m_theme.cyan);
+  AddProperty(m_ctrl, wxSTC_RUST_WORD5, m_theme.bg, m_theme.blue);
+  AddProperty(m_ctrl, wxSTC_RUST_WORD6, m_theme.bg, m_theme.brightBlue);
+  m_ctrl->Colourise(0, -1);
+}
+
+void Editor::ApplySemanticWordsPython() {
+  // A substyle of the identifiers for each kind (the keywords and the
+  // builtins of InitPythonStyle() come first).
+  m_ctrl->FreeSubStyles();
+  const int first = m_ctrl->AllocateSubStyles(wxSTC_P_IDENTIFIER, 3);
+  if (first >= 0) {
+    m_ctrl->SetIdentifiers(first,
+                           GetSemanticWordsText(LspSemanticType::kFunction));
+    m_ctrl->SetIdentifiers(first + 1,
+                           GetSemanticWordsText(LspSemanticType::kClass));
+    m_ctrl->SetIdentifiers(first + 2,
+                           GetSemanticWordsText(LspSemanticType::kVariable));
+    AddProperty(m_ctrl, first, m_theme.bg, m_theme.blue);
+    AddProperty(m_ctrl, first + 1, m_theme.bg, m_theme.cyan);
+    AddProperty(m_ctrl, first + 2, m_theme.bg, m_theme.brightBlue);
+  }
+  m_ctrl->Colourise(0, -1);
+}
+
+void Editor::ApplySemanticWordsPhp() {
+  // A substyle of the keywords for each kind: a word that is not a keyword
+  // takes it (the variables, `$name`, have their own style in the lexer).
+  m_ctrl->FreeSubStyles();
+  const int first = m_ctrl->AllocateSubStyles(wxSTC_HPHP_WORD, 2);
+  if (first >= 0) {
+    // The lexer looks a word up in lower case (PHP names are case insensitive),
+    // so the words are given in lower case.
+    m_ctrl->SetIdentifiers(
+        first, GetSemanticWordsText(LspSemanticType::kFunction).Lower());
+    m_ctrl->SetIdentifiers(
+        first + 1, GetSemanticWordsText(LspSemanticType::kClass).Lower());
+    AddProperty(m_ctrl, first, m_theme.bg, m_theme.blue);
+    AddProperty(m_ctrl, first + 1, m_theme.bg, m_theme.cyan);
+  }
   m_ctrl->Colourise(0, -1);
 }
 
@@ -860,6 +933,54 @@ void Editor::InitRustStyle(wxStyledTextCtrl *ctrl,
   AddProperty(ctrl, wxSTC_RUST_LIFETIME, theme.bg, theme.cyan);
   AddProperty(ctrl, wxSTC_RUST_MACRO, theme.bg, theme.cyan);
   AddProperty(ctrl, wxSTC_RUST_LEXERROR, theme.bg, theme.red);
+  AddProperty(ctrl, wxSTC_STYLE_LINENUMBER, theme.bg, LineNumberColour(theme));
+  AddProperty(ctrl, wxSTC_STYLE_INDENTGUIDE, theme.bg, theme.black);
+}
+
+void Editor::InitGoStyle(wxStyledTextCtrl *ctrl, const wxTerminalTheme &theme) {
+  // The C++ lexer has what Go needs (comments, strings, raw strings with
+  // backticks): the keywords, the predeclared types and the constants.
+  InitCppLikeStyle(
+      ctrl, theme,
+      "break case chan const continue default defer else fallthrough for func "
+      "go goto if import interface map package range return select struct "
+      "switch type var true false nil iota any bool byte comparable complex64 "
+      "complex128 error float32 float64 int int8 int16 int32 int64 rune string "
+      "uint uint8 uint16 uint32 uint64 uintptr");
+  // A string in backticks (raw, over several lines) is a string of its own.
+  ctrl->SetProperty("lexer.cpp.backquoted.strings", "1");
+}
+
+void Editor::InitPhpStyle(wxStyledTextCtrl *ctrl,
+                          const wxTerminalTheme &theme) {
+  // The lexer of a file that is PHP from its first character (no HTML around
+  // it, `<?php` is understood too).
+  ctrl->SetLexer(wxSTC_LEX_PHPSCRIPT);
+
+  // The only set that this lexer reads is the fifth (the ones before it are
+  // for the other languages of an HTML page).
+  ctrl->SetKeyWords(
+      4,
+      "abstract and array as break callable case catch class clone const "
+      "continue declare default do echo else elseif empty enddeclare endfor "
+      "endforeach endif endswitch endwhile enum extends final finally fn for "
+      "foreach function global goto if implements include include_once "
+      "instanceof insteadof interface isset list match namespace new or "
+      "print private protected public readonly require require_once return "
+      "static switch throw trait try unset use var while xor yield true "
+      "false null self parent");
+
+  AddProperty(ctrl, wxSTC_HPHP_DEFAULT, theme.bg, theme.fg);
+  AddProperty(ctrl, wxSTC_HPHP_HSTRING, theme.bg, theme.yellow);
+  AddProperty(ctrl, wxSTC_HPHP_SIMPLESTRING, theme.bg, theme.yellow);
+  AddProperty(ctrl, wxSTC_HPHP_WORD, theme.bg, theme.magenta);
+  AddProperty(ctrl, wxSTC_HPHP_NUMBER, theme.bg, theme.green);
+  AddProperty(ctrl, wxSTC_HPHP_VARIABLE, theme.bg, theme.cyan);
+  AddProperty(ctrl, wxSTC_HPHP_COMMENT, theme.bg, CommentColour(theme));
+  AddProperty(ctrl, wxSTC_HPHP_COMMENTLINE, theme.bg, CommentColour(theme));
+  AddProperty(ctrl, wxSTC_HPHP_HSTRING_VARIABLE, theme.bg, theme.cyan);
+  AddProperty(ctrl, wxSTC_HPHP_OPERATOR, theme.bg, theme.fg);
+  AddProperty(ctrl, wxSTC_HPHP_COMPLEX_VARIABLE, theme.bg, theme.cyan);
   AddProperty(ctrl, wxSTC_STYLE_LINENUMBER, theme.bg, LineNumberColour(theme));
   AddProperty(ctrl, wxSTC_STYLE_INDENTGUIDE, theme.bg, theme.black);
 }

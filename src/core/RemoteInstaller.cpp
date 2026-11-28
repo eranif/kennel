@@ -588,7 +588,15 @@ private:
     }
 
     std::string program = std::move(download);
-    if (!m_asset.member.empty()) {
+    if (m_asset.url.EndsWith(".gz") && !m_asset.url.EndsWith(".tar.gz")) {
+      // The program itself, compressed.
+      auto content = ReadGzFile(program);
+      if (!content.ok()) {
+        Report(content.status());
+        return;
+      }
+      program = std::move(*content);
+    } else if (!m_asset.member.empty()) {
       auto member = m_asset.url.EndsWith(".zip")
                         ? ReadZipMember(program, m_asset.member)
                         : ReadTarGzMember(program, m_asset.member);

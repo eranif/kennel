@@ -1,6 +1,9 @@
 #include "core/lsp/LspServerKey.h"
 
 #include "core/WslPath.h"
+#include "core/lsp/Clangd.h"
+#include "core/lsp/Phpantom.h"
+#include "core/lsp/RustAnalyzer.h"
 
 #include <wx/filename.h>
 
@@ -24,8 +27,57 @@ wxString LspServerKey::GetKindName() const {
     return "gopls";
   case LspKind::kRustAnalyzer:
     return "rust-analyzer";
+  case LspKind::kPyright:
+    return "pyright";
+  case LspKind::kPhpantom:
+    return "phpantom_lsp";
   }
   return "?";
+}
+
+const ToolDescription *LspServerKey::GetTool() const {
+  switch (m_kind) {
+  case LspKind::kClangd:
+    return &clangd::Tool();
+  case LspKind::kRustAnalyzer:
+    return &rustanalyzer::Tool();
+  case LspKind::kPhpantom:
+    return &phpantom::Tool();
+  case LspKind::kGopls:
+  case LspKind::kPyright:
+    break; // No release to download: Go and Node install them
+  }
+  return nullptr;
+}
+
+wxString LspServerKey::GetBinaryName() const {
+  switch (m_kind) {
+  case LspKind::kClangd:
+    return "clangd";
+  case LspKind::kGopls:
+    return "gopls";
+  case LspKind::kRustAnalyzer:
+    return "rust-analyzer";
+  case LspKind::kPyright:
+    return "pyright-langserver";
+  case LspKind::kPhpantom:
+    return "phpantom_lsp";
+  }
+  return wxEmptyString;
+}
+
+wxString LspServerKey::GetInstallHint() const {
+  switch (m_kind) {
+  case LspKind::kGopls:
+    return "go install golang.org/x/tools/gopls@latest";
+  case LspKind::kPyright:
+    return "npm install -g pyright";
+  case LspKind::kClangd:
+  case LspKind::kRustAnalyzer:
+  case LspKind::kPhpantom:
+    break; // Kennel installs these
+  }
+  return wxEmptyString;
 }
 
 wxString LspServerKey::GetProgram(const wxString &installedPath) const {

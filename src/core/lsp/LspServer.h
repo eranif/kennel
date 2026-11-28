@@ -22,6 +22,8 @@ enum class LspKind {
   kClangd,       // C and C++
   kGopls,        // Go
   kRustAnalyzer, // Rust
+  kPyright,      // Python
+  kPhpantom,     // PHP
 };
 
 // One language server: its process, its input and its output, wherever it

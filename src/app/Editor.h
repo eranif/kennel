@@ -23,6 +23,8 @@ enum class EditorLang {
   kMakefile,
   kRust,
   kDiff,
+  kGo,
+  kPhp,
 };
 
 struct EditableLocker {
@@ -154,10 +156,26 @@ private:
   static constexpr size_t kMaxHighlightedWord = 256;
   static constexpr int kMaxHighlights = 2000;
 
-  // Puts m_semanticWords in the keyword sets of the lexer, and colours them
-  // (the functions are set 1, the classes set 3, the variables are a substyle
-  // of the identifiers, as CodeLite does).
+  // Puts m_semanticWords in the lexer of the language of the editor, and
+  // colours them. What the lexer has for it is different for each language: see
+  // the methods below.
   void ApplySemanticWords();
+  // The words of a kind of m_semanticWords as one text, separated by spaces: a
+  // keyword set of the lexer.
+  wxString GetSemanticWordsText(LspSemanticType type) const;
+  // The C++ lexer (C, C++ and Go): the functions are keyword set 1 (WORD2), the
+  // classes set 3 (GLOBALCLASS), the variables are a substyle of the
+  // identifiers, as CodeLite does.
+  void ApplySemanticWordsCppLexer();
+  // Rust: the classes are keyword set 3 (WORD4), the functions set 4 (WORD5),
+  // the variables set 5 (WORD6).
+  void ApplySemanticWordsRust();
+  // Python: a substyle of the identifiers for each of the functions, the
+  // classes and the variables.
+  void ApplySemanticWordsPython();
+  // PHP: a substyle of the keywords for each of the functions and the classes
+  // (the variables have a style of their own, from the lexer).
+  void ApplySemanticWordsPhp();
 
   void InitEditor() {
     InitEditor(m_ctrl, m_lang, m_theme);
@@ -228,6 +246,9 @@ private:
                             const wxTerminalTheme &theme);
   static void InitDiffStyle(wxStyledTextCtrl *ctrl,
                             const wxTerminalTheme &theme);
+  static void InitGoStyle(wxStyledTextCtrl *ctrl, const wxTerminalTheme &theme);
+  static void InitPhpStyle(wxStyledTextCtrl *ctrl,
+                           const wxTerminalTheme &theme);
   // Sizes the line-number margin to fit the current number of lines.
   static void UpdateLineNumberMargin(wxStyledTextCtrl *ctrl);
   void OnModified(wxStyledTextEvent &event);

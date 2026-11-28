@@ -52,15 +52,31 @@ public:
     // knows where the headers of its compiler are). Nothing is asked or
     // installed then, and the version is not looked at. The other machines have
     // the install flow only.
-    if (m_key.m_account.IsLocalHost()) {
+    const bool isLocal = m_key.m_account.IsLocalHost();
+    if (isLocal) {
       if (const std::optional<wxString> found =
-              platform::Which(m_key.GetKindName())) {
+              platform::Which(m_key.GetBinaryName())) {
         KLOG_INFO() << "LSP | " << m_key.GetKey() << ": using the installed "
                     << m_key.GetKindName() << " at " << *found;
         m_installedPath = *found;
         Launch();
         return;
       }
+    }
+    if (m_key.GetTool() == nullptr) {
+      // A server that Kennel does not install, and is not on this machine.
+      if (!isLocal) {
+        // Only this machine is looked at for now (a WSL distribution or a host
+        // would need a shell of its own to look in).
+        Fail(wxString::Format(
+            _("%s is only looked for on this machine, not on %s."),
+            m_key.GetKindName(), m_key.m_account.GetDisplayName()));
+        return;
+      }
+      KLOG_DEBUG() << "LSP | " << m_key.GetKey() << ": "
+                   << m_key.GetBinaryName() << " was not found";
+      AskTheUser();
+      return;
     }
     KLOG_DEBUG() << "LSP | " << m_key.GetKey() << ": looking for "
                  << m_key.GetTool()->name << " on "
@@ -117,6 +133,10 @@ public:
   const LspServerKey &GetServerKey() const { return m_key; }
 
   LspServerState m_state{LspServerState::kChecking};
+  // Set when the state is kDeclined: the answer is in the stored answers (the
+  // user asked to remember it), so that taking it back there asks again. A
+  // decline that is not remembered lasts until Kennel ends.
+  bool m_declineStored{false};
   // Made when the program is there (from kInitializing); usable when the state
   // is kReady.
   std::shared_ptr<LspClient> m_client;
@@ -183,20 +203,7 @@ private:
     }
     const ToolDescription &tool = *m_key.GetTool();
     if (event.NeedsInstall()) {
-      // The user said No before, and asked not to be asked again.
-      const std::optional<bool> stored =
-          AppManager::Get().GetDialogAnswers().FindAnswer(
-              m_key.GetInstallAnswerKey());
-      if (stored && !*stored) {
-        KLOG_DEBUG() << "LSP | " << m_key.GetKey() << ": " << tool.name
-                     << " is not there, and the answer is stored: No";
-        m_state = LspServerState::kDeclined;
-        return;
-      }
-      KLOG_DEBUG() << "LSP | " << m_key.GetKey() << ": " << tool.name
-                   << " is not there, asking the user";
-      m_state = LspServerState::kAwaitingConsent;
-      Send(wxEVT_LSP_INSTALL_NEEDED, tool.name + " " + tool.version);
+      AskTheUser();
       return;
     }
     KLOG_INFO() << "LSP | " << tool.name << " " << tool.version << " is on "
@@ -204,6 +211,38 @@ private:
                 << event.GetPath();
     m_installedPath = event.GetPath();
     Launch();
+  }
+
+  // The server is not on the machine. The user answered before and asked for it
+  // to be remembered: that answer is used (install, or not). Otherwise the user
+  // is asked (wxEVT_LSP_INSTALL_NEEDED); the answer comes with
+  // LspManager::Install() or Decline().
+  void AskTheUser() {
+    const std::optional<bool> stored =
+        AppManager::Get().GetDialogAnswers().FindAnswer(
+            m_key.GetInstallAnswerKey());
+    const ToolDescription *tool = m_key.GetTool();
+    if (stored && *stored && tool != nullptr) {
+      KLOG_DEBUG() << "LSP | " << m_key.GetKey() << ": " << tool->name
+                   << " is not there, and the answer is stored: Yes";
+      Install();
+      return;
+    }
+    if (stored) {
+      KLOG_DEBUG() << "LSP | " << m_key.GetKey() << ": "
+                   << m_key.GetBinaryName()
+                   << " is not there, and the answer is stored: No";
+      m_state = LspServerState::kDeclined;
+      m_declineStored = true;
+      return;
+    }
+    KLOG_DEBUG() << "LSP | " << m_key.GetKey() << ": " << m_key.GetBinaryName()
+                 << " is not there, asking the user";
+    m_state = LspServerState::kAwaitingConsent;
+    // What the user is told: the program and its version, or how to install it.
+    Send(wxEVT_LSP_INSTALL_NEEDED, tool != nullptr
+                                       ? tool->name + " " + tool->version
+                                       : m_key.GetInstallHint());
   }
 
   // Starts the server and the handshake. The answer comes with OnClientReady()
@@ -287,22 +326,31 @@ LspManager::GetClientFor(const LspServerKey &key) {
         StatusCode::kUnavailable,
         _("The language servers are shut down: Kennel is closing."));
   }
-  if (key.GetTool() == nullptr) {
-    return Status::Error(
-        StatusCode::kNotAvailable,
-        _("There is no language server to install for this language."));
-  }
-
-  // Declined means that the answer is stored. The user took it back in the
-  // Settings: the question is open again.
+  // A declined answer that was remembered is in the stored answers. The user
+  // took it back in the Settings: the question is open again. (One that was not
+  // remembered stays declined until Kennel ends.)
   if (const auto declined = m_entries.find(key.GetKey());
       declined != m_entries.end() &&
       declined->second->m_state == LspServerState::kDeclined &&
+      declined->second->m_declineStored &&
       !AppManager::Get().GetDialogAnswers().FindAnswer(
           key.GetInstallAnswerKey())) {
     KLOG_DEBUG() << "LSP | " << key.GetKey()
                  << ": the stored answer was removed, asking again";
     m_entries.erase(declined);
+  }
+
+  // A server that Kennel does not install: the user was told how to install it.
+  // When it is on the machine after that, it is used, without a restart.
+  if (key.GetTool() == nullptr && key.m_account.IsLocalHost()) {
+    if (const auto notFound = m_entries.find(key.GetKey());
+        notFound != m_entries.end() &&
+        notFound->second->m_state == LspServerState::kDeclined &&
+        platform::Which(key.GetBinaryName())) {
+      KLOG_DEBUG() << "LSP | " << key.GetKey() << ": " << key.GetBinaryName()
+                   << " is on the machine now";
+      m_entries.erase(notFound);
+    }
   }
 
   const wxString name = key.m_account.GetDisplayName();
@@ -369,11 +417,20 @@ void LspManager::Shutdown() {
   }
 }
 
-void LspManager::Install(const LspServerKey &key) {
+void LspManager::Install(const LspServerKey &key, bool remember) {
   auto it = m_entries.find(key.GetKey());
   if (it != m_entries.end() &&
       it->second->m_state == LspServerState::kAwaitingConsent) {
-    KLOG_DEBUG() << "LSP | " << key.GetKey() << ": the user agreed to install";
+    KLOG_DEBUG() << "LSP | " << key.GetKey() << ": the user agreed to install"
+                 << (remember ? " (remembered)" : "");
+    if (remember) {
+      // Not asked again, on this machine, until the user takes the answer back.
+      const Status stored = AppManager::Get().GetDialogAnswers().Store(
+          key.GetInstallAnswerKey(), key.GetInstallQuestion(), true);
+      if (!stored.ok()) {
+        KLOG_WARN() << "LSP | could not store the answer: " << stored.message();
+      }
+    }
     it->second->Install();
   }
 }
@@ -579,18 +636,21 @@ void LspManager::EndUnusedServers(bool force) {
   }
 }
 
-void LspManager::Decline(const LspServerKey &key) {
+void LspManager::Decline(const LspServerKey &key, bool remember) {
   auto it = m_entries.find(key.GetKey());
   if (it != m_entries.end() &&
       it->second->m_state == LspServerState::kAwaitingConsent) {
-    KLOG_DEBUG() << "LSP | " << key.GetKey()
-                 << ": the user declined the install";
+    KLOG_DEBUG() << "LSP | " << key.GetKey() << ": the user declined"
+                 << (remember ? " (remembered)" : "");
     it->second->m_state = LspServerState::kDeclined;
-    // Not asked again, on this machine, until the user takes the answer back.
-    const Status stored = AppManager::Get().GetDialogAnswers().Store(
-        key.GetInstallAnswerKey(), key.GetInstallQuestion(), false);
-    if (!stored.ok()) {
-      KLOG_WARN() << "LSP | could not store the answer: " << stored.message();
+    if (remember) {
+      // Not asked again, on this machine, until the user takes the answer back.
+      it->second->m_declineStored = true;
+      const Status stored = AppManager::Get().GetDialogAnswers().Store(
+          key.GetInstallAnswerKey(), key.GetInstallQuestion(), false);
+      if (!stored.ok()) {
+        KLOG_WARN() << "LSP | could not store the answer: " << stored.message();
+      }
     }
   }
 }

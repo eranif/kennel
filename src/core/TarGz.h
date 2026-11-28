@@ -11,3 +11,9 @@
 // (wxBase streams only).
 StatusOr<std::string> ReadTarGzMember(const std::string &archive,
                                       const wxString &name);
+
+// Unpacks a file that is only gzip compressed (a plain .gz, not a .tar.gz),
+// held in memory: its content. An error when the data is not gzip, or is more
+// than `maxSize` bytes once unpacked.
+StatusOr<std::string> ReadGzFile(const std::string &archive,
+                                 size_t maxSize = 512 * 1024 * 1024);

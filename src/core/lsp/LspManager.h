@@ -47,7 +47,10 @@ private:
 
 // The server is not on the machine, and the user has to say if Kennel may
 // install it: answer with LspManager::Install() or LspManager::Decline().
-// GetString() is the name of the program and its version.
+// GetString() is the name of the program and its version. For a server that
+// Kennel does not install (LspServerKey::GetTool() is null) it is the notice
+// that the server was not found: GetString() is the command that installs it,
+// and the answer is LspManager::Decline() (the notice was read).
 wxDECLARE_EVENT(wxEVT_LSP_INSTALL_NEEDED, LspManagerEvent);
 // The server of GetKey() is ready: LspManager::GetClientFor() gives its client
 // now.
@@ -115,9 +118,14 @@ public:
   // end of the application.
   void Shutdown();
 
-  // The answer to wxEVT_LSP_INSTALL_NEEDED: install the server, or do not.
-  void Install(const LspServerKey &key);
-  void Decline(const LspServerKey &key);
+  // The answer to wxEVT_LSP_INSTALL_NEEDED: install the server, or do not (also
+  // the answer to the notice of a server that Kennel does not install:
+  // Decline() there says that the notice was read). With `remember` the answer
+  // is stored: the question is not asked again, here or the next time Kennel
+  // starts, until the user takes the answer back in the Settings. Without it, a
+  // "no" holds until Kennel ends, and a "yes" is asked again the next time.
+  void Install(const LspServerKey &key, bool remember);
+  void Decline(const LspServerKey &key, bool remember);
 
   // Starts to listen to the page events (wxEVT_PAGE_ADDED and the others): the
   // manager keeps what pages are open, and ends a server when no page needs it

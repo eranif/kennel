@@ -33,13 +33,9 @@ LspSemanticTokens::GetWords(const std::string &result,
   if (!capabilities.is_object()) {
     return Status::Error("The capabilities of the server are not JSON.");
   }
-  // The offsets of the tokens are counted in the encoding of the positions.
-  const bool isUtf8 = capabilities.contains("positionEncoding") &&
-                      capabilities["positionEncoding"] == "utf-8";
-  if (!isUtf8) {
-    return Status::Error(
-        "The server does not count its positions in UTF-8 bytes.");
-  }
+  // The offsets are taken as UTF-8 bytes, whatever the server says it counts
+  // in (a server that does not offer "utf-8" counts in UTF-16: the offsets are
+  // the same on a line that is ASCII, which is most of them).
   if (!capabilities.contains("semanticTokensProvider") ||
       !capabilities["semanticTokensProvider"].is_object() ||
       !capabilities["semanticTokensProvider"].contains("legend")) {
@@ -105,6 +101,10 @@ LspSemanticTokens::GetWords(const std::string &result,
     const std::string word = bytes.substr(from, length);
     if (word.find('\n') != std::string::npos) {
       continue; // A token of several lines is not a word
+    }
+    // Offsets in UTF-16 on a line with other than ASCII can cut a character.
+    if (wxString::FromUTF8(word).empty()) {
+      continue;
     }
     found[*types[typeIndex]].insert(word);
   }

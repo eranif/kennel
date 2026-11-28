@@ -22,18 +22,31 @@ std::string LspServer::QuoteForHostShell(const std::string &word) const {
 }
 
 std::vector<std::string> LspServer::GetServerArgv() const {
-  if (!m_program.empty()) {
-    return {m_program.ToStdString(wxConvUTF8)};
-  }
+  // The program (by its name, found on the PATH) and the arguments that make it
+  // a server on its standard input and output.
+  std::vector<std::string> argv;
   switch (m_kind) {
   case LspKind::kClangd:
-    return {"clangd"};
+    argv = {"clangd"};
+    break;
   case LspKind::kGopls:
-    return {"gopls"};
+    argv = {"gopls"};
+    break;
   case LspKind::kRustAnalyzer:
-    return {"rust-analyzer"};
+    argv = {"rust-analyzer"};
+    break;
+  case LspKind::kPyright:
+    argv = {"pyright-langserver", "--stdio"};
+    break;
+  case LspKind::kPhpantom:
+    argv = {"phpantom_lsp", "--stdio"};
+    break;
   }
-  return {};
+  // The program that was given (a full path) takes the place of its name.
+  if (!m_program.empty() && !argv.empty()) {
+    argv.front() = m_program.ToStdString(wxConvUTF8);
+  }
+  return argv;
 }
 
 std::vector<std::string> LspServer::BuildCommand() const {

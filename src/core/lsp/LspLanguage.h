@@ -8,4 +8,8 @@ enum class LspLanguage {
   kCpp,
   kObjectiveC,
   kObjectiveCpp,
+  kGo,
+  kRust,
+  kPython,
+  kPhp,
 };

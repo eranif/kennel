@@ -41,14 +41,16 @@ class LspSemanticTokens {
 public:
   // `serverCapabilities` is the JSON of the capabilities of the server (see
   // LspClient::GetServerCapabilities()): its legend says what the numbers of
-  // the tokens mean, and its position encoding must be "utf-8" (the offsets of
-  // the tokens are bytes of the text; there is no conversion from UTF-16).
+  // the tokens mean. The offsets of the tokens are taken as bytes of the text
+  // (UTF-8, what the client asks for). A server that counts in UTF-16 anyway is
+  // not refused: its offsets are right for the text that is ASCII, and a word
+  // that does not come out as valid text is skipped.
   explicit LspSemanticTokens(const std::string &serverCapabilities)
       : m_serverCapabilities(serverCapabilities) {}
 
   // `result` is the JSON of the `result` of the answer, `text` is the text that
-  // the server had when it answered. An error when the server does not use
-  // "utf-8" or the answer is not what it should be.
+  // the server had when it answered. An error when the answer is not what it
+  // should be.
   StatusOr<LspSemanticWords> GetWords(const std::string &result,
                                       const wxString &text) const;
 

@@ -169,15 +169,20 @@ stored in `DialogAnswers` and the user takes it back in Settings.
       was raised from 32 KiB to 4 MiB: it was very slow).
 
 ### Phase 3 - Semantic highlighting (C and C++)
-- [x] `textDocument/semanticTokens/full`, the legend, `utf-8` positions (an error otherwise: no
-      UTF-16 fallback), words by kind, keyword sets and a substyle in the C++ lexer.
+- [x] `textDocument/semanticTokens/full`, the legend, `utf-8` positions asked for (a server that
+      counts in UTF-16 is not refused, see Decision 4), words by kind, keyword sets and a substyle in the C++ lexer.
 - [ ] Refresh while the user types: today the editor asks once after the load (and after a reload
       or Save As). The user decided that; revisit when needed.
 - [ ] Colours: mine for now (variables bright blue, classes cyan, functions blue); tune with the
       theme.
-- [ ] Other languages: go (gopls), rust (rust-analyzer), ... each with its own `LspKind`,
-      `ToolDescription`, `LspLanguage` and keyword-set mapping in the editor. The user wants this
-      after the C++ case looks good.
+- [x] Other languages, built (not tried by running yet): go (gopls), rust (rust-analyzer), python
+      (pyright), php (phpantom_lsp), each with its `LspKind`, `LspLanguage` and a mapping in
+      `Editor::ApplySemanticWords()` (one method for each lexer): Go uses the C++ lexer like C++,
+      Rust the keyword sets 3 to 5, Python three substyles of the identifiers, PHP two substyles of
+      the keywords (`$variables` are coloured by the lexer). New `EditorLang::kGo` / `kPhp`
+      (the PHP lexer is `wxSTC_LEX_PHPSCRIPT`; wx has no Go lexer).
+- [ ] pyright has no semantic tokens at all (`languageServerBase.ts` has none; only Pylance does):
+      Python files get the server but no semantic colours. gopls: not looked at what it offers.
 
 ### Phase 4 - Go to definition
 - [ ] `textDocument/definition` (Ctrl+click, F12) through a new method of the manager and an
@@ -207,9 +212,20 @@ stored in `DialogAnswers` and the user takes it back in Settings.
       Linux, Homebrew's llvm and Xcode's tools included). Nothing is asked, so the install question
       and a stored "No" apply only when none is found. For WSL and ssh the install flow is
       unchanged. Tried on Windows (MSYS2 clangd: the colours are right, the headers are found).
-- [ ] A version check of the clangd that was found (the decoder needs `utf-8` positions): none yet.
-- [ ] gopls, rust-analyzer and the others (single binaries are installed the same way; npm based
-      ones are only detected).
+- A version check of the clangd that was found: none (accepted risk).
+- [x] rust-analyzer (release 2026-11-23: `.gz` on Linux and macOS, `.zip` on Windows) and
+      phpantom_lsp (1.1.0: `.tar.gz` / `.zip`) are installed like clangd (`RemoteInstaller` reads a
+      plain `.gz` now, `ReadGzFile()`); pinned with their checksums. gopls (`go install
+      golang.org/x/tools/gopls@latest`) and pyright (`npm install -g pyright`, started as
+      `pyright-langserver --stdio`) have no download: they are only looked for (`platform::Which`).
+- [x] The question has a "Remember my answer" checkbox (a `wxRichMessageDialog`), for the install
+      question and for the "not found" notice of the servers that are not installed. Remembered:
+      the answer is stored and used the next time (a "yes" installs without asking). Not
+      remembered: a "no" holds until Kennel ends, and a "yes" is asked again next time.
+- [ ] A server that is only looked for (gopls, pyright) is looked for on this machine only: for a
+      WSL distribution or an ssh host it fails with a message. It needs a shell on the machine (a
+      login shell: `command -v`, run on a worker thread).
+- [ ] pyright on Windows is a `.cmd` file of npm: starting it is not tried yet.
 
 ### Phase 10 - Polish and release
 - [ ] A Settings page for the servers (list, enable or disable, restart, log level).
@@ -239,8 +255,9 @@ help, code actions, formatting. Add a phase when one is wanted.
    OpenSSH client and keys that work without a question (`BatchMode=yes`).
 2. **One server per what**: per account, working directory (of a session) and language.
 3. **Editing features** come after the read-only ones.
-4. **Position encoding**: `utf-8` only; no UTF-16 converter (an error when the server does not
-   answer `utf-8`).
+4. **Position encoding**: the client asks for `utf-8`; the offsets of the tokens are always taken
+   as UTF-8 bytes, and a server that counts in UTF-16 is not refused (no converter: the offsets
+   are right on a line that is ASCII; a word that is not valid text is skipped).
 5. **A file with no session**: no server, until a session that holds it is added.
 6. **Where the server is installed**: `$HOME/.kennel/bin/<server>`; the program path is built per
    machine (`LspServerKey::GetProgram()`).

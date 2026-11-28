@@ -306,7 +306,9 @@ add_library(
   src/core/lsp/LspSemanticTokens.cpp
   src/core/lsp/LspServer.cpp
   src/core/lsp/LspServerKey.cpp
-  src/core/lsp/LspUri.cpp)
+  src/core/lsp/LspUri.cpp
+  src/core/lsp/Phpantom.cpp
+  src/core/lsp/RustAnalyzer.cpp)
 
 target_include_directories(kennel_core PUBLIC src ${wxWidgets_INCLUDE_DIRS})
 # libssh is an implementation detail of SftpClient.cpp, SshClient.cpp and their

@@ -237,8 +237,21 @@ void FilePage::LoadRemote(const wxString &text, bool editable) {
 }
 
 LspLanguage FilePage::GetLanguageId() const {
-  if (m_transient || m_untitled ||
-      EditFileDlg::LangFromPath(m_path) != EditorLang::kCxx) {
+  if (m_transient || m_untitled) {
+    return LspLanguage::kNone;
+  }
+  switch (EditFileDlg::LangFromPath(m_path)) {
+  case EditorLang::kCxx:
+    break; // See below
+  case EditorLang::kGo:
+    return LspLanguage::kGo;
+  case EditorLang::kRust:
+    return LspLanguage::kRust;
+  case EditorLang::kPython:
+    return LspLanguage::kPython;
+  case EditorLang::kPhp:
+    return LspLanguage::kPhp;
+  default:
     return LspLanguage::kNone;
   }
   // The case counts: ".C" is C++ and ".M" is Objective-C++ (GCC, clangd).

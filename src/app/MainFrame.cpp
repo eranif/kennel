@@ -15,7 +15,6 @@
 #include "app/JobLogViewer.hpp"
 #include "app/NewAgentWizard.hpp"
 #include "app/PageNames.h"
-#include "core/PageViewEvent.hpp"
 #include "app/PopupStyle.hpp"
 #include "app/ReviewBuddyMenu.hpp"
 #include "app/SearchablePage.hpp"
@@ -28,6 +27,7 @@
 #include "core/ClientAdapter.h"
 #include "core/EventNotifier.hpp"
 #include "core/Logger.h"
+#include "core/PageViewEvent.hpp"
 #include "core/RemoteInstaller.h"
 #include "core/Ripgrep.h"
 #include "core/UpdateChecker.h"
@@ -48,6 +48,7 @@
 #include <wx/iconbndl.h>
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
+#include <wx/richmsgdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/toolbar.h>
@@ -757,19 +758,37 @@ wxString JoinNames(const wxArrayString &names) {
 
 void MainFrame::OnLspInstallNeeded(LspManagerEvent &event) {
   const LspServerKey key = event.GetKey();
-  wxMessageDialog dlg(this,
-                      wxString::Format(_("Install %s?"), event.GetString()),
-                      "Kennel", wxYES_NO | wxICON_QUESTION);
+  const wxString machine = key.m_account.GetDisplayName();
+  if (key.GetTool() == nullptr) {
+    // Kennel does not install this one: the user is told how to.
+    wxRichMessageDialog dlg(
+        this, wxString::Format(_("%s was not found"), key.GetKindName()),
+        "Kennel", wxOK | wxICON_INFORMATION);
+    dlg.SetExtendedMessage(wxString::Format(
+        _("%s is needed for code intelligence of the files on %s, and it is "
+          "not installed there.\n\n"
+          "To install it, run:\n%s"),
+        key.GetKindName(), machine, event.GetString()));
+    dlg.ShowCheckBox(_("Don't show this again"));
+    dlg.ShowModal();
+    LspManager::Get().Decline(key, dlg.IsCheckBoxChecked());
+    return;
+  }
+  wxRichMessageDialog dlg(this,
+                          wxString::Format(_("Install %s?"), event.GetString()),
+                          "Kennel", wxYES_NO | wxICON_QUESTION);
   dlg.SetExtendedMessage(wxString::Format(
       _("%s is needed for code intelligence of the files on %s, and it is "
         "not installed there (or it is another version).\n\n"
         "Kennel will download it and put it in %s."),
-      event.GetString(), key.m_account.GetDisplayName(),
-      ripgrep::InstallDir()));
-  if (dlg.ShowModal() == wxID_YES) {
-    LspManager::Get().Install(key);
+      event.GetString(), machine, ripgrep::InstallDir()));
+  dlg.ShowCheckBox(_("Remember my answer"));
+  const bool agreed = dlg.ShowModal() == wxID_YES;
+  const bool remember = dlg.IsCheckBoxChecked();
+  if (agreed) {
+    LspManager::Get().Install(key, remember);
   } else {
-    LspManager::Get().Decline(key);
+    LspManager::Get().Decline(key, remember);
   }
 }
 

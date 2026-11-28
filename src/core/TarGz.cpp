@@ -7,6 +7,33 @@
 #include <wx/tarstrm.h>
 #include <wx/zstream.h>
 
+StatusOr<std::string> ReadGzFile(const std::string &archive, size_t maxSize) {
+  wxMemoryInputStream raw(archive.data(), archive.size());
+  wxZlibInputStream gzip(raw, wxZLIB_GZIP);
+  if (!gzip.IsOk()) {
+    return Status::Error(_("The download is not a valid .gz file"));
+  }
+  std::string content;
+  char buffer[64 * 1024];
+  while (gzip.IsOk() && !gzip.Eof()) {
+    gzip.Read(buffer, sizeof(buffer));
+    const size_t count = gzip.LastRead();
+    if (count == 0) {
+      break;
+    }
+    if (content.size() + count > maxSize) {
+      return Status::Error(_("The unpacked download is too big"));
+    }
+    content.append(buffer, count);
+  }
+  // The data must end at its end: a stream that stopped on an error is damaged,
+  // whatever came before.
+  if (content.empty() || gzip.GetLastError() != wxSTREAM_EOF) {
+    return Status::Error(_("The .gz file is empty or damaged"));
+  }
+  return content;
+}
+
 StatusOr<std::string> ReadTarGzMember(const std::string &archive,
                                       const wxString &name) {
   wxMemoryInputStream raw(archive.data(), archive.size());
