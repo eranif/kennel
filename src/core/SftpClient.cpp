@@ -258,6 +258,50 @@ SftpClient::ReadFile(const wxString &host, const wxString &user,
       });
 }
 
+StatusOr<std::map<wxString, wxString>>
+SftpClient::ReadFirstLines(const wxString &host, const wxString &user,
+                           const std::vector<wxString> &paths,
+                           const std::atomic<bool> *cancel, size_t maxBytes) {
+  using Lines = std::map<wxString, wxString>;
+  return WithConnection<StatusOr<Lines>>(
+      host, user, [&](Connection &conn) -> StatusOr<Lines> {
+        Lines lines;
+        std::string buffer(maxBytes, '\0');
+        for (const wxString &path : paths) {
+          if (cancel != nullptr && cancel->load()) {
+            break;
+          }
+          SftpFilePtr file{sftp_open(
+              conn.sftp.get(),
+              ExpandHome(path, conn.home).ToStdString(wxConvUTF8).c_str(),
+              O_RDONLY, 0)};
+          if (!file) {
+            if (!conn.IsHealthy()) {
+              return SshError(wxString::Format("Could not read %s", path),
+                              conn.ssh.get());
+            }
+            continue; // Not readable: no answer for it
+          }
+          size_t have = 0;
+          while (have < maxBytes) {
+            const ssize_t n =
+                sftp_read(file.get(), buffer.data() + have, maxBytes - have);
+            if (n <= 0) {
+              break;
+            }
+            have += static_cast<size_t>(n);
+            if (buffer.find_first_of("\r\n", 0) < have) {
+              break; // The line is complete
+            }
+          }
+          const std::string text = buffer.substr(0, have);
+          lines[path] =
+              wxString::FromUTF8(text.substr(0, text.find_first_of("\r\n")));
+        }
+        return lines;
+      });
+}
+
 Status SftpClient::WriteFile(const wxString &host, const wxString &user,
                              const wxString &path, const std::string &content) {
   return WithConnection<Status>(host, user, [&](Connection &conn) -> Status {

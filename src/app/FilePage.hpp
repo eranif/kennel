@@ -65,6 +65,8 @@ public:
 
   wxString GetKey() const { return FileEvent::MakeKey(m_path, m_remoteHost); }
   const wxString &GetPath() const { return m_path; }
+  // The start of the first line of the text (for the icon of the tab).
+  wxString GetFirstLine() const;
   const RemoteHostDetails &GetRemoteHostDetails() const { return m_remoteHost; }
   // The folder and the name: "c/file.cpp" for a/b/c/file.cpp.
   wxString GetDisplayName() const;
@@ -178,6 +180,10 @@ private:
   // Finds the machine and the root directory of the file (GetSessionAccount())
   // among the open sessions, when it is loaded. Does nothing when it was found
   // already.
+  // Sets the language of the editor from the name of the file, or, when the
+  // name says nothing, from the first line of its text (a shebang). The text is
+  // in the editor.
+  void DetectEditorLanguage();
   void ResolveSessionAccount();
   // Asks the LspManager for the semantic highlights of the text, and keeps the
   // number of the request (m_lspRequestIds).

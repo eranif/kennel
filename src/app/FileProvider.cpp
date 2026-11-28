@@ -1,5 +1,6 @@
 #include "app/FileProvider.hpp"
 #include "core/Logger.h"
+#include "core/SftpClient.h"
 
 #include <wx/dir.h>
 #include <wx/file.h>
@@ -48,6 +49,34 @@ LocalFilesProvider::ListFiles(const wxString &dir) {
   }
 
   return result;
+}
+
+wxString LocalFilesProvider::ReadFirstLine(const wxString &path) {
+  wxLogNull noLog;
+  wxFile file;
+  if (!file.Open(path)) {
+    return wxEmptyString;
+  }
+  char buffer[256];
+  const ssize_t count = file.Read(buffer, sizeof(buffer));
+  if (count <= 0) {
+    return wxEmptyString;
+  }
+  const std::string text(buffer, static_cast<size_t>(count));
+  return wxString::FromUTF8(text.substr(0, text.find_first_of("\r\n")));
+}
+
+std::map<wxString, wxString>
+LocalFilesProvider::ReadFirstLines(const std::vector<wxString> &paths,
+                                   const std::atomic<bool> *cancel) {
+  std::map<wxString, wxString> lines;
+  for (const wxString &path : paths) {
+    if (cancel != nullptr && cancel->load()) {
+      break;
+    }
+    lines[path] = ReadFirstLine(path);
+  }
+  return lines;
 }
 
 Status LocalFilesProvider::MakeFolder(const wxString &path) {
@@ -143,13 +172,29 @@ WSLFilesProvider::ListFiles(const wxString &dir) {
   return files;
 }
 
+std::map<wxString, wxString>
+WSLFilesProvider::ReadFirstLines(const std::vector<wxString> &paths,
+                                 const std::atomic<bool> *cancel) {
+  std::map<wxString, wxString> lines;
+  for (const wxString &path : paths) {
+    if (cancel != nullptr && cancel->load()) {
+      break;
+    }
+    lines[path] = ReadFirstLine(ToSharePath(path));
+  }
+  return lines;
+}
+
 //===------------------------
 // Remote Files Provider
 //===------------------------
 
 RemoteFilesProvider::RemoteFilesProvider(std::shared_ptr<KennelRemote> remote,
+                                         const wxString &host,
+                                         const wxString &user,
                                          const wxString &dir, bool dirsOnly)
-    : FileProvider(dirsOnly), m_dir{dir}, m_remote{std::move(remote)} {
+    : FileProvider(dirsOnly), m_dir{dir}, m_host{host}, m_user{user},
+      m_remote{std::move(remote)} {
   m_name = m_remote->ConnectString();
 }
 
@@ -180,6 +225,20 @@ RemoteFilesProvider::ListFiles(const wxString &dir) {
   return files;
 }
 
+std::map<wxString, wxString>
+RemoteFilesProvider::ReadFirstLines(const std::vector<wxString> &paths,
+                                    const std::atomic<bool> *cancel) {
+  // Over SFTP, on a connection of its own: the script of m_remote answers one
+  // request at a time.
+  auto lines = SftpClient::ReadFirstLines(m_host, m_user, paths, cancel);
+  if (!lines.ok()) {
+    KLOG_WARN() << "Could not read the files of " << m_name << ": "
+                << lines.status().message();
+    return {};
+  }
+  return lines.value();
+}
+
 void RemoteFilesProvider::ChangeDir(const wxString &path) { m_dir = path; }
 
 void RemoteFilesProvider::Up() {
@@ -202,7 +261,7 @@ std::unique_ptr<FileProvider> CreateFileProvider(const Account &account,
   case HostType::kRemote:
     return std::make_unique<RemoteFilesProvider>(
         std::make_shared<KennelRemote>(account.m_name, account.m_user),
-        account.m_rootDir, dirsOnly);
+        account.m_name, account.m_user, account.m_rootDir, dirsOnly);
   case HostType::kLocalHost:
     break;
   }

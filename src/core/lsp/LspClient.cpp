@@ -333,7 +333,7 @@ void LspClient::OnParsed(std::string body) {
     return;
   }
   const bool hasId = message.contains("id");
-  KLOG_DEBUG() << "LSP | a message came, "
+  KLOG_TRACE() << "LSP | a message came, "
                << (message.contains("method") && message["method"].is_string()
                        ? message["method"].get<std::string>()
                        : std::string("an answer"));

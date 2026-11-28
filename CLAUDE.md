@@ -7,6 +7,26 @@
 behaviour that the user did not give is a decision, and it is the user's: stop and ask one short
 question first.
 
+## HARD RULES for code (apply to all code you write or touch)
+
+- **All tree work is ASYNC.** The UI thread never lists, reads, creates or deletes files (disk,
+  WSL share or ssh host) and never connects to a host. A worker thread owned by the object does
+  it (one queue of jobs; the answer goes back as an event, the UI thread only draws it). This
+  includes the file tree (`FileTreeCtrl`): listing, opening a folder, refresh, new, delete,
+  reading the first line of a file to know its type.
+- **NEVER use a detached thread** (`.detach()`). A thread is a member of its owner, told to stop
+  and joined in the destructor.
+- **Functions are under 20 lines.** Longer: split it into private methods with names that say what
+  they do. A function you write or touch must obey this.
+- **No global functions.** A function belongs to a class (a method of the object it works on).
+  An anonymous namespace is for what C++ forces into one (a constant, a type, a fixed-signature
+  callback), never for helpers.
+- **Avoid templates** (and generic lambdas with `auto` parameters) unless there is absolutely no
+  other way.
+- **Do not keep state that can be found or computed**: find the object in the UI by an ID
+  (`FindEditorByUID()`, `FindTreeByUID()`), and let the data travel in the job and the event that
+  answers it, not in members of the object.
+
 Kennel is a native desktop app (C++/wxWidgets) for running and managing multiple
 interactive AI CLI agent sessions side by side. Full architecture, build, and
 contributing details live in [`BUILDING.md`](BUILDING.md) and [`README.md`](README.md) —

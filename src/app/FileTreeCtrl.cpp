@@ -4,6 +4,8 @@
 #include "app/DataViewUtils.hpp"
 #include "core/AppManager.h"
 #include "core/EventNotifier.hpp"
+#include "core/FileTreeChangedEvent.hpp"
+#include "core/FileTypesEvent.hpp"
 #include "core/Logger.h"
 #include "core/WslPath.h"
 
@@ -108,35 +110,9 @@ struct FileTreeCtrl::Node : public wxClientData {
 
 FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
     : wxPanel(parent), m_account(account),
-      m_provider(CreateFileProvider(account)) {
-  long treeStyle = wxDV_NO_HEADER | wxDV_MULTIPLE;
-#ifdef __WXMAC__
-  treeStyle |= wxDV_ROW_LINES;
-#endif
-
-  m_tree = new wxDataViewTreeCtrl(this, wxID_ANY, wxDefaultPosition,
-                                  wxDefaultSize, treeStyle);
-  dv::StylePageView(m_tree);
-  m_tree->SetIndent(m_tree->FromDIP(kTreeIndent));
-
-  // The names are not to be edited.
-  m_tree->GetColumn(0)->GetRenderer()->SetMode(wxDATAVIEW_CELL_INERT);
-  auto *sizer = new wxBoxSizer(wxVERTICAL);
-  sizer->Add(m_tree, wxSizerFlags(1).Expand());
-  SetSizer(sizer);
-
-  m_tree->Bind(wxEVT_DATAVIEW_ITEM_EXPANDING, &FileTreeCtrl::OnExpanding, this);
-  m_tree->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
-               &FileTreeCtrl::OnSelectionChanged, this);
-  m_tree->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &FileTreeCtrl::OnActivated, this);
-  m_tree->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &FileTreeCtrl::OnContextMenu,
-               this);
-  m_typeHelper = std::make_unique<DataViewTypeHelper>(m_tree);
-  m_listId = ++s_lastRequestId;
-  EventNotifier::Get()->Bind(wxEVT_FILETREE_LISTED, &FileTreeCtrl::OnListed,
-                             this);
-  EventNotifier::Get()->Bind(wxEVT_APP_PREFS_CHANGED,
-                             &FileTreeCtrl::OnPrefsChanged, this);
+      m_provider(CreateFileProvider(account)), m_uid(++s_lastRequestId) {
+  CreateTree();
+  BindEvents();
   // Once the control is on the screen. A remote host waits for
   // ConnectAsync().
   if (!m_account.IsRemote()) {
@@ -144,13 +120,46 @@ FileTreeCtrl::FileTreeCtrl(wxWindow *parent, const Account &account)
   }
 }
 
+void FileTreeCtrl::CreateTree() {
+  long treeStyle = wxDV_NO_HEADER | wxDV_MULTIPLE;
+#ifdef __WXMAC__
+  treeStyle |= wxDV_ROW_LINES;
+#endif
+  m_tree = new wxDataViewTreeCtrl(this, wxID_ANY, wxDefaultPosition,
+                                  wxDefaultSize, treeStyle);
+  dv::StylePageView(m_tree);
+  m_tree->SetIndent(m_tree->FromDIP(kTreeIndent));
+  // The names are not to be edited.
+  m_tree->GetColumn(0)->GetRenderer()->SetMode(wxDATAVIEW_CELL_INERT);
+  auto *sizer = new wxBoxSizer(wxVERTICAL);
+  sizer->Add(m_tree, wxSizerFlags(1).Expand());
+  SetSizer(sizer);
+  m_typeHelper = std::make_unique<DataViewTypeHelper>(m_tree);
+}
+
+void FileTreeCtrl::BindEvents() {
+  m_tree->Bind(wxEVT_DATAVIEW_ITEM_EXPANDING, &FileTreeCtrl::OnExpanding, this);
+  m_tree->Bind(wxEVT_DATAVIEW_SELECTION_CHANGED,
+               &FileTreeCtrl::OnSelectionChanged, this);
+  m_tree->Bind(wxEVT_DATAVIEW_ITEM_ACTIVATED, &FileTreeCtrl::OnActivated, this);
+  m_tree->Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, &FileTreeCtrl::OnContextMenu,
+               this);
+  auto *notifier = EventNotifier::Get();
+  notifier->Bind(wxEVT_FILETREE_LISTED, &FileTreeCtrl::OnListed, this);
+  notifier->Bind(wxEVT_FILETREE_CHANGED, &FileTreeCtrl::OnChanged, this);
+  notifier->Bind(wxEVT_APP_PREFS_CHANGED, &FileTreeCtrl::OnPrefsChanged, this);
+}
+
 FileTreeCtrl::~FileTreeCtrl() {
   EventNotifier::Get()->Unbind(wxEVT_FILETREE_LISTED, &FileTreeCtrl::OnListed,
+                               this);
+  EventNotifier::Get()->Unbind(wxEVT_FILETREE_CHANGED, &FileTreeCtrl::OnChanged,
                                this);
   EventNotifier::Get()->Unbind(wxEVT_APP_PREFS_CHANGED,
                                &FileTreeCtrl::OnPrefsChanged, this);
   // What is queued is not wanted any more: the thread is told to end, and ends
-  // after the folder that it is listing now.
+  // after the job that it is doing now.
+  m_stopping = true;
   {
     std::lock_guard<std::mutex> lock(m_jobMutex);
     m_jobs.clear();
@@ -162,24 +171,120 @@ FileTreeCtrl::~FileTreeCtrl() {
   }
 }
 
-void FileTreeCtrl::EnqueueListing(const wxString &dir) {
-  // Started when it is first needed: most trees never reveal a file.
+//===------------------------
+// The jobs of the thread of the tree
+//===------------------------
+
+FileTreeCtrl::Job FileTreeCtrl::Job::MakeShutdownJob() {
+  Job job;
+  job.type = JobType::Shutdown;
+  return job;
+}
+
+FileTreeCtrl::Job FileTreeCtrl::Job::MakeConnectJob(int requestId,
+                                                    const wxString &dir) {
+  Job job;
+  job.type = JobType::Connect;
+  job.requestId = requestId;
+  job.dir = dir;
+  return job;
+}
+
+FileTreeCtrl::Job
+FileTreeCtrl::Job::MakeListJob(JobType type, const wxString &dir,
+                               const std::set<wxString> &expanded) {
+  Job job;
+  job.type = type;
+  job.dir = dir;
+  job.expanded = expanded;
+  return job;
+}
+
+FileTreeCtrl::Job
+FileTreeCtrl::Job::MakeReadFirstLinesJob(const std::vector<wxString> &paths) {
+  Job job;
+  job.type = JobType::ReadFirstLines;
+  job.paths = paths;
+  return job;
+}
+
+FileTreeCtrl::Job FileTreeCtrl::Job::MakeCreateJob(JobType type,
+                                                   const wxString &path,
+                                                   const wxString &parentDir) {
+  Job job;
+  job.type = type;
+  job.paths = {path};
+  job.refreshDirs = {parentDir};
+  job.selectPath = path;
+  return job;
+}
+
+FileTreeCtrl::Job
+FileTreeCtrl::Job::MakeRemoveJob(const std::vector<wxString> &paths,
+                                 const std::vector<wxString> &refreshDirs) {
+  Job job;
+  job.type = JobType::Remove;
+  job.paths = paths;
+  job.refreshDirs = refreshDirs;
+  return job;
+}
+
+bool FileTreeCtrl::Job::IsSameListing(const Job &other) const {
+  return other.type == type && other.dir == dir && other.expanded == expanded;
+}
+
+Status FileTreeCtrl::Job::ApplyTo(FileProvider &provider,
+                                  const wxString &path) const {
+  switch (type) {
+  case JobType::MakeFolder:
+    return provider.MakeFolder(path);
+  case JobType::MakeFile:
+    return provider.MakeFile(path);
+  case JobType::Remove:
+    return provider.Remove(path);
+  case JobType::Connect:
+  case JobType::ListRoot:
+  case JobType::ListDir:
+  case JobType::ReadFirstLines:
+  case JobType::Shutdown:
+    break;
+  }
+  return Status::Error(_("This job does not change files"));
+}
+
+void FileTreeCtrl::EnsureWorker() {
+  // Started when it is first needed.
   if (!m_worker.joinable()) {
     m_worker = std::thread(&FileTreeCtrl::ListWorker, this, m_provider);
   }
+}
+
+void FileTreeCtrl::PushJob(Job job) {
+  EnsureWorker();
+  {
+    std::lock_guard<std::mutex> lock(m_jobMutex);
+    m_jobs.push_back(std::move(job));
+  }
+  m_jobReady.notify_one();
+}
+
+void FileTreeCtrl::EnqueueListing(const wxString &dir,
+                                  const std::set<wxString> &expanded) {
+  EnsureWorker();
   {
     std::lock_guard<std::mutex> lock(m_jobMutex);
     // The same folder again: the old job goes, the new one is last.
-    auto listDirJob = Job::MakeListDirJob(dir);
-    std::erase_if(m_jobs, [&](const Job &job) { return job == listDirJob; });
-    m_jobs.push_back(std::move(listDirJob));
+    Job job = Job::MakeListJob(JobType::ListDir, dir, expanded);
+    std::erase_if(m_jobs, [&job](const Job &queued) {
+      return queued.IsSameListing(job);
+    });
+    m_jobs.push_back(std::move(job));
   }
   m_jobReady.notify_one();
 }
 
 // The thread of the tree. It never touches the tree: it has its own share of
-// the provider, and it sends each answer on the EventNotifier (see
-// ConnectAsync()).
+// the provider, and it sends each answer on the EventNotifier.
 void FileTreeCtrl::ListWorker(std::shared_ptr<FileProvider> provider) {
   for (;;) {
     Job job;
@@ -189,35 +294,96 @@ void FileTreeCtrl::ListWorker(std::shared_ptr<FileProvider> provider) {
       job = std::move(m_jobs.front());
       m_jobs.pop_front();
     }
-    if (job.IsShutdown()) {
+    if (job.type == JobType::Shutdown) {
       return;
     }
-    FileTreeConnectedEvent event{wxEVT_FILETREE_LISTED};
-    event.SetRequestId(m_listId);
-    event.SetDir(job.dir);
-    event.SetFiles(provider->ListFiles(job.dir));
-    EventNotifier::Get()->AddPendingEvent(event);
+    RunJob(*provider, job);
   }
 }
+
+void FileTreeCtrl::RunJob(FileProvider &provider, const Job &job) {
+  switch (job.type) {
+  case JobType::Connect:
+    return RunConnectJob(provider, job);
+  case JobType::ListRoot:
+  case JobType::ListDir:
+    return RunListJob(provider, job);
+  case JobType::ReadFirstLines:
+    return RunReadFirstLinesJob(provider, job);
+  case JobType::MakeFolder:
+  case JobType::MakeFile:
+  case JobType::Remove:
+    return RunChangeJob(provider, job);
+  case JobType::Shutdown:
+    return;
+  }
+}
+
+void FileTreeCtrl::ListInto(FileProvider &provider, const wxString &dir,
+                            FileTreeConnectedEvent *event) {
+  // No folder given: the one the provider starts in. A remote host tells which
+  // one that is when it lists it.
+  event->SetFiles(
+      provider.ListFiles(dir.empty() ? provider.GetCurrentWorkingDir() : dir));
+  event->SetDir(dir.empty() ? provider.GetCurrentWorkingDir() : dir);
+}
+
+void FileTreeCtrl::RunConnectJob(FileProvider &provider, const Job &job) {
+  FileTreeConnectedEvent event{wxEVT_FILETREE_CONNECTED};
+  event.SetRequestId(job.requestId);
+  event.SetStatus(provider.Connect());
+  if (event.GetStatus().ok()) {
+    ListInto(provider, job.dir, &event);
+  }
+  EventNotifier::Get()->AddPendingEvent(event);
+}
+
+void FileTreeCtrl::RunListJob(FileProvider &provider, const Job &job) {
+  FileTreeConnectedEvent event{wxEVT_FILETREE_LISTED};
+  event.SetRequestId(m_uid);
+  event.SetRoot(job.type == JobType::ListRoot);
+  event.SetExpanded(job.expanded);
+  ListInto(provider, job.dir, &event);
+  EventNotifier::Get()->AddPendingEvent(event);
+}
+
+void FileTreeCtrl::RunReadFirstLinesJob(FileProvider &provider,
+                                        const Job &job) {
+  const auto lines = provider.ReadFirstLines(job.paths, &m_stopping);
+  if (lines.empty() || m_stopping) {
+    return;
+  }
+  FileTypesEvent event{wxEVT_FILETREE_TYPES_RESOLVED};
+  event.SetTreeUID(m_uid);
+  event.SetLines(lines);
+  EventNotifier::Get()->AddPendingEvent(event);
+}
+
+void FileTreeCtrl::RunChangeJob(FileProvider &provider, const Job &job) {
+  wxString errors;
+  for (const wxString &path : job.paths) {
+    const Status st = job.ApplyTo(provider, path);
+    if (!st.ok()) {
+      KLOG_WARN() << "Could not change " << path << ": " << st.message();
+      errors << path << ": " << st.message() << "\n";
+    }
+  }
+  FileTreeChangedEvent event{wxEVT_FILETREE_CHANGED};
+  event.SetTreeUID(m_uid);
+  event.SetError(errors);
+  event.SetRefreshDirs(job.refreshDirs);
+  event.SetSelectPath(errors.empty() ? job.selectPath : wxString());
+  EventNotifier::Get()->AddPendingEvent(event);
+}
+
+//===------------------------
+// Asking for the files
+//===------------------------
 
 int FileTreeCtrl::ConnectAsync() {
   const int requestId = ++s_lastRequestId;
   ShowTopText(_("Connecting..."));
-  // The worker never touches the tree, which may be gone before the host
-  // answers: it has its own share of the provider, and it sends the result on
-  // the EventNotifier, which lives as long as the process.
-  std::thread([requestId, provider = m_provider, dir = m_root] {
-    FileTreeConnectedEvent event{wxEVT_FILETREE_CONNECTED};
-    event.SetRequestId(requestId);
-    event.SetDir(dir);
-    const Status status = provider->Connect();
-    event.SetStatus(status);
-    if (status.ok()) {
-      event.SetFiles(provider->ListFiles(
-          dir.empty() ? provider->GetCurrentWorkingDir() : dir));
-    }
-    EventNotifier::Get()->AddPendingEvent(event);
-  }).detach();
+  PushJob(Job::MakeConnectJob(requestId, m_root));
   return requestId;
 }
 
@@ -238,7 +404,7 @@ void FileTreeCtrl::ShowTopText(const wxString &text) {
 
 void FileTreeCtrl::SetRoot(const wxString &dir) {
   m_root = dir;
-  Load(dir, {});
+  LoadRoot(dir, {});
 }
 
 void FileTreeCtrl::Reload() {
@@ -246,7 +412,12 @@ void FileTreeCtrl::Reload() {
   if (m_tree->GetChildCount(wxDataViewItem()) > 0) {
     CollectExpanded(m_tree->GetNthChild(wxDataViewItem(), 0), &expanded);
   }
-  Load(m_root, expanded);
+  LoadRoot(m_root, expanded);
+}
+
+void FileTreeCtrl::LoadRoot(const wxString &dir,
+                            const std::set<wxString> &expanded) {
+  PushJob(Job::MakeListJob(JobType::ListRoot, dir, expanded));
 }
 
 bool FileTreeCtrl::SelectPath(const wxString &path) {
@@ -265,47 +436,30 @@ bool FileTreeCtrl::SelectPath(const wxString &path) {
 }
 
 void FileTreeCtrl::Reveal() {
-  if (m_tree->GetChildCount(wxDataViewItem()) == 0) {
-    return;
-  }
-  // From the top down: open the folder, find the entry that holds the path.
   wxDataViewItem item = m_tree->GetNthChild(wxDataViewItem(), 0);
-  const Node *node = NodeOf(item);
-  while (node != nullptr && ForCompare(node->file.path) != m_revealTarget) {
-    if (node->file.IsFolder() && !node->loaded) {
-      if (m_account.IsRemote()) {
-        // The provider of a remote host answers one request at a time, for the
-        // UI thread: not for the thread of the tree too.
-        m_revealTarget.clear();
-        return;
-      }
-      // Not listed yet: that is the slow part (a disk, a WSL share), so the
-      // thread of the tree does it; OnListed() goes on from there.
-      EnqueueListing(node->file.path);
+  while (item.IsOk() && !IsRevealTarget(item)) {
+    const Node *node = NodeOf(item);
+    if (node != nullptr && node->file.IsFolder() && !node->loaded) {
+      // Not listed yet: the thread of the tree does it, and OnListed() goes on
+      // from there.
+      EnqueueListing(node->file.path, {});
       return;
     }
     m_tree->Expand(item);
-    wxDataViewItem next;
-    const int count = m_tree->GetChildCount(item);
-    for (int i = 0; i < count && !next.IsOk(); ++i) {
-      const wxDataViewItem child = m_tree->GetNthChild(item, i);
-      const Node *childNode = NodeOf(child);
-      if (childNode != nullptr &&
-          IsSameOrInside(ForCompare(childNode->file.path), m_revealTarget)) {
-        next = child;
-      }
-    }
-    if (!next.IsOk()) {
-      m_revealTarget.clear(); // Not in the tree
-      return;
-    }
-    item = next;
-    node = NodeOf(item);
+    item = FindChildOnWay(item, m_revealTarget);
   }
   m_revealTarget.clear(); // Done: another listing has nothing to go to
-  if (node == nullptr) {
-    return;
+  if (item.IsOk()) {
+    SelectOnly(item);
   }
+}
+
+bool FileTreeCtrl::IsRevealTarget(const wxDataViewItem &item) const {
+  const Node *node = NodeOf(item);
+  return node != nullptr && ForCompare(node->file.path) == m_revealTarget;
+}
+
+void FileTreeCtrl::SelectOnly(const wxDataViewItem &item) {
   // Only this entry is selected (the tree takes many), and it is in view.
   wxEventBlocker blocker(m_tree, wxEVT_DATAVIEW_SELECTION_CHANGED);
   m_tree->UnselectAll();
@@ -313,31 +467,50 @@ void FileTreeCtrl::Reveal() {
   m_tree->EnsureVisible(item);
 }
 
+wxDataViewItem FileTreeCtrl::FindChildOnWay(const wxDataViewItem &item,
+                                            const wxString &wanted) const {
+  const int count = m_tree->GetChildCount(item);
+  for (int i = 0; i < count; ++i) {
+    const wxDataViewItem child = m_tree->GetNthChild(item, i);
+    const Node *node = NodeOf(child);
+    if (node != nullptr &&
+        IsSameOrInside(ForCompare(node->file.path), wanted)) {
+      return child;
+    }
+  }
+  return wxDataViewItem();
+}
+
+wxDataViewItem FileTreeCtrl::FindChildByPath(const wxDataViewItem &folder,
+                                             const wxString &path) const {
+  const int count = m_tree->GetChildCount(folder);
+  for (int i = 0; i < count; ++i) {
+    const wxDataViewItem child = m_tree->GetNthChild(folder, i);
+    const Node *node = NodeOf(child);
+    if (node != nullptr && node->file.path == path) {
+      return child;
+    }
+  }
+  return wxDataViewItem();
+}
+
 wxDataViewItem FileTreeCtrl::FindOnWay(const wxString &dir) const {
   const wxString wanted = ForCompare(dir);
   wxDataViewItem item = m_tree->GetNthChild(wxDataViewItem(), 0);
-  const Node *node = NodeOf(item);
-  while (node != nullptr && ForCompare(node->file.path) != wanted) {
+  while (item.IsOk()) {
+    const Node *node = NodeOf(item);
+    if (node == nullptr) {
+      break;
+    }
+    if (ForCompare(node->file.path) == wanted) {
+      return item;
+    }
     if (!node->loaded) {
-      return wxDataViewItem();
+      break;
     }
-    wxDataViewItem next;
-    const int count = m_tree->GetChildCount(item);
-    for (int i = 0; i < count && !next.IsOk(); ++i) {
-      const wxDataViewItem child = m_tree->GetNthChild(item, i);
-      const Node *childNode = NodeOf(child);
-      if (childNode != nullptr &&
-          IsSameOrInside(ForCompare(childNode->file.path), wanted)) {
-        next = child;
-      }
-    }
-    if (!next.IsOk()) {
-      return wxDataViewItem();
-    }
-    item = next;
-    node = NodeOf(item);
+    item = FindChildOnWay(item, wanted);
   }
-  return node != nullptr ? item : wxDataViewItem();
+  return wxDataViewItem();
 }
 
 void FileTreeCtrl::OnPrefsChanged(wxCommandEvent &event) {
@@ -348,9 +521,80 @@ void FileTreeCtrl::OnPrefsChanged(wxCommandEvent &event) {
 
 void FileTreeCtrl::OnListed(FileTreeConnectedEvent &event) {
   event.Skip(); // The other trees look at it too
-  if (event.GetRequestId() != m_listId) {
+  if (event.GetRequestId() != m_uid) {
     return;
   }
+  if (event.IsRoot()) {
+    Fill(event.GetDir(), event.GetFiles(), event.GetExpanded());
+  } else {
+    FillFolder(event);
+  }
+}
+
+void FileTreeCtrl::OnChanged(FileTreeChangedEvent &event) {
+  event.Skip(); // The other trees look at it too
+  if (event.GetTreeUID() != m_uid) {
+    return;
+  }
+  if (!event.GetError().empty()) {
+    ::wxMessageBox(event.GetError(), "Kennel", wxOK | wxICON_ERROR, this);
+  }
+  // The outer folders first: they ask for the folders in them that are open.
+  for (const wxString &dir : event.GetRefreshDirs()) {
+    RefreshFolder(FindOnWay(dir));
+  }
+  if (!event.GetSelectPath().empty()) {
+    SelectPath(event.GetSelectPath());
+  }
+}
+
+void FileTreeCtrl::Fill(const wxString &dir,
+                        std::vector<FileProvider::File> files,
+                        const std::set<wxString> &expanded) {
+  m_revealTarget.clear(); // A reveal that was waiting belongs to the old tree
+  m_root = NormalizeRoot(dir);
+  const wxDataViewItem top = AddTop();
+  AddNodes(top, std::move(files), expanded);
+  m_tree->Expand(top);
+}
+
+wxDataViewItem FileTreeCtrl::AddTop() {
+  m_tree->DeleteAllItems();
+  FileProvider::File top;
+  top.path = m_root;
+  top.type = FileProvider::FileType::kDir;
+  auto *topNode = new Node(top);
+  topNode->loaded = true; // Its entries are added by the caller
+  // Only the name of the folder, with no host: a full path or a long host
+  // name does not fit in a narrow view.
+  const wxDataViewItem item = m_tree->AppendContainer(
+      wxDataViewItem(), FolderNameOf(m_root), wxDataViewTreeCtrl::NO_IMAGE,
+      wxDataViewTreeCtrl::NO_IMAGE, topNode);
+  const auto &folder =
+      AppManager::Get().GetBitmaps().GetByAlias("folder", false);
+  m_tree->SetItemIcon(item, folder);
+  m_tree->SetItemExpandedIcon(item, folder);
+  return item;
+}
+
+void FileTreeCtrl::AddNodes(const wxDataViewItem &parent,
+                            std::vector<FileProvider::File> files,
+                            const std::set<wxString> &expanded) {
+  SortFiles(&files);
+  for (const auto &file : files) {
+    AddNode(parent, file);
+  }
+  RequestFirstLines(files);
+  // The folders that were open: listed now, and opened when they are there.
+  for (const auto &file : files) {
+    if (file.IsFolder() && expanded.contains(file.path)) {
+      EnqueueListing(file.path, expanded);
+    }
+  }
+}
+
+void FileTreeCtrl::FillFolder(const FileTreeConnectedEvent &event) {
+  m_busy.reset(); // The listing is here
   // The folder goes into the tree if it is still not listed (the user may have
   // opened it meanwhile)...
   const wxDataViewItem item = FindOnWay(event.GetDir());
@@ -358,11 +602,10 @@ void FileTreeCtrl::OnListed(FileTreeConnectedEvent &event) {
   if (node != nullptr && node->file.IsFolder() && !node->loaded) {
     node->loaded = true;
     m_tree->DeleteChildren(item); // The empty child
-    auto files = event.GetFiles();
-    SortFiles(&files);
-    for (const auto &file : files) {
-      AddNode(item, file);
-    }
+    AddNodes(item, event.GetFiles(), event.GetExpanded());
+    // The folder was asked to open before it was listed (OnExpanding() said
+    // no): it opens now.
+    m_tree->Expand(item);
   }
   // ...and the way goes on to the file that is wanted now, which may be another
   // one than when this folder was asked for.
@@ -378,64 +621,45 @@ std::optional<FileProvider::File> FileTreeCtrl::GetSelection() const {
   return std::nullopt;
 }
 
-void FileTreeCtrl::Load(const wxString &dir,
-                        const std::set<wxString> &expanded) {
-  // No folder given: the one the provider starts in.
-  const wxString start = dir.empty() ? m_provider->GetCurrentWorkingDir() : dir;
-  std::optional<wxBusyCursor> busy;
-  if (m_account.IsRemote()) {
-    busy.emplace(); // The host takes a while to answer
-  }
-  Fill(dir, m_provider->ListFiles(start), expanded);
-}
-
-void FileTreeCtrl::Fill(const wxString &dir,
-                        std::vector<FileProvider::File> files,
-                        const std::set<wxString> &expanded) {
-  m_revealTarget.clear(); // A reveal that was waiting belongs to the old tree
-  // A remote host tells which folder it starts in when it lists it, so the top
-  // is known after the listing.
-  m_root =
-      NormalizeRoot(dir.empty() ? m_provider->GetCurrentWorkingDir() : dir);
-  SortFiles(&files);
-
-  m_tree->DeleteAllItems();
-  FileProvider::File top;
-  top.path = m_root;
-  top.type = FileProvider::FileType::kDir;
-  auto *topNode = new Node(top);
-  topNode->loaded = true; // Its entries are added below
-  // Only the name of the folder, with no host: a full path or a long host
-  // name does not fit in a narrow view.
-  const wxString label = FolderNameOf(m_root);
-  const wxDataViewItem topItem = m_tree->AppendContainer(
-      wxDataViewItem(), label, wxDataViewTreeCtrl::NO_IMAGE,
-      wxDataViewTreeCtrl::NO_IMAGE, topNode);
-  const auto &bitmaps = AppManager::Get().GetBitmaps();
-  m_tree->SetItemIcon(topItem, bitmaps.GetByAlias("folder", false));
-  m_tree->SetItemExpandedIcon(topItem, bitmaps.GetByAlias("folder", false));
-  for (const auto &file : files) {
-    AddNode(topItem, file);
-  }
-  m_tree->Expand(topItem);
-  RestoreExpanded(topItem, expanded);
-}
-
-void FileTreeCtrl::LoadChildren(const wxDataViewItem &item) {
-  Node *node = NodeOf(item);
+bool FileTreeCtrl::LoadChildrenIfFirstTime(const wxDataViewItem &item) {
+  const Node *node = NodeOf(item);
   if (node == nullptr || !node->file.IsFolder() || node->loaded) {
-    return;
+    return false;
   }
-  node->loaded = true;
-  m_tree->DeleteChildren(item); // The empty child
-  std::optional<wxBusyCursor> busy;
-  if (m_account.IsRemote()) {
-    busy.emplace(); // The host takes a while to answer
-  }
-  auto files = m_provider->ListFiles(node->file.path);
-  SortFiles(&files);
+  EnqueueListing(node->file.path, {});
+  return true;
+}
+
+void FileTreeCtrl::RequestFirstLines(
+    const std::vector<FileProvider::File> &files) {
+  std::vector<wxString> paths;
   for (const auto &file : files) {
-    AddNode(item, file);
+    const wxString name = file.path.AfterLast(m_provider->GetPathSeparator());
+    // No extension, and not empty
+    if (file.IsFile() && file.size != 0 && !name.Contains(".")) {
+      paths.push_back(file.path);
+    }
+  }
+  if (!paths.empty()) {
+    PushJob(Job::MakeReadFirstLinesJob(paths));
+  }
+}
+
+void FileTreeCtrl::ApplyFirstLines(const std::map<wxString, wxString> &lines) {
+  for (const auto &[path, line] : lines) {
+    ApplyFirstLine(path, line);
+  }
+}
+
+void FileTreeCtrl::ApplyFirstLine(const wxString &path, const wxString &line) {
+  // The folder of the file, when it is in the tree; then the file in it.
+  const wxDataViewItem folder =
+      FindOnWay(path.BeforeLast(m_provider->GetPathSeparator()));
+  const wxDataViewItem item = FindChildByPath(folder, path);
+  Node *node = NodeOf(item);
+  if (node != nullptr && node->file.IsFile()) {
+    node->file.firstLine = line;
+    SetFileIcon(item, node->file);
   }
 }
 
@@ -453,10 +677,8 @@ void FileTreeCtrl::RefreshFolder(const wxDataViewItem &item) {
   m_tree->AppendItem(item, wxEmptyString);
   node->loaded = false;
   if (expanded.contains(node->file.path)) {
-    // Listed again now, and opened as they were.
-    LoadChildren(item);
-    m_tree->Expand(item);
-    RestoreExpanded(item, expanded);
+    // Listed now, and opened as it was (see FillFolder()).
+    EnqueueListing(node->file.path, expanded);
   }
 }
 
@@ -476,9 +698,15 @@ void FileTreeCtrl::AddNode(const wxDataViewItem &parent,
   }
   const wxDataViewItem item = m_tree->AppendItem(
       parent, name, wxDataViewTreeCtrl::NO_IMAGE, new Node(file));
-  m_tree->SetItemIcon(
-      item, bitmaps.GetFileIcon(file.path,
-                                wxSystemSettings::GetAppearance().IsDark()));
+  SetFileIcon(item, file);
+}
+
+void FileTreeCtrl::SetFileIcon(const wxDataViewItem &item,
+                               const FileProvider::File &file) {
+  m_tree->SetItemIcon(item,
+                      AppManager::Get().GetBitmaps().GetFileIcon(
+                          file.path, wxSystemSettings::GetAppearance().IsDark(),
+                          file.firstLine));
 }
 
 void FileTreeCtrl::CollectExpanded(const wxDataViewItem &item,
@@ -492,22 +720,6 @@ void FileTreeCtrl::CollectExpanded(const wxDataViewItem &item,
   const int count = m_tree->GetChildCount(item);
   for (int i = 0; i < count; ++i) {
     CollectExpanded(m_tree->GetNthChild(item, i), expanded);
-  }
-}
-
-void FileTreeCtrl::RestoreExpanded(const wxDataViewItem &item,
-                                   const std::set<wxString> &expanded) {
-  const int count = m_tree->GetChildCount(item);
-  for (int i = 0; i < count; ++i) {
-    const wxDataViewItem child = m_tree->GetNthChild(item, i);
-    const Node *node = NodeOf(child);
-    if (node == nullptr || !node->file.IsFolder() ||
-        !expanded.contains(node->file.path)) {
-      continue;
-    }
-    LoadChildren(child);
-    m_tree->Expand(child);
-    RestoreExpanded(child, expanded);
   }
 }
 
@@ -581,7 +793,11 @@ void FileTreeCtrl::SendFileEvent(wxEventType type, const wxDataViewItem &item) {
 }
 
 void FileTreeCtrl::OnExpanding(wxDataViewEvent &event) {
-  LoadChildren(event.GetItem());
+  if (LoadChildrenIfFirstTime(event.GetItem())) {
+    m_busy.emplace();
+    event.Veto(); // It opens when the listing is there (FillFolder())
+    return;
+  }
   event.Skip();
 }
 
@@ -716,38 +932,34 @@ void FileTreeCtrl::NewEntry(const wxDataViewItem &folder, bool isFolder) {
   if (node == nullptr || !node->file.IsFolder()) {
     return;
   }
+  const wxString name = AskEntryName(isFolder);
+  if (name.empty()) {
+    return;
+  }
+  // The answer (see OnChanged()) lists the folder again with the new entry
+  // selected.
+  const JobType type = isFolder ? JobType::MakeFolder : JobType::MakeFile;
+  const wxString &dir = node->file.path;
+  PushJob(Job::MakeCreateJob(type, JoinPath(dir, name), dir));
+}
+
+wxString FileTreeCtrl::AskEntryName(bool isFolder) {
   wxString name = ::wxGetTextFromUser(
       isFolder ? _("Name of the new folder:") : _("Name of the new file:"),
       isFolder ? _("New Folder") : _("New File"), wxEmptyString, this);
   name.Trim().Trim(false);
-  if (name.empty()) {
-    return; // Cancelled
-  }
-  if (!IsValidEntryName(name)) {
+  if (!name.empty() && !IsValidEntryName(name)) {
     ::wxMessageBox(wxString::Format(_("'%s' is not a valid name"), name),
                    "Kennel", wxOK | wxICON_ERROR, this);
-    return;
+    return wxEmptyString;
   }
-  const wxChar sep = m_provider->GetPathSeparator();
-  const wxString &dir = node->file.path;
-  const wxString path = dir.EndsWith(sep) ? dir + name : dir + sep + name;
+  return name;
+}
 
-  Status st;
-  {
-    std::optional<wxBusyCursor> busy;
-    if (m_account.IsRemote()) {
-      busy.emplace(); // The host takes a while to answer
-    }
-    st = isFolder ? m_provider->MakeFolder(path) : m_provider->MakeFile(path);
-  }
-  if (!st.ok()) {
-    KLOG_WARN() << "Could not create " << path << ": " << st.message();
-    ::wxMessageBox(st.message(), "Kennel", wxOK | wxICON_ERROR, this);
-    return;
-  }
-  RefreshFolder(folder);
-  // Opens the folder (it is listed with the new entry) and selects the entry.
-  SelectPath(path);
+wxString FileTreeCtrl::JoinPath(const wxString &dir,
+                                const wxString &name) const {
+  const wxChar sep = m_provider->GetPathSeparator();
+  return dir.EndsWith(sep) ? dir + name : dir + sep + name;
 }
 
 void FileTreeCtrl::OpenItems(const wxDataViewItemArray &items) {
@@ -795,116 +1007,91 @@ void FileTreeCtrl::ShowMultiSelectionMenu(const wxDataViewItemArray &items) {
   }
 }
 
-void FileTreeCtrl::DeleteEntries(const wxDataViewItemArray &items) {
-  struct Target {
-    wxString path;
-    bool isFolder;
-    wxDataViewItem parent;
-    wxString compare;
-  };
-  std::vector<Target> targets;
-  for (const wxDataViewItem &item : items) {
-    const Node *node = NodeOf(item);
-    const wxDataViewItem parent = m_tree->GetItemParent(item);
-    if (node == nullptr || !parent.IsOk()) {
-      continue; // The top is not deleted from here
-    }
-    targets.push_back({node->file.path, node->file.IsFolder(), parent,
-                       ForCompare(node->file.path)});
-  }
-  // An entry inside a selected folder goes with the folder.
-  std::erase_if(targets, [&targets](const Target &t) {
-    return std::any_of(targets.begin(), targets.end(), [&t](const Target &o) {
-      return &o != &t && o.isFolder &&
-             t.compare.length() > o.compare.length() &&
-             t.compare.StartsWith(o.compare.EndsWith("/") ? o.compare
-                                                          : o.compare + "/");
-    });
-  });
-  if (targets.empty()) {
-    return;
-  }
-  if (targets.size() == 1) {
-    // Same as a single entry
-    for (const wxDataViewItem &item : items) {
-      if (const Node *node = NodeOf(item);
-          node && node->file.path == targets[0].path) {
-        DeleteEntry(item);
-        return;
-      }
-    }
-    return;
-  }
-  const wxString question = wxString::Format(
-      _("Delete these %d entries (folders with everything in them)?"),
-      static_cast<int>(targets.size()));
-  if (::wxMessageBox(question, "Kennel",
-                     wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) != wxYES) {
-    return;
-  }
-  wxString errors;
-  {
-    std::optional<wxBusyCursor> busy;
-    if (m_account.IsRemote()) {
-      busy.emplace(); // The host takes a while to answer
-    }
-    for (const Target &t : targets) {
-      if (Status st = m_provider->Remove(t.path); !st.ok()) {
-        KLOG_WARN() << "Could not delete " << t.path << ": " << st.message();
-        errors << t.path << ": " << st.message() << "\n";
-      }
-    }
-  }
-  if (!errors.empty()) {
-    ::wxMessageBox(errors, "Kennel", wxOK | wxICON_ERROR, this);
-  }
-  // Also after an error: a part of a folder may be gone. The deepest folders
-  // first: listing a folder makes the items of the folders in it go away.
-  std::vector<std::pair<wxString, wxDataViewItem>> parents;
-  for (const Target &t : targets) {
-    const wxString key = ForCompare(NodeOf(t.parent)->file.path);
-    if (std::none_of(parents.begin(), parents.end(),
-                     [&key](const auto &p) { return p.first == key; })) {
-      parents.emplace_back(key, t.parent);
-    }
-  }
-  std::sort(parents.begin(), parents.end(), [](const auto &a, const auto &b) {
-    return a.first.length() > b.first.length();
-  });
-  for (const auto &p : parents) {
-    RefreshFolder(p.second);
-  }
+bool FileTreeCtrl::DeleteTarget::IsInside(const DeleteTarget &folder) const {
+  return &folder != this && folder.isFolder &&
+         compare.length() > folder.compare.length() &&
+         compare.StartsWith(folder.compare.EndsWith("/")
+                                ? folder.compare
+                                : folder.compare + "/");
 }
 
 void FileTreeCtrl::DeleteEntry(const wxDataViewItem &item) {
-  const Node *node = NodeOf(item);
-  const wxDataViewItem parent = m_tree->GetItemParent(item);
-  if (node == nullptr || !parent.IsOk()) {
+  wxDataViewItemArray items;
+  items.Add(item);
+  DeleteEntries(items);
+}
+
+void FileTreeCtrl::DeleteEntries(const wxDataViewItemArray &items) {
+  const std::vector<DeleteTarget> targets = GetDeleteTargets(items);
+  if (targets.empty() || !ConfirmDelete(targets)) {
     return;
   }
-  // Copied: the node goes away with the item.
-  const wxString path = node->file.path;
-  const wxString question =
-      node->file.IsFolder()
-          ? wxString::Format(_("Delete the folder '%s' and everything in it?"),
-                             path)
-          : wxString::Format(_("Delete the file '%s'?"), path);
-  if (::wxMessageBox(question, "Kennel",
-                     wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) != wxYES) {
-    return;
+  std::vector<wxString> paths;
+  for (const DeleteTarget &target : targets) {
+    paths.push_back(target.path);
   }
-  Status st;
-  {
-    std::optional<wxBusyCursor> busy;
-    if (m_account.IsRemote()) {
-      busy.emplace(); // The host takes a while to answer
+  // The answer (see OnChanged()) lists the folders again, also after an error:
+  // a part of a folder may be gone.
+  PushJob(Job::MakeRemoveJob(paths, GetParentDirs(targets)));
+}
+
+std::vector<FileTreeCtrl::DeleteTarget>
+FileTreeCtrl::GetDeleteTargets(const wxDataViewItemArray &items) {
+  std::vector<DeleteTarget> targets;
+  for (const wxDataViewItem &item : items) {
+    const Node *node = NodeOf(item);
+    const Node *parent = NodeOf(m_tree->GetItemParent(item));
+    if (node == nullptr || parent == nullptr) {
+      continue; // The top is not deleted from here
     }
-    st = m_provider->Remove(path);
+    DeleteTarget target;
+    target.path = node->file.path;
+    target.parentDir = parent->file.path;
+    target.compare = ForCompare(node->file.path);
+    target.isFolder = node->file.IsFolder();
+    targets.push_back(target);
   }
-  if (!st.ok()) {
-    KLOG_WARN() << "Could not delete " << path << ": " << st.message();
-    ::wxMessageBox(st.message(), "Kennel", wxOK | wxICON_ERROR, this);
+  RemoveNestedTargets(&targets);
+  return targets;
+}
+
+void FileTreeCtrl::RemoveNestedTargets(
+    std::vector<DeleteTarget> *targets) const {
+  const std::vector<DeleteTarget> all = *targets;
+  std::erase_if(*targets, [&all](const DeleteTarget &target) {
+    return std::any_of(
+        all.begin(), all.end(),
+        [&target](const DeleteTarget &o) { return target.IsInside(o); });
+  });
+}
+
+bool FileTreeCtrl::ConfirmDelete(const std::vector<DeleteTarget> &targets) {
+  wxString question = wxString::Format(
+      _("Delete these %d entries (folders with everything in them)?"),
+      static_cast<int>(targets.size()));
+  if (targets.size() == 1 && targets[0].isFolder) {
+    question = wxString::Format(
+        _("Delete the folder '%s' and everything in it?"), targets[0].path);
+  } else if (targets.size() == 1) {
+    question = wxString::Format(_("Delete the file '%s'?"), targets[0].path);
   }
-  // Also after an error: a part of a folder may be gone.
-  RefreshFolder(parent);
+  return ::wxMessageBox(question, "Kennel",
+                        wxYES_NO | wxNO_DEFAULT | wxICON_WARNING,
+                        this) == wxYES;
+}
+
+std::vector<wxString>
+FileTreeCtrl::GetParentDirs(const std::vector<DeleteTarget> &targets) const {
+  std::vector<wxString> dirs;
+  for (const DeleteTarget &target : targets) {
+    if (std::find(dirs.begin(), dirs.end(), target.parentDir) == dirs.end()) {
+      dirs.push_back(target.parentDir);
+    }
+  }
+  // The outer folders first: a folder that is listed again asks for the open
+  // folders in it, so the ones inside it need no listing of their own.
+  std::sort(dirs.begin(), dirs.end(), [](const wxString &a, const wxString &b) {
+    return a.length() < b.length();
+  });
+  return dirs;
 }

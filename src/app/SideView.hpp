@@ -4,6 +4,7 @@
 #include "app/FileTreeCtrl.hpp"
 #include "core/Account.h"
 #include "core/FileEvent.hpp"
+#include "core/FileTypesEvent.hpp"
 #include "core/PageViewEvent.hpp"
 #include "core/Workspace.h"
 
@@ -88,6 +89,9 @@ private:
   Context *FindContext(const SessionRef &ref);
   // The context that shows, or null.
   Context *ShownContext();
+  // The file tree with this ID (see FileTreeCtrl::GetUID()), or null when it is
+  // not there (any more).
+  FileTreeCtrl *FindTreeByUID(int uid) const;
 
   void AddSession(const SessionRef &ref, const Account &account);
   void RemoveSession(const SessionRef &ref);
@@ -127,6 +131,9 @@ private:
   void OnCloseAllFilesStarted(wxCommandEvent &event);
   void OnCloseAllFilesEnded(wxCommandEvent &event);
   void OnTreeConnected(FileTreeConnectedEvent &event);
+  // wxEVT_FILETREE_TYPES_RESOLVED: the files without an extension that a remote
+  // tree listed get the icon of their type.
+  void OnTypesResolved(FileTypesEvent &event);
   // wxEVT_APP_TAB_HEIGHT: shows the tab height.
   void OnTabHeight(wxCommandEvent &event);
   // wxEVT_THEME_APPLIED: the tabs take the theme.

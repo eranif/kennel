@@ -216,10 +216,25 @@ FilePage::~FilePage() {
   }
 }
 
+wxString FilePage::GetFirstLine() const {
+  // Only the start of the line: a file can be one very long line.
+  return m_editor->GetCtrl()->GetLine(0).Left(256);
+}
+
+void FilePage::DetectEditorLanguage() {
+  const EditorLang lang =
+      EditFileDlg::LangFromPathAndFirstLine(m_path, GetFirstLine());
+  // The editor starts its lexer again for a language: only when it changed.
+  if (lang != m_editor->GetEditorLanguage()) {
+    m_editor->SetEditorLanguage(lang);
+  }
+}
+
 bool FilePage::LoadLocal() {
   const bool loaded = m_editor->LoadFile(m_path);
   if (loaded) {
     // The whole content is in the editor.
+    DetectEditorLanguage();
     ResolveSessionAccount();
     NotifyLanguageServer();
   }
@@ -232,6 +247,7 @@ void FilePage::LoadRemote(const wxString &text, bool editable) {
   m_searchBar->EnableReplace(CanReplace());
   m_reloadState.reset(); // Of a reload: the bookmarks, the caret, the view
   // The whole content is in the editor.
+  DetectEditorLanguage();
   ResolveSessionAccount();
   NotifyLanguageServer();
 }
@@ -240,7 +256,8 @@ LspLanguage FilePage::GetLanguageId() const {
   if (m_transient || m_untitled) {
     return LspLanguage::kNone;
   }
-  switch (EditFileDlg::LangFromPath(m_path)) {
+  // The language that the editor has: from the name, or from the first line.
+  switch (m_editor->GetEditorLanguage()) {
   case EditorLang::kCxx:
     break; // See below
   case EditorLang::kGo:
@@ -550,7 +567,7 @@ bool FilePage::SaveAs() {
   LspManager::Get().NotifyClosed(this);
   m_path = path;
   m_untitled = false;
-  m_editor->SetEditorLanguage(EditFileDlg::LangFromPath(path));
+  DetectEditorLanguage();
   // The new name is another file for the server: another machine and root
   // directory.
   m_sessionAccount.reset();

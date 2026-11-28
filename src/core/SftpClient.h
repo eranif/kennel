@@ -2,6 +2,8 @@
 
 #include "core/Status.h"
 
+#include <atomic>
+#include <map>
 #include <string>
 #include <vector>
 #include <wx/string.h>
@@ -39,6 +41,18 @@ public:
                                        const wxString &path,
                                        const std::vector<wxString> &searchDirs,
                                        size_t maxBytes = 16 * 1024 * 1024);
+
+  // The start of the first line (at most `maxBytes` bytes, no line end) of each
+  // of the files `paths` (absolute remote paths), on one connection. A path
+  // that cannot be read (it is not a file, no permission) is not in the answer;
+  // that is not an error. The error is only for a host that cannot be reached.
+  // When `cancel` is set and becomes true, it stops and returns what it has.
+  // Blocking, like ReadFile.
+  static StatusOr<std::map<wxString, wxString>>
+  ReadFirstLines(const wxString &host, const wxString &user,
+                 const std::vector<wxString> &paths,
+                 const std::atomic<bool> *cancel = nullptr,
+                 size_t maxBytes = 256);
 
   // Replaces the existing remote file at the absolute path `path` with
   // `content`. The data is written to a temporary file next to it, given the

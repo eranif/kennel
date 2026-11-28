@@ -1,6 +1,7 @@
 #include "Bitmaps.h"
 #include "app/AssetBootstrap.h"
 #include "core/Logger.h"
+#include "core/Shebang.h"
 #include <wx/artprov.h>
 #include <wx/dir.h>
 #include <wx/filename.h>
@@ -132,9 +133,8 @@ const wxBitmapBundle &Bitmaps::GetByAlias(const wxString &name,
   return Get(m_aliases.find(name)->second, forToolBar);
 }
 
-namespace {
-// The name of the mime icon (mime-<name>.svg) of a file, by its file name.
-wxString MimeNameFor(const wxString &path) {
+wxString Bitmaps::GetMimeName(const wxString &path,
+                              const wxString &firstLine) const {
   const wxString file = path.AfterLast('/').AfterLast('\\').Lower();
 
   // Dotfiles have no extension: ".bashrc" is a shell script.
@@ -182,9 +182,22 @@ wxString MimeNameFor(const wxString &path) {
       return it->second;
     }
   }
+
+  // The name says nothing: a script has its type in the first line.
+  if (!firstLine.empty()) {
+    static const std::unordered_map<wxString, wxString> kByInterpreter = {
+        {"python", "python"}, {"pypy", "python"}, {"bash", "sh"}, {"sh", "sh"},
+        {"zsh", "sh"},        {"ksh", "sh"},      {"dash", "sh"}, {"ash", "sh"},
+        {"node", "js"},       {"nodejs", "js"},   {"php", "php"},
+    };
+    const Shebang shebang(firstLine);
+    if (auto it = kByInterpreter.find(shebang.GetInterpreter());
+        it != kByInterpreter.end()) {
+      return it->second;
+    }
+  }
   return "txt";
 }
-} // namespace
 
 void Bitmaps::LoadMimeIcons() {
   const wxString assets = ShippedAssetsDir().GetPath();
@@ -210,10 +223,10 @@ void Bitmaps::LoadMimeIcons() {
   }
 }
 
-const wxBitmapBundle &Bitmaps::GetFileIcon(const wxString &path,
-                                           bool dark) const {
+const wxBitmapBundle &Bitmaps::GetFileIcon(const wxString &path, bool dark,
+                                           const wxString &firstLine) const {
   const BitmapsTable &table = dark ? m_mimeDark : m_mimeLight;
-  if (auto it = table.find(MimeNameFor(path)); it != table.end()) {
+  if (auto it = table.find(GetMimeName(path, firstLine)); it != table.end()) {
     return it->second;
   }
   // No icon for this type: plain text, and then the generic file icon.

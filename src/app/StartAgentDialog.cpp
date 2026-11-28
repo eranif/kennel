@@ -258,8 +258,8 @@ void StartAgentDialog::OnBrowseWD(wxCommandEvent &event) {
   if (agent && agent->IsRemote()) {
     auto remote =
         std::make_shared<KennelRemote>(agent->remoteHost, agent->remoteUser);
-    auto provider =
-        std::make_unique<RemoteFilesProvider>(remote, wxEmptyString, true);
+    auto provider = std::make_unique<RemoteFilesProvider>(
+        remote, agent->remoteHost, agent->remoteUser, wxEmptyString, true);
     FileBrowserDlg dlg{this, std::move(provider)};
     if (dlg.ShowModal() == wxID_OK) {
       m_comboBoxWorkingDir->SetValue(dlg.GetPath());

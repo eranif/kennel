@@ -2,6 +2,7 @@
 #include "app/ToolBarUtils.h"
 #include "core/AppManager.h"
 #include "core/Helpers.h"
+#include "core/Shebang.h"
 #include "terminal_theme.h"
 
 #include <wx/accel.h>
@@ -122,9 +123,31 @@ EditorLang EditFileDlg::LangFromPath(const wxString &filepath) {
   return find_or(extMap, lowerName.AfterLast('.'), EditorLang::kText);
 }
 
+EditorLang EditFileDlg::LangFromPathAndFirstLine(const wxString &filepath,
+                                                 const wxString &firstLine) {
+  const EditorLang fromName = LangFromPath(filepath);
+  if (fromName != EditorLang::kText) {
+    return fromName;
+  }
+
+  const Shebang shebang(firstLine);
+  const wxString &program = shebang.GetInterpreter();
+
+  static const std::unordered_map<wxString, EditorLang> programMap{
+      {"python", EditorLang::kPython},     {"pypy", EditorLang::kPython},
+      {"bash", EditorLang::kBash},         {"sh", EditorLang::kBash},
+      {"zsh", EditorLang::kBash},          {"ksh", EditorLang::kBash},
+      {"dash", EditorLang::kBash},         {"ash", EditorLang::kBash},
+      {"ruby", EditorLang::kRuby},         {"node", EditorLang::kJavaScript},
+      {"nodejs", EditorLang::kJavaScript}, {"php", EditorLang::kPhp},
+  };
+  return find_or(programMap, program, EditorLang::kText);
+}
+
 void EditFileDlg::LoadFile(const wxString &filepath) {
   m_editor->LoadFile(filepath);
-  m_editor->SetEditorLanguage(LangFromPath(filepath));
+  m_editor->SetEditorLanguage(
+      LangFromPathAndFirstLine(filepath, m_editor->GetCtrl()->GetLine(0)));
 }
 
 void EditFileDlg::LoadText(const wxString &text, EditorLang lang) {

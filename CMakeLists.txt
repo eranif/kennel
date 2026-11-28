@@ -266,6 +266,8 @@ add_library(
   src/core/SshConfigParser.cpp
   src/core/DialogAnswers.cpp
   src/core/FileEvent.cpp
+  src/core/FileTreeChangedEvent.cpp
+  src/core/FileTypesEvent.cpp
   src/core/Globals.cpp
   src/core/IEditor.cpp
   src/core/PageViewEvent.cpp
@@ -290,6 +292,7 @@ add_library(
   src/core/GitDriverWSL.cpp
   src/core/GitDriverSSH.cpp
   src/core/Sha256.cpp
+  src/core/Shebang.cpp
   src/core/TarGz.cpp
   src/core/ZipArchive.cpp
   src/core/Ripgrep.cpp

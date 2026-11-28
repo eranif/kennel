@@ -7,6 +7,8 @@
 #include <wx/string.h>
 #include <wx/utils.h>
 
+#include <atomic>
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -23,6 +25,9 @@ struct FileProvider {
     wxString path;
     size_t size{0};
     FileType type{FileType::kFile};
+    // The start of the first line of a file that has no extension (for its
+    // icon, see Bitmaps::GetFileIcon()); empty for the others.
+    wxString firstLine;
 
     inline bool IsFile() const { return type == FileType::kFile; }
     inline bool IsFolder() const { return type == FileType::kDir; }
@@ -40,6 +45,12 @@ struct FileProvider {
   // the parent must exist). A path that exists is an error.
   virtual Status MakeFolder(const wxString &path) = 0;
   virtual Status MakeFile(const wxString &path) = 0;
+  // The start of the first line of each of the files `paths` (in the notation
+  // of ListFiles()), by path. A file that cannot be read is not in the answer.
+  // Blocking, for a worker thread; it stops early when `cancel` is set.
+  virtual std::map<wxString, wxString>
+  ReadFirstLines(const std::vector<wxString> &paths,
+                 const std::atomic<bool> *cancel) = 0;
   // Deletes the file `path`, or the folder `path` and all in it. A symbolic
   // link is removed, never followed.
   virtual Status Remove(const wxString &path) = 0;
@@ -76,6 +87,9 @@ struct LocalFilesProvider : public FileProvider {
   Status MakeFolder(const wxString &path) override;
   Status MakeFile(const wxString &path) override;
   Status Remove(const wxString &path) override;
+  std::map<wxString, wxString>
+  ReadFirstLines(const std::vector<wxString> &paths,
+                 const std::atomic<bool> *cancel) override;
   void ChangeDir(const wxString &path) override;
   wxString GetCurrentWorkingDir() const override {
     wxString dir{m_dir};
@@ -88,6 +102,11 @@ struct LocalFilesProvider : public FileProvider {
   wxString GetHome() const override { return ::wxGetHomeDir(); }
   void Up() override;
   wxChar GetPathSeparator() const override { return '/'; }
+
+protected:
+  // The start of the first line of the file `path`; empty when it cannot be
+  // read.
+  static wxString ReadFirstLine(const wxString &path);
 };
 
 struct WSLFilesProvider : public LocalFilesProvider {
@@ -118,6 +137,9 @@ struct WSLFilesProvider : public LocalFilesProvider {
   Status Remove(const wxString &path) override {
     return LocalFilesProvider::Remove(ToSharePath(path));
   }
+  std::map<wxString, wxString>
+  ReadFirstLines(const std::vector<wxString> &paths,
+                 const std::atomic<bool> *cancel) override;
   wxString GetCurrentWorkingDir() const override { return m_dir; }
   bool HasHome() const override { return true; }
   wxString GetHome() const override { return "/home"; }
@@ -150,7 +172,10 @@ struct RemoteFilesProvider : public FileProvider {
   wxString m_dir;
 
   ~RemoteFilesProvider() override = default;
+  // `host` and `user` are for the reading of files (SFTP, see
+  // ReadFirstLines()), `remote` for the rest.
   RemoteFilesProvider(std::shared_ptr<KennelRemote> remote,
+                      const wxString &host, const wxString &user,
                       const wxString &dir = wxEmptyString,
                       bool dirsOnly = false);
   Status Connect() override { return m_remote->Start(); }
@@ -164,6 +189,9 @@ struct RemoteFilesProvider : public FileProvider {
   Status Remove(const wxString &path) override {
     return m_remote->Remove(path);
   }
+  std::map<wxString, wxString>
+  ReadFirstLines(const std::vector<wxString> &paths,
+                 const std::atomic<bool> *cancel) override;
   void ChangeDir(const wxString &path) override;
   wxString GetCurrentWorkingDir() const override { return m_dir; }
   bool HasHome() const override { return false; }
@@ -172,6 +200,8 @@ struct RemoteFilesProvider : public FileProvider {
   wxChar GetPathSeparator() const override { return '/'; }
 
 private:
+  wxString m_host;
+  wxString m_user;
   std::shared_ptr<KennelRemote> m_remote;
 };
 

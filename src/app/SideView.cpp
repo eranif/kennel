@@ -56,6 +56,8 @@ SideView::SideView(wxWindow *parent) : SideViewBase(parent) {
                  this);
   // The remote trees answer on the notifier (see ShowContext()).
   notifier->Bind(wxEVT_FILETREE_CONNECTED, &SideView::OnTreeConnected, this);
+  notifier->Bind(wxEVT_FILETREE_TYPES_RESOLVED, &SideView::OnTypesResolved,
+                 this);
   notifier->Bind(wxEVT_APP_TAB_HEIGHT, &SideView::OnTabHeight, this);
   notifier->Bind(wxEVT_THEME_APPLIED, &SideView::OnThemeApplied, this);
   m_defaultBookLayout = SaveLayout();
@@ -81,6 +83,8 @@ SideView::~SideView() {
   notifier->Unbind(wxEVT_CLOSE_ALL_FILES_ENDED, &SideView::OnCloseAllFilesEnded,
                    this);
   notifier->Unbind(wxEVT_FILETREE_CONNECTED, &SideView::OnTreeConnected, this);
+  notifier->Unbind(wxEVT_FILETREE_TYPES_RESOLVED, &SideView::OnTypesResolved,
+                   this);
   notifier->Unbind(wxEVT_APP_TAB_HEIGHT, &SideView::OnTabHeight, this);
   notifier->Unbind(wxEVT_THEME_APPLIED, &SideView::OnThemeApplied, this);
   // The drivers of the contexts that are left end here, with the others.
@@ -556,6 +560,24 @@ void SideView::OnTreeConnected(FileTreeConnectedEvent &event) {
                 << ": " << event.GetStatus().message();
     context.connectStarted = false; // Tried again when it is shown again
   }
+}
+
+void SideView::OnTypesResolved(FileTypesEvent &event) {
+  event.Skip();
+  // The tree that asked, if it is still there.
+  if (FileTreeCtrl *tree = FindTreeByUID(event.GetTreeUID())) {
+    tree->ApplyFirstLines(event.GetLines());
+  }
+}
+
+FileTreeCtrl *SideView::FindTreeByUID(int uid) const {
+  for (size_t i = 0; i < m_explorerBook->GetPageCount(); ++i) {
+    auto *tree = dynamic_cast<FileTreeCtrl *>(m_explorerBook->GetPage(i));
+    if (tree != nullptr && tree->GetUID() == uid) {
+      return tree;
+    }
+  }
+  return nullptr;
 }
 
 void SideView::OnCloseAllFilesStarted(wxCommandEvent &event) {

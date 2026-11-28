@@ -11,6 +11,11 @@ public:
 
   // Picks the syntax-highlighting language from a file name's extension.
   static EditorLang LangFromPath(const wxString &filepath);
+  // The language of a file that is open: from its name, and when the name says
+  // nothing (no extension that is known: "codelite-remote") from the first line
+  // of its text: a shebang ("#!/usr/bin/env python3") or "<?php".
+  static EditorLang LangFromPathAndFirstLine(const wxString &filepath,
+                                             const wxString &firstLine);
 
   void LoadFile(const wxString &filepath);
   void LoadText(const wxString &text, EditorLang lang);

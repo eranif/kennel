@@ -24,13 +24,19 @@ public:
   void LoadMimeIcons();
   // The icon of the file at `path` (a local or a remote path), by its extension
   // or its name, from the dark or the light set. A file type without an icon
-  // gets the one for plain text, and then the generic file icon.
-  const wxBitmapBundle &GetFileIcon(const wxString &path, bool dark) const;
+  // gets the one for plain text, and then the generic file icon. When the name
+  // says nothing (no extension) the `firstLine` of the file, when it is given,
+  // does: a shebang, or "<?php" (see Shebang).
+  const wxBitmapBundle &
+  GetFileIcon(const wxString &path, bool dark,
+              const wxString &firstLine = wxEmptyString) const;
 
   static wxSize GetToolBarIconSize();
 
 private:
   wxString FixName(const wxString &filename) const;
+  // The name of the mime icon (mime-<name>.svg) of a file.
+  wxString GetMimeName(const wxString &path, const wxString &firstLine) const;
 
   BitmapsTable m_menuBitmaps;
   BitmapsTable m_toolbarBitmaps;

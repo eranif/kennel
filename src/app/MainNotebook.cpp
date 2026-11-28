@@ -71,10 +71,11 @@ wxBitmapBundle IconOf(wxWindow *page) {
                    session->GetTabBadge());
   }
   if (auto *file = dynamic_cast<FilePage *>(page)) {
-    return TabIcon(
-        AppManager::Get().GetBitmaps().GetFileIcon(
-            file->GetPath(), wxSystemSettings::GetAppearance().IsDark()),
-        file->IsModified());
+    return TabIcon(AppManager::Get().GetBitmaps().GetFileIcon(
+                       file->GetPath(),
+                       wxSystemSettings::GetAppearance().IsDark(),
+                       file->GetFirstLine()),
+                   file->IsModified());
   }
   return wxBitmapBundle{};
 }
