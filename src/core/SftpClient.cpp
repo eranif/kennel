@@ -447,7 +447,7 @@ Status SftpClient::PutFile(const wxString &host, const wxString &user,
         size_t offset = 0;
         while (offset < content.size()) {
           const size_t chunk =
-              std::min<size_t>(32 * 1024, content.size() - offset);
+              std::min<size_t>(4 * 1024 * 1024, content.size() - offset);
           const ssize_t n =
               sftp_write(file.get(), content.data() + offset, chunk);
           if (n < 0) {
