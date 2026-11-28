@@ -590,10 +590,11 @@ void SideView::OnCloseAllFilesEnded(wxCommandEvent &event) {
   m_closingAllFiles = false;
 }
 
-// A file is showing: its place in the tree that shows is selected, if the file
-// is inside it (the path is converted between this machine and WSL when the
-// tree is of the other one). Nothing happens when the file explorer is not on
-// the screen, and a remote host is never listed.
+// A file is showing: the tree of its place shows, and the file is selected in
+// it (see FindContextByAccountAndPath()). When no place has the account of the
+// file, the tree that shows is used if it is of this machine or of WSL (the
+// path is converted between the two). The file is selected only when the file
+// explorer is on the screen.
 void SideView::OnFileReveal(FileEvent &event) {
   event.Skip();
   // Files are closing one after the other: no file stays to be shown, and the
@@ -601,27 +602,57 @@ void SideView::OnFileReveal(FileEvent &event) {
   if (m_closingAllFiles) {
     return;
   }
-  const Account &account = event.GetAccount();
-  if (!m_explorerBook->IsShownOnScreen() || account.IsRemote()) {
-    return;
+  Context *context =
+      FindContextByAccountAndPath(event.GetAccount(), event.GetPath());
+  if (context == nullptr) {
+    context = ShownContext();
   }
-  Context *context = ShownContext();
   if (context == nullptr) {
     return;
   }
-  // The path as the tree writes it.
-  const wxString &filePath = event.GetPath();
-  wxString path;
-  if (context->account.GetId() == account.GetId()) {
-    path = filePath;
-  } else if (context->account.IsLocalHost() && account.IsWSL()) {
-    path = wsl::ToWindowsPath(account.m_name, filePath);
-  } else if (context->account.IsWSL() && account.IsLocalHost()) {
-    if (!wsl::ToLinuxPath(context->account.m_name, filePath, &path)) {
-      return;
-    }
-  } else {
-    return;
+  if (context != ShownContext()) {
+    ShowContext(*context);
   }
-  context->tree->SelectPath(path);
+  wxString path;
+  if (m_explorerBook->IsShownOnScreen() &&
+      GetTreePath(*context, event.GetAccount(), event.GetPath(), &path)) {
+    context->tree->SelectPath(path);
+  }
+}
+
+SideView::Context *SideView::FindContextByAccountAndPath(const Account &account,
+                                                         const wxString &path) {
+  // The one that shows, when it is of the account; else the one whose folder
+  // holds the file; else any of the account.
+  Context *shown = ShownContext();
+  if (shown != nullptr && shown->account.GetId() == account.GetId()) {
+    return shown;
+  }
+  Context *first = nullptr;
+  for (auto &[key, context] : m_contexts) {
+    if (context.account.GetId() != account.GetId()) {
+      continue;
+    }
+    if (context.account.IsInRootDir(path)) {
+      return &context;
+    }
+    if (first == nullptr) {
+      first = &context;
+    }
+  }
+  return first;
+}
+
+bool SideView::GetTreePath(const Context &context, const Account &account,
+                           const wxString &filePath, wxString *path) const {
+  if (context.account.GetId() == account.GetId()) {
+    *path = filePath;
+    return true;
+  }
+  if (context.account.IsLocalHost() && account.IsWSL()) {
+    *path = wsl::ToWindowsPath(account.m_name, filePath);
+    return true;
+  }
+  return context.account.IsWSL() && account.IsLocalHost() &&
+         wsl::ToLinuxPath(context.account.m_name, filePath, path);
 }

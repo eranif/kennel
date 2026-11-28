@@ -89,6 +89,14 @@ private:
   Context *FindContext(const SessionRef &ref);
   // The context that shows, or null.
   Context *ShownContext();
+  // The context that shows the files of `path` (on `account`): see
+  // OnFileReveal(). Null when no context has the account.
+  Context *FindContextByAccountAndPath(const Account &account,
+                                       const wxString &path);
+  // `filePath` (on `account`) as the tree of `context` writes it; false when
+  // the tree cannot show it.
+  bool GetTreePath(const Context &context, const Account &account,
+                   const wxString &filePath, wxString *path) const;
   // The file tree with this ID (see FileTreeCtrl::GetUID()), or null when it is
   // not there (any more).
   FileTreeCtrl *FindTreeByUID(int uid) const;
